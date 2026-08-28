@@ -31,6 +31,8 @@ import { computed, getCurrentInstance, ref, watch } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
+import { radiusStyle, useRadius } from "../lib/useComponentProps"
+import type { RadiusProp } from "../lib/useComponentProps"
 
 interface Props {
   /** Lignes de données */
@@ -62,6 +64,8 @@ interface Props {
   hideBottom?: boolean
   /** Options du sélecteur de lignes par page (0 = toutes) */
   rowsPerPageOptions?: number[]
+  /** Coins arrondis : true = md, ou échelle xs|sm|md|lg (none = carré) — défaut : composantProps */
+  radius?: RadiusProp
   tableClass?: string
   tableStyle?: string
 }
@@ -264,11 +268,15 @@ const tableClasses = computed(() =>
   ),
 )
 
+// radius : prop explicite > composantProps.QTable.radius > composantProps.default.radius
+const effectiveRadius = useRadius("QTable", () => props.radius)
+const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
+
 const sortThClass = computed(() => "q-table__sort")
 </script>
 
 <template>
-  <div class="q-table" :class="tableClasses">
+  <div class="q-table" :class="tableClasses" :style="roundedStyle">
     <div v-if="title || $slots.top" class="q-table__top">
       <slot name="top">
         <h3 v-if="title" class="q-table__title">{{ title }}</h3>

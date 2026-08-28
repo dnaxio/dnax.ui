@@ -43,6 +43,21 @@ Le terminal sandbox et les outils fichiers peuvent voir des états différents
 (l'utilisateur modifie des fichiers en parallèle : menu.ts, layouts…). Toujours
 relire un fichier avant de l'éditer ; ne pas présumer de la stabilité.
 
+## QDialog/QBottomSheet : le slot par défaut ne monte que si ouvert
+
+QDialog et QBottomSheet rendent leur contenu dans un overlay téléporté gardé par
+`v-if="open"` → **le slot par défaut n'existe pas dans le DOM quand le composant est
+fermé**. Conséquences pour les triggers :
+
+- `QDialogTrigger` (injecte `qDialogKey`) placé dans le slot par défaut n'est visible
+  QUE lorsque le dialog est déjà ouvert → clic = `setOpen(true)` no-op. Il ne peut pas
+  servir d'ouvreur depuis une page fermée ; l'ouverture se fait par `v-model` + bouton.
+  (QDialog n'a PAS de slot `#trigger`.)
+- `QBottomSheet` a bien un slot `#trigger` rendu **hors** du teleport (toujours
+  visible) : c'est le pattern canonique pour ouvrir. `QBottomSheetTrigger` est
+  l'alternative composant (dans `#trigger` ou dans un sheet ouvert, ex. imbriqué).
+- Documenté dans les pages docs dialog.vue / bottom-sheet.vue (2026-08-28).
+
 ## Crash lucide `useLucideProps` (résolu par migration)
 
 « Cannot destructure property 'size' of 'useLucideProps(...)' as it is undefined »

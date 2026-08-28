@@ -90,7 +90,7 @@
 /* ===== QSyntax — bloc de code Shiki ===== */
 .q-syntax {
   position: relative;
-  border-radius: 12px;
+  border-radius: var(--q-radius);
   overflow: hidden;
   background: #0d1117;
   border: 1px solid rgb(255 255 255 / 0.08);
@@ -624,59 +624,70 @@ html.dark body {
   outline: none;
 }
 
-/* Mode animé : les panneaux sont empilés (absolute) et le conteneur
-   garde la hauteur du panneau actif (mesurée) */
-.q-tab-panels--animated .q-tab-panel--animated {
-  position: absolute;
-  inset: 0;
+/* Animations d'apparition du panneau actif (prop animation de QTabPanels) */
+@keyframes q-tab-panel-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes q-tab-panel-slide-right-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes q-tab-panel-slide-left-in {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes q-tab-panel-slide-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes q-tab-panel-slide-down-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-/* Transitions next/prev (horizontales) et verticales */
-.q-tab-panel-next-enter-active,
-.q-tab-panel-next-leave-active,
-.q-tab-panel-prev-enter-active,
-.q-tab-panel-prev-leave-active,
-.q-tab-panel-next-vertical-enter-active,
-.q-tab-panel-next-vertical-leave-active,
-.q-tab-panel-prev-vertical-enter-active,
-.q-tab-panel-prev-vertical-leave-active {
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
+.q-tab-panel--fade {
+  animation: q-tab-panel-in 0.2s ease;
 }
-
-.q-tab-panel-next-enter-from {
-  opacity: 0;
-  transform: translateX(28px);
+.q-tab-panel--slide-right {
+  animation: q-tab-panel-slide-right-in 0.25s ease;
 }
-.q-tab-panel-next-leave-to {
-  opacity: 0;
-  transform: translateX(-28px);
+.q-tab-panel--slide-left {
+  animation: q-tab-panel-slide-left-in 0.25s ease;
 }
-.q-tab-panel-prev-enter-from {
-  opacity: 0;
-  transform: translateX(-28px);
+.q-tab-panel--slide-up {
+  animation: q-tab-panel-slide-up-in 0.25s ease;
 }
-.q-tab-panel-prev-leave-to {
-  opacity: 0;
-  transform: translateX(28px);
-}
-
-.q-tab-panel-next-vertical-enter-from {
-  opacity: 0;
-  transform: translateY(28px);
-}
-.q-tab-panel-next-vertical-leave-to {
-  opacity: 0;
-  transform: translateY(-28px);
-}
-.q-tab-panel-prev-vertical-enter-from {
-  opacity: 0;
-  transform: translateY(-28px);
-}
-.q-tab-panel-prev-vertical-leave-to {
-  opacity: 0;
-  transform: translateY(28px);
+.q-tab-panel--slide-down {
+  animation: q-tab-panel-slide-down-in 0.25s ease;
 }
 
 /* ===== QTab ===== */
@@ -2117,6 +2128,20 @@ html.dark body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.q-img__image--ready {
+  opacity: 1;
+}
+
+.q-img__placeholder {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .q-img__image--contain {
@@ -2247,7 +2272,7 @@ html.dark body {
   flex-direction: column;
   width: 100%;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: var(--q-radius);
   background-color: #fff;
   color: inherit;
   box-shadow: 0 1px 5px rgb(0 0 0 / 0.2), 0 2px 2px rgb(0 0 0 / 0.14);
@@ -2997,6 +3022,15 @@ html.dark body {
   position: relative;
   width: var(--q-sidebar-w);
   flex-shrink: 0;
+}
+
+/* Sticky : la sidebar reste collée en haut pendant le scroll de la page */
+.q-sidebar--static.q-sidebar--sticky {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  height: 100dvh;
 }
 
 .q-sidebar--offcanvas {

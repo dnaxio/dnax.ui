@@ -27,6 +27,7 @@ const FAMILIES: Record<string, string[]> = {
     "QDialogTrigger",
     "QDialogProvider",
   ],
+  Fab: ["QFab", "QFabAction"],
   "Message Scroller": [
     "QMessageScroller",
     "QMessageScrollerContent",
@@ -54,7 +55,43 @@ const FAMILIES: Record<string, string[]> = {
 };
 
 // Pages écrites à la main (non régénérées)
-const CUSTOM_PAGES = new Set(["accordion"]);
+const CUSTOM_PAGES = new Set([
+  "accordion",
+  "action-sheet",
+  "autocomplete",
+  "avatar",
+  "badge",
+  "btn-group",
+  "collapse",
+  "date-picker",
+  "fab",
+  "footer",
+  "header",
+  "img",
+  "bottom-sheet",
+  "btn",
+  "bubble",
+  "card",
+  "carousel",
+  "checkbox",
+  "chip",
+  "dialog",
+  "icon",
+  "input",
+  "message-scroller",
+  "nav-menu",
+  "radio",
+  "rating",
+  "select",
+  "separator",
+  "sidebar",
+  "slider",
+  "syntax",
+  "tab-panels",
+  "table",
+  "tabs",
+  "toolbar",
+]);
 
 const GUIDES = [
   { title: "Installation", link: "/docs/getting-started/installation" },

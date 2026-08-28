@@ -47,7 +47,6 @@ export const menuItems: MenuGroup[] = [
       { title: "Date Picker", link: "/docs/components/date-picker", export: "QDatePicker" },
       { title: "Dialog", link: "/docs/components/dialog", export: "QDialog" },
       { title: "Fab", link: "/docs/components/fab", export: "QFab" },
-      { title: "Fab Action", link: "/docs/components/fab-action", export: "QFabAction" },
       { title: "File Picker", link: "/docs/components/file-picker", export: "QFilePicker" },
       { title: "Footer", link: "/docs/components/footer", export: "QFooter" },
       { title: "Header", link: "/docs/components/header", export: "QHeader" },

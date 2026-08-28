@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // QTabPanel — panneau d'onglet : visible quand son `name` correspond au v-model des QTabPanels.
+// v-show (en flux) : le switch est fiable ; `animated` ajoute un fondu à l'activation.
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue"
-import { qTabPanelsKey } from "./QTabPanels.vue"
+import { qTabPanelsKey, type QTabPanelsAnimation } from "./QTabPanels.vue"
 
 interface Props {
   /** Nom du panneau (comparé au v-model des QTabPanels) */
@@ -27,23 +28,23 @@ const activated = ref(false)
 watch(isActive, (v) => {
   if (v) activated.value = true
 })
+
+// Classe d'animation : q-tab-panel--fade | --slide-right | … (quand animated + actif)
+const animationClass = computed<QTabPanelsAnimation | "">(() =>
+  panels?.animated.value && isActive.value ? (panels.animation.value ?? "fade") : "",
+)
 </script>
 
 <template>
-  <Transition :name="panels?.transitionName.value ?? 'q-tab-panel-next'">
-    <div
-      v-if="!lazyRender || activated"
-      v-show="isActive"
-      ref="el"
-      class="q-tab-panel"
-      :class="{
-        'q-tab-panel--animated': panels?.animated.value,
-        'q-tab-panel--dark': panels?.dark.value,
-      }"
-      role="tabpanel"
-      :aria-hidden="isActive ? undefined : 'true'"
-    >
-      <slot />
-    </div>
-  </Transition>
+  <div
+    v-if="!lazyRender || activated"
+    v-show="isActive"
+    ref="el"
+    class="q-tab-panel"
+    :class="animationClass && `q-tab-panel--${animationClass}`"
+    role="tabpanel"
+    :aria-hidden="isActive ? undefined : 'true'"
+  >
+    <slot />
+  </div>
 </template>

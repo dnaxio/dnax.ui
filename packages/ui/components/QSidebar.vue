@@ -37,10 +37,14 @@ interface Props {
   dark?: boolean
   /** Toujours visible au-delà du breakpoint (mode statique) */
   showIfAbove?: boolean
+  /** Mode statique : reste collé en haut pendant le scroll de la page (position: sticky) */
+  sticky?: boolean
   /** Breakpoint de bascule statique/offcanvas (px) */
   breakpoint?: number
   /** Styles CSS additionnels appliqués au panneau */
   style?: StyleValue
+  /** Classe(s) additionnelle(s) appliquée(s) au panneau */
+  class?: string
   disable?: boolean
 }
 
@@ -54,8 +58,10 @@ const props = withDefaults(defineProps<Props>(), {
   elevated: false,
   dark: false,
   showIfAbove: false,
+  sticky: false,
   breakpoint: 1023,
   style: undefined,
+  class: "",
   disable: false,
 })
 
@@ -108,9 +114,11 @@ const rootClasses = computed(() =>
     isStatic.value ? "q-sidebar--static" : "q-sidebar--offcanvas",
     !isStatic.value && open.value && "q-sidebar--open",
     props.side === "right" && "q-sidebar--right",
+    props.sticky && "q-sidebar--sticky",
     props.bordered && "q-sidebar--bordered",
     props.elevated && "q-sidebar--elevated",
     props.dark && "q-sidebar--dark",
+    props.class,
   ),
 )
 

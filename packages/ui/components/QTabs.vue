@@ -126,6 +126,8 @@ const context: QTabContext = {
   activeClass: computed(() => (props.activeClass ? props.activeClass : undefined)),
 }
 
+provide(qTabsKey, context)
+
 const activeTabEl = computed(
   () => tabRegs.value.find((t) => t.name === props.modelValue)?.el.value ?? null,
 )

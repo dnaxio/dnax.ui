@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // QImg — API Quasar : <q-img src="…" ratio="16/9" contain position="50% 50%" spinner-color loading />
-// Slots : default (overlay), loading, error
-import { computed, ref } from "vue"
+// Slots : default (overlay), loading (spinner par défaut), error
+// Placeholder : placeholder-src (image basse résolution affichée pendant le chargement)
+import { computed, ref, watch } from "vue"
 import { cn } from "../lib/utils"
 import { colorValue } from "../lib/colors"
 
@@ -14,10 +15,12 @@ interface Props {
   contain?: boolean
   /** Position de l'image ("50% 50%") */
   position?: string
-  /** Force l'état chargement */
+  /** Force l'état chargement (spinner) */
   loading?: boolean
   spinnerColor?: string
   spinnerSize?: string
+  /** Image placeholder (basse résolution) affichée pendant le chargement */
+  placeholderSrc?: string
   imgClass?: string
   imgStyle?: string
 }
@@ -27,6 +30,7 @@ const props = withDefaults(defineProps<Props>(), {
   loading: false,
   spinnerColor: "",
   spinnerSize: "",
+  placeholderSrc: "",
   imgClass: "",
   imgStyle: "",
 })
@@ -35,6 +39,16 @@ const emit = defineEmits<{ load: [event: Event]; error: [event: Event] }>()
 
 const imgLoading = ref(false)
 const imgError = ref(false)
+
+// Dès que src change : retour en état chargement (le @load remettra à false)
+watch(
+  () => props.src,
+  (s) => {
+    imgLoading.value = !!s
+    imgError.value = false
+  },
+  { immediate: true },
+)
 
 const containerStyle = computed<Record<string, string>>(() => {
   const style: Record<string, string> = {}
@@ -60,6 +74,9 @@ const imageClasses = computed(() =>
 
 const imageStyle = computed(() => `${props.imgStyle}; object-position: ${props.position}`)
 
+// L'image est prête (chargée) → fondu
+const ready = computed(() => !imgLoading.value && !imgError.value)
+
 const onLoad = (e: Event) => {
   imgLoading.value = false
   imgError.value = false
@@ -77,17 +94,29 @@ const showLoading = computed(() => props.loading || imgLoading.value)
 
 <template>
   <div class="q-img" :style="containerStyle">
+    <!-- Placeholder basse résolution pendant le chargement -->
+    <img
+      v-if="placeholderSrc && imgLoading && !imgError"
+      :src="placeholderSrc"
+      alt=""
+      aria-hidden="true"
+      class="q-img__placeholder"
+      :class="props.contain && 'q-img__image--contain'"
+    />
+
     <img
       v-if="src"
       :src="src"
       :alt="alt"
       class="q-img__image"
-      :class="imageClasses"
+      :class="[imageClasses, ready && 'q-img__image--ready']"
       :style="imageStyle"
       loading="lazy"
       @load="onLoad"
       @error="onError"
     />
+
+    <!-- Loading / erreur -->
     <div v-if="showLoading" class="q-img__state">
       <slot name="loading">
         <span class="q-spinner" :style="spinnerStyle" aria-hidden="true" />
@@ -96,6 +125,8 @@ const showLoading = computed(() => props.loading || imgLoading.value)
     <div v-else-if="imgError" class="q-img__state">
       <slot name="error" />
     </div>
+
+    <!-- Overlay -->
     <div class="q-img__overlay">
       <slot />
     </div>

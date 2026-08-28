@@ -5,6 +5,7 @@
 // et rend automatiquement la pile de dialogues programmatiques ($q.dialog)
 // via QDialogProvider — rien à monter de plus.
 import { computed, inject, onBeforeUnmount, onMounted, provide, ref, watch } from "vue"
+import type { StyleValue } from "vue"
 import QDialogProvider from "./QDialogProvider.vue"
 import QNotifyProvider from "./QNotifyProvider.vue"
 import QLoadingProvider from "./QLoadingProvider.vue"
@@ -23,11 +24,17 @@ interface Props {
   theme?: QTheme | ThemeMode
   /** Rend un div conteneur ; sinon fournit le thème sans élément DOM */
   render?: boolean
+  /** Classe(s) additionnelle(s) sur le conteneur */
+  class?: string
+  /** Styles CSS additionnels fusionnés au style du conteneur */
+  style?: StyleValue
 }
 
 const props = withDefaults(defineProps<Props>(), {
   theme: () => ({}),
   render: true,
+  class: "",
+  style: undefined,
 })
 
 // Imbrication : le thème du parent est fusionné (le plus proche gagne)
@@ -143,12 +150,12 @@ const themeStyle = computed<Record<string, string>>(() => {
     <q-bottom-sheet-provider />
     <q-notify-provider />
     <q-loading-provider />
-    <div v-if="render" class="q-config-provider" :class="{ dark: isDark }" :style="themeStyle">
+    <div v-if="render" class="q-config-provider" :class="[props.class, { dark: isDark }]" :style="[themeStyle, props.style]">
       <slot />
     </div>
     <slot v-else />
   </q-dialog-provider>
-  <div v-else-if="render" class="q-config-provider" :class="{ dark: isDark }" :style="themeStyle">
+  <div v-else-if="render" class="q-config-provider" :class="[props.class, { dark: isDark }]" :style="[themeStyle, props.style]">
     <slot />
   </div>
   <slot v-else />

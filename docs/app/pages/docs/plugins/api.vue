@@ -2,34 +2,34 @@
 // Docs — Plugins API : $q.dialog / $q.bottomSheet / $q.notify / $q.loading.
 definePageMeta({ layout: "docs" })
 
-const setupCode = `import { useQ } from "@dnax/ui"
+const setupCode = `import { usePlugin } from "@dnax/ui"
 
-const $q = useQ()
+const $q = usePlugin()
 
-// Ou, à l'ancienne : app.use(QPlugin) → this.$q partout
+// Legacy: app.use(QPlugin) → this.$q anywhere
 import { QPlugin } from "@dnax/ui"`
 
-const dialogCode = `const $q = useQ()
+const dialogCode = `const $q = usePlugin()
 
 $q.dialog({
-  component: ConfirmDialog, // SFC importé ou nom de composant global
-  componentProps: { title: "Supprimer ?", message: "Cette action est irréversible." },
+  component: ConfirmDialog, // imported SFC or global component name
+  componentProps: { title: "Delete?", message: "This action cannot be undone." },
   persistent: true,
 })
-  .onOK(() => console.log("confirmé"))
-  .onCancel(() => console.log("annulé"))`
+  .onOK(() => console.log("confirmed"))
+  .onCancel(() => console.log("cancelled"))`
 
-const bottomSheetCode = `const $q = useQ()
+const bottomSheetCode = `const $q = usePlugin()
 
 $q.bottomSheet({
   component: ShareSheet,
   componentProps: { file },
-  title: "Partager",
+  title: "Share",
   rounded: true,
 })
-  .onOK((data) => console.log("choix :", data))`
+  .onOK((data) => console.log("choice:", data))`
 
-const notifyCode = `const $q = useQ()
+const notifyCode = `const $q = usePlugin()
 
 $q.notify({
   type: "positive", // positive | negative | warning | info
@@ -39,19 +39,19 @@ $q.notify({
   timeout: 2500,
 })
 
-// Avec une action
+// With an action
 $q.notify({
   message: "New version available",
   actions: [{ label: "Update", handler: () => update() }],
 })`
 
-const loadingCode = `const $q = useQ()
+const loadingCode = `const $q = usePlugin()
 
 $q.loading.show({
   message: "Uploading…",
   spinnerColor: "primary",
 })
-// … puis
+// … then
 $q.loading.hide()`
 
 const providersCode = `<q-config-provider>
@@ -65,21 +65,21 @@ const providersCode = `<q-config-provider>
   <div class="guide">
     <h1 class="guide__title">Plugins API</h1>
     <p class="guide__lead">
-      Accès programmatique aux composants via le singleton <code>$q</code> :
-      dialog, bottom sheet, notify et loading — sans balise dans le template.
+      Programmatic access to components through the <code>$q</code> singleton:
+      dialog, bottom sheet, notify and loading — no template markup needed.
     </p>
 
     <section class="guide__section">
       <h2 class="guide__h2" id="setup">Setup</h2>
       <p class="guide__note">
-        Récupérez <code>$q</code> avec le composable <code>useQ()</code>, ou installez
-        le plugin <code>QPlugin</code> pour un accès global <code>this.$q</code>.
+        Get <code>$q</code> with the <code>usePlugin()</code> composable, or install
+        the <code>QPlugin</code> for a global <code>this.$q</code> access.
       </p>
       <q-syntax :code="setupCode" lang="ts" filename="app.vue" copy />
       <p class="guide__note">
-        Les providers (<code>QDialogProvider</code>, <code>QNotifyProvider</code>,
-        <code>QLoadingProvider</code>, <code>QBottomSheetProvider</code>) sont rendus
-        automatiquement par le <code>&lt;q-config-provider&gt;</code> le plus externe :
+        The providers (<code>QDialogProvider</code>, <code>QNotifyProvider</code>,
+        <code>QLoadingProvider</code>, <code>QBottomSheetProvider</code>) are rendered
+        automatically by the outermost <code>&lt;q-config-provider&gt;</code>:
       </p>
       <q-syntax :code="providersCode" lang="html" filename="app.vue" copy />
     </section>
@@ -87,9 +87,9 @@ const providersCode = `<q-config-provider>
     <section class="guide__section">
       <h2 class="guide__h2" id="dialog">Dialog</h2>
       <p class="guide__note">
-        Ouvre un dialogue <em>par composant</em> : passez une SFC (ou un nom de
-        composant global) dans <code>component</code>. Retourne un contrôleur
-        chaînable <code>onOK / onCancel / onDismiss</code>.
+        Opens a component-based dialog: pass an SFC (or a global component name) in
+        <code>component</code>. Returns a chainable controller with
+        <code>onOK / onCancel / onDismiss</code>.
       </p>
       <q-syntax :code="dialogCode" lang="ts" filename="confirm.ts" copy />
     </section>
@@ -97,8 +97,8 @@ const providersCode = `<q-config-provider>
     <section class="guide__section">
       <h2 class="guide__h2" id="bottom-sheet">Bottom Sheet</h2>
       <p class="guide__note">
-        Panneau bas ancré au bord inférieur (safe-area intégrée) — même principe
-        que <code>$q.dialog</code>, avec options de panneau (largeur, arrondi, drag).
+        Bottom panel anchored to the bottom edge (built-in safe-area) — same principle
+        as <code>$q.dialog</code>, with panel options (width, rounding, drag).
       </p>
       <q-syntax :code="bottomSheetCode" lang="ts" filename="share.ts" copy />
     </section>
@@ -106,7 +106,7 @@ const providersCode = `<q-config-provider>
     <section class="guide__section">
       <h2 class="guide__h2" id="notify">Notify</h2>
       <p class="guide__note">
-        Notification toast (vue-sonner) avec type de couleur, position et actions.
+        Toast notification (vue-sonner) with color type, position and actions.
       </p>
       <q-syntax :code="notifyCode" lang="ts" filename="notify.ts" copy />
     </section>
@@ -114,7 +114,7 @@ const providersCode = `<q-config-provider>
     <section class="guide__section">
       <h2 class="guide__h2" id="loading">Loading</h2>
       <p class="guide__note">
-        Overlay plein écran compté : <code>show()</code> / <code>hide()</code>.
+        Counted fullscreen overlay: <code>show()</code> / <code>hide()</code>.
       </p>
       <q-syntax :code="loadingCode" lang="ts" filename="upload.ts" copy />
     </section>

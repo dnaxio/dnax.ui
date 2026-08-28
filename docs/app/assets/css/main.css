@@ -3,6 +3,42 @@ html {
   font-family: "Manrope", sans-serif;
 }
 
+/* ===== Tables docs (Props / Slots / Events / Methods) — partagées =====
+   Styles clairs ; les overrides dark sont plus bas (html.dark .doc-table …). */
+.doc-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgb(0 0 0 / 0.08);
+  border-radius: 12px;
+}
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.doc-table th,
+.doc-table td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgb(0 0 0 / 0.06);
+}
+.doc-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8b93a1;
+  background: #f6f7f9;
+}
+.doc-table tr:last-child td {
+  border-bottom: none;
+}
+.doc-table code {
+  background: rgba(25, 118, 210, 0.08);
+  color: var(--primary);
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 12.5px;
+}
+
 /* ===== Dark mode : overrides des pages docs =====
    La classe .dark est posée sur <html> par QConfigProvider (mode dark/system).
    html.dark prime sur les styles scoped (spécificité supérieure). */
@@ -32,7 +68,17 @@ html.dark .demo-block {
   border-color: var(--border);
 }
 
-html.dark .demo-block__tabs {
+html.dark .docs-api {
+  background-color: var(--muted);
+  border-color: var(--border);
+}
+
+html.dark .docs-api__tabs {
+  background-color: var(--muted);
+}
+
+html.dark .demo-block__tabs,
+html.dark .demo-block__panels {
   background-color: var(--muted);
 }
 

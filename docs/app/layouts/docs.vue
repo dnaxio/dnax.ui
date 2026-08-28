@@ -26,7 +26,7 @@ watch(
 
 
     <div class="docs-body">
-      <q-sidebar  class="!bg-red-400" height="100vh" v-model="open" show-if-above :breakpoint="1023" bordered>
+      <q-sidebar sticky height="100vh" v-model="open" show-if-above :breakpoint="1023" bordered>
         <q-sidebar-header class="side-head">
          <div class="cursor-pointer" @click="$router.push('/')"> <q-icon  name="lucide:box" color="primary" size="22px" />
          <span class="logo">Dnax<b>UI</b></span></div>
@@ -89,11 +89,13 @@ watch(
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
-  align-items: stretch;
+  align-items: flex-start;
+  /* La page scrolle normalement ; la sidebar est sticky (reste collée en haut) */
 }
 
 .docs-content {
   min-width: 0;
+  flex: 1 1 auto;
   padding: 32px 40px 64px;
   background: #fff;
 }

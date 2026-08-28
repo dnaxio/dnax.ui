@@ -98,7 +98,7 @@ export { default as QToolbar } from "./components/QToolbar.vue"
 export { default as QTooltip } from "./components/QTooltip.vue"
 export { default as QVirtualScroll } from "./components/QVirtualScroll.vue"
 
-export { $q, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet } from "./lib/q"
+export { $q, usePlugin, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet } from "./lib/q"
 export type {
   DialogOptions,
   DialogController,

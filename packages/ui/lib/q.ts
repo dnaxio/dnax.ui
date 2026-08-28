@@ -221,10 +221,13 @@ export const $q = {
   loading,
 }
 
-/** Accès programmatique au singleton (équivalent useQuasar de Quasar) */
-export function useQ() {
+/** Accès programmatique aux plugins ($q.dialog, $q.notify, $q.loading…) */
+export function usePlugin() {
   return $q
 }
+
+/** @deprecated Utilisez usePlugin() — conservé pour rétrocompatibilité */
+export const useQ = usePlugin
 
 /** Plugin Vue : app.use(QPlugin) → this.$q / proxy.$q (pattern Quasar) */
 export const QPlugin = {

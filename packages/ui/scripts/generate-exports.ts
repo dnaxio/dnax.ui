@@ -26,7 +26,7 @@ const exports = files
 
 // Exports manuels (composables / helpers) — conservés à chaque régénération
 const manualExports = `
-export { $q, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet } from "./lib/q"
+export { $q, usePlugin, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet } from "./lib/q"
 export type {
   DialogOptions,
   DialogController,

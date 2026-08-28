@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// Page docs générique d'un composant : démo (Preview/Code) + props (+ parties d'une famille).
+// Page docs générique d'un composant : démo (Preview/Code) + API (Props/Slots/Events/Methods)
+// + parties d'une famille (chacune avec son propre bloc API).
 import { computed, ref, watchEffect } from "vue"
-import { componentTag, propsTableOf, useComponent } from "~/composables/useComponentDocs"
-import DocsPropsTable from "~/components/DocsPropsTable.vue"
+import { componentSource, componentTag, useComponent } from "~/composables/useComponentDocs"
+import DocsApi from "~/components/DocsApi.vue"
 import DocsDemo from "~/components/DocsDemo.vue"
 
 interface Part {
@@ -22,10 +23,12 @@ const props = defineProps<{
 const tag = computed(() => componentTag(props.export))
 const usageCode = computed(() => `<${tag.value} />`)
 const comp = useComponent(() => props.export)
-const propsList = computed(() => propsTableOf(comp.value))
+const source = computed(() => componentSource(props.export))
 
-// — Parties (familles) : chargées pour leurs props —
-const loadedParts = ref<(Part & { tag: string; usage: string; comp: any; props: ReturnType<typeof propsTableOf> })[]>([])
+// — Parties (familles) : chargées pour leur composant + source —
+const loadedParts = ref<
+  (Part & { tag: string; usage: string; comp: any; source?: string })[]
+>([])
 watchEffect(async () => {
   loadedParts.value = []
   if (!props.parts?.length) return
@@ -33,7 +36,7 @@ watchEffect(async () => {
   loadedParts.value = props.parts.map((p) => {
     const c = (mod as any)[p.export] ?? null
     const t = componentTag(p.export)
-    return { ...p, tag: t, usage: `<${t} />`, comp: c, props: propsTableOf(c) }
+    return { ...p, tag: t, usage: `<${t} />`, comp: c, source: componentSource(p.export) }
   })
 })
 </script>
@@ -54,8 +57,8 @@ watchEffect(async () => {
     </section>
 
     <section class="doc-section">
-      <h2 class="doc-h2">Props</h2>
-      <docs-props-table :rows="propsList" />
+      <h2 class="doc-h2">API</h2>
+      <docs-api :comp="comp" :source="source" />
     </section>
 
     <!-- Parties d'une famille -->
@@ -66,7 +69,7 @@ watchEffect(async () => {
           <component :is="part.comp" v-if="part.comp" />
           <q-inner-loading v-else :showing="true" />
         </docs-demo>
-        <docs-props-table :rows="part.props" class="doc-part-props" />
+        <docs-api :comp="part.comp" :source="part.source" />
       </section>
     </template>
   </div>
@@ -105,8 +108,5 @@ watchEffect(async () => {
   font-size: 18px;
   font-weight: 700;
   color: var(--foreground);
-}
-.doc-part-props {
-  margin-top: 14px;
 }
 </style>

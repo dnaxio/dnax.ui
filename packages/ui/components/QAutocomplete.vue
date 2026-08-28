@@ -165,6 +165,19 @@ const onClear = () => {
 
 const isSelected = (opt: any) => getValue(opt) === props.modelValue
 
+// À la perte de focus : si le texte saisi ne correspond exactement à aucune
+// option (insensible à la casse), on le supprime — le champ redevient vide.
+const commit = () => {
+  const q = query.value.trim()
+  if (!q) return
+  const label = q.toLowerCase()
+  const matches = props.options.some((o) => getLabel(o).toLowerCase() === label)
+  if (!matches) {
+    query.value = ""
+    emit("update:inputValue", "")
+  }
+}
+
 const onFocus = (e: FocusEvent) => {
   focused.value = true
   openPopup()
@@ -174,6 +187,7 @@ const onFocus = (e: FocusEvent) => {
 const onBlur = (e: FocusEvent) => {
   focused.value = false
   open.value = false
+  commit()
   emit("blur", e)
 }
 

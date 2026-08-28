@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // Accordion — documentation complète de la famille :
 // QAccordion + QAccordionItem + QAccordionTrigger + QAccordionContent.
-import { computed, ref } from "vue"
-import { componentTag, propsTableOf, useComponent } from "~/composables/useComponentDocs"
-import DocsPropsTable from "~/components/DocsPropsTable.vue"
+import { ref } from "vue"
+import { componentSource, componentTag, useComponent } from "~/composables/useComponentDocs"
+import DocsApi from "~/components/DocsApi.vue"
 import DocsDemo from "~/components/DocsDemo.vue"
 
 definePageMeta({ layout: "docs" })
@@ -13,15 +13,16 @@ const accordionItem = useComponent(() => "QAccordionItem")
 const accordionTrigger = useComponent(() => "QAccordionTrigger")
 const accordionContent = useComponent(() => "QAccordionContent")
 
-const propsAccordion = computed(() => propsTableOf(accordion.value))
-const propsItem = computed(() => propsTableOf(accordionItem.value))
-const propsTrigger = computed(() => propsTableOf(accordionTrigger.value))
-const propsContent = computed(() => propsTableOf(accordionContent.value))
+const accordionSource = componentSource("QAccordion")
+const accordionItemSource = componentSource("QAccordionItem")
+const accordionTriggerSource = componentSource("QAccordionTrigger")
+const accordionContentSource = componentSource("QAccordionContent")
 
 const tag = componentTag("QAccordion")
 
 // — Démo interactive —
 const open = ref<string | string[]>("intro")
+const openMultiple = ref<string[]>(["a"])
 
 const usageSingle = `<q-accordion v-model="open" type="single" collapsible>
   <q-accordion-item value="intro">
@@ -71,6 +72,7 @@ const usageContent = `<q-accordion-content>
     <!-- ═══════ QAccordion ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">QAccordion — conteneur</h2>
+
       <docs-demo :code="usageSingle" lang="html" filename="App.vue">
         <q-accordion v-model="open" type="single" collapsible class="demo-acc">
           <q-accordion-item value="intro">
@@ -103,9 +105,25 @@ const usageContent = `<q-accordion-content>
       </docs-demo>
 
       <h3 class="doc-h3">Multiple</h3>
-      <q-syntax :code="usageMultiple" lang="html" filename="App.vue" copy />
-      <h3 class="doc-h3">Props</h3>
-      <docs-props-table :rows="propsAccordion" />
+      <docs-demo :code="usageMultiple" lang="html" filename="App.vue">
+        <q-accordion v-model="openMultiple" type="multiple" class="demo-acc">
+          <q-accordion-item value="a">
+            <q-accordion-trigger>Option A</q-accordion-trigger>
+            <q-accordion-content>
+              <p class="demo-p">Plusieurs sections peuvent rester ouvertes.</p>
+            </q-accordion-content>
+          </q-accordion-item>
+          <q-accordion-item value="b">
+            <q-accordion-trigger>Option B</q-accordion-trigger>
+            <q-accordion-content>
+              <p class="demo-p">Le <code>v-model</code> est un tableau de valeurs.</p>
+            </q-accordion-content>
+          </q-accordion-item>
+        </q-accordion>
+      </docs-demo>
+
+      <h3 class="doc-h3">API</h3>
+      <docs-api :comp="accordion" :source="accordionSource" />
     </section>
 
     <!-- ═══════ QAccordionItem ═══════ -->
@@ -116,8 +134,8 @@ const usageContent = `<q-accordion-content>
         et un identifiant unique aux enfants (pour <code>aria-controls</code>).
       </p>
       <q-syntax :code="usageItem" lang="html" filename="App.vue" copy />
-      <h3 class="doc-h3">Props</h3>
-      <docs-props-table :rows="propsItem" />
+      <h3 class="doc-h3">API</h3>
+      <docs-api :comp="accordionItem" :source="accordionItemSource" />
     </section>
 
     <!-- ═══════ QAccordionTrigger ═══════ -->
@@ -128,8 +146,8 @@ const usageContent = `<q-accordion-content>
         (<code>expand-icon</code>), état <code>aria-expanded</code> géré.
       </p>
       <q-syntax :code="usageTrigger" lang="html" filename="App.vue" copy />
-      <h3 class="doc-h3">Props</h3>
-      <docs-props-table :rows="propsTrigger" />
+      <h3 class="doc-h3">API</h3>
+      <docs-api :comp="accordionTrigger" :source="accordionTriggerSource" />
     </section>
 
     <!-- ═══════ QAccordionContent ═══════ -->
@@ -140,8 +158,8 @@ const usageContent = `<q-accordion-content>
         est faite en CSS (<code>grid-template-rows: 0fr → 1fr</code>).
       </p>
       <q-syntax :code="usageContent" lang="html" filename="App.vue" copy />
-      <h3 class="doc-h3">Props</h3>
-      <docs-props-table :rows="propsContent" />
+      <h3 class="doc-h3">API</h3>
+      <docs-api :comp="accordionContent" :source="accordionContentSource" />
     </section>
   </div>
 </template>
@@ -214,6 +232,12 @@ const usageContent = `<q-accordion-content>
 .demo-acc {
   width: 100%;
   max-width: 560px;
+}
+
+/* espace entre les deux blocs docs-demo (single / multiple) */
+.docs-demo + h3,
+.demo-block + h3 {
+  margin-top: 32px;
 }
 .demo-p {
   margin: 0;
