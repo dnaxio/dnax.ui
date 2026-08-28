@@ -3,19 +3,8 @@
 // Sélection de fichiers (input masqué) : aperçu vignette pour les images,
 // icône typée + nom + taille sinon ; validation (type, taille, nombre).
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue"
-import type { Component } from "vue"
-import {
-  File,
-  FileArchive,
-  FileAudio,
-  FileCode,
-  FileImage,
-  FilePlus,
-  FileSpreadsheet,
-  FileText,
-  FileVideo,
-  X,
-} from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 
 interface Props {
@@ -116,18 +105,18 @@ const ARCHIVE_EXT = /\.(zip|rar|7z|tar|gz|bz2|xz|tgz)$/
 const SPREADSHEET_EXT = /\.(xlsx|xls|csv|ods|tsv)$/
 const CODE_EXT = /\.(json|js|mjs|cjs|ts|jsx|tsx|html?|xml|css|scss|sass|less|vue|py|java|c|cpp|h|hpp|sh|bash|yml|yaml|toml|ini|go|rs|php|rb|swift|kt)$/
 
-const iconFor = (file: File): Component => {
+const iconFor = (file: File): string => {
   const type = file.type
   const name = file.name.toLowerCase()
-  if (type.startsWith("video/")) return FileVideo
-  if (type.startsWith("audio/")) return FileAudio
-  if (ARCHIVE_EXT.test(name) || /zip|compressed/.test(type)) return FileArchive
+  if (type.startsWith("video/")) return icons.fileVideo
+  if (type.startsWith("audio/")) return icons.fileAudio
+  if (ARCHIVE_EXT.test(name) || /zip|compressed/.test(type)) return icons.fileArchive
   if (SPREADSHEET_EXT.test(name) || type.includes("spreadsheet") || type.includes("excel")) {
-    return FileSpreadsheet
+    return icons.fileSpreadsheet
   }
-  if (CODE_EXT.test(name)) return FileCode
-  if (type.startsWith("image/")) return FileImage
-  return FileText
+  if (CODE_EXT.test(name)) return icons.fileCode
+  if (type.startsWith("image/")) return icons.fileImage
+  return icons.fileText
 }
 
 const formatSize = (bytes: number): string => {
@@ -255,7 +244,7 @@ const containerClasses = computed(() => cn("q-file-picker", props.disable && "q-
       <div v-for="file in files" :key="fileKey(file)" class="q-file-picker__row">
         <div class="q-file-picker__preview">
           <img v-if="isImage(file)" class="q-file-picker__thumb" :src="previewUrl(file)" :alt="file.name" />
-          <component :is="iconFor(file)" v-else class="q-file-picker__file-icon" />
+          <Icon :icon="iconFor(file)" v-else class="q-file-picker__file-icon" />
         </div>
         <div class="q-file-picker__info">
           <span class="q-file-picker__name">{{ file.name }}</span>
@@ -268,7 +257,7 @@ const containerClasses = computed(() => cn("q-file-picker", props.disable && "q-
           aria-label="Retirer le fichier"
           @click="removeFile(file)"
         >
-          <X />
+          <Icon :icon="icons.x" aria-hidden="true" />
         </button>
       </div>
 
@@ -279,7 +268,7 @@ const containerClasses = computed(() => cn("q-file-picker", props.disable && "q-
         :disabled="disable"
         @click="pick"
       >
-        <FilePlus class="q-file-picker__add-icon" />
+        <Icon :icon="icons.filePlus" class="q-file-picker__add-icon" />
         <span class="q-file-picker__add-label">{{ defaultAddLabel }}</span>
       </button>
     </div>

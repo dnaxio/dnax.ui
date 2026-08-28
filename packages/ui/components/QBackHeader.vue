@@ -2,8 +2,8 @@
 // QBackHeader — barre de retour : <q-back-header title="Détails" fixed @back="router.back()" />
 // Bouton retour + titre + actions à droite ; safe-area top intégrée.
 import { computed } from "vue"
-import type { Component } from "vue"
-import { ChevronLeft } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 
 interface Props {
@@ -11,8 +11,8 @@ interface Props {
   title?: string
   /** Affiche le bouton retour */
   showBack?: boolean
-  /** Icône Lucide du bouton retour */
-  backIcon?: Component
+  /** Icône Iconify du bouton retour (défaut : lucide:chevron-left) */
+  backIcon?: string
   /** Libellé accessible du bouton retour */
   backLabel?: string
   /** Barre fixée en haut de l'écran */
@@ -57,7 +57,7 @@ const headerClasses = computed(() =>
       :aria-label="backLabel"
       @click="emit('back')"
     >
-      <component :is="backIcon || ChevronLeft" aria-hidden="true" />
+      <Icon :icon="backIcon || icons.chevronLeft" aria-hidden="true" />
     </button>
     <div class="q-back-header__title">
       <slot name="title">{{ title }}</slot>

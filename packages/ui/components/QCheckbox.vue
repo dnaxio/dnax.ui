@@ -2,8 +2,8 @@
 // QCheckbox — API Quasar : <q-checkbox v-model="val" label="Option" color="secondary" dense left-label keep-color />
 // Modèle : booléen | indéterminé (indeterminateValue) | tableau (avec prop val).
 import { computed, useSlots } from "vue"
-import type { Component } from "vue"
-import { Check, Minus } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { colorValue } from "../lib/colors"
 
@@ -15,10 +15,10 @@ interface Props {
   falseValue?: unknown
   /** Valeur représentant l'état indéterminé (défaut : null) */
   indeterminateValue?: unknown
-  /** Icônes Lucide des états */
-  checkedIcon?: Component
-  uncheckedIcon?: Component
-  indeterminateIcon?: Component
+  /** Icônes Iconify des états (défauts : lucide:check, lucide:minus) */
+  checkedIcon?: string
+  uncheckedIcon?: string
+  indeterminateIcon?: string
   /** Couleur (token ou hex) */
   color?: string
   /** Applique la couleur aussi à l'état décoché */
@@ -128,13 +128,13 @@ const hasLabel = computed(() => props.label !== undefined || !!slots.default)
       <slot>{{ label }}</slot>
     </span>
     <span class="q-checkbox__box" :style="boxStyle" aria-hidden="true">
-      <component
-        :is="indeterminateIcon || Minus"
+      <Icon
+        :icon="indeterminateIcon || icons.minus"
         v-if="isIndeterminate"
         class="q-checkbox__icon"
       />
-      <component :is="checkedIcon || Check" v-else-if="isChecked" class="q-checkbox__icon" />
-      <component :is="uncheckedIcon" v-else-if="uncheckedIcon" class="q-checkbox__icon" />
+      <Icon :icon="checkedIcon || icons.check" v-else-if="isChecked" class="q-checkbox__icon" />
+      <Icon :icon="uncheckedIcon" v-else-if="uncheckedIcon" class="q-checkbox__icon" />
     </span>
     <span v-if="!leftLabel && hasLabel" class="q-checkbox__label">
       <slot>{{ label }}</slot>

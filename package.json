@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "workspaces": [
-    "docs/*",
+    "docs/",
     "packages/*",
     "apps/*"
   ],
@@ -13,5 +13,8 @@
   },
   "peerDependencies": {
     "typescript": "^7"
+  },
+  "dependencies": {
+    "shiki": "^4.4.3"
   }
 }

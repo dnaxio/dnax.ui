@@ -2,7 +2,8 @@
 // QSidebarTrigger — bouton bascule du QSidebar (équivalent SidebarTrigger).
 // À placer n'importe où dans le sous-arbre d'un QSidebar.
 import { inject } from "vue"
-import { Menu } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { qSidebarKey } from "./QSidebar.vue"
 
 interface Props {
@@ -25,7 +26,7 @@ const sidebar = inject(qSidebarKey, null)
     @click="sidebar?.toggle()"
   >
     <slot>
-      <Menu aria-hidden="true" />
+      <Icon :icon="icons.menu" aria-hidden="true" />
     </slot>
   </button>
 </template>

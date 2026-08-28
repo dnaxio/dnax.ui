@@ -3,7 +3,8 @@
 // <q-autocomplete v-model="val" :options="opts" option-value="id" option-label="name" clearable dense outlined />
 // Filtre client par défaut ; @filter → mode serveur (le parent met à jour :options).
 import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
-import { X } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
@@ -253,7 +254,7 @@ onBeforeUnmount(() => {
         aria-label="Effacer"
         @click="onClear"
       >
-        <X />
+        <Icon :icon="icons.x" aria-hidden="true" />
       </button>
     </div>
     <div v-if="error" class="q-field__bottom">

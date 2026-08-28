@@ -2,8 +2,8 @@
 // QNavMenuTrigger — bouton de menu avec dropdown ; le contenu du slot par défaut
 // est le panneau déroulant (positionné sous le trigger, ouvert au hover/clic).
 import { computed, inject, onMounted, ref } from "vue"
-import type { Component } from "vue"
-import { ChevronDown } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { qNavMenuKey } from "./QNavMenu.vue"
 
@@ -13,8 +13,8 @@ interface Props {
   /** Identifiant (auto-généré si absent) */
   name?: string
   label?: string
-  /** Icône Lucide à gauche */
-  icon?: Component
+  /** Icône Iconify à gauche (ex. : "lucide:star") */
+  icon?: string
   disable?: boolean
 }
 
@@ -56,11 +56,11 @@ const triggerClasses = computed(() =>
       :aria-expanded="isOpen ? 'true' : 'false'"
       @click="toggle"
     >
-      <component :is="icon" v-if="icon" class="q-nav-menu__trigger-icon" aria-hidden="true" />
+      <Icon :icon="icon" v-if="icon" class="q-nav-menu__trigger-icon" aria-hidden="true" />
       <span v-if="label" class="q-nav-menu__trigger-label">{{ label }}</span>
       <slot name="trigger" />
-      <component
-        :is="ChevronDown"
+      <Icon
+        :icon="icons.chevronDown"
         class="q-nav-menu__trigger-arrow"
         :class="{ 'q-nav-menu__trigger-arrow--rotated': isOpen }"
         aria-hidden="true"

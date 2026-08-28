@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // QCarouselPrevious / QCarouselNext — boutons de navigation (équivalent CarouselPrevious/Next).
 import { computed, inject } from "vue"
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { qCarouselKey } from "./QCarousel.vue"
 
 interface Props {
@@ -27,8 +28,8 @@ const onClick = () => {
 }
 
 const icon = computed(() => {
-  if (props.direction === "prev") return isVertical.value ? ChevronUp : ChevronLeft
-  return isVertical.value ? ChevronDown : ChevronRight
+  if (props.direction === "prev") return isVertical.value ? icons.chevronUp : icons.chevronLeft
+  return isVertical.value ? icons.chevronDown : icons.chevronRight
 })
 </script>
 
@@ -45,6 +46,6 @@ const icon = computed(() => {
     :aria-label="label || (direction === 'prev' ? 'Slide précédente' : 'Slide suivante')"
     @click="onClick"
   >
-    <component :is="icon" aria-hidden="true" />
+    <Icon :icon="icon" aria-hidden="true" />
   </button>
 </template>

@@ -1,16 +1,16 @@
 <script setup lang="ts">
-// QIcon — API Quasar : <q-icon name="…" size="24px" color="primary" left right>
-// name : composant icône Lucide (@lucide/vue)
+// QIcon — API Quasar : <q-icon name="lucide:star" size="24px" color="primary" left right>
+// name : icône Iconify par son nom (https://iconify.design/docs/icon-components/vue/)
 import { computed } from "vue"
-import type { Component } from "vue"
+import { Icon } from "@iconify/vue"
 import { cn } from "../lib/utils"
 import { colorValue } from "../lib/colors"
 
 const SIZE_MAP: Record<string, string> = { sm: "16px", md: "24px", lg: "32px", xl: "48px" }
 
 interface Props {
-  /** Icône Lucide */
-  name?: Component
+  /** Icône Iconify (ex. : "lucide:star") */
+  name?: string
   /** Taille : sm|md|lg|xl ou valeur CSS ("1.5rem", "20px") */
   size?: string
   /** Couleur (token ou hex) */
@@ -41,9 +41,9 @@ const iconClasses = computed(() => cn("q-icon", props.left && "q-icon--left", pr
 </script>
 
 <template>
-  <component
-    :is="name"
+  <Icon
     v-if="name"
+    :icon="name"
     class="q-icon"
     :class="iconClasses"
     :style="iconStyle"

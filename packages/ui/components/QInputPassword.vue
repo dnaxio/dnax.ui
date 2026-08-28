@@ -2,7 +2,8 @@
 // QInputPassword — champ mot de passe avec toggle afficher/masquer (œil / œil barré).
 // Wrapper de QInput : toutes les props passent à travers, le type est piloté en interne.
 import { computed, ref } from "vue"
-import { Eye, EyeOff } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import QInput from "./QInput.vue"
 import { useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
@@ -56,8 +57,7 @@ const toggleLabel = computed(() =>
         :aria-label="toggleLabel"
         @click="show = !show"
       >
-        <EyeOff v-if="show" />
-        <Eye v-else />
+        <Icon :icon="show ? icons.eyeOff : icons.eye" aria-hidden="true" />
       </button>
     </template>
     <template v-if="$slots.prepend" #prepend><slot name="prepend" /></template>

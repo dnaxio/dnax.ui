@@ -23,6 +23,8 @@ interface Props {
   persistent?: boolean
   /** Largeur max du panneau */
   width?: string
+  /** Hauteur du panneau (sinon max-height 90vh) */
+  height?: string
   /** Arrondi des coins hauts : true | false | valeur CSS */
   rounded?: boolean | string
   dark?: boolean
@@ -30,6 +32,8 @@ interface Props {
   translucent?: boolean | number
   /** Seuil de drag (px) au-delà duquel on ferme */
   dragThreshold?: number
+  /** Style du panneau (variables de thème pour les contenus téléportés) */
+  contentStyle?: Record<string, string>
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -101,7 +105,10 @@ const onHandleUp = () => {
   currentDy = 0
 }
 
-const panelStyle = computed<Record<string, string>>(() => ({ maxWidth: props.width }))
+const panelStyle = computed<Record<string, string>>(() => ({
+  maxWidth: props.width,
+  ...(props.height ? { height: props.height } : {}),
+}))
 
 const radiusStyle = computed<Record<string, string> | undefined>(() => {
   if (props.rounded === false) return { borderRadius: "0" }
@@ -142,7 +149,7 @@ const translucentStyle = computed<Record<string, string> | undefined>(() =>
           ref="panelRef"
           class="q-bottom-sheet__panel"
           :class="panelClasses"
-          :style="[panelStyle, radiusStyle, translucentStyle]"
+          :style="[panelStyle, radiusStyle, translucentStyle, props.contentStyle]"
           role="dialog"
           aria-modal="true"
           @click.stop

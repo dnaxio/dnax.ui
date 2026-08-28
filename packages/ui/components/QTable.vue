@@ -28,7 +28,8 @@ export interface QTablePagination {
 
 <script setup lang="ts">
 import { computed, getCurrentInstance, ref, watch } from "vue"
-import { ArrowDown, ArrowUp, ArrowUpDown } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 
 interface Props {
@@ -196,8 +197,8 @@ const onSort = (col: QTableColumn) => {
 }
 
 const sortIcon = (col: QTableColumn) => {
-  if (colName(col) !== sortBy.value) return ArrowUpDown
-  return descending.value ? ArrowDown : ArrowUp
+  if (colName(col) !== sortBy.value) return icons.arrowUpDown
+  return descending.value ? icons.arrowDown : icons.arrowUp
 }
 
 // — Sélection —
@@ -299,7 +300,7 @@ const sortThClass = computed(() => "q-table__sort")
                 @click="onSort(col)"
               >
                 <span>{{ col.label }}</span>
-                <component :is="sortIcon(col)" class="q-table__sort-icon" aria-hidden="true" />
+                <Icon :icon="sortIcon(col)" class="q-table__sort-icon" aria-hidden="true" />
               </button>
               <span v-else>{{ col.label }}</span>
             </th>

@@ -1,0 +1,105 @@
+export interface MenuItem {
+  title: string
+  link: string
+  /** Export dans @dnax/ui (ex. QBtn) — vide pour les guides/plugins */
+  export?: string
+}
+
+export interface MenuGroup {
+  title: string
+  /** Icône Iconify du groupe (affichée à gauche du libellé) */
+  icon?: string
+  items: MenuItem[]
+}
+
+export const menuItems: MenuGroup[] = [
+  {
+    title: "Getting Started",
+    icon: "lucide:rocket",
+    items: [
+      { title: "Installation", link: "/docs/getting-started/installation" },
+      { title: "Setup", link: "/docs/getting-started/quick-start" },
+    ],
+  },
+  {
+    title: "Components",
+    icon: "lucide:component",
+    items: [
+      { title: "Accordion", link: "/docs/components/accordion", export: "QAccordion" },
+      { title: "Action Sheet", link: "/docs/components/action-sheet", export: "QActionSheet" },
+      { title: "App", link: "/docs/components/app", export: "QApp" },
+      { title: "Autocomplete", link: "/docs/components/autocomplete", export: "QAutocomplete" },
+      { title: "Avatar", link: "/docs/components/avatar", export: "QAvatar" },
+      { title: "Back Header", link: "/docs/components/back-header", export: "QBackHeader" },
+      { title: "Badge", link: "/docs/components/badge", export: "QBadge" },
+      { title: "Bottom Sheet", link: "/docs/components/bottom-sheet", export: "QBottomSheet" },
+      { title: "Bubble", link: "/docs/components/bubble", export: "QBubble" },
+      { title: "Button", link: "/docs/components/btn", export: "QBtn" },
+      { title: "Button Group", link: "/docs/components/btn-group", export: "QBtnGroup" },
+      { title: "Card", link: "/docs/components/card", export: "QCard" },
+      { title: "Carousel", link: "/docs/components/carousel", export: "QCarousel" },
+      { title: "Checkbox", link: "/docs/components/checkbox", export: "QCheckbox" },
+      { title: "Chip", link: "/docs/components/chip", export: "QChip" },
+      { title: "Circular Progress", link: "/docs/components/circular-progress", export: "QCircularProgress" },
+      { title: "Collapse", link: "/docs/components/collapse", export: "QCollapse" },
+      { title: "Config Provider", link: "/docs/components/config-provider", export: "QConfigProvider" },
+      { title: "Container", link: "/docs/components/container", export: "QContainer" },
+      { title: "Date Picker", link: "/docs/components/date-picker", export: "QDatePicker" },
+      { title: "Dialog", link: "/docs/components/dialog", export: "QDialog" },
+      { title: "Fab", link: "/docs/components/fab", export: "QFab" },
+      { title: "Fab Action", link: "/docs/components/fab-action", export: "QFabAction" },
+      { title: "File Picker", link: "/docs/components/file-picker", export: "QFilePicker" },
+      { title: "Footer", link: "/docs/components/footer", export: "QFooter" },
+      { title: "Header", link: "/docs/components/header", export: "QHeader" },
+      { title: "Icon", link: "/docs/components/icon", export: "QIcon" },
+      { title: "Image", link: "/docs/components/img", export: "QImg" },
+      { title: "Image Picker", link: "/docs/components/image-picker", export: "QImagePicker" },
+      { title: "Inner Loading", link: "/docs/components/inner-loading", export: "QInnerLoading" },
+      { title: "Input", link: "/docs/components/input", export: "QInput" },
+      { title: "Input Password", link: "/docs/components/input-password", export: "QInputPassword" },
+      { title: "Item", link: "/docs/components/item", export: "QItem" },
+      { title: "Item Section", link: "/docs/components/item-section", export: "QItemSection" },
+      { title: "Linear Progress", link: "/docs/components/linear-progress", export: "QLinearProgress" },
+      { title: "List", link: "/docs/components/list", export: "QList" },
+      { title: "Loading Provider", link: "/docs/components/loading-provider", export: "QLoadingProvider" },
+      { title: "Message Scroller", link: "/docs/components/message-scroller", export: "QMessageScroller" },
+      { title: "Nav Menu", link: "/docs/components/nav-menu", export: "QNavMenu" },
+      { title: "Notify Provider", link: "/docs/components/notify-provider", export: "QNotifyProvider" },
+      { title: "Notify Toast", link: "/docs/components/notify-toast", export: "QNotifyToast" },
+      { title: "Page", link: "/docs/components/page", export: "QPage" },
+      { title: "Pagination", link: "/docs/components/pagination", export: "QPagination" },
+      { title: "Pull To Refresh", link: "/docs/components/pull-to-refresh", export: "QPullToRefresh" },
+      { title: "Radio", link: "/docs/components/radio", export: "QRadio" },
+      { title: "Rating", link: "/docs/components/rating", export: "QRating" },
+      { title: "Safe Area", link: "/docs/components/safe-area", export: "QSafeArea" },
+      { title: "Scroll Area", link: "/docs/components/scroll-area", export: "QScrollArea" },
+      { title: "Select", link: "/docs/components/select", export: "QSelect" },
+      { title: "Separator", link: "/docs/components/separator", export: "QSeparator" },
+      { title: "Sidebar", link: "/docs/components/sidebar", export: "QSidebar" },
+      { title: "Skeleton", link: "/docs/components/skeleton", export: "QSkeleton" },
+      { title: "Slider", link: "/docs/components/slider", export: "QSlider" },
+      { title: "Space", link: "/docs/components/space", export: "QSpace" },
+      { title: "Splitter", link: "/docs/components/splitter", export: "QSplitter" },
+      { title: "Syntax", link: "/docs/components/syntax", export: "QSyntax" },
+      { title: "Tab", link: "/docs/components/tab", export: "QTab" },
+      { title: "Tab Panel", link: "/docs/components/tab-panel", export: "QTabPanel" },
+      { title: "Tab Panels", link: "/docs/components/tab-panels", export: "QTabPanels" },
+      { title: "Table", link: "/docs/components/table", export: "QTable" },
+      { title: "Tabs", link: "/docs/components/tabs", export: "QTabs" },
+      { title: "Text", link: "/docs/components/text", export: "QText" },
+      { title: "Toolbar", link: "/docs/components/toolbar", export: "QToolbar" },
+      { title: "Tooltip", link: "/docs/components/tooltip", export: "QTooltip" },
+      { title: "Virtual Scroll", link: "/docs/components/virtual-scroll", export: "QVirtualScroll" },
+    ],
+  },
+  {
+    title: "Plugins API",
+    icon: "lucide:plug",
+    items: [
+      { title: "Dialog", link: "/docs/plugins/api#dialog" },
+      { title: "Bottom Sheet", link: "/docs/plugins/api#bottom-sheet" },
+      { title: "Notify", link: "/docs/plugins/api#notify" },
+      { title: "Loading", link: "/docs/plugins/api#loading" },
+    ],
+  },
+]

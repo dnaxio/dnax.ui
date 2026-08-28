@@ -2,7 +2,7 @@
 // QAvatar — avatar : <q-avatar src="…" alt="Jean Dupont" color="primary" size="lg" />
 // Image avec fallback automatique (initiales depuis alt, icône, ou slot) en cas d'erreur.
 import { computed, ref } from "vue"
-import type { Component } from "vue"
+import { Icon } from "@iconify/vue"
 import { colorValue, foregroundFor } from "../lib/colors"
 
 const SIZE_MAP: Record<string, string> = { xs: "24px", sm: "32px", md: "48px", lg: "64px", xl: "96px" }
@@ -12,8 +12,8 @@ interface Props {
   src?: string
   /** Texte alternatif (utilisé pour les initiales du fallback) */
   alt?: string
-  /** Icône Lucide affichée en fallback */
-  icon?: Component
+  /** Icône Iconify affichée en fallback (ex. : "lucide:user") */
+  icon?: string
   /** Taille : xs | sm | md | lg | xl ou valeur CSS */
   size?: string
   /** Taille de la police (défaut : 40% de la taille) */
@@ -85,7 +85,7 @@ const onError = () => {
       @error="onError"
     />
     <div v-else class="q-avatar__fallback">
-      <component :is="icon" v-if="icon" aria-hidden="true" />
+      <Icon :icon="icon" v-if="icon" aria-hidden="true" />
       <slot v-else>{{ initials }}</slot>
     </div>
   </div>

@@ -2,8 +2,8 @@
 // QRating — notation par étoiles : <q-rating v-model="note" :max="5" color="warning" size="lg" />
 // Étoiles remplies jusqu'à la valeur, hover (bureau), dimming des non sélectionnées (no-dimming pour le désactiver).
 import { computed, ref } from "vue"
-import type { Component } from "vue"
-import { Star } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { colorValue } from "../lib/colors"
 
 const SIZE_MAP: Record<string, string> = { sm: "18px", md: "22px", lg: "30px", xl: "36px" }
@@ -13,8 +13,8 @@ interface Props {
   modelValue?: number
   /** Nombre d'étoiles (défaut 5) */
   max?: number
-  /** Icône Lucide de l'étoile */
-  icon?: Component
+  /** Icône Iconify de l'étoile (défaut : lucide:star) */
+  icon?: string
   /** Couleur (token ou hex) — défaut warning (ambre) */
   color?: string
   /** Couleur du texte (remplace color) */
@@ -31,7 +31,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   modelValue: 0,
   max: 5,
-  icon: Star,
+  icon: icons.star,
   color: "warning",
   textColor: "",
   size: "md",
@@ -94,8 +94,8 @@ const setHover = (n: number) => {
       @blur="setHover(0)"
       @click="setRating(n)"
     >
-      <component
-        :is="icon"
+      <Icon
+        :icon="icon"
         :style="iconStyle"
         :fill="isOn(n) ? 'currentColor' : 'none'"
         aria-hidden="true"

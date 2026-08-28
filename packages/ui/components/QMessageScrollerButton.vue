@@ -2,7 +2,8 @@
 // QMessageScrollerButton — bouton flottant de retour au live edge (équivalent MessageScrollerButton).
 // Visible uniquement quand il reste du contenu à atteindre dans cette direction.
 import { computed, inject } from "vue"
-import { ChevronDown, ChevronUp } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { qMessageScrollerKey } from "./QMessageScrollerProvider.vue"
 
 interface Props {
@@ -42,6 +43,6 @@ const onClick = () => {
     :aria-label="label"
     @click="onClick"
   >
-    <component :is="direction === 'end' ? ChevronDown : ChevronUp" aria-hidden="true" />
+    <Icon :icon="direction === 'end' ? icons.chevronDown : icons.chevronUp" aria-hidden="true" />
   </button>
 </template>

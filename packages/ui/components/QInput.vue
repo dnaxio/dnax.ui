@@ -2,7 +2,8 @@
 // QInput — API Quasar : <q-input v-model="…" label="Email" outlined dense clearable counter maxlength="60" hint error error-message />
 // Variants : outlined (défaut) | filled | borderless ; stack-label pour label au-dessus.
 import { computed, nextTick, ref, watch } from "vue"
-import { X } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
@@ -180,7 +181,7 @@ const inputAttrs = computed(() => ({
         aria-label="Effacer"
         @click="onClear"
       >
-        <X />
+        <Icon :icon="icons.x" aria-hidden="true" />
       </button>
       <slot name="append" />
     </div>

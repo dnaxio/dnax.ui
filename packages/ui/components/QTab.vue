@@ -4,7 +4,7 @@
 // alert : true = point de notification ; string = couleur du point (token ou hex).
 // name : auto-généré (t_1, t_2…) si absent, comme chez Quasar.
 import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue"
-import type { Component } from "vue"
+import { Icon } from "@iconify/vue"
 import { cn } from "../lib/utils"
 import { qTabsKey } from "./QTabs.vue"
 
@@ -19,14 +19,14 @@ let tabSeq = 0
 interface Props {
   /** Identifiant du tab (comparé au v-model du QTabs) */
   name?: string | number
-  /** Icône Lucide */
-  icon?: Component
+  /** Icône Iconify (ex. : "lucide:home") */
+  icon?: string
   /** Texte ou nombre */
   label?: string | number
   /** true = point de notification ; string = couleur du point */
   alert?: boolean | string
-  /** Icône Lucide remplaçant le point de notification */
-  alertIcon?: Component
+  /** Icône Iconify remplaçant le point de notification */
+  alertIcon?: string
   /** Pas de mise en majuscules */
   noCaps?: boolean
   tabindex?: string | number
@@ -128,7 +128,7 @@ const onKeydown = (e: KeyboardEvent) => {
     @keydown="onKeydown"
   >
     <div class="q-tab__content" :class="contentClass">
-      <component :is="icon" v-if="icon" class="q-tab__icon" aria-hidden="true" />
+      <Icon :icon="icon" v-if="icon" class="q-tab__icon" aria-hidden="true" />
       <span v-if="label !== undefined" class="q-tab__label">{{ label }}</span>
       <slot v-else />
       <span
@@ -137,8 +137,8 @@ const onKeydown = (e: KeyboardEvent) => {
         :style="alertStyle"
         aria-label="Notification"
       />
-      <component
-        :is="alertIcon"
+      <Icon
+        :icon="alertIcon"
         v-if="alertIcon"
         class="q-tab__alert-icon"
         :style="alertIconStyle"

@@ -1,0 +1,65 @@
+<script setup lang="ts">
+// Default layout — app shell : header fixe + contenu (slot) + footer.
+// Utilisé par la landing page (index). Les pages docs utilisent le layout "docs".
+import ThemeToggle from "~/components/ThemeToggle.vue"
+
+const scrollTo = (sel: string) => {
+  const el = document.querySelector<HTMLElement>(sel)
+  if (!el) return
+  window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 72, behavior: "smooth" })
+}
+</script>
+
+<template>
+  <q-app>
+    <q-header fixed translucent>
+      <q-toolbar>
+        <q-icon name="lucide:box" color="primary" size="24px" />
+        <span class="dnax-logo">Dnax<b>UI</b></span>
+        <q-space />
+        <q-btn flat no-caps label="Components" href="/docs" />
+        <q-btn flat no-caps label="Features" @click="scrollTo('#features')" />
+        <q-btn color="primary" unelevated no-caps icon="lucide:rocket" label="Get started" href="/docs" />
+        <theme-toggle />
+      </q-toolbar>
+    </q-header>
+
+    <q-page>
+      <slot />
+    </q-page>
+
+    <q-footer>
+      <q-toolbar class="footer">
+        <q-icon name="lucide:box" color="primary" size="20px" />
+        <span class="dnax-logo dnax-logo--sm">Dnax<b>UI</b></span>
+        <q-space />
+        <span class="footer-note">Vue 3 design system · Iconify icons · iOS safe-area</span>
+      </q-toolbar>
+    </q-footer>
+  </q-app>
+</template>
+
+<style scoped>
+.dnax-logo {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--foreground);
+}
+.dnax-logo b {
+  color: var(--primary);
+  font-weight: 700;
+}
+.dnax-logo--sm {
+  font-size: 15px;
+}
+
+.footer {
+  min-height: 56px;
+  padding: 0 16px;
+}
+.footer-note {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+}
+</style>

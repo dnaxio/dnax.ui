@@ -2,8 +2,8 @@
 // QPagination — pagination : <q-pagination v-model="page" :max="10" boundary-links direction-links active-color="secondary" />
 // Fenêtre de pages avec ellipses, premier/dernier et précédent/suivant optionnels.
 import { computed } from "vue"
-import type { Component } from "vue"
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { colorValue, foregroundFor } from "../lib/colors"
 
@@ -22,11 +22,11 @@ interface Props {
   boundaryLinks?: boolean
   /** Boutons précédent/suivant */
   directionLinks?: boolean
-  /** Icônes Lucide des boutons */
-  iconFirst?: Component
-  iconPrev?: Component
-  iconNext?: Component
-  iconLast?: Component
+  /** Icônes Iconify des boutons (défauts lucide) */
+  iconFirst?: string
+  iconPrev?: string
+  iconNext?: string
+  iconLast?: string
   /** Couleur de la page active (token ou hex) */
   activeColor?: string
   /** Couleur des autres pages (token ou hex) */
@@ -136,7 +136,7 @@ const colorStyle = computed<Record<string, string> | undefined>(() =>
       aria-label="Première page"
       @click="setPage(min)"
     >
-      <component :is="iconFirst || ChevronsLeft" aria-hidden="true" />
+      <Icon :icon="iconFirst || icons.chevronsLeft" aria-hidden="true" />
     </button>
     <button
       v-if="directionLinks"
@@ -148,7 +148,7 @@ const colorStyle = computed<Record<string, string> | undefined>(() =>
       aria-label="Page précédente"
       @click="setPage(clampedPage - 1)"
     >
-      <component :is="iconPrev || ChevronLeft" aria-hidden="true" />
+      <Icon :icon="iconPrev || icons.chevronLeft" aria-hidden="true" />
     </button>
 
     <button
@@ -177,7 +177,7 @@ const colorStyle = computed<Record<string, string> | undefined>(() =>
       aria-label="Page suivante"
       @click="setPage(clampedPage + 1)"
     >
-      <component :is="iconNext || ChevronRight" aria-hidden="true" />
+      <Icon :icon="iconNext || icons.chevronRight" aria-hidden="true" />
     </button>
     <button
       v-if="boundaryLinks"
@@ -189,7 +189,7 @@ const colorStyle = computed<Record<string, string> | undefined>(() =>
       aria-label="Dernière page"
       @click="setPage(total)"
     >
-      <component :is="iconLast || ChevronsRight" aria-hidden="true" />
+      <Icon :icon="iconLast || icons.chevronsRight" aria-hidden="true" />
     </button>
   </div>
 </template>

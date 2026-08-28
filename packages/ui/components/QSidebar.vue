@@ -15,6 +15,7 @@ export const qSidebarKey: InjectionKey<SidebarContext> = Symbol("q-sidebar")
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, provide, ref } from "vue"
+import type { StyleValue } from "vue"
 import { cn } from "../lib/utils"
 
 interface Props {
@@ -24,6 +25,10 @@ interface Props {
   side?: "left" | "right"
   /** Largeur (défaut 260px) */
   width?: string
+  /** Hauteur du panneau (ex. "calc(100vh - 64px)", "80vh") — sinon pleine hauteur */
+  height?: string
+  /** Hauteur max — le contenu scrolle (ex. "70vh") */
+  maxHeight?: string
   /** Bordure côté intérieur */
   bordered?: boolean
   /** Ombre portée */
@@ -34,6 +39,8 @@ interface Props {
   showIfAbove?: boolean
   /** Breakpoint de bascule statique/offcanvas (px) */
   breakpoint?: number
+  /** Styles CSS additionnels appliqués au panneau */
+  style?: StyleValue
   disable?: boolean
 }
 
@@ -41,11 +48,14 @@ const props = withDefaults(defineProps<Props>(), {
   modelValue: true,
   side: "left",
   width: "260px",
+  height: "",
+  maxHeight: "",
   bordered: false,
   elevated: false,
   dark: false,
   showIfAbove: false,
   breakpoint: 1023,
+  style: undefined,
   disable: false,
 })
 
@@ -104,14 +114,19 @@ const rootClasses = computed(() =>
   ),
 )
 
-const rootStyle = computed<Record<string, string>>(() => ({ "--q-sidebar-w": props.width }))
+const rootStyle = computed<Record<string, string>>(() => {
+  const style: Record<string, string> = { "--q-sidebar-w": props.width }
+  if (props.height) style.height = props.height
+  if (props.maxHeight) style.maxHeight = props.maxHeight
+  return style
+})
 </script>
 
 <template>
   <aside
     class="q-sidebar"
     :class="rootClasses"
-    :style="rootStyle"
+    :style="[rootStyle, props.style]"
     :aria-hidden="!isStatic && !open ? 'true' : undefined"
   >
     <slot />

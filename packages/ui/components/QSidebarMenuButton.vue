@@ -1,13 +1,13 @@
 <script setup lang="ts">
 // QSidebarMenuButton — bouton/lien de menu (équivalent SidebarMenuButton).
 import { computed } from "vue"
-import type { Component } from "vue"
+import { Icon } from "@iconify/vue"
 import { cn } from "../lib/utils"
 
 interface Props {
   label?: string
-  /** Icône Lucide */
-  icon?: Component
+  /** Icône Iconify (ex. : "lucide:settings") */
+  icon?: string
   /** Lien natif (<a>) ; sinon bouton */
   href?: string
   /** État actif */
@@ -51,7 +51,7 @@ const onClick = (e: MouseEvent) => {
     :aria-current="active ? 'page' : undefined"
     @click="onClick"
   >
-    <component :is="icon" v-if="icon" class="q-sidebar__menu-button-icon" aria-hidden="true" />
+    <Icon :icon="icon" v-if="icon" class="q-sidebar__menu-button-icon" aria-hidden="true" />
     <span v-if="label" class="q-sidebar__menu-button-label">{{ label }}</span>
     <slot v-else />
     <span v-if="badge !== undefined" class="q-sidebar__menu-badge">{{ badge }}</span>

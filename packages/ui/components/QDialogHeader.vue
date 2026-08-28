@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // QDialogHeader — header de la modale : titre + description + bouton fermer (équivalent DialogHeader/Title/Close).
 import { inject } from "vue"
-import { X } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { qDialogKey } from "./QDialog.vue"
 
 interface Props {
@@ -33,7 +34,7 @@ const dialog = inject(qDialogKey, null)
       aria-label="Fermer"
       @click="dialog?.setOpen(false)"
     >
-      <X />
+      <Icon :icon="icons.x" aria-hidden="true" />
     </button>
     <slot />
   </div>

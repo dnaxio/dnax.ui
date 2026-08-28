@@ -1,14 +1,14 @@
 <script setup lang="ts">
 // QNavMenuItem — lien/bouton de navigation (équivalent NavigationMenuLink).
 import { computed, inject } from "vue"
-import type { Component } from "vue"
+import { Icon } from "@iconify/vue"
 import { cn } from "../lib/utils"
 import { qNavMenuKey } from "./QNavMenu.vue"
 
 interface Props {
   label?: string
-  /** Icône Lucide */
-  icon?: Component
+  /** Icône Iconify (ex. : "lucide:home") */
+  icon?: string
   /** Lien natif (<a>) ; sinon bouton */
   href?: string
   /** État actif (aria-current="page") */
@@ -53,7 +53,7 @@ const itemClasses = computed(() =>
     :aria-current="active ? 'page' : undefined"
     @click="onClick"
   >
-    <component :is="icon" v-if="icon" class="q-nav-menu__item-icon" aria-hidden="true" />
+    <Icon :icon="icon" v-if="icon" class="q-nav-menu__item-icon" aria-hidden="true" />
     <span v-if="label" class="q-nav-menu__item-label">{{ label }}</span>
     <slot v-else />
   </component>

@@ -1,3 +1,8 @@
 {
-  "extends": "./.nuxt/tsconfig.json"
+  // Config autonome (non solution-style) : hérite du programme Nuxt généré
+  // pour que vtsls/Volar charge les composants globaux (.nuxt/types/components.d.ts)
+  // et leurs props — nécessaire à l'auto-complétion des composants dnax.ui dans Zed.
+  "extends": "./.nuxt/tsconfig.app.json",
+  // files prime sur exclude : ré-inclut nuxt.config.ts (exclu par tsconfig.app.json)
+  "files": ["./nuxt.config.ts"]
 }

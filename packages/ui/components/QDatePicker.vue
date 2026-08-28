@@ -3,7 +3,8 @@
 // <q-date-picker v-model="date" mode="sheet" label="Échéance" clearable outlined />
 // Modes : inline (calendrier en place) | modal (centré) | sheet (bottom sheet) | dialog (plein écran).
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
-import { CalendarDays, ChevronDown, X } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import QDateCalendar from "./internal/QDateCalendar.vue"
 
@@ -174,7 +175,7 @@ onBeforeUnmount(() => {
     <template v-else>
       <label v-if="label && stackLabel" class="q-field__label-stack">{{ label }}</label>
       <div class="q-field__control" @click="openPopup">
-        <CalendarDays class="q-date-picker__field-icon" aria-hidden="true" />
+        <Icon :icon="icons.calendarDays" class="q-date-picker__field-icon" aria-hidden="true" />
         <span class="q-select__display" :class="{ 'q-select__display--placeholder': !displayText }">
           {{ displayText || placeholder }}
         </span>
@@ -186,7 +187,7 @@ onBeforeUnmount(() => {
           aria-label="Effacer"
           @click.stop="onClear"
         >
-          <X />
+          <Icon :icon="icons.x" aria-hidden="true" />
         </button>
         <ChevronDown class="q-select__arrow" :class="{ 'q-select__arrow--rotated': open }" aria-hidden="true" />
       </div>
@@ -223,7 +224,7 @@ onBeforeUnmount(() => {
                   :aria-label="`Fermer ${sheetTitle}`"
                   @click="closePopup"
                 >
-                  <X />
+                  <Icon :icon="icons.x" aria-hidden="true" />
                 </button>
               </div>
               <div class="q-date-picker__sheet-body">

@@ -1,17 +1,16 @@
 <script lang="ts">
 // QActionSheet — action sheet type iOS : <q-action-sheet v-model="open" :options="opts" @select="onSelect" />
 // Options passées en props, événement select à la sélection (ferme puis émet).
-import type { Component } from "vue"
 
 export interface ActionSheetOption {
   /** Libellé affiché */
   label: string
   /** Valeur émise par @select ; si absente, l'option elle-même est émise */
   value?: any
-  /** Icône Lucide à gauche */
-  icon?: Component
-  /** Icône Lucide à droite */
-  iconRight?: Component
+  /** Icône Iconify à gauche (ex. : "lucide:star") */
+  icon?: string
+  /** Icône Iconify à droite */
+  iconRight?: string
   /** Couleur du texte (token ou hex) */
   color?: string
   /** Sous-texte descriptif */
@@ -21,6 +20,7 @@ export interface ActionSheetOption {
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, watch } from "vue"
+import { Icon } from "@iconify/vue"
 import { colorValue } from "../lib/colors"
 
 interface Props {
@@ -131,12 +131,12 @@ const panelClasses = computed(() => [
               :style="optionStyle(opt)"
               @click="onSelect(opt)"
             >
-              <component :is="opt.icon" v-if="opt.icon" class="q-action-sheet__option-icon" aria-hidden="true" />
+              <Icon :icon="opt.icon" v-if="opt.icon" class="q-action-sheet__option-icon" aria-hidden="true" />
               <span class="q-action-sheet__option-text">
                 <span class="q-action-sheet__option-label">{{ opt.label }}</span>
                 <span v-if="opt.description" class="q-action-sheet__option-description">{{ opt.description }}</span>
               </span>
-              <component :is="opt.iconRight" v-if="opt.iconRight" class="q-action-sheet__option-icon" aria-hidden="true" />
+              <Icon :icon="opt.iconRight" v-if="opt.iconRight" class="q-action-sheet__option-icon" aria-hidden="true" />
             </button>
           </div>
 

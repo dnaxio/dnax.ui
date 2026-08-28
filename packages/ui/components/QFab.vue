@@ -11,8 +11,8 @@ export const qFabKey: InjectionKey<QFabContext> = Symbol("q-fab")
 
 <script setup lang="ts">
 import { computed, provide, ref } from "vue"
-import type { Component } from "vue"
-import { Plus } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { colorValue, foregroundFor } from "../lib/colors"
 
 type FabPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right"
@@ -22,8 +22,8 @@ interface Props {
   modelValue?: boolean
   /** Position du FAB à l'écran */
   position?: FabPosition
-  /** Icône Lucide du bouton principal (rotation 45° à l'ouverture : + → ×) */
-  icon?: Component
+  /** Icône Iconify du bouton principal (défaut : lucide:plus — rotation 45° à l'ouverture) */
+  icon?: string
   /** Couleur du bouton principal (token ou hex) */
   color?: string
   disable?: boolean
@@ -32,7 +32,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   modelValue: false,
   position: "bottom-right",
-  icon: Plus,
+  icon: icons.plus,
   color: "primary",
   disable: false,
 })
@@ -74,7 +74,7 @@ const mainStyle = computed<Record<string, string>>(() => ({
       :disabled="disable"
       @click="toggle"
     >
-      <component :is="icon" aria-hidden="true" />
+      <Icon :icon="icon" aria-hidden="true" />
     </button>
   </div>
 </template>

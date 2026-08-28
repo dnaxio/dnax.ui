@@ -2,7 +2,7 @@
 // QBtn — API Quasar : <q-btn flat dense outline rounded no-caps label="…" icon="…" />
 // Implémentation shadcn-vue : cva (variants) + cn() ; styles dans styles/main.css
 import { computed } from "vue"
-import type { Component } from "vue"
+import { Icon } from "@iconify/vue"
 import { cva } from "class-variance-authority"
 import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
@@ -26,10 +26,10 @@ const SIZE_TOKENS = ["sm", "md", "lg", "xl"] as const
 interface Props {
   /** Texte du bouton (sinon contenu du slot) */
   label?: string
-  /** Icône Lucide à gauche du label */
-  icon?: Component
-  /** Icône Lucide à droite du label */
-  iconRight?: Component
+  /** Icône Iconify à gauche du label (ex. : "lucide:download") */
+  icon?: string
+  /** Icône Iconify à droite du label */
+  iconRight?: string
   /** Couleur : token (primary, secondary, negative…) ou hex (#1976d2) */
   color?: string
   /** Couleur du texte : token ou hex */
@@ -136,9 +136,9 @@ const btnClasses = computed(() =>
     :style="[sizeStyle, colorStyle, roundedStyle]"
   >
     <span v-if="loading" class="q-btn__spinner" aria-hidden="true" />
-    <component :is="icon" v-else-if="icon" class="q-btn__icon" aria-hidden="true" />
+    <Icon v-else-if="icon" :icon="icon" class="q-btn__icon" aria-hidden="true" />
     <span v-if="label" class="q-btn__label">{{ label }}</span>
     <slot v-else />
-    <component :is="iconRight" v-if="iconRight && !loading" class="q-btn__icon" aria-hidden="true" />
+    <Icon v-if="iconRight && !loading" :icon="iconRight" class="q-btn__icon" aria-hidden="true" />
   </component>
 </template>

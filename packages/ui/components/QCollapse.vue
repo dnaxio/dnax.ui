@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// QCollapse — API Quasar (pattern QExpansionItem) : <q-collapse v-model label="…" icon="…" caption dense>
+// QCollapse — API Quasar (pattern QExpansionItem) : <q-collapse v-model label="…" icon-left="…" icon-right="…" caption dense>
 // Équivalent du Collapsible shadcn-vue : animation de hauteur via CSS grid (0fr → 1fr).
-import { computed, ref } from "vue"
-import type { Component } from "vue"
-import { ChevronDown } from "@lucide/vue"
+import { computed, nextTick, onMounted, ref, watch } from "vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 
 let collapseSeq = 0
@@ -17,10 +17,12 @@ interface Props {
   label?: string
   /** Sous-titre du header */
   caption?: string
-  /** Icône Lucide à gauche du label */
-  icon?: Component
-  /** Icône Lucide du chevron (défaut : chevron-down) */
-  expandIcon?: Component
+  /** Icône Iconify à gauche du label */
+  iconLeft?: string
+  /** Icône Iconify à droite du label (avant le chevron) */
+  iconRight?: string
+  /** Icône Iconify du chevron (défaut : lucide:chevron-down) */
+  expandIcon?: string
   headerClass?: string
   /** Hauteur réduite */
   dense?: boolean
@@ -61,6 +63,38 @@ const headerClasses = computed(() =>
     props.headerClass,
   ),
 )
+
+// — Contenu repliable : hauteur mesurée (pattern shadcn/reka-ui) —
+const rootEl = ref<HTMLElement | null>(null)
+const innerEl = ref<HTMLElement | null>(null)
+const contentHeight = ref(0)
+const measured = ref(false)
+
+const measure = () => {
+  const inner = innerEl.value
+  if (inner) {
+    contentHeight.value = inner.scrollHeight
+    measured.value = true
+  }
+}
+
+const contentStyle = computed<Record<string, string> | undefined>(() => {
+  if (!open.value) return { height: "0px" }
+  return measured.value ? { height: `${contentHeight.value}px` } : undefined
+})
+
+watch(open, async (v) => {
+  if (v) {
+    await nextTick()
+    measure()
+  }
+})
+
+const onTransitionEnd = () => {
+  if (open.value && rootEl.value) rootEl.value.style.height = "auto"
+}
+
+onMounted(measure)
 </script>
 
 <template>
@@ -76,22 +110,30 @@ const headerClasses = computed(() =>
     >
       <span class="q-collapse__header-inner">
         <slot name="header">
-          <component :is="icon" v-if="icon" class="q-collapse__lead-icon" aria-hidden="true" />
+          <Icon :icon="iconLeft" v-if="iconLeft" class="q-collapse__lead-icon" aria-hidden="true" />
           <span class="q-collapse__titles">
             <span v-if="label" class="q-collapse__label">{{ label }}</span>
             <span v-if="caption" class="q-collapse__caption">{{ caption }}</span>
           </span>
+          <Icon :icon="iconRight" v-if="iconRight" class="q-collapse__icon-right" aria-hidden="true" />
         </slot>
       </span>
-      <component
-        :is="expandIcon || ChevronDown"
+      <Icon
+        :icon="expandIcon || icons.chevronDown"
         class="q-collapse__expand"
         :class="{ 'q-collapse__expand--rotated': open }"
         aria-hidden="true"
       />
     </button>
-    <div :id="uid" class="q-collapse__content" :class="{ 'q-collapse__content--open': open }">
-      <div class="q-collapse__inner">
+    <div
+      ref="rootEl"
+      :id="uid"
+      class="q-collapse__content"
+      :class="{ 'q-collapse__content--open': open }"
+      :style="contentStyle"
+      @transitionend="onTransitionEnd"
+    >
+      <div ref="innerEl" class="q-collapse__inner">
         <slot />
       </div>
     </div>

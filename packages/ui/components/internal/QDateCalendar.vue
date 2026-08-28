@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // QDateCalendar — calendrier interne (non exporté) utilisé par QDatePicker (inline + panneau).
 import { computed, ref, watch } from "vue"
-import { ChevronLeft, ChevronRight } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../../lib/icons"
 import { cn } from "../../lib/utils"
 
 interface Props {
@@ -111,7 +112,7 @@ const onSelectDate = (d: Date) => {
         aria-label="Mois précédent"
         @click="prevMonth"
       >
-        <ChevronLeft />
+        <Icon :icon="icons.chevronLeft" aria-hidden="true" />
       </button>
       <span class="q-date-calendar__nav-label">{{ monthLabel }}</span>
       <button
@@ -120,7 +121,7 @@ const onSelectDate = (d: Date) => {
         aria-label="Mois suivant"
         @click="nextMonth"
       >
-        <ChevronRight />
+        <Icon :icon="icons.chevronRight" aria-hidden="true" />
       </button>
     </div>
 

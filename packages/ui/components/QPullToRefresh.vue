@@ -2,8 +2,8 @@
 // QPullToRefresh — tirer pour rafraîchir : <q-pull-to-refresh @refresh="(done) => { ...; done() }">
 // Conteneur scrollable ; geste de traction quand scrollTop = 0 → indicateur + refresh.
 import { computed, ref } from "vue"
-import type { Component } from "vue"
-import { RefreshCw } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { colorValue } from "../lib/colors"
 
 interface Props {
@@ -13,8 +13,8 @@ interface Props {
   color?: string
   /** Distance (px) de traction avant déclenchement */
   pullBack?: number
-  /** Icône Lucide de l'indicateur */
-  icon?: Component
+  /** Icône Iconify de l'indicateur (défaut : lucide:refresh-cw) */
+  icon?: string
   disable?: boolean
 }
 
@@ -118,7 +118,7 @@ const rootClasses = computed(() => [
       </template>
       <template v-else>
         <slot name="pulling" :position="pullDistance">
-          <component :is="icon || RefreshCw" class="q-pull-to-refresh__icon" :style="iconStyle" aria-hidden="true" />
+          <Icon :icon="icon || icons.refreshCw" class="q-pull-to-refresh__icon" :style="iconStyle" aria-hidden="true" />
         </slot>
       </template>
     </div>

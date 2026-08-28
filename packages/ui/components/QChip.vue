@@ -2,20 +2,20 @@
 // QChip — API Quasar : <q-chip label="Chip" icon="…" removable color="secondary" outline square dense>
 // removable → bouton de retrait qui émet "remove"
 import { computed } from "vue"
-import type { Component } from "vue"
-import { X } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { colorValue, foregroundFor } from "../lib/colors"
 
 interface Props {
   /** Texte */
   label?: string
-  /** Icône Lucide à gauche */
-  icon?: Component
-  /** Icône Lucide à droite */
-  iconRight?: Component
-  /** Icône Lucide du bouton de retrait (défaut : ×) */
-  iconRemove?: Component
+  /** Icône Iconify à gauche (ex. : "lucide:star") */
+  icon?: string
+  /** Icône Iconify à droite */
+  iconRight?: string
+  /** Icône Iconify du bouton de retrait (défaut : lucide:x) */
+  iconRemove?: string
   /** Affiche le bouton de retrait */
   removable?: boolean
   /** Contour seul */
@@ -74,10 +74,10 @@ const onRemove = () => {
 
 <template>
   <div class="q-chip" :class="chipClasses" :style="chipStyle" @click="onClick">
-    <component :is="icon" v-if="icon" class="q-chip__icon" aria-hidden="true" />
+    <Icon :icon="icon" v-if="icon" class="q-chip__icon" aria-hidden="true" />
     <span v-if="label" class="q-chip__label">{{ label }}</span>
     <slot v-else />
-    <component :is="iconRight" v-if="iconRight" class="q-chip__icon q-chip__icon--right" aria-hidden="true" />
+    <Icon :icon="iconRight" v-if="iconRight" class="q-chip__icon q-chip__icon--right" aria-hidden="true" />
     <button
       v-if="removable"
       class="q-chip__remove"
@@ -85,7 +85,7 @@ const onRemove = () => {
       aria-label="Retirer"
       @click.stop="onRemove"
     >
-      <component :is="iconRemove || X" />
+      <Icon :icon="iconRemove || icons.x" />
     </button>
   </div>
 </template>

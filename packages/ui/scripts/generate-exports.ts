@@ -24,5 +24,24 @@ const exports = files
   )
   .join("\n")
 
-await Bun.write(indexFile, `${exports}\n`)
+// Exports manuels (composables / helpers) — conservés à chaque régénération
+const manualExports = `
+export { $q, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet } from "./lib/q"
+export type {
+  DialogOptions,
+  DialogController,
+  BottomSheetOptions,
+  BottomSheetController,
+  NotifyOptions,
+  NotifyController,
+} from "./lib/q"
+export { platform, qBreakpoints } from "./lib/platform"
+export type { QPlatform } from "./lib/platform"
+export { screen } from "./lib/screen"
+export type { QScreen } from "./lib/screen"
+export { loading } from "./lib/loading"
+export type { LoadingOptions, QLoading } from "./lib/loading"
+`
+
+await Bun.write(indexFile, `${exports}\n${manualExports}`)
 console.log(`✓ ${files.length} composant(s) exporté(s) dans index.ts`)

@@ -1,14 +1,14 @@
 <script setup lang="ts">
 // QAccordionTrigger — bouton d'ouverture (équivalent AccordionTrigger).
 import { computed, inject } from "vue"
-import type { Component } from "vue"
-import { ChevronDown } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { qAccordionItemKey, qAccordionKey } from "./QAccordion.vue"
 
 interface Props {
   label?: string
-  /** Icône Lucide du chevron */
-  expandIcon?: Component
+  /** Icône Iconify du chevron (défaut : lucide:chevron-down) */
+  expandIcon?: string
   disable?: boolean
 }
 
@@ -41,8 +41,8 @@ const toggle = () => {
       <span v-if="label" class="q-accordion__trigger-label">{{ label }}</span>
       <slot />
     </span>
-    <component
-      :is="expandIcon || ChevronDown"
+    <Icon
+      :icon="expandIcon || icons.chevronDown"
       class="q-accordion__trigger-icon"
       :class="{ 'q-accordion__trigger-icon--rotated': isOpen }"
       aria-hidden="true"

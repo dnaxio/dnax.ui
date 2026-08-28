@@ -1,0 +1,97 @@
+body,
+html {
+  font-family: "Manrope", sans-serif;
+}
+
+/* ===== Dark mode : overrides des pages docs =====
+   La classe .dark est posée sur <html> par QConfigProvider (mode dark/system).
+   html.dark prime sur les styles scoped (spécificité supérieure). */
+html.dark {
+  color-scheme: dark;
+}
+
+/* — Surfaces — */
+html.dark .docs-content,
+html.dark .section,
+html.dark .cta,
+html.dark .docs-cat,
+html.dark .docs-card__text {
+  background-color: var(--background);
+}
+
+html.dark .section--alt {
+  background-color: var(--muted);
+}
+
+html.dark .doc-preview {
+  background-color: var(--muted);
+  border-color: var(--border);
+}
+
+html.dark .demo-block {
+  border-color: var(--border);
+}
+
+html.dark .demo-block__tabs {
+  background-color: var(--muted);
+}
+
+html.dark .demo-block__preview {
+  background-color: var(--muted);
+}
+
+html.dark .doc-table-wrap,
+html.dark .docs-cat {
+  border-color: var(--border);
+}
+
+html.dark .doc-table th {
+  background-color: var(--muted);
+  color: #8b93a1;
+}
+
+html.dark .doc-table td {
+  border-color: var(--border);
+}
+
+html.dark .cta-card {
+  background: linear-gradient(135deg, #16202e, #221b33);
+  border-color: var(--border);
+}
+
+html.dark .doc-tag {
+  background: rgba(79, 195, 247, 0.14);
+}
+
+/* — Texte secondaire (#5b6472 → gris clair) — */
+html.dark .feature-text,
+html.dark .demo-p,
+html.dark .slider-label,
+html.dark .cta-text,
+html.dark .docs-home__sub,
+html.dark .docs-home__empty,
+html.dark .docs-card__text,
+html.dark .doc-lead,
+html.dark .doc-note,
+html.dark .guide__lead,
+html.dark .guide__note,
+html.dark .doc-missing-text {
+  color: #9aa4b2;
+}
+
+/* — Chips de code inline — */
+html.dark .guide__note code,
+html.dark .doc-note code,
+html.dark .doc-lead code,
+html.dark .docs-home__sub code,
+html.dark .docs-card__text code,
+html.dark .demo-p code {
+  background: rgba(79, 195, 247, 0.14);
+  color: #7cb8f7;
+}
+
+/* — Boutons de la landing sur fond clair → couleurs ajustées — */
+html.dark .hero-sub code {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}

@@ -29,8 +29,8 @@ export interface UseSearchOptions {
 // Sélection unique ou multiple, recherche client (simple ou floue fuse.js, serveur via @filter), chips, emit-value.
 // Modes : inline (dropdown) | modal (centré) | sheet (bottom sheet) | dialog (plein écran) — options par mode via sheetOptions/modalOptions/inlineOptions.
 import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
-import type { Component } from "vue"
-import { Check, ChevronDown, Search, X } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
@@ -78,8 +78,8 @@ interface Props {
   readonly?: boolean
   loading?: boolean
   noOptionsLabel?: string
-  /** Icône Lucide de la flèche */
-  dropdownIcon?: Component
+  /** Icône Iconify de la flèche (défaut : lucide:chevron-down) */
+  dropdownIcon?: string
   /** Recherche floue fuse.js : true (défauts) ou { keys, threshold } — champ de recherche séparé affiché avant la liste */
   useSearch?: boolean | UseSearchOptions
   /** Placeholder du champ de recherche (useSearch) */
@@ -501,7 +501,7 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
           :aria-label="`Retirer ${getOptionLabel(opt)}`"
           @click.stop="remove(opt)"
         >
-          <X />
+          <Icon :icon="icons.x" aria-hidden="true" />
         </button>
       </span>
 
@@ -539,10 +539,10 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
         aria-label="Effacer"
         @click.stop="clear"
       >
-        <X />
+        <Icon :icon="icons.x" aria-hidden="true" />
       </button>
-      <component
-        :is="dropdownIcon || ChevronDown"
+      <Icon
+        :icon="dropdownIcon || icons.chevronDown"
         class="q-select__arrow"
         :class="{ 'q-select__arrow--rotated': open }"
         aria-hidden="true"
@@ -572,7 +572,7 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
       @mousedown.prevent
     >
       <div v-if="searchEnabled && !useInput" class="q-select__search" @mousedown.stop>
-        <Search class="q-select__search-icon" aria-hidden="true" />
+        <Icon :icon="icons.search" class="q-select__search-icon" aria-hidden="true" />
         <input
           class="q-select__search-input"
           :value="query"
@@ -598,7 +598,7 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
           <slot :opt="opt" :index="i" :selected="isSelected(opt)">
             <span class="q-select__option-label">{{ getOptionLabel(opt) }}</span>
           </slot>
-          <component :is="Check" v-if="multiple && isSelected(opt)" class="q-select__check" aria-hidden="true" />
+          <Icon :icon="icons.check" v-if="multiple && isSelected(opt)" class="q-select__check" aria-hidden="true" />
         </div>
       </template>
       <div v-else class="q-select__empty">
@@ -633,11 +633,11 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
                 :aria-label="`Fermer ${sheetTitle}`"
                 @click="closePopup"
               >
-                <X />
+                <Icon :icon="icons.x" aria-hidden="true" />
               </button>
             </div>
             <div v-if="showSheetSearchTop" class="q-select__search">
-              <Search class="q-select__search-icon" aria-hidden="true" />
+              <Icon :icon="icons.search" class="q-select__search-icon" aria-hidden="true" />
               <input
                 class="q-select__search-input"
                 :value="query"
@@ -670,7 +670,7 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
                   <slot :opt="opt" :index="i" :selected="isSelected(opt)">
                     <span class="q-select__option-label">{{ getOptionLabel(opt) }}</span>
                   </slot>
-                  <component :is="Check" v-if="multiple && isSelected(opt)" class="q-select__check" aria-hidden="true" />
+                  <Icon :icon="icons.check" v-if="multiple && isSelected(opt)" class="q-select__check" aria-hidden="true" />
                 </div>
               </template>
               <div v-else class="q-select__empty">
@@ -678,7 +678,7 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
               </div>
             </div>
             <div v-if="showSheetSearchBottom" class="q-select__search q-select__search--sheet-bottom">
-              <Search class="q-select__search-icon" aria-hidden="true" />
+              <Icon :icon="icons.search" class="q-select__search-icon" aria-hidden="true" />
               <input
                 class="q-select__search-input"
                 :value="query"

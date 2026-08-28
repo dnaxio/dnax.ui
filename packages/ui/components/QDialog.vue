@@ -12,6 +12,7 @@ export const qDialogKey: InjectionKey<DialogContext> = Symbol("q-dialog")
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, provide, watch } from "vue"
+import type { StyleValue } from "vue"
 import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
@@ -34,7 +35,8 @@ interface Props {
   fullWidth?: boolean
   fullHeight?: boolean
   contentClass?: string
-  contentStyle?: string
+  /** Style(s) du panneau — string, objet ou tableau (comme la prop style de Vue) */
+  contentStyle?: StyleValue
   noBackdropDismiss?: boolean
   noEscDismiss?: boolean
   /** Animation : fade | zoom | slide-up | slide-down | slide-left | slide-right (sinon basée sur position) */

@@ -3,7 +3,8 @@
 // Sélection d'images via input file masqué, avec aperçu en grille (object URLs),
 // suppression par tuile et validation (type, taille, nombre).
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue"
-import { ImagePlus, X } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 
 interface Props {
@@ -210,7 +211,7 @@ const containerClasses = computed(() => cn("q-image-picker", props.disable && "q
           aria-label="Retirer l'image"
           @click="removeFile(file)"
         >
-          <X />
+          <Icon :icon="icons.x" aria-hidden="true" />
         </button>
       </div>
 
@@ -221,7 +222,7 @@ const containerClasses = computed(() => cn("q-image-picker", props.disable && "q
         :disabled="disable"
         @click="pick"
       >
-        <ImagePlus class="q-image-picker__add-icon" />
+        <Icon :icon="icons.imagePlus" class="q-image-picker__add-icon" />
         <span v-if="defaultAddLabel" class="q-image-picker__add-label">{{ defaultAddLabel }}</span>
       </button>
     </div>

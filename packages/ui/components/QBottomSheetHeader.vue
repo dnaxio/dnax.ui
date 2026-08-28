@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // QBottomSheetHeader — header du panneau : titre + description + bouton fermer (équivalent DrawerHeader/DrawerTitle).
 import { inject } from "vue"
-import { X } from "@lucide/vue"
+import { Icon } from "@iconify/vue"
+import { icons } from "../lib/icons"
 import { qBottomSheetKey } from "./QBottomSheet.vue"
 
 interface Props {
@@ -27,7 +28,7 @@ const sheet = inject(qBottomSheetKey, null)
       aria-label="Fermer"
       @click="sheet?.setOpen(false)"
     >
-      <X />
+      <Icon :icon="icons.x" aria-hidden="true" />
     </button>
     <slot />
   </div>
