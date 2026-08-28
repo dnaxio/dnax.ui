@@ -37,6 +37,15 @@ const fixedCode = `<q-header fixed>
     <q-btn flat dense round icon="lucide:more-vertical" aria-label="More" />
   </q-toolbar>
 </q-header>`
+
+const bestPracticeCode = `<q-header fixed>
+  <q-toolbar>
+    <q-icon name="lucide:arrow-left" color="primary" size="22px" />
+    <span class="title">Page title</span>
+    <q-space />
+    <q-btn flat round dense icon="lucide:more-vertical" aria-label="More" />
+  </q-toolbar>
+</q-header>`
 </script>
 
 <template>
@@ -50,9 +59,25 @@ const fixedCode = `<q-header fixed>
       A top bar for titles and actions.
       <b>&lt;q-header&gt;</b> sits in the page flow by default, or pins to the top of
       the viewport with <code>fixed</code> — the iOS safe-area insets (top, left,
-      right) are applied automatically. Pairs naturally with
-      <code>&lt;q-toolbar&gt;</code>.
+      right) are applied automatically. Always pair it with
+      <b>&lt;q-toolbar&gt;</b> inside (see the best practice below).
     </p>
+
+    <!-- ═══════ Best practice ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Best practice — always use a toolbar</h2>
+      <p class="doc-note">
+        <b>&lt;q-header&gt;</b> is a bare bar — wrap its content in a
+        <b>&lt;q-toolbar&gt;</b> to get the standard height and padding, the
+        <code>q-space</code> layout helper and consistent alignment. Every header
+        in this page follows that pattern:
+      </p>
+      <q-syntax :code="bestPracticeCode" lang="html" filename="App.vue" copy />
+      <p class="doc-note">
+        See the <a class="doc-link" href="/docs/components/toolbar">Toolbar</a>
+        page for the toolbar's own API and options.
+      </p>
+    </section>
 
     <!-- ═══════ Basic ═══════ -->
     <section class="doc-section">
@@ -196,6 +221,14 @@ const fixedCode = `<q-header fixed>
   padding: 1px 5px;
   border-radius: 5px;
   font-size: 0.92em;
+}
+.doc-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+.doc-link:hover {
+  text-decoration: underline;
 }
 
 /* — Scène simulant une page avec le header en haut — */

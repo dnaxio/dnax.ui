@@ -5,6 +5,8 @@
 import { computed, ref, watch } from "vue"
 import { cn } from "../lib/utils"
 import { colorValue } from "../lib/colors"
+import { radiusStyle, useRadius } from "../lib/useComponentProps"
+import type { RadiusProp } from "../lib/useComponentProps"
 
 interface Props {
   src?: string
@@ -21,6 +23,8 @@ interface Props {
   spinnerSize?: string
   /** Image placeholder (basse résolution) affichée pendant le chargement */
   placeholderSrc?: string
+  /** Coins arrondis : true = pilule, ou échelle xs|sm|md|lg (none = carré) */
+  radius?: RadiusProp
   imgClass?: string
   imgStyle?: string
 }
@@ -72,6 +76,10 @@ const imageClasses = computed(() =>
   cn("q-img__image", props.contain && "q-img__image--contain", props.imgClass),
 )
 
+// radius : prop explicite > composantProps.QImg > composantProps.default → --q-radius
+const effectiveRadius = useRadius("QImg", () => props.radius)
+const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
+
 const imageStyle = computed(() => `${props.imgStyle}; object-position: ${props.position}`)
 
 // L'image est prête (chargée) → fondu
@@ -93,7 +101,7 @@ const showLoading = computed(() => props.loading || imgLoading.value)
 </script>
 
 <template>
-  <div class="q-img" :style="containerStyle">
+  <div class="q-img" :style="[containerStyle, roundedStyle]">
     <!-- Placeholder basse résolution pendant le chargement -->
     <img
       v-if="placeholderSrc && imgLoading && !imgError"

@@ -57,7 +57,7 @@ const toggleLabel = computed(() =>
         :aria-label="toggleLabel"
         @click="show = !show"
       >
-        <Icon :icon="show ? icons.eyeOff : icons.eye" aria-hidden="true" />
+        <Icon :icon="show ? icons.eye : icons.eyeOff" aria-hidden="true" />
       </button>
     </template>
     <template v-if="$slots.prepend" #prepend><slot name="prepend" /></template>

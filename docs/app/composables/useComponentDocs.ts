@@ -18,9 +18,9 @@ export const componentSource = (exportName: string): string | undefined => {
   return bySuffix?.[1]
 }
 
-/** Balise kebab-case : QBtn → q-btn */
+/** Balise kebab-case complète : QBtn → q-btn, QInputPassword → q-input-password */
 export const componentTag = (exportName: string) =>
-  exportName.replace(/^Q/, "").replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()
+  `q-${exportName.replace(/^Q/, "").replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()}`
 
 const typeName = (t: unknown): string => {
   const list = Array.isArray(t) ? t : t ? [t] : []

@@ -14,7 +14,11 @@ const openGroups = ref<Record<string, boolean>>({})
 watch(
   () => route.path,
   (path) => {
-    const group = menuItems.find((g) => g.items.some((i) => i.link.split("#")[0] === path))
+    const group = menuItems.find(
+      (g) =>
+        g.items?.some((i) => i.link.split("#")[0] === path) ||
+        g.groups?.some((sub) => sub.items.some((i) => i.link.split("#")[0] === path)),
+    )
     if (group) openGroups.value[group.title] = true
   },
   { immediate: true },
@@ -54,8 +58,17 @@ watch(
               header-class="sidebar-group"
             >
               <div class="sidebar-group__items">
+                <template v-for="sub in group.groups ?? []" :key="sub.title">
+                  <q-sidebar-menu-button
+                    v-for="item in sub.items"
+                    :key="item.link"
+                    :label="item.title"
+                    :href="item.link"
+                    :active="isActive(item.link)"
+                  />
+                </template>
                 <q-sidebar-menu-button
-                  v-for="item in group.items"
+                  v-for="item in group.items ?? []"
                   :key="item.link"
                   :label="item.title"
                   :href="item.link"

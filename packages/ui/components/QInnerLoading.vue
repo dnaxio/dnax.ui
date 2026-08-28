@@ -2,6 +2,7 @@
 // QInnerLoading — overlay de chargement dans un conteneur : <q-inner-loading showing label="…" color="primary" />
 // Le parent doit être position: relative. Rendu en fondu (Transition).
 import { computed } from "vue"
+import { Icon } from "@iconify/vue"
 import { cn } from "../lib/utils"
 import { colorValue } from "../lib/colors"
 
@@ -16,6 +17,8 @@ interface Props {
   size?: string
   /** Couleur du spinner (token ou hex) */
   color?: string
+  /** Icône Iconify en rotation (sinon spinner CSS) */
+  icon?: string
   /** Fond sombre */
   dark?: boolean
 }
@@ -24,6 +27,7 @@ const props = withDefaults(defineProps<Props>(), {
   showing: false,
   size: "md",
   color: "primary",
+  icon: "",
   dark: false,
 })
 
@@ -48,7 +52,14 @@ const overlayClasses = computed(() => cn("q-inner-loading", props.dark && "q-inn
       aria-live="polite"
     >
       <slot>
-        <span class="q-spinner" :style="spinnerStyle" aria-hidden="true" />
+        <Icon
+          v-if="icon"
+          :icon="icon"
+          class="q-inner-loading__icon"
+          :style="spinnerStyle"
+          aria-hidden="true"
+        />
+        <span v-else class="q-spinner" :style="spinnerStyle" aria-hidden="true" />
         <span v-if="label" class="q-inner-loading__label">{{ label }}</span>
       </slot>
     </div>

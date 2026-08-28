@@ -6,11 +6,23 @@ import { qMessageScrollerKey } from "./QMessageScrollerProvider.vue"
 
 let itemSeq = 0
 
+/** Presets d'animation d'entrée d'un message (portés depuis ui-thing) */
+type QMessageAnimationPreset =
+  | "fade"
+  | "slide-up"
+  | "slide-side"
+  | "pop"
+  | "spring-bounce"
+  | "blur-fade"
+  | "scale-fade"
+
 interface Props {
   /** Identifiant stable (ancrage, visibilité, sauts) — auto-généré si absent */
   messageId?: string
   /** Marque cette ligne comme le début d'un tour (positionnée près du haut à l'ajout) */
   scrollAnchor?: boolean
+  /** Animation d'entrée du message à son ajout (fade, slide-up, pop, spring-bounce…) */
+  animationPreset?: QMessageAnimationPreset
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -27,7 +39,11 @@ onBeforeUnmount(() => ctx?.unregisterItem(resolvedId))
 </script>
 
 <template>
-  <div ref="el" class="q-msg-scroller__item">
+  <div
+    ref="el"
+    class="q-msg-scroller__item"
+    :class="animationPreset && `q-msg-anim-${animationPreset}`"
+  >
     <slot />
   </div>
 </template>

@@ -7,5 +7,5 @@ definePageMeta({ layout: "docs" })
 </script>
 
 <template>
-  <DocsComponentPage title="Item" export="QItem" />
+  <DocsComponentPage title="Text Caption" export="QTextCaption" />
 </template>

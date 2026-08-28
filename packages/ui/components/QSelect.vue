@@ -488,7 +488,7 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
 
 <template>
   <div ref="rootEl" class="q-select" :class="fieldClasses" :style="fieldRadiusStyle">
-    <label v-if="label && stackLabel" class="q-field__label-stack">{{ label }}</label>
+    <label v-if="label" class="q-field__label-stack">{{ label }}</label>
     <div class="q-field__control" @click="onControlClick">
       <slot name="prepend" />
 
@@ -528,8 +528,6 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
       >
         {{ displayText || placeholder }}
       </span>
-
-      <label v-if="label && !stackLabel" class="q-field__label">{{ label }}</label>
 
       <span v-if="loading" class="q-spinner q-autocomplete__spinner" aria-hidden="true" />
       <button

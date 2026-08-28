@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // QInput — API Quasar : <q-input v-model="…" label="Email" outlined dense clearable counter maxlength="60" hint error error-message />
-// Variants : outlined (défaut) | filled | borderless ; stack-label pour label au-dessus.
+// Variants : outlined (défaut) | filled | borderless ; le label est toujours affiché au-dessus du champ.
 import { computed, nextTick, ref, watch } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
@@ -12,9 +12,9 @@ interface Props {
   modelValue?: string | number | null
   /** Type de champ (text par défaut) */
   type?: "text" | "password" | "number" | "email" | "search" | "tel" | "url"
-  /** Label (flottant par défaut, au-dessus avec stackLabel) */
+  /** Label affiché au-dessus du champ */
   label?: string
-  /** Label fixé au-dessus du champ */
+  /** @deprecated Le label est toujours affiché au-dessus — cette prop est ignorée */
   stackLabel?: boolean
   /** Aide affichée sous le champ */
   hint?: string
@@ -29,6 +29,16 @@ interface Props {
   prefix?: string
   /** Suffixe dans le champ */
   suffix?: string
+  /** Icône Iconify à gauche (remplacée par le slot #prepend s'il est fourni) */
+  iconLeft?: string
+  /** Icône Iconify à droite (remplacée par le slot #append s'il est fourni) */
+  iconRight?: string
+  /** Masque de saisie : # = chiffre, A = lettre, N = alphanumérique, X = quelconque (ex. "##-##-##") */
+  mask?: string
+  /** Remplit les emplacements vides par "_" (défaut : la saisie s'arrête au dernier caractère) */
+  fillMask?: boolean
+  /** Émet la valeur sans les caractères du masque (littéraux et _) */
+  unmaskedValue?: boolean
   /** Bouton d'effacement */
   clearable?: boolean
   /** Bordure visible */
@@ -61,6 +71,8 @@ const props = withDefaults(defineProps<Props>(), {
   autogrow: false,
   disable: false,
   readonly: false,
+  fillMask: false,
+  unmaskedValue: false,
 })
 
 const emit = defineEmits<{
@@ -80,6 +92,69 @@ const effectiveRadius = useRadius("QInput", () => props.radius)
 const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
 
 const value = computed(() => props.modelValue ?? "")
+
+// ═════════ Masque de saisie : # chiffre, A lettre, N alphanumérique, X quelconque ═════════
+const isToken = (c: string): boolean => c === "#" || c === "A" || c === "N" || c === "X"
+
+const matchesToken = (tok: string, c: string): boolean =>
+  tok === "#"
+    ? /[0-9]/.test(c)
+    : tok === "A"
+      ? /[a-zA-Z]/.test(c)
+      : tok === "N"
+        ? /[0-9a-zA-Z]/.test(c)
+        : true
+
+/** Extrait les caractères réels (emplacements tokens) d'une valeur affichée masquée. */
+const unmask = (v: string, fill: boolean): string => {
+  if (!props.mask) return v
+  let out = ""
+  let vi = 0
+  for (const ch of props.mask) {
+    if (!isToken(ch)) {
+      if (v[vi] === ch) vi++ // littéral présent → on le consomme
+      continue // sinon : ne pas consommer, c'est un vrai caractère
+    }
+    if (vi >= v.length) break
+    const c = v[vi]!
+    vi++
+    if (fill && c === "_") continue // emplacement vide
+    out += c
+  }
+  return out
+}
+
+/** Applique le masque à une chaîne de caractères bruts (littéraux insérés, caractères invalides sautés). */
+const mask = (raw: string, fill: boolean): string => {
+  if (!props.mask) return raw
+  let out = ""
+  let ri = 0
+  for (const ch of props.mask) {
+    // Plus de caractères bruts (sans fill) → on s'arrête (pas de littéraux de fin)
+    if (ri >= raw.length && !fill) break
+    if (!isToken(ch)) {
+      out += ch
+      continue
+    }
+    while (ri < raw.length && !matchesToken(ch, raw[ri]!)) ri++
+    if (ri >= raw.length) {
+      if (fill) out += "_"
+      else break
+      continue
+    }
+    out += raw[ri]!
+    ri++
+  }
+  return out
+}
+
+/** Valeur affichée dans le champ : applique le masque au modelValue (brut si unmaskedValue). */
+const displayValue = computed(() => {
+  const v = String(props.modelValue ?? "")
+  if (!props.mask) return v
+  const raw = props.unmaskedValue ? v : unmask(v, props.fillMask)
+  return mask(raw, props.fillMask)
+})
 
 const floatActive = computed(() => focused.value || value.value !== "" || props.stackLabel)
 
@@ -109,7 +184,18 @@ const resizeTextarea = async () => {
 watch(value, resizeTextarea)
 
 const onInput = (e: Event) => {
-  emit("update:modelValue", (e.target as HTMLInputElement | HTMLTextAreaElement).value)
+  const el = e.target as HTMLInputElement | HTMLTextAreaElement
+  const raw = el.value
+  if (!props.mask) {
+    emit("update:modelValue", raw)
+    return
+  }
+  const masked = mask(unmask(raw, props.fillMask), props.fillMask)
+  emit("update:modelValue", props.unmaskedValue ? unmask(masked, props.fillMask) : masked)
+  // Replique le texte masqué dans le champ et remet le caret à la fin
+  el.value = masked
+  const len = masked.length
+  el.setSelectionRange?.(len, len)
 }
 
 const onFocus = (e: FocusEvent) => {
@@ -143,16 +229,17 @@ const inputAttrs = computed(() => ({
 
 <template>
   <div class="q-input" :class="fieldClasses" :style="roundedStyle">
-    <label v-if="label && stackLabel" class="q-field__label-stack">{{ label }}</label>
+    <label v-if="label" class="q-field__label-stack">{{ label }}</label>
     <div class="q-field__control">
-      <slot name="prepend" />
+      <slot name="prepend">
+        <Icon v-if="iconLeft" :icon="iconLeft" class="q-field__icon" aria-hidden="true" />
+      </slot>
       <span v-if="prefix" class="q-field__prefix">{{ prefix }}</span>
-      <label v-if="label && !stackLabel" class="q-field__label">{{ label }}</label>
       <textarea
         v-if="autogrow"
         ref="nativeEl"
         class="q-field__native"
-        :value="value"
+        :value="displayValue"
         rows="1"
         v-bind="inputAttrs"
         @input="onInput"
@@ -165,7 +252,7 @@ const inputAttrs = computed(() => ({
         v-else
         ref="nativeEl"
         class="q-field__native"
-        :value="value"
+        :value="displayValue"
         v-bind="inputAttrs"
         @input="onInput"
         @focus="onFocus"
@@ -183,7 +270,9 @@ const inputAttrs = computed(() => ({
       >
         <Icon :icon="icons.x" aria-hidden="true" />
       </button>
-      <slot name="append" />
+      <slot name="append">
+        <Icon v-if="iconRight" :icon="iconRight" class="q-field__icon" aria-hidden="true" />
+      </slot>
     </div>
     <div class="q-field__bottom">
       <div v-if="error" class="q-field__error">

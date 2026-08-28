@@ -5,7 +5,10 @@ import { menuItems, type MenuItem } from "~/data/menu"
 
 definePageMeta({ layout: "docs" })
 
-const allItems = menuItems.flatMap((g) => g.items)
+const allItems = menuItems.flatMap((g) => [
+  ...(g.items ?? []),
+  ...(g.groups?.flatMap((sub) => sub.items) ?? []),
+])
 const componentCount = allItems.length
 
 // — Recherche (filtre les catégories) —
@@ -14,8 +17,14 @@ const filteredGroups = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return menuItems
   return menuItems
-    .map((g) => ({ ...g, items: g.items.filter((i) => i.title.toLowerCase().includes(q)) }))
-    .filter((g) => g.items.length > 0)
+    .map((g) => {
+      const items = (g.items ?? []).filter((i) => i.title.toLowerCase().includes(q))
+      const groups = (g.groups ?? [])
+        .map((sub) => ({ ...sub, items: sub.items.filter((i) => i.title.toLowerCase().includes(q)) }))
+        .filter((sub) => sub.items.length > 0)
+      return { ...g, items, groups }
+    })
+    .filter((g) => (g.items?.length ?? 0) > 0 || (g.groups?.length ?? 0) > 0)
 })
 const hasResults = computed(() => filteredGroups.value.length > 0)
 
@@ -71,8 +80,20 @@ const mostUsed = ["QBtn", "QInput", "QSelect", "QTable", "QCard"]
         <div v-for="group in filteredGroups" :key="group.title" class="docs-cat">
           <h3 class="docs-cat__title">{{ group.title }}</h3>
           <div class="docs-cat__links">
+            <template v-for="sub in group.groups ?? []" :key="sub.title">
+              <q-btn
+                v-for="item in sub.items"
+                :key="item.link"
+                flat
+                dense
+                no-caps
+                color="primary"
+                :label="item.title"
+                :href="item.link"
+              />
+            </template>
             <q-btn
-              v-for="item in group.items"
+              v-for="item in group.items ?? []"
               :key="item.link"
               flat
               dense

@@ -243,7 +243,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="rootEl" class="q-autocomplete" :class="fieldClasses" :style="roundedStyle">
-    <label v-if="label && stackLabel" class="q-field__label-stack">{{ label }}</label>
+    <label v-if="label" class="q-field__label-stack">{{ label }}</label>
     <div class="q-field__control">
       <input
         class="q-field__native"

@@ -11,9 +11,11 @@ const img = useComponent(() => "QImg")
 const imgSource = componentSource("QImg")
 const tag = componentTag("QImg")
 
-const photo = "https://picsum.photos/seed/dnax/800/450"
-const thumb = "https://picsum.photos/seed/dnax/80/45"
-const portrait = "https://picsum.photos/seed/dnax2/600/800"
+const photo =
+  "https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+// Même image en basse résolution (blur-up) : w=40 & q=40
+const thumb =
+  "https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=40&w=40&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
 
 // — Démos —
 const forcedLoading = ref(false)
@@ -22,10 +24,10 @@ const toggleLoading = () => {
   setTimeout(() => (forcedLoading.value = false), 2200)
 }
 
-const basicCode = `<q-img src="https://picsum.photos/seed/dnax/800/450" ratio="16/9" />`
+const basicCode = `<q-img src="https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" ratio="16/9" />`
 
 const loadingCode = `<q-img
-  src="https://picsum.photos/seed/dnax/800/450"
+  src="https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
   ratio="16/9"
   :loading="loading"
   spinner-color="primary"
@@ -33,11 +35,19 @@ const loadingCode = `<q-img
 />`
 
 const placeholderCode = `<q-img
-  src="https://picsum.photos/seed/dnax/800/450"
-  placeholder-src="https://picsum.photos/seed/dnax/80/45"
+  src="https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  placeholder-src="https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=40&w=40&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
   ratio="16/9"
 />
 <!-- the low-res placeholder shows while the full image loads, then fades out -->`
+
+const captionCode = `<q-img
+  src="https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  ratio="16/9"
+  alt="Workspace"
+>
+  <q-text-caption position="bottom" absolute fit title="Morning workspace" subtitle="Unsplash · free to use" />
+</q-img>`
 
 const errorCode = `<q-img src="https://example.com/broken.jpg" ratio="16/9">
   <template #error>
@@ -116,6 +126,29 @@ const errorCode = `<q-img src="https://example.com/broken.jpg" ratio="16/9">
       <docs-demo :code="placeholderCode" lang="html" filename="App.vue">
         <div class="demo-img">
           <q-img :src="photo" :placeholder-src="thumb" ratio="16/9" />
+        </div>
+      </docs-demo>
+    </section>
+
+    <!-- ═══════ Overlay & caption ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Overlay &amp; caption</h2>
+      <p class="doc-note">
+        The default slot is an overlay on top of the image — ideal for captions,
+        badges and actions pinned to the bottom edge.
+      </p>
+
+      <docs-demo :code="captionCode" lang="html" filename="App.vue">
+        <div class="demo-img">
+          <q-img :src="photo" ratio="16/9" alt="Workspace">
+            <q-text-caption
+              position="bottom"
+              absolute
+              fit
+              title="Morning workspace"
+              subtitle="Unsplash · free to use"
+            />
+          </q-img>
         </div>
       </docs-demo>
     </section>

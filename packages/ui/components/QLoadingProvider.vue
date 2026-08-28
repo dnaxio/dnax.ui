@@ -30,7 +30,7 @@ const overlayStyle = computed(() => ({ backgroundColor: opts.backgroundColor }))
 <template>
   <slot />
   <div v-if="visible" class="q-loading" :style="overlayStyle" role="status" aria-live="polite">
-    <div class="q-loading__box">
+    <div class="q-loading__box" :class="{ 'q-loading__box--icon': opts.icon && !opts.boxed }">
       <span v-if="!opts.icon" class="q-loading__spinner" :style="spinnerStyle" aria-hidden="true" />
       <Icon :icon="opts.icon" v-else class="q-loading__icon" :style="iconStyle" aria-hidden="true" />
       <div v-if="opts.message" class="q-loading__message" :style="messageStyle">

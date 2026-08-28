@@ -173,13 +173,12 @@ onBeforeUnmount(() => {
 
     <!-- Modes panneau : champ déclencheur -->
     <template v-else>
-      <label v-if="label && stackLabel" class="q-field__label-stack">{{ label }}</label>
+      <label v-if="label" class="q-field__label-stack">{{ label }}</label>
       <div class="q-field__control" @click="openPopup">
         <Icon :icon="icons.calendarDays" class="q-date-picker__field-icon" aria-hidden="true" />
         <span class="q-select__display" :class="{ 'q-select__display--placeholder': !displayText }">
           {{ displayText || placeholder }}
         </span>
-        <label v-if="label && !stackLabel" class="q-field__label">{{ label }}</label>
         <button
           v-if="clearable && modelValue && !disable && !readonly"
           class="q-field__clear"

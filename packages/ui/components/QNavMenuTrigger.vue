@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // QNavMenuTrigger — bouton de menu avec dropdown ; le contenu du slot par défaut
 // est le panneau déroulant (positionné sous le trigger, ouvert au hover/clic).
-import { computed, inject, onMounted, ref } from "vue"
+import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
@@ -31,6 +31,10 @@ onMounted(() => menu?.registerTrigger(resolvedName, el))
 const isOpen = computed(() => menu?.openName.value === resolvedName)
 
 const open = () => {
+  if (closeTimer) {
+    clearTimeout(closeTimer)
+    closeTimer = undefined
+  }
   if (!props.disable) menu?.setOpen(resolvedName)
 }
 const close = () => {
@@ -41,13 +45,28 @@ const toggle = () => {
   menu?.setOpen(isOpen.value ? null : resolvedName)
 }
 
+// Fermeture différée : laisse le temps de traverser l'espace (6px) entre le
+// trigger et le panneau — le mouseenter (re-entrée via le panneau) l'annule.
+let closeTimer: ReturnType<typeof setTimeout> | undefined
+const scheduleClose = () => {
+  if (closeTimer) clearTimeout(closeTimer)
+  closeTimer = setTimeout(() => {
+    closeTimer = undefined
+    close()
+  }, 150)
+}
+
+onBeforeUnmount(() => {
+  if (closeTimer) clearTimeout(closeTimer)
+})
+
 const triggerClasses = computed(() =>
   cn("q-nav-menu__trigger", isOpen.value && "q-nav-menu__trigger--open"),
 )
 </script>
 
 <template>
-  <div ref="el" class="q-nav-menu__trigger-wrap" @mouseenter="open" @mouseleave="close">
+  <div ref="el" class="q-nav-menu__trigger-wrap" @mouseenter="open" @mouseleave="scheduleClose">
     <button
       type="button"
       class="q-nav-menu__trigger"

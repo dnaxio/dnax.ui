@@ -26,6 +26,9 @@ const username = ref("")
 const hintEmail = ref("")
 const errorEmail = ref("")
 const bio = ref("")
+const phone = ref("")
+const code = ref("")
+const birthDate = ref("")
 
 const usageBasic = `<q-input v-model="text" label="Email" placeholder="you@example.com" />`
 
@@ -49,6 +52,13 @@ const usageAffixes = `<q-input v-model="username" label="Username" prefix="@">
   <template #append><q-icon name="lucide:badge-check" /></template>
 </q-input>`
 
+const usageIconProps = `<q-input v-model="email" label="Email" icon-left="lucide:mail" icon-right="lucide:check" />`
+
+const usageMask = `<q-input v-model="phone" label="Phone" mask="##-##-##-##" placeholder="12-34-56-78" outlined />
+<q-input v-model="code" label="Code" mask="XX-XX-XX" fill-mask placeholder="AB-CD-EF" outlined />
+<q-input v-model="date" label="Date" mask="##/##/####" placeholder="15/08/1990" outlined />
+<!-- # digit · A letter · N alphanumeric · X any -->`
+
 const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint="We never share your email." />
 <q-input v-model="errorEmail" label="Email" type="email" error error-message="Please enter a valid email address." />`
 </script>
@@ -61,12 +71,12 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
     </div>
 
     <p class="doc-lead">
-      A single-line text field with a floating label, validation states, icons and
+      A single-line text field with a label shown above, validation states, icons and
       affixes. <b>&lt;q-input&gt;</b> implements the Quasar field vocabulary —
       <code>outlined</code>, <code>filled</code>, <code>borderless</code>,
-      <code>clearable</code>, <code>counter</code>, <code>dense</code> — plus a
-      stacked label (<code>stack-label</code>), rounded corners (<code>radius</code>)
-      and an auto-growing textarea (<code>autogrow</code>).
+      <code>clearable</code>, <code>counter</code>, <code>dense</code> — plus
+      rounded corners (<code>radius</code>) and an auto-growing textarea
+      (<code>autogrow</code>). The label is always rendered above the field.
     </p>
 
     <!-- ═══════ Basic ═══════ -->
@@ -151,9 +161,10 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
 
       <h3 class="doc-h3">Icons &amp; affixes</h3>
       <p class="doc-note">
-        Add leading/trailing icons through the <code>#prepend</code> /
-        <code>#append</code> slots, or static text with <code>prefix</code> /
-        <code>suffix</code>.
+        Leading/trailing icons through the <code>#prepend</code> /
+        <code>#append</code> slots (which take precedence), or quicker with the
+        <code>icon-left</code> / <code>icon-right</code> props; static text via
+        <code>prefix</code> / <code>suffix</code>.
       </p>
       <docs-demo :code="usageAffixes" lang="html" filename="App.vue">
         <div class="demo-field">
@@ -161,6 +172,31 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
             <template #prepend><q-icon name="lucide:user" /></template>
             <template #append><q-icon name="lucide:badge-check" /></template>
           </q-input>
+        </div>
+      </docs-demo>
+      <docs-demo :code="usageIconProps" lang="html" filename="App.vue">
+        <div class="demo-field">
+          <q-input v-model="email" label="Email" icon-left="lucide:mail" icon-right="lucide:check" />
+        </div>
+      </docs-demo>
+    </section>
+
+    <!-- ═══════ Mask ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Mask</h2>
+      <p class="doc-note">
+        <code>mask</code> formats the input while typing — <code>#</code> digit,
+        <code>A</code> letter, <code>N</code> alphanumeric, <code>X</code> any;
+        other characters are inserted automatically. <code>fill-mask</code> shows
+        empty slots as <code>_</code>; <code>unmasked-value</code> emits the value
+        without the mask characters.
+      </p>
+
+      <docs-demo :code="usageMask" lang="html" filename="App.vue">
+        <div class="demo-col">
+          <q-input v-model="phone" label="Phone" mask="##-##-##-##" placeholder="12-34-56-78" outlined />
+          <q-input v-model="code" label="Code" mask="XX-XX-XX" fill-mask placeholder="AB-CD-EF" outlined />
+          <q-input v-model="birthDate" label="Date" mask="##/##/####" placeholder="15/08/1990" outlined />
         </div>
       </docs-demo>
     </section>

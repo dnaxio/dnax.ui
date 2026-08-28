@@ -22,6 +22,8 @@ export interface LoadingOptions {
   icon?: string
   /** Couleur de l'icône (défaut : spinnerColor) */
   iconColor?: string
+  /** Garde la carte (fond blanc + ombre) même avec une icône (défaut : transparent) */
+  boxed?: boolean
 }
 
 export interface QLoading {
@@ -41,6 +43,7 @@ const opts = reactive<Required<Pick<LoadingOptions, "spinnerSize" | "spinnerColo
   group: false,
   icon: undefined,
   iconColor: undefined,
+  boxed: false,
 })
 
 let groupCount = 0

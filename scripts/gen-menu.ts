@@ -28,6 +28,7 @@ const FAMILIES: Record<string, string[]> = {
     "QDialogProvider",
   ],
   Fab: ["QFab", "QFabAction"],
+  List: ["QList", "QItem", "QItemSection"],
   "Message Scroller": [
     "QMessageScroller",
     "QMessageScrollerContent",
@@ -68,6 +69,10 @@ const CUSTOM_PAGES = new Set([
   "footer",
   "header",
   "img",
+  "inner-loading",
+  "input-password",
+  "list",
+  "loading-provider",
   "bottom-sheet",
   "btn",
   "bubble",
@@ -98,6 +103,32 @@ const GUIDES = [
   { title: "Setup", link: "/docs/getting-started/quick-start" },
 ];
 
+// Composants internes (ponts de rendu) non documentés comme pages —
+// leur API est le plugin correspondant (voir Plugins API).
+const EXCLUDED = new Set(["QNotifyProvider"]);
+
+// Composants Layout : regroupés sous « Layouts > Page » dans le menu
+// (leurs pages restent générées, mais hors du groupe Components).
+const LAYOUTS = [
+  {
+    title: "Header Layout",
+    link: "/docs/components/header",
+    export: "QHeader",
+  },
+  {
+    title: "Footer Layout",
+    link: "/docs/components/footer",
+    export: "QFooter",
+  },
+  { title: "Page Layout", link: "/docs/components/page", export: "QPage" },
+  {
+    title: "Sidebar Layout",
+    link: "/docs/components/sidebar",
+    export: "QSidebar",
+  },
+];
+const LAYOUT_EXPORTS = new Set(LAYOUTS.map((l) => l.export));
+
 const PLUGINS = [
   { title: "Dialog", link: "/docs/plugins/api#dialog" },
   { title: "Bottom Sheet", link: "/docs/plugins/api#bottom-sheet" },
@@ -123,6 +154,7 @@ const kebab = (name: string) =>
 const files = readdirSync("packages/ui/components")
   .filter((f) => f.endsWith(".vue"))
   .map((f) => f.replace(/\.vue$/, ""))
+  .filter((f) => !EXCLUDED.has(f))
   .sort();
 
 const familyMembers = new Set(Object.values(FAMILIES).flat());
@@ -158,11 +190,18 @@ let out = `export interface MenuItem {
   export?: string
 }
 
+export interface MenuSubgroup {
+  title: string
+  items: MenuItem[]
+}
+
 export interface MenuGroup {
   title: string
   /** Icône Iconify du groupe (affichée à gauche du libellé) */
   icon?: string
-  items: MenuItem[]
+  items?: MenuItem[]
+  /** Sous-groupes (ex. Layouts > Page) */
+  groups?: MenuSubgroup[]
 }
 
 export const menuItems: MenuGroup[] = [
@@ -176,11 +215,26 @@ for (const g of GUIDES)
 out += `    ],
   },
   {
+    title: "Layouts",
+    icon: "lucide:layout-template",
+    groups: [
+      {
+        title: "Page",
+        items: [
+`;
+for (const l of LAYOUTS)
+  out += `          { title: ${JSON.stringify(l.title)}, link: ${JSON.stringify(l.link)}, export: ${JSON.stringify(l.export)} },\n`;
+out += `        ],
+      },
+    ],
+  },
+  {
     title: "Components",
     icon: "lucide:component",
     items: [
 `;
 for (const e of entries) {
+  if (LAYOUT_EXPORTS.has(e.export)) continue;
   out += `      { title: ${JSON.stringify(e.title)}, link: ${JSON.stringify(e.link)}, export: ${JSON.stringify(e.export)} },\n`;
 }
 out += `    ],
