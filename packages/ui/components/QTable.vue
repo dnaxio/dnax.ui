@@ -12,6 +12,8 @@ export interface QTableColumn {
   sort?: (a: any, b: any) => number
   /** Formatteur de la valeur affichée */
   format?: (val: any, row: any) => any
+  /** Colonne épinglée (sticky) : left | right — ex. colonne Actions */
+  pinned?: "left" | "right"
   classes?: string
   style?: string
   headerClasses?: string
@@ -27,7 +29,7 @@ export interface QTablePagination {
 </script>
 
 <script setup lang="ts">
-import { computed, getCurrentInstance, ref, watch } from "vue"
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
@@ -64,6 +66,18 @@ interface Props {
   hideBottom?: boolean
   /** Options du sélecteur de lignes par page (0 = toutes) */
   rowsPerPageOptions?: number[]
+  /** Hauteur max du conteneur scrollable (header fixe) — ex. "60vh", "400px" */
+  maxHeight?: string
+  /** Header sticky quand max-height est défini (défaut : true) */
+  fixedHeader?: boolean
+  /** Virtualisation (windowing) des lignes pour les gros jeux de données */
+  virtualScroll?: boolean
+  /** Hauteur estimée d'une ligne pour la virtualisation (px) */
+  virtualScrollItemSize?: number
+  /** Classe CSS appliquée à toutes les cellules d'en-tête */
+  headerClass?: string
+  /** Style CSS appliqué à toutes les cellules d'en-tête (ex. couleur de fond) */
+  headerStyle?: string
   /** Coins arrondis : true = md, ou échelle xs|sm|md|lg (none = carré) — défaut : composantProps */
   radius?: RadiusProp
   tableClass?: string
@@ -87,6 +101,12 @@ const props = withDefaults(defineProps<Props>(), {
   hideHeader: false,
   hideBottom: false,
   rowsPerPageOptions: () => [3, 5, 7, 10, 15, 20, 25, 50, 0],
+  maxHeight: "",
+  fixedHeader: true,
+  virtualScroll: false,
+  virtualScrollItemSize: 48,
+  headerClass: "",
+  headerStyle: "",
   tableClass: "",
   tableStyle: "",
 })
@@ -225,6 +245,12 @@ const allSelected = computed(
   () => pagedRows.value.length > 0 && pagedRows.value.every((r, i) => isSelected(r, i)),
 )
 
+// Sélection partielle (header en état indéterminé)
+const someSelected = computed(() => {
+  if (allSelected.value) return false
+  return pagedRows.value.some((r, i) => isSelected(r, i))
+})
+
 const toggleAll = () => {
   if (allSelected.value) {
     const keys = new Set(pagedRows.value.map((r, i) => String(getRowKey(r, i))))
@@ -246,6 +272,10 @@ const onRowClick = (e: MouseEvent, row: any, index: number) => {
 // — Rendu —
 const alignClass = (col: QTableColumn) =>
   col.align && col.align !== "left" ? `q-table__cell--align-${col.align}` : ""
+
+// Une colonne épinglee à gauche → la colonne de sélection s'épingle aussi (offset 0)
+const hasPinnedLeft = computed(() => props.columns.some((c) => c.pinned === "left"))
+const pinnedLeftOffset = computed(() => (props.selection !== "none" ? 36 : 0))
 
 const colspan = computed(() => props.columns.length + (props.selection !== "none" ? 1 : 0))
 
@@ -273,6 +303,46 @@ const effectiveRadius = useRadius("QTable", () => props.radius)
 const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
 
 const sortThClass = computed(() => "q-table__sort")
+
+// — Header fixe & virtual scroll —
+const scrollEl = ref<HTMLElement | null>(null)
+const scrollTop = ref(0)
+const viewportH = ref(0)
+
+const onScroll = () => {
+  const el = scrollEl.value
+  if (!el) return
+  scrollTop.value = el.scrollTop
+  viewportH.value = el.clientHeight
+}
+
+onMounted(() => {
+  onScroll()
+  if (typeof window !== "undefined") window.addEventListener("resize", onScroll)
+})
+onBeforeUnmount(() => {
+  if (typeof window !== "undefined") window.removeEventListener("resize", onScroll)
+})
+
+// Window sur les lignes visibles (spacers haut/bas + buffer)
+const VIRTUAL_OVERSCAN = 6
+const virtual = computed(() => {
+  const total = pagedRows.value.length
+  if (!props.virtualScroll || total === 0)
+    return { start: 0, rows: pagedRows.value, top: 0, bottom: 0 }
+  const rowH = Math.max(1, props.virtualScrollItemSize)
+  const start = Math.max(0, Math.floor(scrollTop.value / rowH) - VIRTUAL_OVERSCAN)
+  const end = Math.min(
+    total,
+    Math.ceil((scrollTop.value + Math.max(viewportH.value, 1)) / rowH) + VIRTUAL_OVERSCAN,
+  )
+  return {
+    start,
+    rows: pagedRows.value.slice(start, end),
+    top: start * rowH,
+    bottom: (total - end) * rowH,
+  }
+})
 </script>
 
 <template>
@@ -283,56 +353,167 @@ const sortThClass = computed(() => "q-table__sort")
       </slot>
     </div>
 
-    <table class="q-table__table" :class="tableClass" :style="tableStyle">
-      <thead v-if="!hideHeader">
-        <slot name="header">
-          <tr>
-            <th v-if="selection === 'multiple'" class="q-table__selection-col">
-              <input
-                type="checkbox"
-                :checked="allSelected"
-                aria-label="Tout sélectionner"
-                @change="toggleAll"
+    <div
+      ref="scrollEl"
+      class="q-table__scroll"
+      :class="{ 'q-table__scroll--fixed-header': !!maxHeight && fixedHeader }"
+      :style="maxHeight ? { maxHeight } : undefined"
+      @scroll.passive="onScroll"
+    >
+      <table class="q-table__table" :class="tableClass" :style="tableStyle">
+        <thead v-if="!hideHeader">
+          <slot name="header">
+            <tr>
+              <th
+                v-if="selection === 'multiple'"
+                class="q-table__selection-col"
+                :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+              >
+                <q-checkbox
+                  :model-value="allSelected ? true : someSelected ? 'mixed' : false"
+                  indeterminate-value="mixed"
+                  dense
+                  aria-label="Tout sélectionner"
+                  @update:model-value="toggleAll"
+                />
+              </th>
+              <th
+                v-for="col in columns"
+                :key="colName(col)"
+                :class="[
+                  alignClass(col),
+                  col.sortable && sortThClass,
+                  headerClass,
+                  col.headerClasses,
+                  col.pinned === 'left' && 'q-table__cell--pinned-left',
+                  col.pinned === 'right' && 'q-table__cell--pinned-right',
+                ]"
+                :style="[
+                  col.headerStyle,
+                  headerStyle,
+                  col.pinned === 'left' ? { left: `${pinnedLeftOffset}px` } : null,
+                ]"
+              >
+                <button
+                  v-if="col.sortable"
+                  type="button"
+                  class="q-table__sort-btn"
+                  @click="onSort(col)"
+                >
+                  <span>{{ col.label }}</span>
+                  <Icon :icon="sortIcon(col)" class="q-table__sort-icon" aria-hidden="true" />
+                </button>
+                <span v-else>{{ col.label }}</span>
+              </th>
+            </tr>
+          </slot>
+        </thead>
+
+        <!-- Virtual scroll : spacers + fenêtre de lignes visibles -->
+        <tbody v-if="virtualScroll && !$slots.body">
+          <tr class="q-table__spacer" aria-hidden="true" :style="{ height: `${virtual.top}px` }">
+            <td :colspan="colspan" />
+          </tr>
+          <tr
+            v-for="(row, vi) in virtual.rows"
+            :key="String(getRowKey(row, virtual.start + vi))"
+            @click="(e: MouseEvent) => onRowClick(e, row, virtual.start + vi)"
+          >
+            <td
+              v-if="selection === 'multiple'"
+              class="q-table__selection-col"
+              :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+              @click.stop
+            >
+              <q-checkbox
+                :model-value="isSelected(row, virtual.start + vi)"
+                dense
+                :aria-label="'Sélectionner la ligne ' + (virtual.start + vi + 1)"
+                @update:model-value="() => toggleSelect(row, virtual.start + vi)"
               />
-            </th>
-            <th
+            </td>
+            <td
+              v-else-if="selection === 'single'"
+              class="q-table__selection-col"
+              :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+              @click.stop
+            >
+              <q-radio
+                :model-value="isSelected(row, virtual.start + vi)"
+                dense
+                :aria-label="'Sélectionner la ligne ' + (virtual.start + vi + 1)"
+                @update:model-value="() => toggleSelect(row, virtual.start + vi)"
+              />
+            </td>
+            <td
               v-for="col in columns"
               :key="colName(col)"
-              :class="[alignClass(col), col.sortable && sortThClass, col.headerClasses]"
-              :style="col.headerStyle"
+              :class="[
+                alignClass(col),
+                col.classes,
+                col.pinned === 'left' && 'q-table__cell--pinned-left',
+                col.pinned === 'right' && 'q-table__cell--pinned-right',
+              ]"
+              :style="[col.style, col.pinned === 'left' ? { left: `${pinnedLeftOffset}px` } : null]"
             >
-              <button
-                v-if="col.sortable"
-                type="button"
-                class="q-table__sort-btn"
-                @click="onSort(col)"
+              <slot
+                :name="bodyCellSlot(col)"
+                :col="col"
+                :row="row"
+                :index="virtual.start + vi"
+                :value="getCellValue(col, row)"
               >
-                <span>{{ col.label }}</span>
-                <Icon :icon="sortIcon(col)" class="q-table__sort-icon" aria-hidden="true" />
-              </button>
-              <span v-else>{{ col.label }}</span>
-            </th>
+                {{ getCellValue(col, row) }}
+              </slot>
+            </td>
           </tr>
-        </slot>
-      </thead>
+          <tr class="q-table__spacer" aria-hidden="true" :style="{ height: `${virtual.bottom}px` }">
+            <td :colspan="colspan" />
+          </tr>
+        </tbody>
 
-      <tbody v-if="!$slots.body">
+        <tbody v-else-if="!$slots.body">
         <tr
           v-for="(row, rIdx) in pagedRows"
           :key="String(getRowKey(row, rIdx))"
           @click="(e: MouseEvent) => onRowClick(e, row, rIdx)"
         >
-          <td v-if="selection === 'multiple'" class="q-table__selection-col" @click.stop>
-            <input type="checkbox" :checked="isSelected(row, rIdx)" :aria-label="'Sélectionner la ligne ' + (rIdx + 1)" @change="() => toggleSelect(row, rIdx)" />
+          <td
+            v-if="selection === 'multiple'"
+            class="q-table__selection-col"
+            :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+            @click.stop
+          >
+            <q-checkbox
+              :model-value="isSelected(row, rIdx)"
+              dense
+              :aria-label="'Sélectionner la ligne ' + (rIdx + 1)"
+              @update:model-value="() => toggleSelect(row, rIdx)"
+            />
           </td>
-          <td v-else-if="selection === 'single'" class="q-table__selection-col" @click.stop>
-            <input type="radio" :checked="isSelected(row, rIdx)" :aria-label="'Sélectionner la ligne ' + (rIdx + 1)" @change="() => toggleSelect(row, rIdx)" />
+          <td
+            v-else-if="selection === 'single'"
+            class="q-table__selection-col"
+            :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+            @click.stop
+          >
+            <q-radio
+              :model-value="isSelected(row, rIdx)"
+              dense
+              :aria-label="'Sélectionner la ligne ' + (rIdx + 1)"
+              @update:model-value="() => toggleSelect(row, rIdx)"
+            />
           </td>
           <td
             v-for="col in columns"
             :key="colName(col)"
-            :class="[alignClass(col), col.classes]"
-            :style="col.style"
+            :class="[
+              alignClass(col),
+              col.classes,
+              col.pinned === 'left' && 'q-table__cell--pinned-left',
+              col.pinned === 'right' && 'q-table__cell--pinned-right',
+            ]"
+            :style="[col.style, col.pinned === 'left' ? { left: `${pinnedLeftOffset}px` } : null]"
           >
             <slot :name="bodyCellSlot(col)" :col="col" :row="row" :index="rIdx" :value="getCellValue(col, row)">
               {{ getCellValue(col, row) }}
@@ -348,7 +529,8 @@ const sortThClass = computed(() => "q-table__sort")
       <tbody v-else>
         <slot name="body" :rows="pagedRows" />
       </tbody>
-    </table>
+      </table>
+    </div>
 
     <div v-if="loading" class="q-table__loading">
       <slot name="loading">

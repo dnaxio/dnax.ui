@@ -22,28 +22,38 @@ const run = (key: "basic" | "label" | "dark" | "icon") => {
 const basicCode = `<div class="panel">
   <h3>Orders</h3>
   <p>Recent orders will appear here…</p>
-  <q-inner-loading :showing="loading" />
+  <q-inner-loading :showing="demo.basic" />
 </div>
 
-<q-btn unelevated color="primary" no-caps label="Reload" @click="load" />`
+<q-btn unelevated color="primary" no-caps label="Reload" @click="run('basic')" />`
 
 const labelCode = `<div class="panel">
   <h3>Exporting report</h3>
   <p>Generating the PDF file…</p>
-  <q-inner-loading :showing="loading" label="Exporting…" color="secondary" size="lg" />
+  <q-inner-loading :showing="demo.label" label="Exporting…" color="secondary" size="lg" />
 </div>`
 
 const darkCode = `<div class="panel panel--dark">
   <h3>Syncing data</h3>
   <p>Waiting for the server…</p>
-  <q-inner-loading :showing="loading" label="Syncing…" dark size="sm" />
+  <q-inner-loading :showing="demo.dark" label="Syncing…" dark size="sm" />
 </div>`
 
 const iconCode = `<div class="panel">
   <h3>Refreshing feed</h3>
   <p>Fetching the latest posts…</p>
-  <q-inner-loading :showing="loading" icon="lucide:loader-circle" label="Refreshing…" color="positive" />
+  <q-inner-loading :showing="demo.icon" icon="lucide:loader-circle" label="Refreshing…" color="positive" />
 </div>`
+
+// — Script des démos (état partagé : reactive + run) —
+const scriptData = `import { reactive } from "vue"
+
+const demo = reactive({ basic: false, label: false, dark: false, icon: false })
+
+const run = (key) => {
+  demo[key] = true
+  setTimeout(() => (demo[key] = false), 1800)
+}`
 </script>
 
 <template>
@@ -68,7 +78,7 @@ const iconCode = `<div class="panel">
         <code>showing</code> (boolean).
       </p>
 
-      <docs-demo :code="basicCode" lang="html" filename="App.vue">
+      <docs-demo :code="basicCode" lang="html" filename="App.vue" :script="scriptData">
         <div class="demo-col">
           <div class="demo-panel">
             <h3 class="demo-panel__title">Orders</h3>
@@ -91,7 +101,7 @@ const iconCode = `<div class="panel">
         token or hex.
       </p>
 
-      <docs-demo :code="labelCode" lang="html" filename="App.vue">
+      <docs-demo :code="labelCode" lang="html" filename="App.vue" :script="scriptData">
         <div class="demo-col">
           <div class="demo-panel">
             <h3 class="demo-panel__title">Exporting report</h3>
@@ -112,7 +122,7 @@ const iconCode = `<div class="panel">
         <code>dark</code> dims the overlay background — handy on light panels.
       </p>
 
-      <docs-demo :code="darkCode" lang="html" filename="App.vue">
+      <docs-demo :code="darkCode" lang="html" filename="App.vue" :script="scriptData">
         <div class="demo-col">
           <div class="demo-panel">
             <h3 class="demo-panel__title">Syncing data</h3>
@@ -134,7 +144,7 @@ const iconCode = `<div class="panel">
         rotation — any icon works (loader, refresh, hourglass…).
       </p>
 
-      <docs-demo :code="iconCode" lang="html" filename="App.vue">
+      <docs-demo :code="iconCode" lang="html" filename="App.vue" :script="scriptData">
         <div class="demo-col">
           <div class="demo-panel">
             <h3 class="demo-panel__title">Refreshing feed</h3>

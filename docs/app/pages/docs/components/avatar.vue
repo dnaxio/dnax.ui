@@ -16,12 +16,12 @@ const photo1 =
 const photo2 =
   "https://images.unsplash.com/photo-1539701938214-0d9736e1c16b?q=80&w=1315&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
 
-const sizesCode = `<q-avatar size="xs" src="photo" alt="Alex" />
-<q-avatar size="sm" src="photo" alt="Alex" />
-<q-avatar size="md" src="photo" alt="Alex" />
-<q-avatar size="lg" src="photo" alt="Alex" />
-<q-avatar size="xl" src="photo" alt="Alex" />
-<q-avatar size="7rem" src="photo" alt="Alex" />`
+const sizesCode = `<q-avatar size="xs" :src="photo1" alt="Alex" />
+<q-avatar size="sm" :src="photo1" alt="Alex" />
+<q-avatar size="md" :src="photo1" alt="Alex" />
+<q-avatar size="lg" :src="photo1" alt="Alex" />
+<q-avatar size="xl" :src="photo1" alt="Alex" />
+<q-avatar size="7rem" :src="photo1" alt="Alex" />`
 
 const photosCode = `<q-avatar size="xl" :src="photo1" alt="Alex" />
 <q-avatar size="xl" :src="photo2" alt="Sam" />`
@@ -37,15 +37,22 @@ const iconsCode = `<q-avatar icon="lucide:user" color="primary" />
 <q-avatar icon="lucide:zap" color="warning" />
 <q-avatar icon="lucide:star" color="positive" />`
 
-const shapesCode = `<q-avatar src="photo" alt="Alex" />       <!-- circle (default) -->
-<q-avatar src="photo" alt="Alex" rounded />      <!-- rounded corners -->
-<q-avatar src="photo" alt="Alex" square />       <!-- square -->`
+const shapesCode = `<q-avatar :src="photo2" alt="Alex" />       <!-- circle (default) -->
+<q-avatar :src="photo2" alt="Alex" rounded />      <!-- rounded corners -->
+<q-avatar :src="photo2" alt="Alex" square />       <!-- square -->`
 
 const fallbackCode = `<q-avatar src="broken.jpg" alt="Jean Dupont" />    <!-- initials from alt -->
 <q-avatar src="broken.jpg" icon="lucide:user" color="secondary" /> <!-- icon -->
 <q-avatar src="broken.jpg" color="positive">                       <!-- custom slot -->
   <q-icon name="lucide:heart" color="white" size="28px" />
 </q-avatar>`
+
+// — Script des démos (photos accompagnant les templates) —
+const scriptData = `const photo1 = "https://plus.unsplash.com/premium_photo-1670282393309-70fd7f8eb1ef"
+  + "?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+
+const photo2 = "https://images.unsplash.com/photo-1539701938214-0d9736e1c16b"
+  + "?q=80&w=1315&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"`
 </script>
 
 <template>
@@ -70,7 +77,7 @@ const fallbackCode = `<q-avatar src="broken.jpg" alt="Jean Dupont" />    <!-- in
         (<code>size="7rem"</code>). The font scales automatically (40% of the size).
       </p>
 
-      <docs-demo :code="sizesCode" lang="html" filename="App.vue">
+      <docs-demo :code="sizesCode" lang="html" filename="App.vue" :script="scriptData">
         <div class="demo-row demo-row--avatars">
           <q-avatar size="xs" :src="photo1" alt="Alex" />
           <q-avatar size="sm" :src="photo1" alt="Alex" />
@@ -90,7 +97,7 @@ const fallbackCode = `<q-avatar src="broken.jpg" alt="Jean Dupont" />    <!-- in
         keeps its aspect ratio via <code>object-fit: cover</code>.
       </p>
 
-      <docs-demo :code="photosCode" lang="html" filename="App.vue">
+      <docs-demo :code="photosCode" lang="html" filename="App.vue" :script="scriptData">
         <div class="demo-row demo-row--avatars">
           <q-avatar size="xl" :src="photo1" alt="Alex" />
           <q-avatar size="xl" :src="photo2" alt="Sam" />
@@ -144,7 +151,7 @@ const fallbackCode = `<q-avatar src="broken.jpg" alt="Jean Dupont" />    <!-- in
         <code>square</code> for sharp edges.
       </p>
 
-      <docs-demo :code="shapesCode" lang="html" filename="App.vue">
+      <docs-demo :code="shapesCode" lang="html" filename="App.vue" :script="scriptData">
         <div class="demo-row demo-row--avatars">
           <q-avatar size="lg" :src="photo2" alt="Sam" />
           <q-avatar size="lg" :src="photo2" alt="Sam" rounded />

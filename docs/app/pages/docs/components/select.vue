@@ -72,6 +72,43 @@ const usageMultiple = `<q-select
   emit-value
   clearable
 />`
+
+// — Scripts des démos (données + refs accompagnant le template) —
+const scriptData = `import { ref } from "vue"
+
+const colors = [
+  { value: "red", label: "Red" },
+  { value: "green", label: "Green" },
+  { value: "blue", label: "Blue" },
+]`
+
+const scriptBasic = `${scriptData}
+
+const color = ref(null)`
+
+const scriptMultiple = `${scriptData}
+
+const multi = ref([])`
+
+const scriptCustomKeys = `import { ref } from "vue"
+
+const country = ref(null)
+
+const countries = [
+  { id: "fr", name: "France" },
+  { id: "jp", name: "Japan" },
+  { id: "us", name: "United States" },
+]`
+
+const scriptOutlined = `import { ref } from "vue"
+
+const framework = ref(null)
+
+const frameworks = [
+  { id: "vue", name: "Vue" },
+  { id: "react", name: "React" },
+  { id: "svelte", name: "Svelte" },
+]`
 </script>
 
 <template>
@@ -94,7 +131,7 @@ const usageMultiple = `<q-select
     <section class="doc-section">
       <h2 class="doc-h2">Basic usage</h2>
 
-      <docs-demo :code="usageBasic" lang="html" filename="App.vue">
+      <docs-demo :code="usageBasic" lang="html" filename="App.vue" :script="scriptBasic">
         <div class="demo-field">
           <q-select
             v-model="color"
@@ -112,7 +149,7 @@ const usageMultiple = `<q-select
         any object shape, and <code>emit-value</code> binds the raw value instead of
         the option object.
       </p>
-      <docs-demo :code="usageCustomKeys" lang="html" filename="App.vue">
+      <docs-demo :code="usageCustomKeys" lang="html" filename="App.vue" :script="scriptCustomKeys">
         <div class="demo-field">
           <q-select
             v-model="country"
@@ -130,7 +167,7 @@ const usageMultiple = `<q-select
     <section class="doc-section">
       <h2 class="doc-h2">Outlined &amp; clearable</h2>
 
-      <docs-demo :code="usageOutlined" lang="html" filename="App.vue">
+      <docs-demo :code="usageOutlined" lang="html" filename="App.vue" :script="scriptOutlined">
         <div class="demo-field">
           <q-select
             v-model="framework"
@@ -155,7 +192,7 @@ const usageMultiple = `<q-select
         <code>use-chips</code> displays each selection as a removable chip.
       </p>
 
-      <docs-demo :code="usageMultiple" lang="html" filename="App.vue">
+      <docs-demo :code="usageMultiple" lang="html" filename="App.vue" :script="scriptMultiple">
         <div class="demo-field">
           <q-select
             v-model="multi"

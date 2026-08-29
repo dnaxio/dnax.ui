@@ -98,6 +98,17 @@ const sheet = $q.bottomSheet.open({
 
 sheet.onOK((data) => console.log("ok", data))
 sheet.onCancel(() => console.log("cancelled"))`
+
+// — Scripts des démos (onglet "Script setup") —
+const scriptSheet = `import { ref } from "vue"
+
+const open = ref(false)`
+
+const scriptVariants = `import { ref } from "vue"
+
+const openTall = ref(false)`
+
+const scriptTrigger = scriptSheet
 </script>
 
 <template>
@@ -120,7 +131,7 @@ sheet.onCancel(() => console.log("cancelled"))`
     <section class="doc-section">
       <h2 class="doc-h2">QBottomSheet — the panel</h2>
 
-      <docs-demo :code="usageSheet" lang="html" filename="App.vue">
+      <docs-demo :code="usageSheet" lang="html" filename="App.vue" :script="scriptSheet">
         <q-bottom-sheet v-model="open">
           <template #trigger>
             <q-btn color="primary" icon="lucide:settings" label="Open settings" />
@@ -140,7 +151,7 @@ sheet.onCancel(() => console.log("cancelled"))`
       </docs-demo>
 
       <h3 class="doc-h3">Sizing &amp; look</h3>
-      <docs-demo :code="usageVariants" lang="html" filename="App.vue">
+      <docs-demo :code="usageVariants" lang="html" filename="App.vue" :script="scriptVariants">
         <q-bottom-sheet v-model="openTall" height="70%" rounded="24px" translucent>
           <template #trigger>
             <q-btn outline label="Tall translucent sheet" />
@@ -199,7 +210,7 @@ sheet.onCancel(() => console.log("cancelled"))`
         <code>#trigger</code> slot. Place it in the <code>#trigger</code> slot (as below)
         or anywhere inside an open sheet, e.g. to open a nested one.
       </p>
-      <docs-demo :code="usageTrigger" lang="html" filename="App.vue">
+      <docs-demo :code="usageTrigger" lang="html" filename="App.vue" :script="scriptTrigger">
         <q-bottom-sheet v-model="open">
           <template #trigger>
             <q-bottom-sheet-trigger label="Open sheet" />

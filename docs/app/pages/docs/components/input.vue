@@ -61,6 +61,55 @@ const usageMask = `<q-input v-model="phone" label="Phone" mask="##-##-##-##" pla
 
 const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint="We never share your email." />
 <q-input v-model="errorEmail" label="Email" type="email" error error-message="Please enter a valid email address." />`
+
+// — Scripts des démos (données + refs accompagnant le template) —
+const scriptBasic = `import { ref } from "vue"
+
+const text = ref("")`
+
+const scriptTypes = `import { ref } from "vue"
+
+const email = ref("")
+const password = ref("")
+const age = ref(null)`
+
+const scriptAutogrow = `import { ref } from "vue"
+
+const bio = ref("")`
+
+const scriptVariants = `import { ref } from "vue"
+
+const outlinedVal = ref("")
+const filledVal = ref("")
+const borderlessVal = ref("")`
+
+const scriptDense = `import { ref } from "vue"
+
+const denseVal = ref("")`
+
+const scriptClear = `import { ref } from "vue"
+
+const clearMe = ref("Hello Dnax")
+const message = ref("")`
+
+const scriptAffixes = `import { ref } from "vue"
+
+const username = ref("")`
+
+const scriptIconProps = `import { ref } from "vue"
+
+const email = ref("")`
+
+const scriptMask = `import { ref } from "vue"
+
+const phone = ref("")
+const code = ref("")
+const birthDate = ref("")`
+
+const scriptHint = `import { ref } from "vue"
+
+const hintEmail = ref("")
+const errorEmail = ref("")`
 </script>
 
 <template>
@@ -83,14 +132,14 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
     <section class="doc-section">
       <h2 class="doc-h2">Basic usage</h2>
 
-      <docs-demo :code="usageBasic" lang="html" filename="App.vue">
+      <docs-demo :code="usageBasic" lang="html" filename="App.vue" :script="scriptBasic">
         <div class="demo-field">
           <q-input v-model="text" label="Email" placeholder="you@example.com" />
         </div>
       </docs-demo>
 
       <h3 class="doc-h3">Field types</h3>
-      <docs-demo :code="usageTypes" lang="html" filename="App.vue">
+      <docs-demo :code="usageTypes" lang="html" filename="App.vue" :script="scriptTypes">
         <div class="demo-row">
           <div class="demo-col">
             <q-input v-model="email" type="email" label="Email" placeholder="you@example.com" />
@@ -105,7 +154,7 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
       </docs-demo>
 
       <h3 class="doc-h3">Autogrow textarea</h3>
-      <docs-demo :code="usageAutogrow" lang="html" filename="App.vue">
+      <docs-demo :code="usageAutogrow" lang="html" filename="App.vue" :script="scriptAutogrow">
         <div class="demo-field">
           <q-input v-model="bio" label="Bio" autogrow placeholder="Write a few lines…" />
         </div>
@@ -122,7 +171,7 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
         <code>borderless</code> removes the border entirely.
       </p>
 
-      <docs-demo :code="usageVariants" lang="html" filename="App.vue">
+      <docs-demo :code="usageVariants" lang="html" filename="App.vue" :script="scriptVariants">
         <div class="demo-row">
           <div class="demo-col">
             <q-input v-model="outlinedVal" label="Outlined" outlined />
@@ -137,7 +186,7 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
       </docs-demo>
 
       <h3 class="doc-h3">Dense &amp; radius</h3>
-      <docs-demo :code="usageDense" lang="html" filename="App.vue">
+      <docs-demo :code="usageDense" lang="html" filename="App.vue" :script="scriptDense">
         <div class="demo-field">
           <q-input v-model="denseVal" label="Dense pill" dense radius placeholder="Rounded" />
         </div>
@@ -148,7 +197,7 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
     <section class="doc-section">
       <h2 class="doc-h2">Clearable &amp; counter</h2>
 
-      <docs-demo :code="usageClear" lang="html" filename="App.vue">
+      <docs-demo :code="usageClear" lang="html" filename="App.vue" :script="scriptClear">
         <div class="demo-row">
           <div class="demo-col">
             <q-input v-model="clearMe" label="Clearable" clearable />
@@ -166,7 +215,7 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
         <code>icon-left</code> / <code>icon-right</code> props; static text via
         <code>prefix</code> / <code>suffix</code>.
       </p>
-      <docs-demo :code="usageAffixes" lang="html" filename="App.vue">
+      <docs-demo :code="usageAffixes" lang="html" filename="App.vue" :script="scriptAffixes">
         <div class="demo-field">
           <q-input v-model="username" label="Username" prefix="@">
             <template #prepend><q-icon name="lucide:user" /></template>
@@ -174,7 +223,7 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
           </q-input>
         </div>
       </docs-demo>
-      <docs-demo :code="usageIconProps" lang="html" filename="App.vue">
+      <docs-demo :code="usageIconProps" lang="html" filename="App.vue" :script="scriptIconProps">
         <div class="demo-field">
           <q-input v-model="email" label="Email" icon-left="lucide:mail" icon-right="lucide:check" />
         </div>
@@ -192,7 +241,7 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
         without the mask characters.
       </p>
 
-      <docs-demo :code="usageMask" lang="html" filename="App.vue">
+      <docs-demo :code="usageMask" lang="html" filename="App.vue" :script="scriptMask">
         <div class="demo-col">
           <q-input v-model="phone" label="Phone" mask="##-##-##-##" placeholder="12-34-56-78" outlined />
           <q-input v-model="code" label="Code" mask="XX-XX-XX" fill-mask placeholder="AB-CD-EF" outlined />
@@ -205,7 +254,7 @@ const usageHint = `<q-input v-model="hintEmail" label="Email" type="email" hint=
     <section class="doc-section">
       <h2 class="doc-h2">Hint &amp; error</h2>
 
-      <docs-demo :code="usageHint" lang="html" filename="App.vue">
+      <docs-demo :code="usageHint" lang="html" filename="App.vue" :script="scriptHint">
         <div class="demo-row">
           <div class="demo-col">
             <q-input v-model="hintEmail" label="Email" type="email" hint="We never share your email." />

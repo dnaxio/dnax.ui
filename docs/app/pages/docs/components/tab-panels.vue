@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Tab Panels — documentation du composant QTabPanels (simple) :
-// les panneaux animés couplés à QTabs.
+// Tab Panels — documentation complète de la famille :
+// QTabPanels (les panneaux animés) + QTabPanel (le panneau).
 import { ref } from "vue"
 import { componentSource, componentTag, useComponent } from "~/composables/useComponentDocs"
 import DocsApi from "~/components/DocsApi.vue"
@@ -10,11 +10,15 @@ definePageMeta({ layout: "docs" })
 
 const tabPanels = useComponent(() => "QTabPanels")
 const tabPanelsSource = componentSource("QTabPanels")
+const tabPanel = useComponent(() => "QTabPanel")
+const tabPanelSource = componentSource("QTabPanel")
 const tag = componentTag("QTabPanels")
 
 // — Démo interactive —
 const tab = ref("one")
 const tabAnim = ref("a")
+const tabLazy = ref("a")
+const tabRich = ref("one")
 const animation = ref<"fade" | "slide-right" | "slide-left" | "slide-up" | "slide-down">("fade")
 const animationOptions = [
   { label: "Fade", value: "fade" },
@@ -39,6 +43,32 @@ const usageBasic = `<q-tabs v-model="tab" align="left" no-caps active-color="pri
   </q-tab-panel>
   <q-tab-panel name="three">
     <p class="demo-p">Panel “Three” — visibility is driven by v-show.</p>
+  </q-tab-panel>
+</q-tab-panels>`
+
+const usageLazy = `<q-tabs v-model="tabLazy" align="left" no-caps active-color="primary" indicator-color="primary">
+  <q-tab name="a" label="Light" />
+  <q-tab name="b" label="Heavy" />
+</q-tabs>
+
+<q-tab-panels v-model="tabLazy" animated class="demo-panels">
+  <q-tab-panel name="a">
+    <p class="demo-p">Light panel — always mounted.</p>
+  </q-tab-panel>
+  <q-tab-panel name="b" lazy-render>
+    <p class="demo-p">Heavy panel — its content only mounts after the first visit.</p>
+  </q-tab-panel>
+</q-tab-panels>`
+
+const usageRich = `<q-tab-panels v-model="tabRich" animated class="demo-panels">
+  <q-tab-panel name="one">
+    <q-list bordered>
+      <q-item><q-item-section>Row A</q-item-section></q-item>
+      <q-item><q-item-section>Row B</q-item-section></q-item>
+    </q-list>
+  </q-tab-panel>
+  <q-tab-panel name="two">
+    <q-input label="Name" outlined />
   </q-tab-panel>
 </q-tab-panels>`
 
@@ -69,6 +99,31 @@ const usageAnimations = `<q-select
     <p class="demo-p">Panel C</p>
   </q-tab-panel>
 </q-tab-panels>`
+
+// — Scripts des démos (onglet "Script setup") —
+const scriptBasic = `import { ref } from "vue"
+
+const tab = ref("one")`
+
+const scriptAnimations = `import { ref } from "vue"
+
+const tabAnim = ref("a")
+const animation = ref("fade")
+const animationOptions = [
+  { label: "Fade", value: "fade" },
+  { label: "Slide right", value: "slide-right" },
+  { label: "Slide left", value: "slide-left" },
+  { label: "Slide up", value: "slide-up" },
+  { label: "Slide down", value: "slide-down" },
+]`
+
+const scriptLazy = `import { ref } from "vue"
+
+const tabLazy = ref("a")`
+
+const scriptRich = `import { ref } from "vue"
+
+const tabRich = ref("one")`
 </script>
 
 <template>
@@ -80,10 +135,9 @@ const usageAnimations = `<q-select
 
     <p class="doc-lead">
       Switches between panels driven by a shared <code>v-model</code>, with an
-      optional transition. Pairs with <b>&lt;q-tabs&gt;</b> (same value) and
-      renders <b>&lt;q-tab-panel&gt;</b> children — the panel itself is documented
-      on its own page. Panels stay mounted (<code>v-show</code>) so switching is
-      reliable and state is preserved.
+      optional transition. Pairs with <b>&lt;q-tabs&gt;</b> (same value) and renders
+      <b>&lt;q-tab-panel&gt;</b> children — panels stay mounted (<code>v-show</code>)
+      so switching is reliable and state is preserved.
     </p>
 
     <!-- ═══════ QTabPanels ═══════ -->
@@ -99,7 +153,7 @@ const usageAnimations = `<q-select
       </p>
 
       <h3 class="doc-h3">Coupled with tabs</h3>
-      <docs-demo :code="usageBasic" lang="html" filename="App.vue">
+      <docs-demo :code="usageBasic" lang="html" filename="App.vue" :script="scriptBasic">
         <q-tabs
           v-model="tab"
           align="left"
@@ -127,7 +181,7 @@ const usageAnimations = `<q-select
       </docs-demo>
 
       <h3 class="doc-h3">Animation directions</h3>
-      <docs-demo :code="usageAnimations" lang="html" filename="App.vue">
+      <docs-demo :code="usageAnimations" lang="html" filename="App.vue" :script="scriptAnimations">
         <q-select
           v-model="animation"
           :options="animationOptions"
@@ -164,8 +218,75 @@ const usageAnimations = `<q-select
         </q-tab-panels>
       </docs-demo>
 
-      <h3 class="doc-h3">API</h3>
+      <h3 class="doc-h3">QTabPanels API</h3>
       <docs-api :comp="tabPanels" :source="tabPanelsSource" />
+    </section>
+
+    <!-- ═══════ QTabPanel ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">QTabPanel — the panel</h2>
+      <p class="doc-note">
+        A panel whose <code>name</code> is compared to the <code>v-model</code> of
+        <code>q-tab-panels</code>. Content stays mounted (<code>v-show</code>) so
+        state is preserved; <code>lazy-render</code> defers mounting until the
+        first activation — handy for heavy content.
+      </p>
+
+      <h3 class="doc-h3">Lazy render</h3>
+      <docs-demo :code="usageLazy" lang="html" filename="App.vue" :script="scriptLazy">
+        <q-tabs
+          v-model="tabLazy"
+          align="left"
+          no-caps
+          active-color="primary"
+          indicator-color="primary"
+          class="demo-panels-tabs"
+        >
+          <q-tab name="a" label="Light" />
+          <q-tab name="b" label="Heavy" />
+        </q-tabs>
+        <q-tab-panels v-model="tabLazy" animated class="demo-panels">
+          <q-tab-panel name="a">
+            <p class="demo-p">Light panel — always mounted.</p>
+          </q-tab-panel>
+          <q-tab-panel name="b" lazy-render>
+            <p class="demo-p">Heavy panel — its content only mounts after the first visit.</p>
+          </q-tab-panel>
+        </q-tab-panels>
+      </docs-demo>
+
+      <h3 class="doc-h3">Rich content</h3>
+      <p class="doc-note">
+        Panels accept anything — lists, forms, images… State inside a panel
+        (inputs, scroll) survives tab switches because it stays mounted.
+      </p>
+      <docs-demo :code="usageRich" lang="html" filename="App.vue" :script="scriptRich">
+        <q-tabs
+          v-model="tabRich"
+          align="left"
+          no-caps
+          active-color="primary"
+          indicator-color="primary"
+          class="demo-panels-tabs"
+        >
+          <q-tab name="one" label="List" />
+          <q-tab name="two" label="Form" />
+        </q-tabs>
+        <q-tab-panels v-model="tabRich" animated class="demo-panels">
+          <q-tab-panel name="one">
+            <q-list bordered>
+              <q-item><q-item-section>Row A</q-item-section></q-item>
+              <q-item><q-item-section>Row B</q-item-section></q-item>
+            </q-list>
+          </q-tab-panel>
+          <q-tab-panel name="two">
+            <q-input label="Name" outlined />
+          </q-tab-panel>
+        </q-tab-panels>
+      </docs-demo>
+
+      <h3 class="doc-h3">QTabPanel API</h3>
+      <docs-api :comp="tabPanel" :source="tabPanelSource" />
     </section>
   </div>
 </template>

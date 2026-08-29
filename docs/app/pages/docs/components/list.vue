@@ -62,8 +62,8 @@ const clickableCode = `<q-list bordered class="list">
     v-for="m in menu"
     :key="m.key"
     clickable
-    :active="active === m.key"
-    @click="active = m.key"
+    :active="activeMenu === m.key"
+    @click="activeMenu = m.key"
   >
     <q-item-section avatar>
       <q-icon :name="m.icon" color="primary" />
@@ -78,7 +78,7 @@ const clickableCode = `<q-list bordered class="list">
 const thumbnailCode = `<q-list bordered class="list">
   <q-item>
     <q-item-section thumbnail>
-      <q-img :src="photo" ratio="1" class="thumb" />
+      <q-img :src="thumbnail" ratio="1" class="thumb" />
     </q-item-section>
     <q-item-section>
       <div class="title">Moraine Lake</div>
@@ -116,6 +116,24 @@ const statesCode = `<q-list bordered dense class="list">
     <q-item-section>Disabled item</q-item-section>
   </q-item>
 </q-list>`
+
+// — Scripts des démos (onglet "Script setup") —
+const scriptContacts = `const contacts = [
+  { name: "Alex Martin", initials: "AM", caption: "Online now", color: "positive" },
+  { name: "Samira Chen", initials: "SC", caption: "Last seen 2h ago", color: "secondary" },
+  { name: "Jules Dubois", initials: "JD", caption: "Offline", color: "negative" },
+]`
+
+const scriptMenu = `import { ref } from "vue"
+
+const activeMenu = ref("inbox")
+const menu = [
+  { key: "inbox", label: "Inbox", icon: "lucide:inbox", count: "12" },
+  { key: "sent", label: "Sent", icon: "lucide:send", count: "3" },
+  { key: "drafts", label: "Drafts", icon: "lucide:file-pen", count: "1" },
+]`
+
+const scriptThumbnail = `const thumbnail = "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=600&auto=format&fit=crop"`
 </script>
 
 <template>
@@ -162,7 +180,7 @@ const statesCode = `<q-list bordered dense class="list">
         side chevron.
       </p>
 
-      <docs-demo :code="basicCode" lang="html" filename="App.vue">
+      <docs-demo :code="basicCode" lang="html" filename="App.vue" :script="scriptContacts">
         <q-list bordered separator class="demo-list">
           <q-item v-for="c in contacts" :key="c.name">
             <q-item-section avatar>
@@ -188,7 +206,7 @@ const statesCode = `<q-list bordered dense class="list">
         <code>active-class</code>) highlights the selected row — try clicking.
       </p>
 
-      <docs-demo :code="clickableCode" lang="html" filename="App.vue">
+      <docs-demo :code="clickableCode" lang="html" filename="App.vue" :script="scriptMenu">
         <q-list bordered class="demo-list">
           <q-item
             v-for="m in menu"
@@ -216,7 +234,7 @@ const statesCode = `<q-list bordered dense class="list">
         <code>thumbnail</code> reserves a fixed image zone on the left.
       </p>
 
-      <docs-demo :code="thumbnailCode" lang="html" filename="App.vue">
+      <docs-demo :code="thumbnailCode" lang="html" filename="App.vue" :script="scriptThumbnail">
         <q-list bordered class="demo-list">
           <q-item>
             <q-item-section thumbnail>

@@ -28,6 +28,20 @@ const statesCode = `<q-input-password v-model="password" label="Password" hint="
 
 const confirmCode = `<q-input-password v-model="password" label="Password" outlined />
 <q-input-password v-model="confirm" label="Confirm password" outlined />`
+
+// — Scripts des démos (données + refs accompagnant le template) —
+const scriptBasic = `import { ref } from "vue"
+
+const password = ref("")`
+
+const scriptDense = `import { ref } from "vue"
+
+const densePwd = ref("")`
+
+const scriptConfirm = `import { ref } from "vue"
+
+const password = ref("")
+const confirm = ref("")`
 </script>
 
 <template>
@@ -52,7 +66,7 @@ const confirmCode = `<q-input-password v-model="password" label="Password" outli
         visibility toggle on the right.
       </p>
 
-      <docs-demo :code="basicCode" lang="html" filename="App.vue">
+      <docs-demo :code="basicCode" lang="html" filename="App.vue" :script="scriptBasic">
         <div class="demo-field">
           <q-input-password v-model="password" label="Password" outlined />
         </div>
@@ -68,7 +82,7 @@ const confirmCode = `<q-input-password v-model="password" label="Password" outli
         <code>clearable</code>…
       </p>
 
-      <docs-demo :code="variantsCode" lang="html" filename="App.vue">
+      <docs-demo :code="variantsCode" lang="html" filename="App.vue" :script="scriptDense">
         <div class="demo-col">
           <q-input-password v-model="densePwd" label="Password" outlined dense clearable />
           <q-input-password v-model="densePwd" label="Password" filled />
@@ -85,7 +99,7 @@ const confirmCode = `<q-input-password v-model="password" label="Password" outli
         <code>disable</code> behave exactly like <code>q-input</code>.
       </p>
 
-      <docs-demo :code="statesCode" lang="html" filename="App.vue">
+      <docs-demo :code="statesCode" lang="html" filename="App.vue" :script="scriptDense">
         <div class="demo-col">
           <q-input-password v-model="densePwd" label="Password" hint="8+ characters, 1 number" outlined />
           <q-input-password v-model="densePwd" label="Password" error error-message="Too weak" outlined />
@@ -101,7 +115,7 @@ const confirmCode = `<q-input-password v-model="password" label="Password" outli
         A common pattern — password + confirmation fields side by side.
       </p>
 
-      <docs-demo :code="confirmCode" lang="html" filename="App.vue">
+      <docs-demo :code="confirmCode" lang="html" filename="App.vue" :script="scriptConfirm">
         <div class="demo-col">
           <q-input-password v-model="password" label="Password" outlined />
           <q-input-password v-model="confirm" label="Confirm password" outlined />

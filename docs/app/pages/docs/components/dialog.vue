@@ -118,6 +118,25 @@ const confirm = $q.dialog.open({
 confirm
   .onOK(() => deleteAccount())
   .onCancel(() => console.log("cancelled"))`
+
+// — Scripts des démos (onglet "Script setup") —
+const scriptOpen = `import { ref } from "vue"
+
+const open = ref(false)`
+
+const scriptSimple = `${scriptOpen}
+
+const eventLog = ref("")`
+
+const scriptConfirm = `import { ref } from "vue"
+
+const openConfirm = ref(false)`
+
+const scriptPosition = `import { ref } from "vue"
+
+const openBottom = ref(false)`
+
+const scriptTrigger = scriptOpen
 </script>
 
 <template>
@@ -140,7 +159,7 @@ confirm
     <section class="doc-section">
       <h2 class="doc-h2">QDialog — the modal</h2>
 
-      <docs-demo :code="usageSimple" lang="html" filename="App.vue">
+      <docs-demo :code="usageSimple" lang="html" filename="App.vue" :script="scriptSimple">
         <q-btn color="primary" label="Open dialog" @click="open = true" />
         <p v-if="eventLog" class="demo-dialog-log">Last event: <code>{{ eventLog }}</code></p>
 
@@ -160,7 +179,7 @@ confirm
       </docs-demo>
 
       <h3 class="doc-h3">Header + footer</h3>
-      <docs-demo :code="usageHeaderFooter" lang="html" filename="App.vue">
+      <docs-demo :code="usageHeaderFooter" lang="html" filename="App.vue" :script="scriptConfirm">
         <q-btn color="negative" outline label="Delete account" @click="openConfirm = true" />
 
         <q-dialog v-model="openConfirm">
@@ -179,7 +198,7 @@ confirm
       </docs-demo>
 
       <h3 class="doc-h3">Position &amp; transition</h3>
-      <docs-demo :code="usagePosition" lang="html" filename="App.vue">
+      <docs-demo :code="usagePosition" lang="html" filename="App.vue" :script="scriptPosition">
         <q-btn outline label="Bottom dialog" @click="openBottom = true" />
 
         <q-dialog v-model="openBottom" position="bottom" transition="slide-up">
@@ -240,7 +259,7 @@ confirm
         the trigger is placed <b>inside</b> the dialog — for opening from the page, bind
         <code>v-model</code> to a regular button instead.
       </p>
-      <docs-demo :code="usageTrigger" lang="html" filename="App.vue">
+      <docs-demo :code="usageTrigger" lang="html" filename="App.vue" :script="scriptTrigger">
         <q-btn color="primary" label="Open dialog" @click="open = true" />
 
         <q-dialog v-model="open">

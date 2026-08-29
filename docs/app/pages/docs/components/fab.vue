@@ -23,25 +23,49 @@ const openColors = ref(false)
 const openActions = ref(false)
 const lastAction = ref("")
 
-const basicCode = `<q-fab v-model="open" color="primary">
-  <q-fab-action label="Share" icon="lucide:share-2" color="secondary" />
-  <q-fab-action label="Camera" icon="lucide:camera" color="positive" />
-  <q-fab-action label="Mail" icon="lucide:mail" />
-</q-fab>`
+const basicCode = `<q-fab v-model="openBasic" color="primary">
+  <q-fab-action label="Share" icon="lucide:share-2" color="secondary" @click="lastAction = 'Share'" />
+  <q-fab-action label="Camera" icon="lucide:camera" color="positive" @click="lastAction = 'Camera'" />
+  <q-fab-action label="Mail" icon="lucide:mail" @click="lastAction = 'Mail'" />
+</q-fab>
+<p class="demo-p demo-p--value">Last action: <code>{{ lastAction || "—" }}</code></p>`
 
-const positionsCode = `<q-fab v-model="open" position="bottom-left" />
-<q-fab v-model="open" position="top-right" />`
+const positionsCode = `<q-fab v-model="openLeft" position="bottom-left" />
+<q-fab v-model="openPositions" position="top-right" />`
 
-const colorsCode = `<q-fab v-model="open" color="negative" icon="lucide:message-circle">
+const colorsCode = `<q-fab v-model="openColors" color="negative" icon="lucide:message-circle">
   <q-fab-action label="New message" icon="lucide:message-square-plus" />
   <q-fab-action label="Voice note" icon="lucide:mic" color="positive" />
 </q-fab>`
 
-const actionsCode = `<q-fab v-model="open">
-  <q-fab-action label="Edit" icon="lucide:pencil" />
-  <q-fab-action label="Archive" icon="lucide:archive" color="warning" />
+const actionsCode = `<q-fab v-model="openActions">
+  <q-fab-action label="Edit" icon="lucide:pencil" @click="lastAction = 'Edit'" />
+  <q-fab-action label="Archive" icon="lucide:archive" color="warning" @click="lastAction = 'Archive'" />
   <q-fab-action label="Delete" icon="lucide:trash-2" color="negative" disable />
-</q-fab>`
+</q-fab>
+<p class="demo-p demo-p--value">Last action: <code>{{ lastAction || "—" }}</code></p>`
+
+// — Scripts des démos (onglet "Script setup") —
+const scriptData = `import { ref } from "vue"
+
+const lastAction = ref("")`
+
+const scriptBasic = `${scriptData}
+
+const openBasic = ref(false)`
+
+const scriptPositions = `import { ref } from "vue"
+
+const openLeft = ref(false)
+const openPositions = ref(false)`
+
+const scriptColors = `import { ref } from "vue"
+
+const openColors = ref(false)`
+
+const scriptActions = `${scriptData}
+
+const openActions = ref(false)`
 </script>
 
 <template>
@@ -66,7 +90,7 @@ const actionsCode = `<q-fab v-model="open">
         <code>icon</code> and <code>color</code>. Clicking an action closes it.
       </p>
 
-      <docs-demo :code="basicCode" lang="html" filename="App.vue">
+      <docs-demo :code="basicCode" lang="html" filename="App.vue" :script="scriptBasic">
         <div class="demo-fab-stage">
           <q-fab v-model="openBasic" color="primary">
             <q-fab-action label="Share" icon="lucide:share-2" color="secondary" @click="lastAction = 'Share'" />
@@ -89,7 +113,7 @@ const actionsCode = `<q-fab v-model="open">
         <code>bottom-right</code> (default) — offsets include the safe-areas.
       </p>
 
-      <docs-demo :code="positionsCode" lang="html" filename="App.vue">
+      <docs-demo :code="positionsCode" lang="html" filename="App.vue" :script="scriptPositions">
         <div class="demo-fab-row">
           <div class="demo-fab-stage">
             <q-fab v-model="openLeft" position="bottom-left" />
@@ -111,7 +135,7 @@ const actionsCode = `<q-fab v-model="open">
         <code>icon</code> (default <code>lucide:plus</code>).
       </p>
 
-      <docs-demo :code="colorsCode" lang="html" filename="App.vue">
+      <docs-demo :code="colorsCode" lang="html" filename="App.vue" :script="scriptColors">
         <div class="demo-fab-stage">
           <q-fab v-model="openColors" color="negative" icon="lucide:message-circle">
             <q-fab-action label="New message" icon="lucide:message-square-plus" />
@@ -132,7 +156,7 @@ const actionsCode = `<q-fab v-model="open">
         out.
       </p>
 
-      <docs-demo :code="actionsCode" lang="html" filename="App.vue">
+      <docs-demo :code="actionsCode" lang="html" filename="App.vue" :script="scriptActions">
         <div class="demo-fab-stage">
           <q-fab v-model="openActions">
             <q-fab-action label="Edit" icon="lucide:pencil" @click="lastAction = 'Edit'" />

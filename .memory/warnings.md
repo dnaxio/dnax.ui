@@ -63,3 +63,14 @@ fermé**. Conséquences pour les triggers :
 « Cannot destructure property 'size' of 'useLucideProps(...)' as it is undefined »
 dans l'accordéon — non reproductible en SSR isolé (contexte client/bundle).
 Éliminé par le passage à `@iconify/vue`.
+
+## Zed : état LSP corrompu sur un fichier pourtant valide
+
+Après une série d'éditions, vtsls/Volar peut rester sur un snapshot corrompu d'un
+`.vue` : diagnostics absurdes (ex. « Cannot find module 'vu' », tokens fusionnés
+comme `constDémo`, props fantômes sur le composant) alors que le fichier est valide
+(octets propres, diff git propre, et une **copie du fichier sans aucune erreur**).
+Fix : forcer la relecture du fichier — copie le contenu puis restaure-le (aller-retour
+d'édition trivial), ou recrée le fichier. Diagnostic : `cp` le fichier sous un autre
+nom pour distinguer état serveur vs vrai problème de contenu. (2026-08-29, tabs.vue
+docs : `:script` ajoutés aux démos).

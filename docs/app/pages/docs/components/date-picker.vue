@@ -65,6 +65,35 @@ const formatCode = `<q-date-picker
   :format="(d) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })"
   outlined
 />`
+
+// — Scripts des démos (données + refs accompagnant le template) —
+const scriptData = `import { ref } from "vue"
+
+const fmt = (d) => (d ? d.toLocaleDateString("en-GB") : "—")`
+
+const scriptInline = `${scriptData}
+
+const dateInline = ref(null)`
+
+const scriptSheet = `${scriptData}
+
+const dateSheet = ref(null)`
+
+const scriptModal = `${scriptData}
+
+const dateModal = ref(null)`
+
+const scriptDialog = `${scriptData}
+
+const dateDialog = ref(null)`
+
+const scriptRange = `${scriptData}
+
+const dateRange = ref(null)`
+
+const scriptFormat = `${scriptData}
+
+const dateFormat = ref(new Date(1990, 4, 12))`
 </script>
 
 <template>
@@ -90,7 +119,7 @@ const formatCode = `<q-date-picker
         Useful for filters, widgets and small forms.
       </p>
 
-      <docs-demo :code="inlineCode" lang="html" filename="App.vue">
+      <docs-demo :code="inlineCode" lang="html" filename="App.vue" :script="scriptInline">
         <div class="demo-cal">
           <q-date-picker v-model="dateInline" mode="inline" />
           <p class="demo-p demo-p--value">Selected: <code>{{ fmt(dateInline) }}</code></p>
@@ -107,7 +136,7 @@ const formatCode = `<q-date-picker
         with the safe-area handled.
       </p>
 
-      <docs-demo :code="sheetCode" lang="html" filename="App.vue">
+      <docs-demo :code="sheetCode" lang="html" filename="App.vue" :script="scriptSheet">
         <div class="demo-field">
           <q-date-picker
             v-model="dateSheet"
@@ -130,7 +159,7 @@ const formatCode = `<q-date-picker
         <code>width</code> prop controls the panel size.
       </p>
 
-      <docs-demo :code="modalCode" lang="html" filename="App.vue">
+      <docs-demo :code="modalCode" lang="html" filename="App.vue" :script="scriptModal">
         <div class="demo-field">
           <q-date-picker
             v-model="dateModal"
@@ -152,7 +181,7 @@ const formatCode = `<q-date-picker
         the whole screen (safe-area top &amp; bottom handled).
       </p>
 
-      <docs-demo :code="dialogCode" lang="html" filename="App.vue">
+      <docs-demo :code="dialogCode" lang="html" filename="App.vue" :script="scriptDialog">
         <div class="demo-field">
           <q-date-picker
             v-model="dateDialog"
@@ -174,7 +203,7 @@ const formatCode = `<q-date-picker
         <code>disabled-dates</code> disables arbitrary days (here: weekends).
       </p>
 
-      <docs-demo :code="rangeCode" lang="html" filename="App.vue">
+      <docs-demo :code="rangeCode" lang="html" filename="App.vue" :script="scriptRange">
         <div class="demo-cal">
           <q-date-picker
             v-model="dateRange"
@@ -196,7 +225,7 @@ const formatCode = `<q-date-picker
         in the field (default: <code>dd MMM yyyy</code>).
       </p>
 
-      <docs-demo :code="formatCode" lang="html" filename="App.vue">
+      <docs-demo :code="formatCode" lang="html" filename="App.vue" :script="scriptFormat">
         <div class="demo-field">
           <q-date-picker
             v-model="dateFormat"

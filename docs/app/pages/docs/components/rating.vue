@@ -28,6 +28,23 @@ const usageIcons = `<q-rating v-model="hearts" :max="5" icon="lucide:heart"
 
 const usageReadonly = `<q-rating v-model="fixed" :max="5" readonly />
 <q-rating v-model="fixed" :max="5" color="teal" disable />`
+
+// — Scripts des démos (données + refs accompagnant le template) —
+const scriptBasic = `import { ref } from "vue"
+
+const note = ref(3)`
+
+const scriptSizes = `import { ref } from "vue"
+
+const review = ref(4)`
+
+const scriptIcons = `import { ref } from "vue"
+
+const hearts = ref(5)`
+
+const scriptReadonly = `import { ref } from "vue"
+
+const fixed = ref(5)`
 </script>
 
 <template>
@@ -48,7 +65,7 @@ const usageReadonly = `<q-rating v-model="fixed" :max="5" readonly />
     <section class="doc-section">
       <h2 class="doc-h2">Basic usage</h2>
 
-      <docs-demo :code="usageBasic" lang="html" filename="App.vue">
+      <docs-demo :code="usageBasic" lang="html" filename="App.vue" :script="scriptBasic">
         <div class="demo-rating">
           <q-rating v-model="note" :max="5" />
         </div>
@@ -64,7 +81,7 @@ const usageReadonly = `<q-rating v-model="fixed" :max="5" readonly />
         hex (default <code>warning</code>).
       </p>
 
-      <docs-demo :code="usageSizes" lang="html" filename="App.vue">
+      <docs-demo :code="usageSizes" lang="html" filename="App.vue" :script="scriptSizes">
         <div class="demo-rating">
           <q-rating v-model="review" :max="5" color="secondary" size="sm" />
           <q-rating v-model="review" :max="5" color="warning" size="md" />
@@ -81,7 +98,7 @@ const usageReadonly = `<q-rating v-model="fixed" :max="5" readonly />
         <code>no-dimming</code> keeps unselected icons at full opacity.
       </p>
 
-      <docs-demo :code="usageIcons" lang="html" filename="App.vue">
+      <docs-demo :code="usageIcons" lang="html" filename="App.vue" :script="scriptIcons">
         <div class="demo-rating">
           <q-rating v-model="hearts" :max="5" icon="lucide:heart" color="red" no-dimming />
         </div>
@@ -92,7 +109,7 @@ const usageReadonly = `<q-rating v-model="fixed" :max="5" readonly />
     <section class="doc-section">
       <h2 class="doc-h2">Readonly &amp; disabled</h2>
 
-      <docs-demo :code="usageReadonly" lang="html" filename="App.vue">
+      <docs-demo :code="usageReadonly" lang="html" filename="App.vue" :script="scriptReadonly">
         <div class="demo-rating">
           <q-rating v-model="fixed" :max="5" readonly />
           <q-rating v-model="fixed" :max="5" color="teal" disable />

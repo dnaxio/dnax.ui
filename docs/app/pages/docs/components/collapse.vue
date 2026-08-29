@@ -17,7 +17,7 @@ const openIcons = ref(false)
 const openDense = ref(true)
 const openCustom = ref(false)
 
-const basicCode = `<q-collapse v-model="open" label="Account" caption="Profile, security and preferences">
+const basicCode = `<q-collapse v-model="openBasic" label="Account" caption="Profile, security and preferences">
   <p class="demo-p">
     The content is animated with a measured height (0 → auto) and stays
     mounted in the DOM — hidden with CSS, not unmounted.
@@ -25,7 +25,7 @@ const basicCode = `<q-collapse v-model="open" label="Account" caption="Profile, 
 </q-collapse>`
 
 const iconsCode = `<q-collapse
-  v-model="open"
+  v-model="openIcons"
   label="Security"
   caption="Two-factor authentication"
   icon-left="lucide:shield"
@@ -49,13 +49,26 @@ const statesCode = `<q-collapse label="Dense" caption="Compact header" dense>
   <p class="demo-p">Clicking the header does nothing.</p>
 </q-collapse>`
 
-const customCode = `<q-collapse v-model="open" header-class="q-collapse__header--custom">
+const customCode = `<q-collapse v-model="openCustom" header-class="q-collapse__header--custom">
   <template #header>
     <q-icon name="lucide:sparkles" color="primary" />
     <span class="q-collapse__label">Custom header</span>
   </template>
   <p class="demo-p">Anything goes inside the <code>#header</code> slot.</p>
 </q-collapse>`
+
+// — Scripts des démos (refs accompagnant les templates) —
+const scriptBasic = `import { ref } from "vue"
+
+const openBasic = ref(true)`
+
+const scriptIcons = `import { ref } from "vue"
+
+const openIcons = ref(false)`
+
+const scriptCustom = `import { ref } from "vue"
+
+const openCustom = ref(false)`
 </script>
 
 <template>
@@ -81,7 +94,7 @@ const customCode = `<q-collapse v-model="open" header-class="q-collapse__header-
         open. The content stays mounted and animates via a measured height.
       </p>
 
-      <docs-demo :code="basicCode" lang="html" filename="App.vue">
+      <docs-demo :code="basicCode" lang="html" filename="App.vue" :script="scriptBasic">
         <div class="demo-collapse">
           <q-collapse v-model="openBasic" label="Account" caption="Profile, security and preferences">
             <p class="demo-p">
@@ -101,7 +114,7 @@ const customCode = `<q-collapse v-model="open" header-class="q-collapse__header-
         the chevron — any Iconify name.
       </p>
 
-      <docs-demo :code="iconsCode" lang="html" filename="App.vue">
+      <docs-demo :code="iconsCode" lang="html" filename="App.vue" :script="scriptIcons">
         <div class="demo-collapse">
           <q-collapse
             v-model="openIcons"
@@ -164,7 +177,7 @@ const customCode = `<q-collapse v-model="open" header-class="q-collapse__header-
         component.
       </p>
 
-      <docs-demo :code="customCode" lang="html" filename="App.vue">
+      <docs-demo :code="customCode" lang="html" filename="App.vue" :script="scriptCustom">
         <div class="demo-collapse">
           <q-collapse v-model="openCustom" header-class="q-collapse__header--custom">
             <template #header>

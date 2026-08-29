@@ -58,6 +58,19 @@ const startLoading = () => {
 }
 
 const clicks = ref(0)
+
+// — Scripts des démos (données + refs accompagnant le template) —
+const scriptLoading = `import { ref } from "vue"
+
+const loadingState = ref(false)
+const startLoading = () => {
+  loadingState.value = true
+  setTimeout(() => (loadingState.value = false), 2200)
+}`
+
+const scriptClick = `import { ref } from "vue"
+
+const clicks = ref(0)`
 </script>
 
 <template>
@@ -172,7 +185,7 @@ const clicks = ref(0)
       </docs-demo>
 
       <h3 class="doc-h3">Interactive loading</h3>
-      <docs-demo :code="loadingCode" lang="html" filename="App.vue">
+      <docs-demo :code="loadingCode" lang="html" filename="App.vue" :script="scriptLoading">
         <div class="demo-row">
           <q-btn label="Simulate loading" :loading="loadingState" @click="startLoading" />
         </div>
@@ -201,7 +214,7 @@ const clicks = ref(0)
       </p>
 
       <h3 class="doc-h3">Click event</h3>
-      <docs-demo :code="clickCode" lang="html" filename="App.vue">
+      <docs-demo :code="clickCode" lang="html" filename="App.vue" :script="scriptClick">
         <div class="demo-row">
           <q-btn label="Click me" @click="clicks++" />
           <p class="demo-p">Clicked {{ clicks }} times.</p>

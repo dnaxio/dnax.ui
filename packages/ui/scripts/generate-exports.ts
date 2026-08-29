@@ -40,7 +40,7 @@ export type { QPlatform } from "./lib/platform"
 export { screen } from "./lib/screen"
 export type { QScreen } from "./lib/screen"
 export { loading } from "./lib/loading"
-export type { LoadingOptions, QLoading } from "./lib/loading"
+export type { LoadingOptions, QLoadingPlugin } from "./lib/loading"
 `
 
 await Bun.write(indexFile, `${exports}\n${manualExports}`)

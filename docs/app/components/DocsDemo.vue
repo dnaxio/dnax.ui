@@ -7,8 +7,10 @@ defineProps<{
   code: string
   /** Langage du code (défaut html) */
   lang?: string
-  /** Nom de fichier (barre du q-syntax) */
+  /** Nom de fichier (barre du q-syntax) — remplacé par "Template" si un script est fourni */
   filename?: string
+  /** Script setup (données, refs…) affiché sous le template */
+  script?: string
 }>()
 
 const tab = ref<"preview" | "code">("preview")
@@ -38,7 +40,8 @@ const tab = ref<"preview" | "code">("preview")
         </div>
       </q-tab-panel>
       <q-tab-panel name="code" class="demo-block__code">
-        <q-syntax :code="code" :lang="lang ?? 'html'" :filename="filename" copy />
+        <q-syntax :code="code" :lang="lang ?? 'html'" filename="Template" copy />
+        <q-syntax v-if="script" :code="script" lang="ts" filename="Script setup" copy class="demo-block__script" />
       </q-tab-panel>
     </q-tab-panels>
   </div>
@@ -67,5 +70,8 @@ const tab = ref<"preview" | "code">("preview")
 .demo-block__code :deep(.q-syntax) {
   border: none;
   border-radius: 0;
+}
+.demo-block__code :deep(.q-syntax + .q-syntax) {
+  border-top: 1px solid rgb(0 0 0 / 0.08);
 }
 </style>

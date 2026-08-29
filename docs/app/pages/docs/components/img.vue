@@ -24,25 +24,28 @@ const toggleLoading = () => {
   setTimeout(() => (forcedLoading.value = false), 2200)
 }
 
-const basicCode = `<q-img src="https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" ratio="16/9" />`
+const basicCode = `<q-img :src="photo" ratio="16/9" />`
 
 const loadingCode = `<q-img
-  src="https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  :src="photo"
   ratio="16/9"
-  :loading="loading"
+  :loading="forcedLoading"
   spinner-color="primary"
   spinner-size="42px"
-/>`
+/>
+<p class="demo-p demo-p--action">
+  <q-btn size="sm" outline color="primary" no-caps :loading="forcedLoading" label="Simulate loading" @click="toggleLoading" />
+</p>`
 
 const placeholderCode = `<q-img
-  src="https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-  placeholder-src="https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=40&w=40&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  :src="photo"
+  :placeholder-src="thumb"
   ratio="16/9"
 />
 <!-- the low-res placeholder shows while the full image loads, then fades out -->`
 
 const captionCode = `<q-img
-  src="https://images.unsplash.com/photo-1595411425732-e69c1abe2763?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  :src="photo"
   ratio="16/9"
   alt="Workspace"
 >
@@ -56,8 +59,30 @@ const errorCode = `<q-img src="https://example.com/broken.jpg" ratio="16/9">
       <span>Failed to load</span>
     </div>
   </template>
-</q-img>`
-</script>
+  </q-img>`
+
+  // — Scripts des démos (images accompagnant les templates) —
+  const scriptPhoto = `const photo = "https://images.unsplash.com/photo-1595411425732-e69c1abe2763"
+    + "?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"`
+
+  const scriptThumb = `const thumb = "https://images.unsplash.com/photo-1595411425732-e69c1abe2763"
+    + "?q=40&w=40&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"`
+
+  const scriptData = `${scriptPhoto}
+
+  ${scriptThumb}`
+
+  const scriptLoading = `import { ref } from "vue"
+
+  ${scriptPhoto}
+
+  const forcedLoading = ref(false)
+
+  const toggleLoading = () => {
+    forcedLoading.value = true
+    setTimeout(() => (forcedLoading.value = false), 2200)
+  }`
+  </script>
 
 <template>
   <div class="doc">
@@ -82,7 +107,7 @@ const errorCode = `<q-img src="https://example.com/broken.jpg" ratio="16/9">
         no layout shift.
       </p>
 
-      <docs-demo :code="basicCode" lang="html" filename="App.vue">
+      <docs-demo :code="basicCode" lang="html" filename="App.vue" :script="scriptPhoto">
         <div class="demo-img">
           <q-img :src="photo" ratio="16/9" />
         </div>
@@ -98,7 +123,7 @@ const errorCode = `<q-img src="https://example.com/broken.jpg" ratio="16/9">
         useful for skeletons and optimistic UIs.
       </p>
 
-      <docs-demo :code="loadingCode" lang="html" filename="App.vue">
+      <docs-demo :code="loadingCode" lang="html" filename="App.vue" :script="scriptLoading">
         <div class="demo-img">
           <q-img
             :src="photo"
@@ -123,7 +148,7 @@ const errorCode = `<q-img src="https://example.com/broken.jpg" ratio="16/9">
         briefly; the main image fades in when ready.
       </p>
 
-      <docs-demo :code="placeholderCode" lang="html" filename="App.vue">
+      <docs-demo :code="placeholderCode" lang="html" filename="App.vue" :script="scriptData">
         <div class="demo-img">
           <q-img :src="photo" :placeholder-src="thumb" ratio="16/9" />
         </div>
@@ -138,7 +163,7 @@ const errorCode = `<q-img src="https://example.com/broken.jpg" ratio="16/9">
         badges and actions pinned to the bottom edge.
       </p>
 
-      <docs-demo :code="captionCode" lang="html" filename="App.vue">
+      <docs-demo :code="captionCode" lang="html" filename="App.vue" :script="scriptPhoto">
         <div class="demo-img">
           <q-img :src="photo" ratio="16/9" alt="Workspace">
             <q-text-caption

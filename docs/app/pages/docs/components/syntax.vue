@@ -52,6 +52,38 @@ const themeCode = `<q-syntax :code="tsCode" lang="ts" theme="github-light" filen
 const slotCode = `<q-syntax lang="html" filename="App.vue" copy>
   <q-btn label="Hello" />
 </q-syntax>`
+
+// — Scripts des démos (données accompagnant le template) —
+// Les snippets contiennent des backticks → concaténation de strings (jamais de
+// backtick / ${} dans les template literals des scripts).
+const scriptTs =
+  "const tsCode = `interface User {\n" +
+  "  id: number\n" +
+  "  name: string\n" +
+  "  roles: string[]\n" +
+  "}\n" +
+  "\n" +
+  "const formatName = (user: User): string =>\n" +
+  "  user.name.toUpperCase()`"
+
+const scriptLangs =
+  "const vueCode = `<template>\n" +
+  "  <q-btn label=\"Hello\" icon=\"lucide:heart\" color=\"primary\" />\n" +
+  "</template>`\n" +
+  "\n" +
+  "const bashCode = `npm install @dnax/ui\n" +
+  "npm run dev\n" +
+  "npm run build`\n" +
+  "\n" +
+  "const cssCode = `.q-btn {\n" +
+  "  --q-btn-h: 40px;\n" +
+  "  border-radius: 8px;\n" +
+  "}`\n" +
+  "\n" +
+  "const jsonCode = `{\n" +
+  "  \"name\": \"my-app\",\n" +
+  "  \"extends\": [\"@dnax/ui\"]\n" +
+  "}`"
 </script>
 
 <template>
@@ -70,7 +102,7 @@ const slotCode = `<q-syntax lang="html" filename="App.vue" copy>
     <!-- ═══════ Basic ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">Basic usage</h2>
-      <docs-demo :code="basicCode" lang="html" filename="App.vue">
+      <docs-demo :code="basicCode" lang="html" filename="App.vue" :script="scriptTs">
         <q-syntax :code="tsCode" lang="ts" filename="utils.ts" copy />
       </docs-demo>
       <p class="doc-note">
@@ -83,7 +115,7 @@ const slotCode = `<q-syntax lang="html" filename="App.vue" copy>
     <!-- ═══════ Languages ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">Languages</h2>
-      <docs-demo :code="langsCode" lang="html" filename="App.vue">
+      <docs-demo :code="langsCode" lang="html" filename="App.vue" :script="scriptLangs">
         <div class="demo-col">
           <q-syntax :code="vueCode" lang="vue" filename="App.vue" />
           <q-syntax :code="bashCode" lang="bash" filename="terminal" copy />
@@ -101,7 +133,7 @@ const slotCode = `<q-syntax lang="html" filename="App.vue" copy>
     <!-- ═══════ Themes ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">Themes</h2>
-      <docs-demo :code="themeCode" lang="html" filename="App.vue">
+      <docs-demo :code="themeCode" lang="html" filename="App.vue" :script="scriptTs">
         <div class="demo-col">
           <q-syntax :code="tsCode" lang="ts" filename="default-theme.ts" copy />
           <q-syntax :code="tsCode" lang="ts" theme="github-light" filename="light-theme.ts" copy />

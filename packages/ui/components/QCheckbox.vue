@@ -87,7 +87,10 @@ const toggle = () => {
 const boxStyle = computed<Record<string, string>>(() => {
   const style: Record<string, string> = {}
   const color = colorValue(props.color)
-  if (isChecked.value || isIndeterminate.value) style.backgroundColor = color
+  if (isChecked.value || isIndeterminate.value) {
+    style.backgroundColor = color
+    style.borderColor = color // pas de contour noir autour du fond coloré
+  }
   else if (props.keepColor) style.borderColor = color
   return style
 })

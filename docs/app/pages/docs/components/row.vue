@@ -7,5 +7,5 @@ definePageMeta({ layout: "docs" })
 </script>
 
 <template>
-  <DocsComponentPage title="Tab" export="QTab" />
+  <DocsComponentPage title="Row" export="QRow" />
 </template>

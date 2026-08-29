@@ -42,7 +42,7 @@ const usageBasic = `<q-carousel class="demo-carousel">
   <q-carousel-nav direction="next" label="Next slide" />
 </q-carousel>`
 
-const usageLoop = `<q-carousel class="demo-carousel" :opts="{ loop: true }">
+const usageLoop = `<q-carousel class="demo-carousel" :opts="loopOpts">
   <q-carousel-content>
     <q-carousel-item>
       <div class="demo-slide demo-slide--1">Slide 1</div>
@@ -88,6 +88,9 @@ const usageItem = `<q-carousel-item>
 
 const usageNav = `<q-carousel-nav direction="prev" label="Previous slide" />
 <q-carousel-nav direction="next" label="Next slide" />`
+
+// — Script de la démo Loop (option accompagnant le template) —
+const scriptLoop = `const loopOpts = { loop: true }`
 </script>
 
 <template>
@@ -139,7 +142,7 @@ const usageNav = `<q-carousel-nav direction="prev" label="Previous slide" />
       </docs-demo>
 
       <h3 class="doc-h3">Loop</h3>
-      <docs-demo :code="usageLoop" lang="html" filename="App.vue">
+      <docs-demo :code="usageLoop" lang="html" filename="App.vue" :script="scriptLoop">
         <q-carousel class="demo-carousel" :opts="loopOpts">
           <q-carousel-content>
             <q-carousel-item>

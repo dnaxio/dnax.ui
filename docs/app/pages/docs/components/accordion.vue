@@ -33,7 +33,7 @@ const usageSingle = `<q-accordion v-model="open" type="single" collapsible>
   </q-accordion-item>
 </q-accordion>`
 
-const usageMultiple = `<q-accordion v-model="open" type="multiple">
+const usageMultiple = `<q-accordion v-model="openMultiple" type="multiple">
   <q-accordion-item value="a">…</q-accordion-item>
   <q-accordion-item value="b">…</q-accordion-item>
 </q-accordion>`
@@ -53,6 +53,15 @@ const usageTrigger = `<q-accordion-trigger label="Introduction" expand-icon="luc
 const usageContent = `<q-accordion-content>
   <p>Le contenu reste monté (caché par CSS grid 0fr → 1fr).</p>
 </q-accordion-content>`
+
+// — Scripts des démos (refs accompagnant les templates) —
+const scriptSingle = `import { ref } from "vue"
+
+const open = ref("intro")`
+
+const scriptMultiple = `import { ref } from "vue"
+
+const openMultiple = ref(["a"])`
 </script>
 
 <template>
@@ -73,7 +82,7 @@ const usageContent = `<q-accordion-content>
     <section class="doc-section">
       <h2 class="doc-h2">QAccordion — conteneur</h2>
 
-      <docs-demo :code="usageSingle" lang="html" filename="App.vue">
+      <docs-demo :code="usageSingle" lang="html" filename="App.vue" :script="scriptSingle">
         <q-accordion v-model="open" type="single" collapsible class="demo-acc">
           <q-accordion-item value="intro">
             <q-accordion-trigger>Introduction</q-accordion-trigger>
@@ -105,7 +114,7 @@ const usageContent = `<q-accordion-content>
       </docs-demo>
 
       <h3 class="doc-h3">Multiple</h3>
-      <docs-demo :code="usageMultiple" lang="html" filename="App.vue">
+      <docs-demo :code="usageMultiple" lang="html" filename="App.vue" :script="scriptMultiple">
         <q-accordion v-model="openMultiple" type="multiple" class="demo-acc">
           <q-accordion-item value="a">
             <q-accordion-trigger>Option A</q-accordion-trigger>

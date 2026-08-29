@@ -29,6 +29,7 @@ const FAMILIES: Record<string, string[]> = {
   ],
   Fab: ["QFab", "QFabAction"],
   List: ["QList", "QItem", "QItemSection"],
+  Loading: ["QLoading", "QLoadingProvider"],
   "Message Scroller": [
     "QMessageScroller",
     "QMessageScrollerContent",
@@ -53,6 +54,8 @@ const FAMILIES: Record<string, string[]> = {
     "QSidebarMenuItem",
     "QSidebarTrigger",
   ],
+  Tabs: ["QTab", "QTabs"],
+  "Tab Panels": ["QTabPanels", "QTabPanel"],
 };
 
 // Pages écrites à la main (non régénérées)
@@ -61,17 +64,22 @@ const CUSTOM_PAGES = new Set([
   "action-sheet",
   "autocomplete",
   "avatar",
+  "back-top",
   "badge",
   "btn-group",
   "collapse",
   "date-picker",
   "fab",
   "footer",
+  "grid",
   "header",
   "img",
+  "infinite-scroll",
   "inner-loading",
   "input-password",
+  "input-tag",
   "list",
+  "loading",
   "loading-provider",
   "bottom-sheet",
   "btn",
@@ -129,6 +137,13 @@ const LAYOUTS = [
 ];
 const LAYOUT_EXPORTS = new Set(LAYOUTS.map((l) => l.export));
 
+// Slugs de pages surchargés (nom de fichier/lien ≠ kebab de l'export)
+const SLUG_OVERRIDES: Record<string, string> = {
+  QTab: "tabs",
+};
+const slugOf = (exportName: string) =>
+  SLUG_OVERRIDES[exportName] ?? kebab(exportName);
+
 const PLUGINS = [
   { title: "Dialog", link: "/docs/plugins/api#dialog" },
   { title: "Bottom Sheet", link: "/docs/plugins/api#bottom-sheet" },
@@ -169,14 +184,14 @@ const entries = [
     const root = members[0]!;
     return {
       title,
-      link: `/docs/components/${kebab(root)}`,
+      link: `/docs/components/${slugOf(root)}`,
       export: root,
       members,
     };
   }),
   ...singles.map((n) => ({
     title: titleOf(n),
-    link: `/docs/components/${kebab(n)}`,
+    link: `/docs/components/${slugOf(n)}`,
     export: n,
     members: [n],
   })),
@@ -261,13 +276,13 @@ for (const f of readdirSync(PAGES_DIR)) {
   if (!f.endsWith(".vue")) continue;
   const base = f.replace(/\.vue$/, "");
   if (CUSTOM_PAGES.has(base)) continue;
-  if (!entries.some((e) => kebab(e.export) === base))
+  if (!entries.some((e) => slugOf(e.export) === base))
     rmSync(`${PAGES_DIR}/${f}`);
 }
 
 for (const e of entries) {
-  const file = `${PAGES_DIR}/${kebab(e.export)}.vue`;
-  if (CUSTOM_PAGES.has(kebab(e.export))) continue; // page écrite à la main
+  const file = `${PAGES_DIR}/${slugOf(e.export)}.vue`;
+  if (CUSTOM_PAGES.has(slugOf(e.export))) continue; // page écrite à la main
 
   const parts = e.members
     .filter((m) => m !== e.export)

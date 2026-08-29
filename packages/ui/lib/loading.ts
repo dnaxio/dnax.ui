@@ -26,7 +26,7 @@ export interface LoadingOptions {
   boxed?: boolean
 }
 
-export interface QLoading {
+export interface QLoadingPlugin {
   show: (options?: LoadingOptions) => void
   hide: () => void
   /** true tant que le loading est affiché */
@@ -67,7 +67,7 @@ function hide() {
   visible.value = false
 }
 
-export const loading: QLoading & { _opts: typeof opts } = {
+export const loading: QLoadingPlugin & { _opts: typeof opts } = {
   show,
   hide,
   isActive: visible,

@@ -145,6 +145,15 @@ const usageTrigger = `<q-sidebar-trigger label="Toggle sidebar" />
 <q-sidebar-trigger label="Close sidebar">
   <q-icon name="lucide:x" />
 </q-sidebar-trigger>`
+
+// — Scripts des démos (onglet "Script setup") —
+const scriptOffcanvas = `import { ref } from "vue"
+
+const open = ref(false)`
+
+const scriptStatic = `import { ref } from "vue"
+
+const openStatic = ref(false)`
 </script>
 
 <template>
@@ -179,7 +188,7 @@ const usageTrigger = `<q-sidebar-trigger label="Toggle sidebar" />
       </p>
 
       <h3 class="doc-h3">Offcanvas</h3>
-      <docs-demo :code="usageOffcanvas" lang="html" filename="App.vue">
+      <docs-demo :code="usageOffcanvas" lang="html" filename="App.vue" :script="scriptOffcanvas">
         <div class="demo-toolbar">
           <q-btn color="primary" icon="lucide:menu" label="Open sidebar" @click="open = true" />
         </div>
@@ -218,7 +227,7 @@ const usageTrigger = `<q-sidebar-trigger label="Toggle sidebar" />
       </docs-demo>
 
       <h3 class="doc-h3">Static &amp; sticky</h3>
-      <docs-demo :code="usageStatic" lang="html" filename="App.vue">
+      <docs-demo :code="usageStatic" lang="html" filename="App.vue" :script="scriptStatic">
         <div class="demo-layout">
           <q-sidebar
             show-if-above

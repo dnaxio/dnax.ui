@@ -40,31 +40,50 @@ const usageOptions = `<q-btn color="primary" icon="lucide:share-2" label="Share"
 <q-action-sheet
   v-model="open"
   title="Share to"
-  :options="[
-    { label: 'Copy link', icon: 'lucide:link', value: 'copy' },
-    { label: 'Email', icon: 'lucide:mail', value: 'email', description: 'Send a message' },
-    { label: 'Messages', icon: 'lucide:message-circle', value: 'messages' },
-    { label: 'More options', icon: 'lucide:ellipsis', description: 'No value — the option itself is emitted' },
-  ]"
+  :options="shareOptions"
   @select="onSelect"
 />
 <p v-if="result" class="demo-action-result">Selected: <code>{{ result }}</code></p>`
 
-const usageEvents = `<q-btn outline label="Choose a plan" @click="open = true" />
+const usageEvents = `<q-btn outline label="Choose a plan" @click="openPlan = true" />
 
 <q-action-sheet
-  v-model="open"
+  v-model="openPlan"
   title="Upgrade plan"
   cancel="Dismiss"
-  :options="[
-    { label: 'Free', value: 'free', icon: 'lucide:gift' },
-    { label: 'Pro', value: 'pro', icon: 'lucide:zap', color: 'primary', description: 'Best value' },
-    { label: 'Enterprise', value: 'enterprise', icon: 'lucide:building-2', color: '#d97706' },
-  ]"
+  :options="planOptions"
   @select="last = 'select: ' + $event"
   @cancel="last = 'cancel'"
 />
 <p v-if="last" class="demo-action-result">Last event: <code>{{ last }}</code></p>`
+
+// — Scripts des démos (onglet "Script setup") —
+const scriptOptions = `import { ref } from "vue"
+
+const open = ref(false)
+const result = ref("")
+
+const shareOptions = ref([
+  { label: "Copy link", icon: "lucide:link", value: "copy" },
+  { label: "Email", icon: "lucide:mail", value: "email", description: "Send a message" },
+  { label: "Messages", icon: "lucide:message-circle", value: "messages" },
+  { label: "More options", icon: "lucide:ellipsis", description: "No value — the option itself is emitted" },
+])
+
+const onSelect = (value) => {
+  result.value = typeof value === "string" ? value : (value?.label ?? JSON.stringify(value))
+}`
+
+const scriptEvents = `import { ref } from "vue"
+
+const openPlan = ref(false)
+const last = ref("")
+
+const planOptions = ref([
+  { label: "Free", value: "free", icon: "lucide:gift" },
+  { label: "Pro", value: "pro", icon: "lucide:zap", color: "primary", description: "Best value" },
+  { label: "Enterprise", value: "enterprise", icon: "lucide:building-2", color: "#d97706" },
+])`
 </script>
 
 <template>
@@ -85,7 +104,7 @@ const usageEvents = `<q-btn outline label="Choose a plan" @click="open = true" /
     <section class="doc-section">
       <h2 class="doc-h2">QActionSheet — options list</h2>
 
-      <docs-demo :code="usageOptions" lang="html" filename="App.vue">
+      <docs-demo :code="usageOptions" lang="html" filename="App.vue" :script="scriptOptions">
         <q-btn color="primary" icon="lucide:share-2" label="Share" @click="open = true" />
 
         <q-action-sheet
@@ -98,7 +117,7 @@ const usageEvents = `<q-btn outline label="Choose a plan" @click="open = true" /
       </docs-demo>
 
       <h3 class="doc-h3">Select &amp; cancel events</h3>
-      <docs-demo :code="usageEvents" lang="html" filename="App.vue">
+      <docs-demo :code="usageEvents" lang="html" filename="App.vue" :script="scriptEvents">
         <q-btn outline label="Choose a plan" @click="openPlan = true" />
 
         <q-action-sheet

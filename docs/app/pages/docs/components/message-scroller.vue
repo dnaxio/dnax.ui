@@ -118,14 +118,17 @@ const usageAnchor = `<q-message-scroller-provider
     <q-message-scroller-viewport>
       <q-message-scroller-content>
         <q-message-scroller-item
-          v-for="turn in turns"
-          :key="turn.id"
-          :message-id="turn.id"
-          :scroll-anchor="turn.anchor"
+          v-for="m in messages"
+          :key="m.id"
+          :message-id="m.id"
+          :scroll-anchor="m.from === 'them'"
           animation-preset="fade"
         >
-          <q-bubble align="start" variant="secondary">
-            <q-bubble-content>{{ turn.text }}</q-bubble-content>
+          <q-bubble
+            :align="m.from === 'me' ? 'end' : 'start'"
+            :variant="m.from === 'me' ? 'default' : 'secondary'"
+          >
+            <q-bubble-content>{{ m.text }}</q-bubble-content>
           </q-bubble>
         </q-message-scroller-item>
       </q-message-scroller-content>
@@ -145,6 +148,38 @@ const usageButton = `<!-- jump to the live edge (bottom) -->
 
 <!-- jump back to the top -->
 <q-message-scroller-button direction="start" label="Jump to oldest" />`
+
+// — Scripts des démos (onglet "Script setup") —
+const scriptData = `import { ref } from "vue"
+
+const messages = ref([
+  { id: "m1", text: "Welcome to the demo! 👋", from: "them" },
+  { id: "m2", text: "Hey! Does the scroller stay pinned to the bottom?", from: "me" },
+  { id: "m3", text: "It does — as long as auto-scroll is on and you are at the live edge.", from: "them" },
+  { id: "m4", text: "Try sending a message below.", from: "them" },
+])
+let msgSeq = 4
+const sendMessage = () => {
+  msgSeq += 1
+  messages.value.push({ id: "m" + msgSeq, text: "Auto-scrolled message #" + msgSeq + " 🎉", from: "me" })
+}`
+
+const scriptTranscript = scriptData
+
+const scriptLive = `${scriptData}
+
+const presets = [
+  { label: "Fade", value: "fade" },
+  { label: "Slide up", value: "slide-up" },
+  { label: "Slide side", value: "slide-side" },
+  { label: "Pop", value: "pop" },
+  { label: "Spring bounce", value: "spring-bounce" },
+  { label: "Blur fade", value: "blur-fade" },
+  { label: "Scale fade", value: "scale-fade" },
+]
+const preset = ref("slide-up")`
+
+const scriptAnchor = scriptData
 </script>
 
 <template>
@@ -177,7 +212,7 @@ const usageButton = `<!-- jump to the live edge (bottom) -->
         (edges still reachable).
       </p>
 
-      <docs-demo :code="usageTranscript" lang="html" filename="App.vue">
+      <docs-demo :code="usageTranscript" lang="html" filename="App.vue" :script="scriptTranscript">
         <q-message-scroller-provider auto-scroll default-scroll-position="end">
           <q-message-scroller class="demo-scroller">
             <q-message-scroller-viewport>
@@ -198,7 +233,7 @@ const usageButton = `<!-- jump to the live edge (bottom) -->
       </docs-demo>
 
       <h3 class="doc-h3">Live edge</h3>
-      <docs-demo :code="usageLive" lang="html" filename="App.vue">
+      <docs-demo :code="usageLive" lang="html" filename="App.vue" :script="scriptLive">
         <q-message-scroller-provider auto-scroll default-scroll-position="end">
           <q-message-scroller class="demo-scroller">
             <q-message-scroller-viewport>
@@ -233,7 +268,7 @@ const usageButton = `<!-- jump to the live edge (bottom) -->
       </docs-demo>
 
       <h3 class="doc-h3">Turn anchoring</h3>
-      <docs-demo :code="usageAnchor" lang="html" filename="App.vue">
+      <docs-demo :code="usageAnchor" lang="html" filename="App.vue" :script="scriptAnchor">
         <q-message-scroller-provider auto-scroll default-scroll-position="last-anchor" :scroll-previous-item-peek="48">
           <q-message-scroller class="demo-scroller">
             <q-message-scroller-viewport>

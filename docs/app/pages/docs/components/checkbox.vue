@@ -38,6 +38,33 @@ const usageStates = `<q-checkbox v-model="locked" label="Disabled" disable />
 const usageLayout = `<q-checkbox v-model="liked" label="Left label" left-label color="teal" />
 <q-checkbox v-model="liked" color="primary"
   checked-icon="lucide:thumbs-up" unchecked-icon="lucide:thumbs-down" />`
+
+// — Scripts des démos (données + refs accompagnant le template) —
+const scriptSimple = `import { ref } from "vue"
+
+const checked = ref(true)`
+
+const scriptArray = `import { ref } from "vue"
+
+const features = ref(["wifi"])
+
+const featureOptions = [
+  { value: "wifi", label: "Wi-Fi" },
+  { value: "gps", label: "GPS" },
+  { value: "bluetooth", label: "Bluetooth" },
+]`
+
+const scriptIndeterminate = `import { ref } from "vue"
+
+const state = ref("mixed")`
+
+const scriptStates = `import { ref } from "vue"
+
+const locked = ref(false)`
+
+const scriptLayout = `import { ref } from "vue"
+
+const liked = ref(true)`
 </script>
 
 <template>
@@ -58,7 +85,7 @@ const usageLayout = `<q-checkbox v-model="liked" label="Left label" left-label c
     <section class="doc-section">
       <h2 class="doc-h2">Basic usage</h2>
 
-      <docs-demo :code="usageSimple" lang="html" filename="App.vue">
+      <docs-demo :code="usageSimple" lang="html" filename="App.vue" :script="scriptSimple">
         <div class="demo-group">
           <q-checkbox v-model="checked" label="Accept terms" color="secondary" />
         </div>
@@ -73,7 +100,7 @@ const usageLayout = `<q-checkbox v-model="liked" label="Left label" left-label c
         <code>val</code> from the list — the classic multi-select pattern.
       </p>
 
-      <docs-demo :code="usageArray" lang="html" filename="App.vue">
+      <docs-demo :code="usageArray" lang="html" filename="App.vue" :script="scriptArray">
         <div class="demo-group">
           <q-checkbox
             v-for="opt in featureOptions"
@@ -94,7 +121,7 @@ const usageLayout = `<q-checkbox v-model="liked" label="Left label" left-label c
         mixed state — useful for a "select all" master checkbox.
       </p>
 
-      <docs-demo :code="usageIndeterminate" lang="html" filename="App.vue">
+      <docs-demo :code="usageIndeterminate" lang="html" filename="App.vue" :script="scriptIndeterminate">
         <div class="demo-group">
           <q-checkbox v-model="state" label="Select all" indeterminate-value="mixed" />
         </div>
@@ -105,7 +132,7 @@ const usageLayout = `<q-checkbox v-model="liked" label="Left label" left-label c
     <section class="doc-section">
       <h2 class="doc-h2">Disabled, readonly &amp; layout</h2>
 
-      <docs-demo :code="usageStates" lang="html" filename="App.vue">
+      <docs-demo :code="usageStates" lang="html" filename="App.vue" :script="scriptStates">
         <div class="demo-group">
           <q-checkbox v-model="locked" label="Disabled" disable />
           <q-checkbox v-model="locked" label="Readonly" readonly color="secondary" />
@@ -113,7 +140,7 @@ const usageLayout = `<q-checkbox v-model="liked" label="Left label" left-label c
       </docs-demo>
 
       <h3 class="doc-h3">Label position &amp; icons</h3>
-      <docs-demo :code="usageLayout" lang="html" filename="App.vue">
+      <docs-demo :code="usageLayout" lang="html" filename="App.vue" :script="scriptLayout">
         <div class="demo-group">
           <q-checkbox v-model="liked" label="Left label" left-label color="teal" />
           <q-checkbox

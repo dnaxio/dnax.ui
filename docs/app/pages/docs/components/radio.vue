@@ -28,6 +28,15 @@ const usageLayout = `<q-radio v-model="transport" val="car" label="Left label" l
 
 const usageDisabled = `<q-radio v-model="transport" val="car" label="Car (disabled)" disable />
 <q-radio v-model="transport" val="walk" label="Walk (readonly)" readonly />`
+
+// — Scripts des démos (données + refs accompagnant le template) —
+const scriptData = `import { ref } from "vue"
+
+const transport = ref("car")`
+
+const scriptColors = `import { ref } from "vue"
+
+const theme = ref("dark")`
 </script>
 
 <template>
@@ -48,7 +57,7 @@ const usageDisabled = `<q-radio v-model="transport" val="car" label="Car (disabl
     <section class="doc-section">
       <h2 class="doc-h2">Radio group</h2>
 
-      <docs-demo :code="usageGroup" lang="html" filename="App.vue">
+      <docs-demo :code="usageGroup" lang="html" filename="App.vue" :script="scriptData">
         <div class="demo-group">
           <q-radio v-model="transport" val="car" label="Car" />
           <q-radio v-model="transport" val="bike" label="Bike" />
@@ -61,7 +70,7 @@ const usageDisabled = `<q-radio v-model="transport" val="car" label="Car (disabl
     <section class="doc-section">
       <h2 class="doc-h2">Colors</h2>
 
-      <docs-demo :code="usageColors" lang="html" filename="App.vue">
+      <docs-demo :code="usageColors" lang="html" filename="App.vue" :script="scriptColors">
         <div class="demo-group">
           <q-radio v-model="theme" val="dark" label="Dark" color="primary" />
           <q-radio v-model="theme" val="system" label="System" color="secondary" />
@@ -78,7 +87,7 @@ const usageDisabled = `<q-radio v-model="transport" val="car" label="Car (disabl
         <code>dense</code> reduces the spacing.
       </p>
 
-      <docs-demo :code="usageLayout" lang="html" filename="App.vue">
+      <docs-demo :code="usageLayout" lang="html" filename="App.vue" :script="scriptData">
         <div class="demo-group">
           <q-radio v-model="transport" val="car" label="Left label" left-label />
           <q-radio v-model="transport" val="bike" label="Dense" dense color="secondary" />
@@ -90,7 +99,7 @@ const usageDisabled = `<q-radio v-model="transport" val="car" label="Car (disabl
     <section class="doc-section">
       <h2 class="doc-h2">Disabled &amp; readonly</h2>
 
-      <docs-demo :code="usageDisabled" lang="html" filename="App.vue">
+      <docs-demo :code="usageDisabled" lang="html" filename="App.vue" :script="scriptData">
         <div class="demo-group">
           <q-radio v-model="transport" val="car" label="Car (disabled)" disable />
           <q-radio v-model="transport" val="walk" label="Walk (readonly)" readonly />

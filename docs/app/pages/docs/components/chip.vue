@@ -40,6 +40,18 @@ const resetChips = () => {
   chips.value = ["Vue", "Nuxt", "Shadcn"]
 }
 const count = ref(0)
+
+// — Scripts des démos (données + refs accompagnant le template) —
+const scriptRemovable = `import { ref } from "vue"
+
+const chips = ref(["Vue", "Nuxt", "Shadcn"])
+const resetChips = () => {
+  chips.value = ["Vue", "Nuxt", "Shadcn"]
+}`
+
+const scriptEvents = `import { ref } from "vue"
+
+const count = ref(0)`
 </script>
 
 <template>
@@ -92,7 +104,7 @@ const count = ref(0)
     <!-- ═══════ Removable ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">Removable</h2>
-      <docs-demo :code="removableCode" lang="html" filename="App.vue">
+      <docs-demo :code="removableCode" lang="html" filename="App.vue" :script="scriptRemovable">
         <div class="demo-row">
           <q-chip
             v-for="(c, i) in chips"
@@ -118,7 +130,7 @@ const count = ref(0)
     <!-- ═══════ Events & disabled ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">Events &amp; disabled</h2>
-      <docs-demo :code="eventsCode" lang="html" filename="App.vue">
+      <docs-demo :code="eventsCode" lang="html" filename="App.vue" :script="scriptEvents">
         <div class="demo-row">
           <q-chip label="Click me" icon="lucide:thumbs-up" @click="count++" />
           <q-chip label="Disabled" icon="lucide:lock" disable />

@@ -42,6 +42,19 @@ const usageIcons = `<q-tabs v-model="tabIcons" inline-label no-caps active-color
   <q-tab name="sent" icon="lucide:send" label="Sent" />
   <q-tab name="drafts" icon="lucide:file-text" label="Drafts" />
 </q-tabs>`
+
+// — Scripts des démos (onglet "Script setup") —
+const scriptBasic = `import { ref } from "vue"
+
+const tab = ref("one")`
+
+const scriptAlign = `import { ref } from "vue"
+
+const tabAlign = ref("home")`
+
+const scriptIcons = `import { ref } from "vue"
+
+const tabIcons = ref("inbox")`
 </script>
 
 <template>
@@ -71,7 +84,7 @@ const usageIcons = `<q-tabs v-model="tabIcons" inline-label no-caps active-color
       </p>
 
       <h3 class="doc-h3">Basic</h3>
-      <docs-demo :code="usageBasic" lang="html" filename="App.vue">
+      <docs-demo :code="usageBasic" lang="html" filename="App.vue" :script="scriptBasic">
         <q-tabs v-model="tab" active-color="primary" indicator-color="primary">
           <q-tab name="one" label="One" />
           <q-tab name="two" label="Two" />
@@ -81,7 +94,7 @@ const usageIcons = `<q-tabs v-model="tabIcons" inline-label no-caps active-color
       </docs-demo>
 
       <h3 class="doc-h3">Align &amp; size</h3>
-      <docs-demo :code="usageAlign" lang="html" filename="App.vue">
+      <docs-demo :code="usageAlign" lang="html" filename="App.vue" :script="scriptAlign">
         <q-tabs
           v-model="tabAlign"
           align="justify"
@@ -97,7 +110,7 @@ const usageIcons = `<q-tabs v-model="tabIcons" inline-label no-caps active-color
       </docs-demo>
 
       <h3 class="doc-h3">Icons &amp; alerts</h3>
-      <docs-demo :code="usageIcons" lang="html" filename="App.vue">
+      <docs-demo :code="usageIcons" lang="html" filename="App.vue" :script="scriptIcons">
         <q-tabs v-model="tabIcons" inline-label no-caps active-color="primary">
           <q-tab name="inbox" icon="lucide:inbox" label="Inbox" alert="negative" />
           <q-tab name="sent" icon="lucide:send" label="Sent" />

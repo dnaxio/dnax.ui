@@ -31,6 +31,27 @@ const usageStates = `<q-slider v-model="locked" label disable />
 
 const usageVertical = `<q-slider v-model="vertical" :min="0" :max="100"
   vertical label markers color="primary" />`
+
+// — Scripts des démos (données + refs accompagnant le template) —
+const scriptBasic = `import { ref } from "vue"
+
+const val = ref(40)`
+
+const scriptMarkers = `import { ref } from "vue"
+
+const price = ref(120)`
+
+const scriptColors = `import { ref } from "vue"
+
+const volume = ref(60)`
+
+const scriptStates = `import { ref } from "vue"
+
+const locked = ref(50)`
+
+const scriptVertical = `import { ref } from "vue"
+
+const vertical = ref(70)`
 </script>
 
 <template>
@@ -52,7 +73,7 @@ const usageVertical = `<q-slider v-model="vertical" :min="0" :max="100"
     <section class="doc-section">
       <h2 class="doc-h2">Basic usage</h2>
 
-      <docs-demo :code="usageBasic" lang="html" filename="App.vue">
+      <docs-demo :code="usageBasic" lang="html" filename="App.vue" :script="scriptBasic">
         <div class="demo-slider">
           <q-slider v-model="val" :min="0" :max="100" :step="5" label />
         </div>
@@ -67,7 +88,7 @@ const usageVertical = `<q-slider v-model="vertical" :min="0" :max="100"
         keeps the value bubble visible instead of only while dragging.
       </p>
 
-      <docs-demo :code="usageMarkers" lang="html" filename="App.vue">
+      <docs-demo :code="usageMarkers" lang="html" filename="App.vue" :script="scriptMarkers">
         <div class="demo-slider">
           <q-slider v-model="price" :min="0" :max="300" :step="30" label label-always markers color="teal" />
         </div>
@@ -82,7 +103,7 @@ const usageVertical = `<q-slider v-model="vertical" :min="0" :max="100"
         dragging instead of rounding on release.
       </p>
 
-      <docs-demo :code="usageColors" lang="html" filename="App.vue">
+      <docs-demo :code="usageColors" lang="html" filename="App.vue" :script="scriptColors">
         <div class="demo-slider">
           <q-slider v-model="volume" :min="0" :max="100" :step="5" label snap color="secondary" />
         </div>
@@ -93,7 +114,7 @@ const usageVertical = `<q-slider v-model="vertical" :min="0" :max="100"
     <section class="doc-section">
       <h2 class="doc-h2">Disabled, readonly &amp; vertical</h2>
 
-      <docs-demo :code="usageStates" lang="html" filename="App.vue">
+      <docs-demo :code="usageStates" lang="html" filename="App.vue" :script="scriptStates">
         <div class="demo-row">
           <div class="demo-slider">
             <q-slider v-model="locked" label disable />
@@ -105,7 +126,7 @@ const usageVertical = `<q-slider v-model="vertical" :min="0" :max="100"
       </docs-demo>
 
       <h3 class="doc-h3">Vertical</h3>
-      <docs-demo :code="usageVertical" lang="html" filename="App.vue">
+      <docs-demo :code="usageVertical" lang="html" filename="App.vue" :script="scriptVertical">
         <div class="demo-slider-v">
           <q-slider v-model="vertical" :min="0" :max="100" vertical label markers color="primary" />
         </div>
