@@ -67,8 +67,10 @@ const CUSTOM_PAGES = new Set([
   "back-top",
   "badge",
   "btn-group",
+  "col",
   "collapse",
   "date-picker",
+  "data-grid",
   "fab",
   "footer",
   "grid",
@@ -77,6 +79,7 @@ const CUSTOM_PAGES = new Set([
   "infinite-scroll",
   "inner-loading",
   "input-password",
+  "input-otp",
   "input-tag",
   "list",
   "loading",
@@ -95,6 +98,7 @@ const CUSTOM_PAGES = new Set([
   "nav-menu",
   "radio",
   "rating",
+  "row",
   "select",
   "separator",
   "sidebar",
@@ -137,6 +141,25 @@ const LAYOUTS = [
 ];
 const LAYOUT_EXPORTS = new Set(LAYOUTS.map((l) => l.export));
 
+// Composants Styles : regroupés sous « Styles > Columns / Rows » dans le menu
+// (leurs pages restent générées/custom, mais hors du groupe Components).
+const STYLES = [
+  {
+    title: "Columns",
+    items: [
+      { title: "Grid", link: "/docs/components/grid", export: "QGrid" },
+      { title: "Col", link: "/docs/components/col", export: "QCol" },
+    ],
+  },
+  {
+    title: "Rows",
+    items: [{ title: "Row", link: "/docs/components/row", export: "QRow" }],
+  },
+];
+const STYLE_EXPORTS = new Set(
+  STYLES.flatMap((s) => s.items.map((i) => i.export)),
+);
+
 // Slugs de pages surchargés (nom de fichier/lien ≠ kebab de l'export)
 const SLUG_OVERRIDES: Record<string, string> = {
   QTab: "tabs",
@@ -160,6 +183,13 @@ const titleOf = (name: string) => {
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
 };
+
+// Titres de menu surchargés (dérivation automatique imparfaite)
+const TITLE_OVERRIDES: Record<string, string> = {
+  QInputOtp: "Input OTP",
+};
+const titleOfEntry = (exportName: string) =>
+  TITLE_OVERRIDES[exportName] ?? titleOf(exportName);
 const kebab = (name: string) =>
   name
     .replace(/^Q/, "")
@@ -190,7 +220,7 @@ const entries = [
     };
   }),
   ...singles.map((n) => ({
-    title: titleOf(n),
+    title: titleOfEntry(n),
     link: `/docs/components/${slugOf(n)}`,
     export: n,
     members: [n],
@@ -244,12 +274,30 @@ out += `        ],
     ],
   },
   {
+    title: "Styles",
+    icon: "lucide:frame",
+    groups: [
+`;
+for (const s of STYLES) {
+  out += `      {
+        title: ${JSON.stringify(s.title)},
+        items: [
+`;
+  for (const i of s.items)
+    out += `          { title: ${JSON.stringify(i.title)}, link: ${JSON.stringify(i.link)}, export: ${JSON.stringify(i.export)} },\n`;
+  out += `        ],
+      },
+`;
+}
+out += `    ],
+  },
+  {
     title: "Components",
     icon: "lucide:component",
     items: [
 `;
 for (const e of entries) {
-  if (LAYOUT_EXPORTS.has(e.export)) continue;
+  if (LAYOUT_EXPORTS.has(e.export) || STYLE_EXPORTS.has(e.export)) continue;
   out += `      { title: ${JSON.stringify(e.title)}, link: ${JSON.stringify(e.link)}, export: ${JSON.stringify(e.export)} },\n`;
 }
 out += `    ],
@@ -288,7 +336,7 @@ for (const e of entries) {
     .filter((m) => m !== e.export)
     .map(
       (m) =>
-        `  { title: ${JSON.stringify(titleOf(m))}, export: ${JSON.stringify(m)} },`,
+        `  { title: ${JSON.stringify(titleOfEntry(m))}, export: ${JSON.stringify(m)} },`,
     );
   const partsBlock = parts.length
     ? `\nconst parts = [\n${parts.join("\n")}\n]\n`

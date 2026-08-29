@@ -59,6 +59,7 @@ watch(
             >
               <div class="sidebar-group__items">
                 <template v-for="sub in group.groups ?? []" :key="sub.title">
+                  <div class="sidebar-subgroup">{{ sub.title }}</div>
                   <q-sidebar-menu-button
                     v-for="item in sub.items"
                     :key="item.link"
@@ -139,6 +140,15 @@ watch(
   flex-direction: column;
   gap: 2px;
   padding: 2px 0 6px 12px;
+}
+
+.sidebar-subgroup {
+  padding: 10px 12px 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #8b93a1;
 }
 
 /* Le bouton fermer n'est utile qu'en mode offcanvas (mobile) */

@@ -44,6 +44,25 @@ export const menuItems: MenuGroup[] = [
     ],
   },
   {
+    title: "Styles",
+    icon: "lucide:frame",
+    groups: [
+      {
+        title: "Columns",
+        items: [
+          { title: "Grid", link: "/docs/components/grid", export: "QGrid" },
+          { title: "Col", link: "/docs/components/col", export: "QCol" },
+        ],
+      },
+      {
+        title: "Rows",
+        items: [
+          { title: "Row", link: "/docs/components/row", export: "QRow" },
+        ],
+      },
+    ],
+  },
+  {
     title: "Components",
     icon: "lucide:component",
     items: [
@@ -64,21 +83,21 @@ export const menuItems: MenuGroup[] = [
       { title: "Checkbox", link: "/docs/components/checkbox", export: "QCheckbox" },
       { title: "Chip", link: "/docs/components/chip", export: "QChip" },
       { title: "Circular Progress", link: "/docs/components/circular-progress", export: "QCircularProgress" },
-      { title: "Col", link: "/docs/components/col", export: "QCol" },
       { title: "Collapse", link: "/docs/components/collapse", export: "QCollapse" },
       { title: "Config Provider", link: "/docs/components/config-provider", export: "QConfigProvider" },
       { title: "Container", link: "/docs/components/container", export: "QContainer" },
+      { title: "Data Grid", link: "/docs/components/data-grid", export: "QDataGrid" },
       { title: "Date Picker", link: "/docs/components/date-picker", export: "QDatePicker" },
       { title: "Dialog", link: "/docs/components/dialog", export: "QDialog" },
       { title: "Fab", link: "/docs/components/fab", export: "QFab" },
       { title: "File Picker", link: "/docs/components/file-picker", export: "QFilePicker" },
-      { title: "Grid", link: "/docs/components/grid", export: "QGrid" },
       { title: "Icon", link: "/docs/components/icon", export: "QIcon" },
       { title: "Image", link: "/docs/components/img", export: "QImg" },
       { title: "Image Picker", link: "/docs/components/image-picker", export: "QImagePicker" },
       { title: "Infinite Scroll", link: "/docs/components/infinite-scroll", export: "QInfiniteScroll" },
       { title: "Inner Loading", link: "/docs/components/inner-loading", export: "QInnerLoading" },
       { title: "Input", link: "/docs/components/input", export: "QInput" },
+      { title: "Input OTP", link: "/docs/components/input-otp", export: "QInputOtp" },
       { title: "Input Password", link: "/docs/components/input-password", export: "QInputPassword" },
       { title: "Input Tag", link: "/docs/components/input-tag", export: "QInputTag" },
       { title: "Linear Progress", link: "/docs/components/linear-progress", export: "QLinearProgress" },
@@ -91,7 +110,6 @@ export const menuItems: MenuGroup[] = [
       { title: "Pull To Refresh", link: "/docs/components/pull-to-refresh", export: "QPullToRefresh" },
       { title: "Radio", link: "/docs/components/radio", export: "QRadio" },
       { title: "Rating", link: "/docs/components/rating", export: "QRating" },
-      { title: "Row", link: "/docs/components/row", export: "QRow" },
       { title: "Safe Area", link: "/docs/components/safe-area", export: "QSafeArea" },
       { title: "Scroll Area", link: "/docs/components/scroll-area", export: "QScrollArea" },
       { title: "Select", link: "/docs/components/select", export: "QSelect" },

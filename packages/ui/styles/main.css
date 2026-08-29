@@ -6010,7 +6010,49 @@ html.dark body {
 }
 .q-input-tag__chip-remove:hover { background: rgb(0 0 0 / 0.3); }
 .q-input-tag__chip-remove svg { width: 10px; height: 10px; }
-.q-input-tag__native { flex: 1 1 120px; min-width: 120px; }
+
+.q-input-tag__chip:hover {
+  background-color: rgb(0 0 0 / 0.12);
+}
+
+.q-input-tag__chip--focused {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.q-input-tag__edit {
+  min-width: 80px;
+  flex: 1 1 80px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  padding: 2px 8px;
+  border-radius: 6px;
+  outline: 2px solid var(--primary);
+}
+
+.q-input-tag__native {
+  flex: 1 1 120px;
+  min-width: 120px;
+  height: auto;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.q-input-tag__native::placeholder {
+  color: rgb(0 0 0 / 0.45);
+}
+.q-input-tag__native:focus {
+  outline: none;
+  box-shadow: none;
+}
 
 /* ===== QGrid / QRow / QCol — grille responsive =====
    Breakpoints configurables via --q-grid-bp-* (lues au runtime par matchMedia). */
@@ -6197,3 +6239,214 @@ html.dark body {
 .q-grid--cols-xl-10 { --q-grid-cols: 10; }
 .q-grid--cols-xl-11 { --q-grid-cols: 11; }
 .q-grid--cols-xl-12 { --q-grid-cols: 12; }
+
+/* ===== QDataGrid — grille type tableur (formules, édition, sélection clavier) ===== */
+.q-data-grid {
+  --q-data-grid-border: rgb(0 0 0 / 0.1);
+  --q-data-grid-header-bg: rgb(0 0 0 / 0.03);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--q-radius);
+  background: #fff;
+  color: var(--foreground);
+}
+.q-data-grid--flat {
+  box-shadow: none;
+}
+.q-data-grid--bordered {
+  border: 1px solid var(--q-data-grid-border);
+}
+.q-data-grid--dark {
+  --q-data-grid-border: rgb(255 255 255 / 0.15);
+  --q-data-grid-header-bg: rgb(255 255 255 / 0.06);
+  background: #1d1d1d;
+  color: #fff;
+}
+.q-data-grid__scroll {
+  position: relative;
+  overflow: auto;
+}
+.q-data-grid__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
+}
+.q-data-grid__table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 8px 12px;
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 1px solid var(--q-data-grid-border);
+  background-color: var(--q-data-grid-header-bg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.q-data-grid__table td {
+  padding: 6px 12px;
+  cursor: cell;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.q-data-grid__table td:focus {
+  outline: none;
+}
+.q-data-grid__table tbody tr {
+  transition: background-color 0.15s ease;
+}
+.q-data-grid__table tbody tr:hover {
+  background-color: var(--q-data-grid-header-bg);
+}
+.q-data-grid--dense .q-data-grid__table th,
+.q-data-grid--dense .q-data-grid__table td {
+  padding: 3px 8px;
+}
+.q-data-grid__cell--number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.q-data-grid__cell--error {
+  color: #c62828;
+  font-weight: 600;
+}
+.q-data-grid__cell--selected {
+  background-color: rgb(25 118 210 / 0.08);
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+.q-data-grid__cell--editing {
+  background-color: #fff;
+  box-shadow: none;
+}
+.q-data-grid--separator-horizontal .q-data-grid__table td {
+  border-bottom: 1px solid var(--q-data-grid-border);
+}
+.q-data-grid--separator-vertical .q-data-grid__table th + th,
+.q-data-grid--separator-vertical .q-data-grid__table td + td {
+  border-left: 1px solid var(--q-data-grid-border);
+}
+.q-data-grid--separator-cell .q-data-grid__table td {
+  border-bottom: 1px solid var(--q-data-grid-border);
+}
+.q-data-grid--separator-cell .q-data-grid__table th + th,
+.q-data-grid--separator-cell .q-data-grid__table td + td {
+  border-left: 1px solid var(--q-data-grid-border);
+}
+.q-data-grid__editor {
+  position: absolute;
+  z-index: 50;
+  display: flex;
+  align-items: stretch;
+  padding: 0;
+  border: 2px solid var(--primary);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  overflow: hidden;
+}
+.q-data-grid__editor input,
+.q-data-grid__editor textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 8px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: inherit;
+  resize: none;
+}
+.q-data-grid__editor--formula {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+.q-data-grid__editor--formula textarea {
+  line-height: 1.6;
+}
+
+/* ===== QInputOtp — code à usage unique (une case par caractère) ===== */
+.q-input-otp {
+  display: inline-block;
+  max-width: 100%;
+}
+.q-input-otp__boxes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.q-input-otp__box {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 0.22);
+  border-radius: var(--q-radius);
+  background: #fff;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+  caret-color: var(--primary);
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.q-input-otp__box::placeholder {
+  color: rgb(0 0 0 / 0.25);
+}
+.q-input-otp__box:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+.q-input-otp__box--filled {
+  border-color: rgb(0 0 0 / 0.4);
+}
+.q-input-otp__box--error {
+  border-color: var(--negative);
+}
+.q-input-otp__box--error:focus {
+  border-color: var(--negative);
+  box-shadow: 0 0 0 1px var(--negative);
+}
+.q-input-otp__box--sm {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+}
+.q-input-otp__box--lg {
+  width: 56px;
+  height: 56px;
+  font-size: 24px;
+}
+.q-input-otp__separator {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgb(0 0 0 / 0.35);
+  user-select: none;
+}
+.q-input-otp.q-field--filled .q-input-otp__box {
+  background: rgb(0 0 0 / 0.05);
+  border-color: transparent;
+  border-bottom: 1px solid rgb(0 0 0 / 0.3);
+}
+.q-input-otp.q-field--borderless .q-input-otp__box {
+  background: transparent;
+  border-color: transparent;
+}
+.q-input-otp.q-field--error .q-input-otp__box {
+  border-color: var(--negative);
+}
+.q-input-otp.q-field--error .q-input-otp__box:focus {
+  box-shadow: 0 0 0 1px var(--negative);
+}

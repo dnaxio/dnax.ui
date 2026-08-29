@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Grid — documentation complète de la famille :
-// QGrid (conteneur) + QCol (cellule) + QRow (alias sémantique) — responsive.
+// Grid — documentation du composant QGrid : le conteneur de la grille responsive.
+// Les cellules (QCol) et l'alias sémantique (QRow) ont leurs propres pages.
 import { componentSource, componentTag, useComponent } from "~/composables/useComponentDocs"
 import DocsApi from "~/components/DocsApi.vue"
 import DocsDemo from "~/components/DocsDemo.vue"
@@ -9,11 +9,6 @@ definePageMeta({ layout: "docs" })
 
 const grid = useComponent(() => "QGrid")
 const gridSource = componentSource("QGrid")
-const col = useComponent(() => "QCol")
-const colSource = componentSource("QCol")
-const row = useComponent(() => "QRow")
-const rowSource = componentSource("QRow")
-
 const tag = componentTag("QGrid")
 
 const usageBasic = `<q-grid :cols="12" gap="16px">
@@ -23,11 +18,6 @@ const usageBasic = `<q-grid :cols="12" gap="16px">
   <q-col :span="4"><div class="cell">4</div></q-col>
   <q-col :span="4"><div class="cell">4</div></q-col>
   <q-col :span="4"><div class="cell">4</div></q-col>
-  <q-col :span="3"><div class="cell">3</div></q-col>
-  <q-col :span="3"><div class="cell">3</div></q-col>
-  <q-col :span="2"><div class="cell">2</div></q-col>
-  <q-col :span="2"><div class="cell">2</div></q-col>
-  <q-col :span="2"><div class="cell">2</div></q-col>
 </q-grid>`
 
 const usageResponsive = `<q-grid :cols="12" gap="12px">
@@ -41,12 +31,10 @@ const usageResponsive = `<q-grid :cols="12" gap="12px">
   </q-col>
 </q-grid>`
 
-const usageRow = `<q-row gap="12px">
-  <q-col :span="8" :offset="2"><div class="cell">span 8, offset 2</div></q-col>
-  <q-col :span="4"><div class="cell">4</div></q-col>
-  <q-col :span="4"><div class="cell">4</div></q-col>
-  <q-col :span="4"><div class="cell">4</div></q-col>
-</q-row>`
+const usageColsResponsive = `<q-grid :cols="12" :cols-md="6" :cols-lg="4" gap="12px">
+  <q-col v-for="i in 6" :key="i"><div class="cell">Item {{ i }}</div></q-col>
+</q-grid>
+<!-- 6 items : 6 par ligne mobile, 3 à md, 2 à lg (cols change le total) -->`
 </script>
 
 <template>
@@ -57,11 +45,12 @@ const usageRow = `<q-row gap="12px">
     </div>
 
     <p class="doc-lead">
-      A responsive grid system: <b>&lt;q-grid&gt;</b> is the container (CSS Grid, 12
-      columns by default), <b>&lt;q-col&gt;</b> is a cell with <code>span</code> /
-      <code>offset</code> + responsive variants, and <b>&lt;q-row&gt;</b> is a
-      semantic alias of <code>q-grid</code>. Breakpoints are
-      <b>configurable</b> via CSS variables (<code>--q-grid-bp-sm/md/lg/xl</code>).
+      A responsive CSS grid container: <b>&lt;q-grid&gt;</b> creates
+      <code>cols</code> tracks (12 by default) and its <b>&lt;q-col&gt;</b>
+      children occupy spans. Breakpoints are <b>configurable</b> via CSS variables
+      (<code>--q-grid-bp-sm/md/lg/xl</code>). See also the dedicated pages for
+      <a class="doc-link" href="/docs/components/col">QCol</a> (cell) and
+      <a class="doc-link" href="/docs/components/row">QRow</a> (semantic alias).
     </p>
 
     <!-- ═══════ Basic ═══════ -->
@@ -79,11 +68,6 @@ const usageRow = `<q-row gap="12px">
           <q-col :span="4"><div class="demo-cell">4</div></q-col>
           <q-col :span="4"><div class="demo-cell">4</div></q-col>
           <q-col :span="4"><div class="demo-cell">4</div></q-col>
-          <q-col :span="3"><div class="demo-cell">3</div></q-col>
-          <q-col :span="3"><div class="demo-cell">3</div></q-col>
-          <q-col :span="2"><div class="demo-cell">2</div></q-col>
-          <q-col :span="2"><div class="demo-cell">2</div></q-col>
-          <q-col :span="2"><div class="demo-cell">2</div></q-col>
         </q-grid>
       </docs-demo>
     </section>
@@ -106,23 +90,17 @@ const usageRow = `<q-row gap="12px">
           </q-col>
         </q-grid>
       </docs-demo>
-    </section>
 
-    <!-- ═══════ QRow & offset ═══════ -->
-    <section class="doc-section">
-      <h2 class="doc-h2">QRow &amp; offset</h2>
+      <h3 class="doc-h3">Responsive column count</h3>
       <p class="doc-note">
-        <code>q-row</code> is a semantic alias of <code>q-grid</code> — same props.
-        <code>offset</code> shifts a cell by a number of columns.
+        <code>cols-md / -lg / -xl</code> change the <em>total</em> number of
+        columns at a breakpoint — combined with plain cells (no span), items flow
+        into fewer/more per row automatically.
       </p>
-
-      <docs-demo :code="usageRow" lang="html" filename="App.vue">
-        <q-row gap="12px" class="demo-grid">
-          <q-col :span="8" :offset="2"><div class="demo-cell">span 8, offset 2</div></q-col>
-          <q-col :span="4"><div class="demo-cell">4</div></q-col>
-          <q-col :span="4"><div class="demo-cell">4</div></q-col>
-          <q-col :span="4"><div class="demo-cell">4</div></q-col>
-        </q-row>
+      <docs-demo :code="usageColsResponsive" lang="html" filename="App.vue">
+        <q-grid :cols="12" :cols-md="6" :cols-lg="4" gap="12px" class="demo-grid">
+          <q-col v-for="i in 6" :key="i"><div class="demo-cell">Item {{ i }}</div></q-col>
+        </q-grid>
       </docs-demo>
     </section>
 
@@ -145,16 +123,6 @@ const usageRow = `<q-row gap="12px">
     <section class="doc-section">
       <h2 class="doc-h2">QGrid API</h2>
       <docs-api :comp="grid" :source="gridSource" />
-    </section>
-
-    <section class="doc-section">
-      <h2 class="doc-h2">QCol API</h2>
-      <docs-api :comp="col" :source="colSource" />
-    </section>
-
-    <section class="doc-section">
-      <h2 class="doc-h2">QRow API</h2>
-      <docs-api :comp="row" :source="rowSource" />
     </section>
   </div>
 </template>
@@ -200,6 +168,14 @@ const usageRow = `<q-row gap="12px">
   font-weight: 700;
   color: var(--foreground);
 }
+.doc-h3 {
+  margin: 22px 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8b93a1;
+}
 .doc-note {
   margin: 0 0 14px;
   font-size: 14px;
@@ -214,6 +190,18 @@ const usageRow = `<q-row gap="12px">
   padding: 1px 5px;
   border-radius: 5px;
   font-size: 0.92em;
+}
+.doc-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+.doc-link:hover {
+  text-decoration: underline;
+}
+
+.docs-demo + h3 {
+  margin-top: 32px;
 }
 
 .demo-cell {

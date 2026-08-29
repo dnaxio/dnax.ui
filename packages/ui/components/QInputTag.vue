@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// QInputTag — champ de tags : <q-input-tag v-model="tags" label="Emails" placeholder="Type and press Enter" outlined />
-// Entrée (ou virgule) ajoute un tag, Backspace sur champ vide retire le dernier, × retire un tag.
-import { computed, ref } from "vue"
+// QInputTag — champ de tags : <q-input-tag v-model="tags" label="Emails" outlined />
+// Entrée/virgule ajoute · Backspace/Delete retire · flèches pour naviguer entre les
+// tags · double-clic (ou Entrée) pour éditer un tag · collage multi-tags (séparateurs).
+import { computed, nextTick, ref } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
@@ -31,6 +32,8 @@ interface Props {
   readonly?: boolean
   /** Nombre max de tags (0 = illimité) */
   maxTags?: number
+  /** Séparateurs de collage (défaut : virgule, point-virgule, retour ligne) */
+  separators?: string[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -42,6 +45,7 @@ const props = withDefaults(defineProps<Props>(), {
   disable: false,
   readonly: false,
   maxTags: 0,
+  separators: () => [",", ";", "\n"],
 })
 
 const emit = defineEmits<{
@@ -53,13 +57,17 @@ const emit = defineEmits<{
 }>()
 
 const inputEl = ref<HTMLInputElement | null>(null)
+const editInputEl = ref<HTMLInputElement | null>(null)
+const controlEl = ref<HTMLElement | null>(null)
 const text = ref("")
+const focusedTag = ref<number | null>(null)
+const editing = ref<{ index: number; value: string } | null>(null)
 
 const tags = computed(() => props.modelValue ?? [])
 
-const addTag = () => {
-  const t = text.value.trim()
-  text.value = ""
+// — Ajout / retrait —
+const addTag = (raw: string) => {
+  const t = raw.trim()
   if (!t) return
   if (props.maxTags > 0 && tags.value.length >= props.maxTags) return
   if (tags.value.includes(t)) return
@@ -67,23 +75,132 @@ const addTag = () => {
   emit("add", t)
 }
 
-const removeTag = (t: string) => {
-  emit("update:modelValue", tags.value.filter((x) => x !== t))
+const addText = () => {
+  const t = text.value.trim()
+  text.value = ""
+  if (t) addTag(t)
+}
+
+const removeAt = (index: number) => {
+  const t = tags.value[index]
+  if (t === undefined) return
+  const next = [...tags.value]
+  next.splice(index, 1)
+  emit("update:modelValue", next)
   emit("remove", t)
+  if (focusedTag.value === index) focusedTag.value = null
   inputEl.value?.focus()
 }
 
-const onKeydown = (e: KeyboardEvent) => {
+// — Saisie —
+const onInputKeydown = (e: KeyboardEvent) => {
+  if (props.disable || props.readonly) return
   if (e.key === "Enter" || e.key === ",") {
     e.preventDefault()
-    addTag()
+    addText()
   }
   else if (e.key === "Backspace" && text.value === "" && tags.value.length) {
-    removeTag(tags.value[tags.value.length - 1]!)
+    e.preventDefault()
+    removeAt(tags.value.length - 1)
+  }
+  else if (e.key === "ArrowLeft" && text.value === "" && tags.value.length) {
+    const el = e.target as HTMLInputElement
+    if (el.selectionStart === 0) {
+      e.preventDefault()
+      focusChip(tags.value.length - 1)
+    }
   }
 }
 
-// radius : prop explicite > composantProps.QInputTag > composantProps.default
+// Collage : divise par les séparateurs → plusieurs tags
+const onPaste = (e: ClipboardEvent) => {
+  if (props.disable || props.readonly) return
+  const raw = e.clipboardData?.getData("text") ?? ""
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const parts = raw.split(new RegExp(props.separators.map(esc).join("|")))
+  if (parts.length > 1) {
+    e.preventDefault()
+    for (const p of parts) addTag(p)
+  }
+}
+
+// — Navigation & édition des tags —
+const focusChip = (index: number) => {
+  const chips = controlEl.value?.querySelectorAll<HTMLElement>(".q-input-tag__chip")
+  const el = chips?.[index]
+  if (el) {
+    el.focus()
+    focusedTag.value = index
+  }
+  else {
+    inputEl.value?.focus()
+    focusedTag.value = null
+  }
+}
+
+const tagKeydown = (index: number, e: KeyboardEvent) => {
+  if (e.key === "Backspace" || e.key === "Delete") {
+    e.preventDefault()
+    removeAt(index)
+  }
+  else if (e.key === "ArrowRight") {
+    e.preventDefault()
+    focusChip(index + 1)
+  }
+  else if (e.key === "ArrowLeft") {
+    e.preventDefault()
+    if (index === 0) inputEl.value?.focus()
+    else focusChip(index - 1)
+  }
+  else if (e.key === "Enter" || e.key === "F2") {
+    e.preventDefault()
+    startEdit(index)
+  }
+}
+
+const startEdit = (index: number) => {
+  editing.value = { index, value: tags.value[index] ?? "" }
+  nextTick(() => {
+    editInputEl.value?.focus()
+    editInputEl.value?.select()
+  })
+}
+
+const commitEdit = () => {
+  if (!editing.value) return
+  const { index, value } = editing.value
+  editing.value = null
+  const next = [...tags.value]
+  const t = value.trim()
+  if (!t) {
+    next.splice(index, 1)
+    emit("update:modelValue", next)
+    emit("remove", tags.value[index]!)
+  }
+  else if (t !== next[index]) {
+    next[index] = t
+    emit("update:modelValue", next)
+  }
+  inputEl.value?.focus()
+}
+
+const cancelEdit = () => {
+  editing.value = null
+  inputEl.value?.focus()
+}
+
+const editKeydown = (e: KeyboardEvent) => {
+  if (e.key === "Enter") {
+    e.preventDefault()
+    commitEdit()
+  }
+  else if (e.key === "Escape") {
+    e.preventDefault()
+    cancelEdit()
+  }
+}
+
+// — Radius & styles de champ —
 const effectiveRadius = useRadius("QInputTag", () => props.radius)
 const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
 
@@ -104,19 +221,41 @@ const fieldClasses = computed(() =>
 <template>
   <div class="q-input-tag" :class="fieldClasses" :style="roundedStyle">
     <label v-if="label" class="q-field__label-stack">{{ label }}</label>
-    <div class="q-field__control q-input-tag__control" @click="inputEl?.focus()">
-      <span v-for="t in tags" :key="t" class="q-input-tag__chip">
-        <span class="q-input-tag__chip-label">{{ t }}</span>
-        <button
-          v-if="!disable && !readonly"
-          type="button"
-          class="q-input-tag__chip-remove"
-          :aria-label="`Retirer ${t}`"
-          @click.stop="removeTag(t)"
+    <div ref="controlEl" class="q-field__control q-input-tag__control" @click="inputEl?.focus()">
+      <template v-for="(t, i) in tags" :key="`${t}-${i}`">
+        <span
+          v-if="editing?.index !== i"
+          class="q-input-tag__chip"
+          :class="{ 'q-input-tag__chip--focused': focusedTag === i }"
+          role="button"
+          :tabindex="disable || readonly ? -1 : 0"
+          @click.stop="focusedTag = i"
+          @dblclick.stop="startEdit(i)"
+          @keydown="(e) => tagKeydown(i, e)"
+          @focus="focusedTag = i"
+          @blur="focusedTag = null"
         >
-          <Icon :icon="icons.x" aria-hidden="true" />
-        </button>
-      </span>
+          <span class="q-input-tag__chip-label">{{ t }}</span>
+          <button
+            v-if="!disable && !readonly"
+            type="button"
+            class="q-input-tag__chip-remove"
+            :aria-label="`Retirer ${t}`"
+            @click.stop="removeAt(i)"
+          >
+            <Icon :icon="icons.x" aria-hidden="true" />
+          </button>
+        </span>
+        <input
+          v-else
+          ref="editInputEl"
+          class="q-input-tag__edit"
+          :value="editing.value"
+          @input="editing.value = ($event.target as HTMLInputElement).value"
+          @keydown="editKeydown"
+          @blur="commitEdit"
+        />
+      </template>
       <input
         ref="inputEl"
         class="q-field__native q-input-tag__native"
@@ -125,10 +264,11 @@ const fieldClasses = computed(() =>
         :disabled="disable || undefined"
         :readonly="readonly || undefined"
         @input="text = ($event.target as HTMLInputElement).value"
-        @keydown="onKeydown"
+        @keydown="onInputKeydown"
+        @paste="onPaste"
         @focus="(e) => emit('focus', e)"
         @blur="(e) => {
-          if (text.trim()) addTag()
+          if (text.trim()) addText()
           emit('blur', e)
         }"
       />

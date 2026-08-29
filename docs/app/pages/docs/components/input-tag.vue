@@ -51,9 +51,11 @@ const tags = ref(["ada@dnax.dev", "grace@dnax.dev"])`
     </div>
 
     <p class="doc-lead">
-      A text field that collects <b>tags</b> as chips. Press <kbd>Enter</kbd> (or
-      type a comma) to add the current text, <kbd>Backspace</kbd> on an empty field
-      to remove the last tag, or click the <code>×</code> to remove any tag.
+      A text field that collects <b>tags</b> as chips — inspired by the reka-ui
+      TagsInput pattern. Press <kbd>Enter</kbd> (or a comma) to add the current
+      text, <kbd>Backspace</kbd> on an empty field to remove the last tag, use the
+      arrows to navigate between tags, <b>double-click</b> a tag to edit it,
+      or <b>paste</b> a comma/semicolon-separated list to add several at once.
       <b>&lt;q-input-tag&gt;</b> keeps the same field vocabulary as
       <code>q-input</code> (<code>outlined</code>, <code>filled</code>,
       <code>dense</code>, <code>error</code>…).
@@ -63,9 +65,10 @@ const tags = ref(["ada@dnax.dev", "grace@dnax.dev"])`
     <section class="doc-section">
       <h2 class="doc-h2">Basic</h2>
       <p class="doc-note">
-        The <code>v-model</code> is an array of strings — add with Enter/comma,
-        remove with <code>×</code> or Backspace. The pending text is also committed
-        on blur.
+        The <code>v-model</code> is an array of strings. Add with Enter/comma,
+        remove with <code>×</code>, Backspace or Delete, navigate with the arrows,
+        double-click a tag to edit it, or paste a list — try pasting
+        <code>vue, nuxt, tailwind</code> in the field below.
       </p>
 
       <docs-demo :code="usageBasic" lang="html" filename="App.vue" :script="scriptData">
