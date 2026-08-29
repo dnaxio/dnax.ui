@@ -27,6 +27,12 @@ interface Props {
   alert?: boolean | string
   /** Icône Iconify remplaçant le point de notification */
   alertIcon?: string
+  /** Nombre de notifications — badge numérique (masqué si 0 ou absent) */
+  count?: number
+  /** Couleur du badge count — token ou hex (défaut : couleur de alert, sinon negative) */
+  countColor?: string
+  /** Seuil d'affichage : au-delà, « max+ » (défaut : 99) */
+  countMax?: number
   /** Pas de mise en majuscules */
   noCaps?: boolean
   tabindex?: string | number
@@ -40,6 +46,7 @@ const props = withDefaults(defineProps<Props>(), {
   alert: false,
   noCaps: false,
   disable: false,
+  countMax: 99,
 })
 
 const emit = defineEmits<{ click: [event: MouseEvent]; keydown: [event: KeyboardEvent] }>()
@@ -67,6 +74,19 @@ const alertStyle = computed<Record<string, string>>((): Record<string, string> =
 const alertIconStyle = computed<Record<string, string>>((): Record<string, string> =>
   alertColor.value ? { color: colorValue(alertColor.value) } : {},
 )
+
+// Badge numérique (notifications non lues…)
+const hasCount = computed(() => typeof props.count === "number" && props.count > 0)
+const countDisplay = computed(() => {
+  if (!hasCount.value) return ""
+  return props.count! > props.countMax ? props.countMax + "+" : String(props.count)
+})
+const countColor = computed(() =>
+  props.countColor ?? (typeof props.alert === "string" ? props.alert : "negative"),
+)
+const countStyle = computed<Record<string, string>>(() => ({
+  backgroundColor: colorValue(countColor.value),
+}))
 
 const tabClasses = computed(() =>
   cn(
@@ -132,11 +152,17 @@ const onKeydown = (e: KeyboardEvent) => {
       <span v-if="label !== undefined" class="q-tab__label">{{ label }}</span>
       <slot v-else />
       <span
-        v-if="alert && !alertIcon"
+        v-if="alert && !alertIcon && !hasCount"
         class="q-tab__alert"
         :style="alertStyle"
         aria-label="Notification"
       />
+      <span
+        v-if="hasCount && !alertIcon"
+        class="q-tab__count"
+        :style="countStyle"
+        :aria-label="countDisplay + ' notifications'"
+      >{{ countDisplay }}</span>
       <Icon
         :icon="alertIcon"
         v-if="alertIcon"

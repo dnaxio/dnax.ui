@@ -107,7 +107,9 @@ const CUSTOM_PAGES = new Set([
   "tab-panels",
   "table",
   "tabs",
+  "text",
   "toolbar",
+  "tooltip",
 ]);
 
 const GUIDES = [

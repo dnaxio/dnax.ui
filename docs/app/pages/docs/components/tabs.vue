@@ -16,6 +16,7 @@ const tag = componentTag("QTabs")
 const tab = ref("one")
 const tabAlign = ref("home")
 const tabIcons = ref("inbox")
+const tabCounts = ref("inbox")
 
 const usageBasic = `<q-tabs v-model="tab" active-color="primary" indicator-color="primary">
   <q-tab name="one" label="One" />
@@ -43,6 +44,13 @@ const usageIcons = `<q-tabs v-model="tabIcons" inline-label no-caps active-color
   <q-tab name="drafts" icon="lucide:file-text" label="Drafts" />
 </q-tabs>`
 
+const usageCounts = `<q-tabs v-model="tabCounts" no-caps active-color="primary">
+  <q-tab name="inbox" icon="lucide:inbox" label="Inbox" :count="12" />
+  <q-tab name="social" icon="lucide:users" label="Social" :count="5" count-color="info" />
+  <q-tab name="spam" icon="lucide:shield-alert" label="Spam" :count="125" count-color="warning" />
+  <q-tab name="sent" icon="lucide:send" label="Sent" />
+</q-tabs>`
+
 // — Scripts des démos (onglet "Script setup") —
 const scriptBasic = `import { ref } from "vue"
 
@@ -55,6 +63,10 @@ const tabAlign = ref("home")`
 const scriptIcons = `import { ref } from "vue"
 
 const tabIcons = ref("inbox")`
+
+const scriptCounts = `import { ref } from "vue"
+
+const tabCounts = ref("inbox")`
 </script>
 
 <template>
@@ -115,6 +127,22 @@ const tabIcons = ref("inbox")`
           <q-tab name="inbox" icon="lucide:inbox" label="Inbox" alert="negative" />
           <q-tab name="sent" icon="lucide:send" label="Sent" />
           <q-tab name="drafts" icon="lucide:file-text" label="Drafts" />
+        </q-tabs>
+      </docs-demo>
+
+      <h3 class="doc-h3">Notification counts</h3>
+      <p class="doc-note">
+        <code>count</code> renders a numeric badge (unread messages…) — hidden when
+        0. <code>count-color</code> sets the badge color (token or hex; defaults to
+        the <code>alert</code> color, then <code>negative</code>), and
+        <code>count-max</code> caps the display as <code>N+</code> (default 99).
+      </p>
+      <docs-demo :code="usageCounts" lang="html" filename="App.vue" :script="scriptCounts">
+        <q-tabs v-model="tabCounts" no-caps active-color="primary">
+          <q-tab name="inbox" icon="lucide:inbox" label="Inbox" :count="12" />
+          <q-tab name="social" icon="lucide:users" label="Social" :count="5" count-color="info" />
+          <q-tab name="spam" icon="lucide:shield-alert" label="Spam" :count="125" count-color="warning" />
+          <q-tab name="sent" icon="lucide:send" label="Sent" />
         </q-tabs>
       </docs-demo>
 

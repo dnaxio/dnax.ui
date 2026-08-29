@@ -138,7 +138,7 @@ const btnClasses = computed(() =>
     <span v-if="loading" class="q-btn__spinner" aria-hidden="true" />
     <Icon v-else-if="icon" :icon="icon" class="q-btn__icon" aria-hidden="true" />
     <span v-if="label" class="q-btn__label">{{ label }}</span>
-    <slot v-else />
+    <slot />
     <Icon v-if="iconRight && !loading" :icon="iconRight" class="q-btn__icon" aria-hidden="true" />
   </component>
 </template>
