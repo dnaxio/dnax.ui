@@ -105,7 +105,6 @@ export const menuItems: MenuGroup[] = [
       { title: "Loading", link: "/docs/components/loading", export: "QLoading" },
       { title: "Message Scroller", link: "/docs/components/message-scroller", export: "QMessageScroller" },
       { title: "Nav Menu", link: "/docs/components/nav-menu", export: "QNavMenu" },
-      { title: "Notify Toast", link: "/docs/components/notify-toast", export: "QNotifyToast" },
       { title: "Pagination", link: "/docs/components/pagination", export: "QPagination" },
       { title: "Pull To Refresh", link: "/docs/components/pull-to-refresh", export: "QPullToRefresh" },
       { title: "Radio", link: "/docs/components/radio", export: "QRadio" },

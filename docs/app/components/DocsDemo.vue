@@ -34,8 +34,8 @@ const tab = ref<"preview" | "code">("preview")
     <q-separator />
 
     <q-tab-panels v-model="tab" animated class="demo-block__panels">
-      <q-tab-panel name="preview" class="">
-        <div class="p-4">
+      <q-tab-panel name="preview">
+        <div class="demo-block__preview">
             <slot />
         </div>
       </q-tab-panel>
@@ -64,7 +64,7 @@ const tab = ref<"preview" | "code">("preview")
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 140px;
+  min-height: 300px;
   padding: 24px;
 }
 .demo-block__code :deep(.q-syntax) {

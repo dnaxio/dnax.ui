@@ -15,6 +15,8 @@ interface Props {
   pullBack?: number
   /** Icône Iconify de l'indicateur (défaut : lucide:refresh-cw) */
   icon?: string
+  /** Taille de l'icône / du spinner de l'indicateur (CSS, défaut 28px) */
+  size?: string
   disable?: boolean
 }
 
@@ -22,6 +24,7 @@ const props = withDefaults(defineProps<Props>(), {
   modelValue: false,
   color: "primary",
   pullBack: 40,
+  size: "28px",
   disable: false,
 })
 
@@ -90,6 +93,8 @@ const indicatorStyle = computed<Record<string, string>>(() => ({
 
 const iconStyle = computed<Record<string, string>>(() => ({
   color: colorValue(props.color),
+  width: props.size,
+  height: props.size,
   transform: `rotate(${progress.value * 180}deg)`,
 }))
 
@@ -113,7 +118,11 @@ const rootClasses = computed(() => [
     <div class="q-pull-to-refresh__indicator" :style="indicatorStyle">
       <template v-if="refreshing">
         <slot name="refreshing">
-          <span class="q-spinner" :style="{ color: colorValue(color) }" aria-hidden="true" />
+          <span
+            class="q-spinner"
+            :style="{ color: colorValue(color), width: size, height: size }"
+            aria-hidden="true"
+          />
         </slot>
       </template>
       <template v-else>

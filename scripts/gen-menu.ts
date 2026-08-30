@@ -96,13 +96,19 @@ const CUSTOM_PAGES = new Set([
   "input",
   "message-scroller",
   "nav-menu",
+  "pagination",
   "radio",
   "rating",
   "row",
+  "pull-to-refresh",
+  "safe-area",
+  "scroll-area",
   "select",
   "separator",
   "sidebar",
+  "skeleton",
   "slider",
+  "splitter",
   "syntax",
   "tab-panels",
   "table",
@@ -119,7 +125,7 @@ const GUIDES = [
 
 // Composants internes (ponts de rendu) non documentés comme pages —
 // leur API est le plugin correspondant (voir Plugins API).
-const EXCLUDED = new Set(["QNotifyProvider"]);
+const EXCLUDED = new Set(["QNotifyProvider", "QNotifyToast"]);
 
 // Composants Layout : regroupés sous « Layouts > Page » dans le menu
 // (leurs pages restent générées, mais hors du groupe Components).
