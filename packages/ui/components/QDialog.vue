@@ -16,6 +16,7 @@ import type { StyleValue } from "vue"
 import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
+import { useOverlayBack } from "../lib/overlayBack"
 
 type DialogPosition = "standard" | "top" | "right" | "bottom" | "left"
 
@@ -41,6 +42,8 @@ interface Props {
   noEscDismiss?: boolean
   /** Animation : fade | zoom | slide-up | slide-down | slide-left | slide-right (sinon basée sur position) */
   transition?: "fade" | "zoom" | "slide-up" | "slide-down" | "slide-left" | "slide-right"
+  /** Durée des transitions d'entrée/sortie en ms (défaut CSS : ~200ms entrée, ~150ms sortie) */
+  transitionDuration?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -55,6 +58,7 @@ const props = withDefaults(defineProps<Props>(), {
   contentStyle: "",
   noBackdropDismiss: false,
   noEscDismiss: false,
+  transitionDuration: undefined,
 })
 
 const emit = defineEmits<{
@@ -80,6 +84,9 @@ const onDocKeydown = (e: KeyboardEvent) => {
     open.value = false
   }
 }
+
+// « Retour » navigateur → ferme le dialog au lieu de naviguer
+useOverlayBack(open, () => { open.value = false }, "QDialog")
 
 watch(open, (v) => {
   if (typeof document !== "undefined") document.body.style.overflow = v ? "hidden" : ""
@@ -117,6 +124,16 @@ const contentClasses = computed(() =>
 const transitionName = computed(() =>
   props.transition ? `q-dialog-${props.transition}` : "q-dialog",
 )
+
+// Durée des transitions (enter/leave) via variables CSS sur l'overlay
+const durationStyle = computed<StyleValue>(() =>
+  props.transitionDuration
+    ? {
+        "--q-dialog-duration-enter": `${props.transitionDuration}ms`,
+        "--q-dialog-duration-leave": `${props.transitionDuration}ms`,
+      }
+    : {},
+)
 </script>
 
 <template>
@@ -126,6 +143,7 @@ const transitionName = computed(() =>
         v-if="open"
         class="q-dialog__overlay"
         :class="overlayClasses"
+        :style="durationStyle"
         @mousedown.self="!persistent && !noBackdropDismiss && (open = false)"
       >
         <div

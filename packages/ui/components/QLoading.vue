@@ -4,6 +4,7 @@
 import { computed } from "vue"
 import { Icon } from "@iconify/vue"
 import { colorValue } from "../lib/colors"
+import { useOverlayBack } from "../lib/overlayBack"
 
 interface Props {
   /** Affiche/masque l'overlay (v-model) */
@@ -37,7 +38,14 @@ const props = withDefaults(defineProps<Props>(), {
   boxed: false,
 })
 
-defineEmits<{ "update:modelValue": [value: boolean] }>()
+const emit = defineEmits<{ "update:modelValue": [value: boolean] }>()
+
+// « Retour » navigateur → ferme l'overlay de chargement au lieu de naviguer
+const open = computed({
+  get: () => props.modelValue,
+  set: (v) => emit("update:modelValue", v),
+})
+useOverlayBack(open, () => { open.value = false }, "QLoading")
 
 const spinnerStyle = computed(() => ({
   width: `${props.spinnerSize}px`,

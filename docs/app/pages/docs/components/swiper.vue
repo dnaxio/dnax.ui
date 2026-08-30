@@ -22,8 +22,7 @@ const effectOptions = ["slide", "fade", "cube", "flip", "coverflow", "cards", "c
 
 // — Démo thumbs / controller —
 const thumbs = ref<any>(null)
-const ctrlA = ref<any>(null)
-const ctrlB = ref<any>(null)
+const master = ref<any>(null)
 
 // — Images des démos (Unsplash) —
 const demoImages = [
@@ -117,18 +116,18 @@ const usageThumbs = `<q-swiper :thumbs="{ swiper: thumbs }" :space-between="12" 
   </q-swiper-slide>
 </q-swiper>`
 
-const usageController = `<q-swiper :controller="{ control: second }" :slides-per-view="3" :space-between="12" @swiper="(s) => (first = s)">
+const usageController = `<q-swiper :slides-per-view="3" :space-between="12" @swiper="(s) => (master = s)">
   <q-swiper-slide v-for="i in 5" :key="i">
-    <div class="slide slide--sm">A {{ i }}</div>
+    <div class="slide slide--sm">Master {{ i }}</div>
   </q-swiper-slide>
 </q-swiper>
 
-<q-swiper :controller="{ control: first }" :slides-per-view="3" :space-between="12" @swiper="(s) => (second = s)">
+<q-swiper :controller="{ control: master }" :slides-per-view="3" :space-between="12">
   <q-swiper-slide v-for="i in 5" :key="i">
-    <div class="slide slide--sm">B {{ i }}</div>
+    <div class="slide slide--sm">Slave {{ i }}</div>
   </q-swiper-slide>
 </q-swiper>
-<!-- Les deux carrousels sont synchronisés dans les deux sens. -->`
+<!-- Unidirectionnel : le master pilote le slave (le contrôle mutuel ferait une boucle infinie). -->`
 
 const usageHash = `<q-swiper hash-navigation class="fixed">
   <q-swiper-slide v-for="i in 4" :key="i">
@@ -183,8 +182,7 @@ ${scriptImages}`
 
 const scriptController = `import { ref } from "vue"
 
-const first = ref(null)
-const second = ref(null)`
+const master = ref()`
 </script>
 
 <template>
@@ -443,29 +441,28 @@ const second = ref(null)`
     <section class="doc-section">
       <h2 class="doc-h2">Controller</h2>
       <p class="doc-note">
-        Two carousels can drive each other via
-        <code>:controller="{ control: otherInstance }"</code>.
+        A <b>master</b> carousel drives a <b>slave</b> one via
+        <code>:controller="{ control: master }"</code>. Keep it
+        <b>unidirectional</b> — mutual control loops forever.
       </p>
 
       <docs-demo :code="usageController" lang="html" filename="App.vue" :script="scriptController">
         <q-swiper
-          :controller="{ control: ctrlB }"
           :slides-per-view="3"
           :space-between="12"
-          @swiper="(s: any) => (ctrlA = s)"
+          @swiper="(s: any) => (master = s)"
         >
           <q-swiper-slide v-for="i in 5" :key="i">
-            <div class="demo-slide demo-slide--sm">A {{ i }}</div>
+            <div class="demo-slide demo-slide--sm">Master {{ i }}</div>
           </q-swiper-slide>
         </q-swiper>
         <q-swiper
-          :controller="{ control: ctrlA }"
+          :controller="{ control: master }"
           :slides-per-view="3"
           :space-between="12"
-          @swiper="(s: any) => (ctrlB = s)"
         >
           <q-swiper-slide v-for="i in 5" :key="i">
-            <div class="demo-slide demo-slide--sm">B {{ i }}</div>
+            <div class="demo-slide demo-slide--sm">Slave {{ i }}</div>
           </q-swiper-slide>
         </q-swiper>
       </docs-demo>

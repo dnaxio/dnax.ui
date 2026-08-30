@@ -35,12 +35,17 @@ const usageAutoplay = `<q-video
   autoplay
   muted
   loop
-  :controls="false"
 />`
 
 const usageHls = `<q-video :src="HLS" :poster="POSTER" />`
 
 const usageYoutube = `<q-video :src="YT" />`
+
+const usagePlaceholderSlot = `<q-video :src="MP4">
+  <template #placeholder>
+    <div class="loading">Loading video…</div>
+  </template>
+</q-video>`
 
 const usageEvents = `<q-video
   :src="MP4"
@@ -78,7 +83,8 @@ const state = ref("idle")`
       A full-featured video player powered by <b>Video.js</b>:
       <b>&lt;q-video&gt;</b> plays <code>mp4</code>, <code>webm</code>, HLS
       (<code>.m3u8</code>), <b>YouTube</b> and more with a poster, a
-      configurable <code>ratio</code> (16/9 by default) and standard
+      configurable <code>ratio</code> (16/9 by default), a loading
+      <code>placeholder</code> and standard
       <code>controls</code> / <code>autoplay</code> / <code>loop</code> /
       <code>muted</code> props. Emits playback events
       (<code>@play</code>, <code>@pause</code>, <code>@ended</code>,
@@ -130,12 +136,12 @@ const state = ref("idle")`
     <section class="doc-section">
       <h2 class="doc-h2">Autoplay, muted, loop</h2>
       <p class="doc-note">
-        The classic hero background: <code>autoplay muted loop</code> with the
-        controls hidden.
+        The classic hero background: <code>autoplay muted loop</code> — the
+        default skin still shows its controls on hover.
       </p>
 
       <docs-demo :code="usageAutoplay" lang="html" filename="App.vue" :script="scriptBasic">
-        <q-video :src="MP4" :poster="POSTER" autoplay muted loop :controls="false" />
+        <q-video :src="MP4" :poster="POSTER" autoplay muted loop />
       </docs-demo>
     </section>
 
@@ -162,6 +168,27 @@ const state = ref("idle")`
 
       <docs-demo :code="usageHls" lang="html" filename="App.vue" :script="scriptHls">
         <q-video :src="HLS" :poster="POSTER" />
+      </docs-demo>
+    </section>
+
+    <!-- ═══════ Placeholder ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Placeholder</h2>
+      <p class="doc-note">
+        The <code>#placeholder</code> slot shows custom content over the player
+        while the video loads — it disappears once the media is ready, and a
+        click starts playback.
+      </p>
+
+      <docs-demo :code="usagePlaceholderSlot" lang="html" filename="App.vue">
+        <q-video :src="MP4">
+          <template #placeholder>
+            <div class="demo-loading">
+              <q-spinner size="28px" color="#fff" />
+              <span>Loading video…</span>
+            </div>
+          </template>
+        </q-video>
       </docs-demo>
     </section>
 
@@ -266,5 +293,14 @@ const state = ref("idle")`
   font-size: 13px;
   color: #8b93a1;
   font-variant-numeric: tabular-nums;
+}
+
+.demo-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
 }
 </style>

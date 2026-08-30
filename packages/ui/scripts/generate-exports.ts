@@ -41,6 +41,15 @@ export { screen } from "./lib/screen"
 export type { QScreen } from "./lib/screen"
 export { loading } from "./lib/loading"
 export type { LoadingOptions, QLoadingPlugin } from "./lib/loading"
+export {
+  registerOverlay,
+  unregisterOverlay,
+  hasOpenOverlays,
+  closeTopmostOverlay,
+  useOverlayBack,
+  installOverlayBackHandler,
+} from "./lib/overlayBack"
+export type { OverlayHandle } from "./lib/overlayBack"
 `
 
 await Bun.write(indexFile, `${exports}\n${manualExports}`)

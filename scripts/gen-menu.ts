@@ -76,12 +76,14 @@ const CUSTOM_PAGES = new Set([
   "date-picker",
   "fab",
   "footer",
+  "gallery",
   "grid",
   "header",
   "img",
   "image-preview",
   "infinite-scroll",
   "inner-loading",
+  "intersection",
   "input-password",
   "input-otp",
   "input-tag",
@@ -122,13 +124,16 @@ const CUSTOM_PAGES = new Set([
   "splitter",
   "sticky",
   "swiper",
+  "swipe-cell",
   "syntax",
   "tab-panels",
   "table",
   "tabs",
   "text",
+  "text-caption",
   "toolbar",
   "tooltip",
+  "uploader",
   "video",
 ]);
 
@@ -136,6 +141,9 @@ const GUIDES = [
   { title: "Installation", link: "/docs/getting-started/installation" },
   { title: "Setup", link: "/docs/getting-started/quick-start" },
 ];
+
+// Pages vitrines (hors docs, accessibles depuis le menu)
+const SHOWCASE = [{ title: "Mobile Mockup", link: "/mockup" }];
 
 // Composants internes (ponts de rendu) non documentés comme pages —
 // leur API est le plugin correspondant (voir Plugins API).
@@ -280,6 +288,15 @@ export const menuItems: MenuGroup[] = [
 `;
 for (const g of GUIDES)
   out += `      { title: ${JSON.stringify(g.title)}, link: ${JSON.stringify(g.link)} },\n`;
+out += `    ],
+  },
+  {
+    title: "Showcase",
+    icon: "lucide:smartphone",
+    items: [
+`;
+for (const s of SHOWCASE)
+  out += `      { title: ${JSON.stringify(s.title)}, link: ${JSON.stringify(s.link)} },\n`;
 out += `    ],
   },
   {

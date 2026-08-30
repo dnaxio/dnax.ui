@@ -9,13 +9,15 @@
  *   components: false  — désactive l'auto-import des composants
  *   css: false         — désactive l'ajout de styles/main.css
  */
-import { addComponentsDir, createResolver, defineNuxtModule } from "@nuxt/kit"
+import { addComponentsDir, addPluginTemplate, createResolver, defineNuxtModule } from "@nuxt/kit"
 
 export interface DnaxUiModuleOptions {
   /** Auto-importe les composants Q* (défaut : true) */
   components?: boolean
   /** Ajoute styles/main.css (défaut : true) */
   css?: boolean
+  /** Installe le handler « retour » : ferme l'overlay ouvert au lieu de naviguer (défaut : true) */
+  overlayBack?: boolean
 }
 
 /** Custom elements du framework HTML Video.js v10 (@videojs/html) — balises non-Vue */
@@ -36,6 +38,7 @@ export default defineNuxtModule<DnaxUiModuleOptions>({
   defaults: {
     components: true,
     css: true,
+    overlayBack: true,
   },
   setup(options, nuxt) {
     const { resolve } = createResolver(import.meta.url)
@@ -62,6 +65,24 @@ export default defineNuxtModule<DnaxUiModuleOptions>({
         prefix: "", // pas de préfixe : QBtn.vue → <q-btn>
         pathPrefix: false, // pas de préfixe par sous-dossier
         ignore: ["**/internal/**"], // composants internes : non auto-importés
+      })
+    }
+
+    // « Retour » navigateur → ferme l'overlay ouvert (dialog, sheet, sidebar…)
+    // addPluginTemplate : le template est compilé dans l'app (où #imports existe),
+    // évitant une dépendance `nuxt` dans ce package pour les types du plugin.
+    if (options.overlayBack) {
+      addPluginTemplate({
+        filename: "dnax-ui-overlay-back.mjs",
+        mode: "client",
+        getContents: () => `
+import { defineNuxtPlugin } from "#imports"
+import { installOverlayBackHandler } from "@dnax/ui/runtime"
+
+export default defineNuxtPlugin((nuxtApp) => {
+  installOverlayBackHandler(nuxtApp.$router)
+})
+`,
       })
     }
   },

@@ -13,6 +13,8 @@ interface Props {
   bordered?: boolean
   /** Fond translucide (frosted glass) : true = 70%, ou valeur % */
   translucent?: boolean | number
+  /** Glassmorphism marqué : fond très translucide + flou fort + bordure claire */
+  glass?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -61,6 +63,7 @@ onBeforeUnmount(() => {
       'q-footer--reveal': props.reveal,
       'q-footer--reveal-hidden': props.reveal && !visible,
       'q-footer--translucent': props.translucent === true || typeof props.translucent === 'number',
+      'q-footer--glass': props.glass,
     }"
     :style="translucentStyle"
   >

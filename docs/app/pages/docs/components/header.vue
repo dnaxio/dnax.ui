@@ -29,6 +29,15 @@ const translucentCode = `<q-header translucent>
   </q-toolbar>
 </q-header>`
 
+const glassCode = `<q-header glass>
+  <q-toolbar>
+    <q-icon name="lucide:map" color="primary" size="22px" />
+    <span class="q-header__title">Discover</span>
+    <q-space />
+    <q-btn flat dense round icon="lucide:settings" aria-label="Settings" />
+  </q-toolbar>
+</q-header>`
+
 const fixedCode = `<q-header fixed>
   <q-toolbar>
     <q-icon name="lucide:arrow-left" color="primary" size="22px" />
@@ -59,7 +68,8 @@ const bestPracticeCode = `<q-header fixed>
       A top bar for titles and actions.
       <b>&lt;q-header&gt;</b> sits in the page flow by default, or pins to the top of
       the viewport with <code>fixed</code> — the iOS safe-area insets (top, left,
-      right) are applied automatically. Always pair it with
+      right) are applied automatically. Backgrounds: <code>translucent</code>
+      (frosted) or <code>glass</code> (marked glassmorphism). Always pair it with
       <b>&lt;q-toolbar&gt;</b> inside (see the best practice below).
     </p>
 
@@ -126,6 +136,33 @@ const bestPracticeCode = `<q-header fixed>
           </q-header>
           <div class="demo-stage__content">
             <p class="demo-p">The colorful background shows through the blurred bar.</p>
+          </div>
+        </div>
+      </docs-demo>
+    </section>
+
+    <!-- ═══════ Glassmorphism ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Glassmorphism</h2>
+      <p class="doc-note">
+        <code>glass</code> goes further than translucent: a very translucent
+        background with a stronger blur + saturation and a light bottom border
+        — the classic frosted look over colorful content. Tune it with
+        <code>--q-glass-bg</code> and <code>--q-glass-blur</code>.
+      </p>
+
+      <docs-demo :code="glassCode" lang="html" filename="App.vue">
+        <div class="demo-stage demo-stage--gradient">
+          <q-header glass>
+            <q-toolbar>
+              <q-icon name="lucide:map" color="primary" size="22px" />
+              <span class="q-header__title">Discover</span>
+              <q-space />
+              <q-btn flat dense round icon="lucide:settings" aria-label="Settings" />
+            </q-toolbar>
+          </q-header>
+          <div class="demo-stage__content">
+            <p class="demo-p">The colorful background shows through the blurred glass bar.</p>
           </div>
         </div>
       </docs-demo>

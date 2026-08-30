@@ -22,6 +22,7 @@ export interface ActionSheetOption {
 import { computed, onBeforeUnmount, onMounted, watch } from "vue"
 import { Icon } from "@iconify/vue"
 import { colorValue } from "../lib/colors"
+import { useOverlayBack } from "../lib/overlayBack"
 
 interface Props {
   /** Ouvert (v-model) */
@@ -57,6 +58,9 @@ const open = computed({
   get: () => props.modelValue,
   set: (v) => emit("update:modelValue", v),
 })
+
+// « Retour » navigateur → ferme l'action sheet au lieu de naviguer
+useOverlayBack(open, () => { open.value = false }, "QActionSheet")
 
 const cancelLabel = computed(() => (typeof props.cancel === "string" ? props.cancel : "Annuler"))
 

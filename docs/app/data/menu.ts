@@ -29,6 +29,13 @@ export const menuItems: MenuGroup[] = [
     ],
   },
   {
+    title: "Showcase",
+    icon: "lucide:smartphone",
+    items: [
+      { title: "Mobile Mockup", link: "/mockup" },
+    ],
+  },
+  {
     title: "Layouts",
     icon: "lucide:layout-template",
     groups: [
@@ -93,6 +100,7 @@ export const menuItems: MenuGroup[] = [
       { title: "Dialog", link: "/docs/components/dialog", export: "QDialog" },
       { title: "Fab", link: "/docs/components/fab", export: "QFab" },
       { title: "File Picker", link: "/docs/components/file-picker", export: "QFilePicker" },
+      { title: "Gallery", link: "/docs/components/gallery", export: "QGallery" },
       { title: "Icon", link: "/docs/components/icon", export: "QIcon" },
       { title: "Image", link: "/docs/components/img", export: "QImg" },
       { title: "Image Picker", link: "/docs/components/image-picker", export: "QImagePicker" },
@@ -104,6 +112,7 @@ export const menuItems: MenuGroup[] = [
       { title: "Input OTP", link: "/docs/components/input-otp", export: "QInputOtp" },
       { title: "Input Password", link: "/docs/components/input-password", export: "QInputPassword" },
       { title: "Input Tag", link: "/docs/components/input-tag", export: "QInputTag" },
+      { title: "Intersection", link: "/docs/components/intersection", export: "QIntersection" },
       { title: "Linear Progress", link: "/docs/components/linear-progress", export: "QLinearProgress" },
       { title: "List", link: "/docs/components/list", export: "QList" },
       { title: "Loading", link: "/docs/components/loading", export: "QLoading" },
@@ -127,6 +136,7 @@ export const menuItems: MenuGroup[] = [
       { title: "Spinner", link: "/docs/components/spinner", export: "QSpinner" },
       { title: "Splitter", link: "/docs/components/splitter", export: "QSplitter" },
       { title: "Sticky", link: "/docs/components/sticky", export: "QSticky" },
+      { title: "Swipe Cell", link: "/docs/components/swipe-cell", export: "QSwipeCell" },
       { title: "Swiper", link: "/docs/components/swiper", export: "QSwiper" },
       { title: "Syntax", link: "/docs/components/syntax", export: "QSyntax" },
       { title: "Tab Panels", link: "/docs/components/tab-panels", export: "QTabPanels" },
@@ -136,6 +146,7 @@ export const menuItems: MenuGroup[] = [
       { title: "Text Caption", link: "/docs/components/text-caption", export: "QTextCaption" },
       { title: "Toolbar", link: "/docs/components/toolbar", export: "QToolbar" },
       { title: "Tooltip", link: "/docs/components/tooltip", export: "QTooltip" },
+      { title: "Uploader", link: "/docs/components/uploader", export: "QUploader" },
       { title: "Video", link: "/docs/components/video", export: "QVideo" },
       { title: "Virtual Scroll", link: "/docs/components/virtual-scroll", export: "QVirtualScroll" },
     ],

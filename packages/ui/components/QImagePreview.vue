@@ -5,6 +5,7 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
+import { useOverlayBack } from "../lib/overlayBack"
 import QSwiper from "./QSwiper.vue"
 import QSwiperSlide from "./QSwiperSlide.vue"
 
@@ -55,6 +56,9 @@ const open = computed({
   set: (v) => emit("update:modelValue", v),
 })
 const idx = computed(() => Math.min(Math.max(props.index, 0), Math.max(0, props.images.length - 1)))
+
+// « Retour » navigateur → ferme la visionneuse au lieu de naviguer
+useOverlayBack(open, () => { open.value = false }, "QImagePreview")
 
 const srcOf = (item: string | { src: string; title?: string }) =>
   typeof item === "string" ? item : item.src

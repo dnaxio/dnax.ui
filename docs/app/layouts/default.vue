@@ -14,10 +14,13 @@ const scrollTo = (sel: string) => {
   <q-app>
     <q-header fixed translucent>
       <q-toolbar>
-        <q-icon name="lucide:box" color="primary" size="24px" />
-        <span class="dnax-logo">Dnax<b>UI</b></span>
+        <a href="/" class="logo-link" aria-label="Dnax UI — home">
+          <q-icon name="lucide:box" color="primary" size="24px" />
+          <span class="dnax-logo">Dnax<b>UI</b></span>
+        </a>
         <q-space />
         <q-btn flat no-caps label="Components" href="/docs" />
+        <q-btn flat no-caps label="Mockup" href="/mockup" />
         <q-btn flat no-caps label="Features" @click="scrollTo('#features')" />
         <q-btn color="primary" unelevated no-caps icon="lucide:rocket" label="Get started" href="/docs" />
         <theme-toggle />
@@ -30,8 +33,10 @@ const scrollTo = (sel: string) => {
 
     <q-footer>
       <q-toolbar class="footer">
-        <q-icon name="lucide:box" color="primary" size="20px" />
-        <span class="dnax-logo dnax-logo--sm">Dnax<b>UI</b></span>
+        <a href="/" class="logo-link" aria-label="Dnax UI — home">
+          <q-icon name="lucide:box" color="primary" size="20px" />
+          <span class="dnax-logo dnax-logo--sm">Dnax<b>UI</b></span>
+        </a>
         <q-space />
         <span class="footer-note">Powered by dnax Inc</span>
       </q-toolbar>
@@ -40,6 +45,19 @@ const scrollTo = (sel: string) => {
 </template>
 
 <style scoped>
+.logo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 2px 4px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.logo-link:hover {
+  opacity: 0.8;
+}
 .dnax-logo {
   font-size: 18px;
   font-weight: 500;

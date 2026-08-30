@@ -35,6 +35,12 @@ const translucentCode = `<q-footer translucent>
   <span>Custom opacity (40%)</span>
 </q-footer>`
 
+const glassCode = `<q-footer glass>
+  <span>Glassmorphism — strong blur + light border</span>
+  <q-space />
+  <q-btn flat dense no-caps label="Close" />
+</q-footer>`
+
 const fixedCode = `<q-footer fixed bordered>
   <span>Fixed to the viewport bottom</span>
   <q-space />
@@ -53,7 +59,8 @@ const fixedCode = `<q-footer fixed bordered>
       A bottom bar for actions and secondary navigation.
       <b>&lt;q-footer&gt;</b> sits in the page flow by default, or pins to the
       viewport bottom with <code>fixed</code> — the iOS safe-area bottom padding is
-      built in.
+      built in. Backgrounds: <code>translucent</code> (frosted) or
+      <code>glass</code> (marked glassmorphism).
     </p>
 
     <!-- ═══════ Basic ═══════ -->
@@ -118,6 +125,29 @@ const fixedCode = `<q-footer fixed bordered>
           </div>
           <q-footer translucent>
             <span>Frosted glass — blur behind the bar</span>
+            <q-space />
+            <q-btn flat dense no-caps label="Close" />
+          </q-footer>
+        </div>
+      </docs-demo>
+    </section>
+
+    <!-- ═══════ Glassmorphism ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Glassmorphism</h2>
+      <p class="doc-note">
+        <code>glass</code> goes further than translucent: a very translucent
+        background with a stronger blur + saturation and a light top border.
+        Tune it with <code>--q-glass-bg</code> and <code>--q-glass-blur</code>.
+      </p>
+
+      <docs-demo :code="glassCode" lang="html" filename="App.vue">
+        <div class="demo-stage demo-stage--gradient">
+          <div class="demo-stage__content">
+            <p class="demo-p">The colorful background shows through the blurred glass bar.</p>
+          </div>
+          <q-footer glass>
+            <span>Glassmorphism — strong blur + light border</span>
             <q-space />
             <q-btn flat dense no-caps label="Close" />
           </q-footer>

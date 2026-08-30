@@ -8,6 +8,8 @@ interface Props {
   fixed?: boolean
   /** Fond translucide (frosted glass) : true = 70%, ou valeur % ("70") */
   translucent?: boolean | number
+  /** Glassmorphism marqué : fond très translucide + flou fort + bordure claire */
+  glass?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -27,6 +29,7 @@ const translucentStyle = computed<Record<string, string> | undefined>(() =>
     :class="{
       'q-header--fixed': fixed,
       'q-header--translucent': translucent === true || typeof translucent === 'number',
+      'q-header--glass': glass,
     }"
     :style="translucentStyle"
   >

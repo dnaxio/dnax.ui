@@ -32,8 +32,10 @@ watch(
     <div class="docs-body">
       <q-sidebar sticky height="100vh" v-model="open" show-if-above :breakpoint="1023" bordered>
         <q-sidebar-header class="side-head">
-         <div class="cursor-pointer" @click="$router.push('/')"> <q-icon  name="lucide:box" color="primary" size="22px" />
-         <span class="logo">Dnax<b>UI</b></span></div>
+          <a href="/" class="logo-link" aria-label="Dnax UI — home">
+            <q-icon name="lucide:box" color="primary" size="22px" />
+            <span class="logo">Dnax<b>UI</b></span>
+          </a>
           <q-space />
           <theme-toggle />
           <q-btn
@@ -121,6 +123,20 @@ watch(
   min-height: 56px;
   padding: 0 12px;
   border-bottom: 1px solid var(--q-sidebar-border, rgb(0 0 0 / 0.08));
+}
+
+.logo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 2px 4px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.logo-link:hover {
+  opacity: 0.8;
 }
 
 .sidebar-group :deep(.q-collapse__label) {

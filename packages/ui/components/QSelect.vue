@@ -34,6 +34,7 @@ import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
+import { useOverlayBack } from "../lib/overlayBack"
 import { createSearcher } from "../lib/search"
 
 interface Props {
@@ -154,6 +155,10 @@ const focused = ref(false)
 const open = ref(false)
 const query = ref(props.inputValue ?? "")
 const activeIndex = ref(0)
+
+// « Retour » navigateur → ferme le panneau (modal/sheet/dialog) au lieu de naviguer
+const panelOpen = computed(() => props.mode !== "inline" && open.value)
+useOverlayBack(panelOpen, () => closePopup(), "QSelect")
 
 // — Options du mode courant (sheet/modal/inline) —
 const modeOptions = computed<QSelectModeOptions | undefined>(() => {

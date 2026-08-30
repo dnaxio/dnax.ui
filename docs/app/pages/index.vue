@@ -3,49 +3,45 @@
 import { onMounted, ref } from "vue"
 import { menuItems } from "~/data/menu"
 
-const componentCount = menuItems.flatMap((g) => g.items ?? []).length
+const componentCount = menuItems.find((g) => g.title === "Components")?.items?.length ?? 0
+
+// — Image du mockup TikTok (héros) —
+const TIKTOK_IMG =
+  "https://images.unsplash.com/photo-1783628376510-0de24d5b18a5?q=80&w=640&h=1136&auto=format&fit=crop"
 
 // — Démos —
-const tab = ref<"buttons" | "forms" | "feedback" | "accordion">("buttons")
-
 const scrollTo = (sel: string) => {
   const el = document.querySelector<HTMLElement>(sel)
   if (!el) return
   window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 72, behavior: "smooth" })
 }
 
-// Form demo
-const email = ref("")
-const password = ref("")
-const plan = ref("pro")
+// — Bento : accept terms —
 const accepted = ref(true)
-const newsletter = ref(false)
-const volume = ref(60)
-const plans = [
-  { label: "Discovery", value: "free" },
-  { label: "Pro", value: "pro" },
-  { label: "Enterprise", value: "team" },
-]
-
-// Feedback demo
-const rating = ref(4)
-const progress = ref(0.72)
-
-// Accordion demo
-const accordionOpen = ref("intro")
-
-// Loading button demo
-const loadingDemo = ref(false)
-const simulate = () => {
-  loadingDemo.value = true
-  setTimeout(() => (loadingDemo.value = false), 1800)
-}
 
 // — Bento : radius live —
 const radiusDemo = ref(10)
 
 // — Bento : mini OTP —
 const otp = ref("")
+
+// — Parallax & gallery —
+const IMG = (id: string) =>
+  `https://images.unsplash.com/${id}?q=80&w=900&auto=format&fit=crop`
+
+const GALLERY = [
+  { src: IMG("photo-1786057425168-1f326d4f47b1"), label: "Alpine sunrise", description: "Golden light over the peaks" },
+  { src: IMG("photo-1783628376510-0de24d5b18a5"), label: "Coastal cliffs", description: "Wild ocean views" },
+  { src: IMG("photo-1567095761054-7a02e69e5c43"), label: "Forest trail", description: "Morning mist between the pines" },
+  { src: IMG("photo-1497366754035-f200968a6e72"), label: "Loft office", description: "Brick, steel & light" },
+  { src: IMG("photo-1500530855697-b586d89ba3ee"), label: "Lake house", description: "Still water at dusk" },
+  { src: IMG("photo-1470071459604-3b5ec3a7fe05"), label: "Misty hills", description: "Fog rolling in" },
+]
+
+const PARALLAX_IMG =
+  "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1600&auto=format&fit=crop"
+
+const gallerySel = ref<string[]>([])
 
 // — Bento : icônes avec tooltips —
 const bentoIcons = [
@@ -116,65 +112,146 @@ onMounted(() => {
       <div class="hero-grid" aria-hidden="true" />
 
       <q-container class="hero-inner">
-        <q-badge outline color="white" class="hero-badge">
-          <span class="hero-dot" aria-hidden="true" />
-          Vue 3 design system · {{ componentCount }} components
-        </q-badge>
+        <div class="hero-copy">
+          <q-badge outline color="white" class="hero-badge">
+            <span class="hero-dot" aria-hidden="true" />
+            Vue 3 · Nuxt · Capacitor · {{ componentCount }} components
+          </q-badge>
 
-        <h1 class="hero-title">
-          Simple <span class="grad">syntax</span>,<br />
-          total <span class="grad grad--alt">control</span>.
-        </h1>
+          <h1 class="hero-title">
+            Simple <span class="grad">syntax</span>,<br />
+            total <span class="grad grad--alt">control</span>.
+          </h1>
 
-        <p class="hero-sub">
-          Dnax UI — modern Vue 3 components, mobile-ready: expressive syntax
-          (<code>&lt;q-btn flat dense&gt;</code>), CSS-token theming, Iconify icons,
-          built-in iOS safe-areas and dark mode.
-        </p>
+          <p class="hero-sub">
+            Dnax UI — the perfect <b>mobile UI kit for Capacitor apps</b>, built on
+            <b>Vue 3</b> &amp; <b>Nuxt</b>: expressive syntax
+            (<code>&lt;q-btn flat dense&gt;</code>), CSS-token theming, Iconify icons,
+            iOS safe-areas and dark mode out of the box.
+          </p>
 
-        <div class="hero-actions">
-          <q-btn
-            size="lg"
-            color="primary"
-            unelevated
-            no-caps
-            icon="lucide:rocket"
-            label="Get started"
-            class="btn-glow"
-            @click="scrollTo('#install')"
-          />
-          <q-btn
-            size="lg"
-            outline
-            color="white"
-            no-caps
-            icon="lucide:component"
-            label="Browse components"
-            href="/docs"
-          />
+          <div class="hero-actions">
+            <q-btn
+              size="lg"
+              color="primary"
+              unelevated
+              no-caps
+              icon="lucide:rocket"
+              label="Get started"
+              class="btn-glow"
+              @click="scrollTo('#install')"
+            />
+            <q-btn
+              size="lg"
+              outline
+              color="white"
+              no-caps
+              icon="lucide:smartphone"
+              label="Mobile mockup"
+              href="/mockup"
+            />
+            <q-btn
+              size="lg"
+              flat
+              color="white"
+              no-caps
+              icon="lucide:component"
+              label="Browse components"
+              href="/docs"
+            />
+          </div>
+
+          <div class="hero-stats" aria-label="Key numbers">
+            <div class="hero-stat">
+              <span class="hero-stat-n">{{ componentCount }}</span>
+              <span class="hero-stat-l">components</span>
+            </div>
+            <span class="hero-stat-sep" aria-hidden="true" />
+            <div class="hero-stat">
+              <span class="hero-stat-n">200k+</span>
+              <span class="hero-stat-l">Iconify icons</span>
+            </div>
+            <span class="hero-stat-sep" aria-hidden="true" />
+            <div class="hero-stat">
+              <span class="hero-stat-n">0</span>
+              <span class="hero-stat-l">CSS framework</span>
+            </div>
+          </div>
         </div>
 
-        <div class="hero-stats" aria-label="Key numbers">
-          <div class="hero-stat">
-            <span class="hero-stat-n">{{ componentCount }}</span>
-            <span class="hero-stat-l">components</span>
-          </div>
-          <span class="hero-stat-sep" aria-hidden="true" />
-          <div class="hero-stat">
-            <span class="hero-stat-n">200k+</span>
-            <span class="hero-stat-l">Iconify icons</span>
-          </div>
-          <span class="hero-stat-sep" aria-hidden="true" />
-          <div class="hero-stat">
-            <span class="hero-stat-n">0</span>
-            <span class="hero-stat-l">CSS framework</span>
-          </div>
-        </div>
+        <div class="hero-phone">
+          <span class="hero-phone__glow" aria-hidden="true" />
+          <div class="hero-phone__device">
+            <span class="hero-phone__btn hero-phone__btn--action" aria-hidden="true" />
+            <span class="hero-phone__btn hero-phone__btn--up" aria-hidden="true" />
+            <span class="hero-phone__btn hero-phone__btn--down" aria-hidden="true" />
+            <span class="hero-phone__btn hero-phone__btn--power" aria-hidden="true" />
+            <div class="hero-phone__screen">
+              <div class="hero-phone__island" aria-hidden="true"><span class="hero-phone__cam" /></div>
+              <div class="hero-phone__status" aria-hidden="true">
+                <span class="hero-phone__time">9:41</span>
+                <span class="hero-phone__status-icons">
+                  <q-icon name="lucide:signal" size="11px" />
+                  <q-icon name="lucide:wifi" size="12px" />
+                  <q-icon name="lucide:battery-full" size="15px" />
+                </span>
+              </div>
 
-        <button class="hero-scroll" aria-label="Scroll down" @click="scrollTo('#code')">
-          <q-icon name="lucide:chevron-down" size="20px" />
-        </button>
+              <div class="tiktok">
+                <img class="tiktok__bg" :src="TIKTOK_IMG" alt="" draggable="false" />
+                <div class="tiktok__shade" />
+
+                <!-- Barre du haut : Following | For You -->
+                <div class="tiktok__top">
+                  <div class="tiktok__tabs">
+                    <span class="tiktok__tab">Following</span>
+                    <span class="tiktok__tab tiktok__tab--on">For You</span>
+                  </div>
+                  <q-icon name="lucide:search" size="15px" class="tiktok__search" />
+                </div>
+
+                <!-- Rail d'actions à droite -->
+                <div class="tiktok__rail">
+                  <div class="tiktok__rail-item">
+                    <span class="tiktok__rail-btn"><q-icon name="lucide:heart" size="16px" /></span>
+                    <span class="tiktok__rail-n">1.2M</span>
+                  </div>
+                  <div class="tiktok__rail-item">
+                    <span class="tiktok__rail-btn"><q-icon name="lucide:message-circle" size="16px" /></span>
+                    <span class="tiktok__rail-n">48.3K</span>
+                  </div>
+                  <div class="tiktok__rail-item">
+                    <span class="tiktok__rail-btn"><q-icon name="lucide:bookmark" size="16px" /></span>
+                    <span class="tiktok__rail-n">9,102</span>
+                  </div>
+                  <div class="tiktok__rail-item">
+                    <span class="tiktok__rail-btn"><q-icon name="lucide:share-2" size="16px" /></span>
+                    <span class="tiktok__rail-n">Share</span>
+                  </div>
+                  <span class="tiktok__rail-avatar">D</span>
+                </div>
+
+                <!-- Info du bas -->
+                <div class="tiktok__bottom">
+                  <p class="tiktok__handle">@dnax.ui</p>
+                  <p class="tiktok__desc">Building a design system — one component at a time ✨</p>
+                  <p class="tiktok__song">
+                    <span class="tiktok__disc"><q-icon name="lucide:music" size="10px" /></span>
+                    original sound — Dnax UI
+                  </p>
+                </div>
+              </div>
+
+              <span class="hero-phone__home" aria-hidden="true" />
+            </div>
+          </div>
+          <span class="hero-phone__floor" aria-hidden="true" />
+        </div>
       </q-container>
+
+      <button class="hero-scroll" aria-label="Scroll down" @click="scrollTo('#code')">
+        <q-icon name="lucide:chevron-down" size="20px" />
+      </button>
     </section>
 
     <!-- ═══════════ CODE BAND ═══════════ -->
@@ -248,7 +325,8 @@ onMounted(() => {
             </div>
             <p class="bento-text">
               A true iOS simulator — Dynamic Island, status bar, safe-areas &amp; home
-              indicator, Capacitor ready.
+              indicator. Ship the exact same UI into a Capacitor app on iOS &amp;
+              Android.
             </p>
 
             <div class="iphone" aria-hidden="true">
@@ -328,123 +406,43 @@ onMounted(() => {
       </q-container>
     </section>
 
-    <!-- ═══════════ LIVE SHOWCASE ═══════════ -->
-    <section id="showcase" class="lp-section lp-section--alt">
+    <!-- ═══════════ PARALLAX ═══════════ -->
+    <section class="lp-parallax reveal">
+      <q-parallax :src="PARALLAX_IMG" :height="340" :speed="0.5">
+        <div class="lp-parallax__content">
+          <q-badge color="primary" label="✦ Parallax" />
+          <h2 class="lp-parallax__title">Scroll, and the world moves slower</h2>
+          <p class="lp-parallax__sub">
+            A <code>&lt;q-parallax&gt;</code> keeps the image drifting behind your
+            content — instant depth on every scroll.
+          </p>
+        </div>
+      </q-parallax>
+    </section>
+
+    <!-- ═══════════ GALLERY ═══════════ -->
+    <section id="gallery" class="lp-section">
       <q-container>
         <div class="lp-head reveal">
-          <q-badge outline color="secondary" label="Live demo" />
-          <h2 class="lp-title">Components, in action</h2>
+          <q-badge outline color="warning" label="Gallery" />
+          <h2 class="lp-title">Pick your favorites</h2>
+          <p class="lp-sub">
+            A <code>&lt;q-gallery&gt;</code> with labels and multi-select — click to
+            toggle, hover to preview.
+          </p>
         </div>
 
-        <q-card class="showcase reveal" bordered>
-          <q-tabs
-            v-model="tab"
-            no-caps
-            align="left"
-            active-color="primary"
-            indicator-color="primary"
-            inline-label
-          >
-            <q-tab name="buttons" icon="lucide:mouse-pointer-click" label="Buttons" />
-            <q-tab name="forms" icon="lucide:keyboard" label="Forms" />
-            <q-tab name="feedback" icon="lucide:star" label="Feedback" />
-            <q-tab name="accordion" icon="lucide:chevrons-down-up" label="Accordion" />
-          </q-tabs>
-          <q-separator />
-
-          <!-- Buttons -->
-          <div v-if="tab === 'buttons'" class="demo">
-            <div class="demo-row">
-              <q-btn unelevated no-caps color="primary" label="Primary" />
-              <q-btn unelevated no-caps color="secondary" label="Secondary" />
-              <q-btn unelevated no-caps color="negative" label="Negative" />
-            </div>
-            <div class="demo-row">
-              <q-btn flat no-caps color="primary" label="Flat" />
-              <q-btn outline no-caps color="primary" label="Outline" />
-              <q-btn flat no-caps rounded color="primary" icon="lucide:download" label="Rounded" />
-            </div>
-            <div class="demo-row">
-              <q-btn round color="primary" unelevated icon="lucide:plus" aria-label="Add" />
-              <q-btn round outline color="secondary" icon="lucide:heart" aria-label="Favorite" />
-              <q-btn
-                :loading="loadingDemo"
-                color="primary"
-                unelevated
-                no-caps
-                icon="lucide:refresh-cw"
-                label="Load"
-                @click="simulate"
-              />
-            </div>
-          </div>
-
-          <!-- Forms -->
-          <div v-else-if="tab === 'forms'" class="demo demo--form">
-            <div class="demo-col">
-              <q-input v-model="email" type="email" label="Email" outlined clearable placeholder="you@example.com" />
-              <q-input-password v-model="password" label="Password" outlined />
-              <q-select
-                v-model="plan"
-                :options="plans"
-                option-label="label"
-                option-value="value"
-                emit-value
-                label="Plan"
-                outlined
-              />
-            </div>
-            <div class="demo-col">
-              <q-checkbox v-model="accepted" label="I accept the terms" color="primary" />
-              <q-radio v-model="newsletter" :val="true" label="Receive the newsletter" color="secondary" />
-              <div class="slider-wrap">
-                <span class="slider-label">Volume · {{ volume }}%</span>
-                <q-slider v-model="volume" :min="0" :max="100" color="primary" markers />
-              </div>
-            </div>
-          </div>
-
-          <!-- Feedback -->
-          <div v-else-if="tab === 'feedback'" class="demo">
-            <div class="demo-row">
-              <q-rating v-model="rating" :max="5" color="warning" size="lg" />
-              <q-circular-progress :value="progress" size="72px" :thickness="8" color="positive" show-value />
-              <q-linear-progress :value="progress" color="primary" size="10px" rounded class="progress-bar" />
-            </div>
-            <div class="demo-row">
-              <q-badge color="primary" label="Primary" />
-              <q-badge color="positive" label="Success" />
-              <q-badge color="warning" label="Warning" />
-              <q-badge outline color="negative" label="Outline" />
-              <q-chip icon="lucide:zap" label="Chip" color="secondary" outline removable />
-              <q-chip icon="lucide:tag" label="Tag" color="primary" />
-            </div>
-          </div>
-
-          <!-- Accordion -->
-          <div v-else class="demo">
-            <q-accordion v-model="accordionOpen" type="single" collapsible class="demo-accordion">
-              <q-accordion-item value="intro">
-                <q-accordion-trigger>Installation</q-accordion-trigger>
-                <q-accordion-content>
-                  <p class="demo-p"><code>bun add @dnax/ui</code> then add <code>"@dnax/ui"</code> to the modules of your nuxt.config.</p>
-                </q-accordion-content>
-              </q-accordion-item>
-              <q-accordion-item value="theme">
-                <q-accordion-trigger>Theming</q-accordion-trigger>
-                <q-accordion-content>
-                  <p class="demo-p">Override colors and default props with <code>&lt;q-config-provider :theme="…"&gt;</code>.</p>
-                </q-accordion-content>
-              </q-accordion-item>
-              <q-accordion-item value="icons">
-                <q-accordion-trigger>Icons</q-accordion-trigger>
-                <q-accordion-content>
-                  <p class="demo-p">All icons go through Iconify: <code>icon="lucide:star"</code>.</p>
-                </q-accordion-content>
-              </q-accordion-item>
-            </q-accordion>
-          </div>
-        </q-card>
+        <q-gallery
+          v-model="gallerySel"
+          :images="GALLERY"
+          labels
+          multiple
+          :max-selected="4"
+          :cols="3"
+          hover
+          class="lp-gallery reveal"
+        />
+        <p class="lp-gallery__meta reveal">{{ gallerySel.length }} selected (max 4)</p>
       </q-container>
     </section>
 
@@ -485,8 +483,9 @@ onMounted(() => {
           <q-icon name="lucide:sparkles" color="primary" size="38px" />
           <h2 class="cta-title">Ready to build your UI?</h2>
           <p class="cta-text">
-            {{ componentCount }} components, one API, zero friction. Explore the docs
-            and ship something beautiful.
+            {{ componentCount }} components, one API, zero friction — on the web, in
+            Nuxt, or inside a Capacitor mobile app. Explore the docs and ship
+            something beautiful.
           </p>
           <div class="cta-actions">
             <q-btn size="lg" color="primary" unelevated no-caps icon="lucide:book-open" label="Read the documentation" href="/docs" />
@@ -570,10 +569,16 @@ onMounted(() => {
 }
 .hero-inner {
   position: relative;
+  display: grid;
+  grid-template-columns: 1.06fr 0.94fr;
+  gap: 56px;
+  align-items: center;
+}
+.hero-copy {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
 }
 .hero-badge {
   margin-bottom: 28px;
@@ -623,11 +628,12 @@ onMounted(() => {
   to { background-position: 100% 50%; }
 }
 .hero-sub {
-  margin: 22px auto 0;
-  max-width: 620px;
+  margin: 18px 0 0;
+  max-width: 560px;
   font-size: 17px;
   line-height: 1.65;
   color: rgba(255, 255, 255, 0.8);
+  text-align: left;
 }
 .hero-sub code {
   background: rgba(255, 255, 255, 0.12);
@@ -637,22 +643,22 @@ onMounted(() => {
   color: #dbe7ff;
 }
 .hero-actions {
-  margin-top: 36px;
+  margin-top: 32px;
   display: flex;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
 }
 .btn-glow {
   box-shadow: 0 8px 30px rgba(25, 118, 210, 0.45);
 }
 .hero-stats {
-  margin-top: 64px;
+  margin-top: 44px;
   display: flex;
   align-items: center;
-  gap: 34px;
+  gap: 30px;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
 }
 .hero-stat {
   display: flex;
@@ -677,7 +683,8 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.15);
 }
 .hero-scroll {
-  margin-top: 52px;
+  display: flex;
+  margin: 48px auto 0;
   width: 38px;
   height: 38px;
   border-radius: 50%;
@@ -685,7 +692,6 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
   cursor: pointer;
-  display: inline-flex;
   align-items: center;
   justify-content: center;
   transition: background 0.2s ease, transform 0.2s ease;
@@ -693,6 +699,287 @@ onMounted(() => {
 .hero-scroll:hover {
   background: rgba(255, 255, 255, 0.14);
   transform: translateY(2px);
+}
+
+/* — Mockup iPhone dans le hero — */
+.hero-phone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.hero-phone__glow {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 560px;
+  height: 700px;
+  background: radial-gradient(ellipse at center, rgb(25 118 210 / 0.4) 0%, rgb(124 58 237 / 0.16) 45%, transparent 72%);
+  filter: blur(46px);
+  z-index: 0;
+}
+.hero-phone__device {
+  position: relative;
+  z-index: 1;
+  width: 340px;
+  padding: 8px;
+  border-radius: 68px;
+  background: linear-gradient(150deg, #565d67 0%, #23272e 38%, #0b0d11 100%);
+  box-shadow:
+    0 60px 110px rgb(2 8 23 / 0.55),
+    0 24px 48px rgb(2 8 23 / 0.35),
+    inset 0 2px 2px rgb(255 255 255 / 0.35),
+    inset 0 -2px 3px rgb(0 0 0 / 0.7);
+  animation: phone-float 6s ease-in-out infinite alternate;
+}
+.hero-phone__device::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 64px;
+  border: 1px solid rgb(255 255 255 / 0.09);
+  pointer-events: none;
+}
+.hero-phone__btn {
+  position: absolute;
+  width: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #3a4048, #0d0f13);
+}
+.hero-phone__btn--action { left: -4px; top: 110px; height: 26px; }
+.hero-phone__btn--up { left: -4px; top: 152px; height: 46px; }
+.hero-phone__btn--down { left: -4px; top: 210px; height: 46px; }
+.hero-phone__btn--power { right: -4px; top: 180px; height: 68px; }
+.hero-phone__screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 710px;
+  border-radius: 60px;
+  background: linear-gradient(180deg, #14171f 0%, #0b0f16 100%);
+  overflow: hidden;
+}
+.hero-phone__screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(118deg, rgb(255 255 255 / 0.14) 0%, transparent 30%);
+  pointer-events: none;
+  z-index: 2;
+}
+.hero-phone__island {
+  position: absolute;
+  top: 13px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 104px;
+  height: 29px;
+  padding-right: 8px;
+  border-radius: 999px;
+  background: #05070a;
+}
+.hero-phone__cam {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #33456b, #0a0f18 65%);
+}
+.hero-phone__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 58px;
+  padding: 20px 32px 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #fff;
+  flex-shrink: 0;
+}
+.hero-phone__status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #fff;
+}
+.hero-phone__home {
+  width: 112px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.9);
+  margin: 6px auto 11px;
+  flex-shrink: 0;
+}
+.hero-phone__floor {
+  width: 270px;
+  height: 28px;
+  margin-top: 32px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgb(3 10 26 / 0.5) 0%, transparent 70%);
+  filter: blur(12px);
+}
+@keyframes phone-float {
+  from { transform: translateY(-8px); }
+  to { transform: translateY(10px); }
+}
+
+/* — Écran TikTok (héros) — */
+.tiktok {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.tiktok__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tiktok__shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgb(0 0 0 / 0.55) 0%,
+    transparent 26%,
+    transparent 55%,
+    rgb(0 0 0 / 0.78) 100%
+  );
+}
+.tiktok__top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px 0;
+  color: #fff;
+}
+.tiktok__tabs {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.tiktok__tab {
+  color: rgb(255 255 255 / 0.65);
+}
+.tiktok__tab--on {
+  color: #fff;
+}
+.tiktok__tab--on::after {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 3px;
+  margin: 3px auto 0;
+  border-radius: 999px;
+  background: #fff;
+}
+.tiktok__search {
+  position: absolute;
+  right: 16px;
+  color: #fff;
+}
+.tiktok__rail {
+  position: absolute;
+  right: 8px;
+  bottom: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  color: #fff;
+}
+.tiktok__rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.tiktok__rail-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.18);
+  backdrop-filter: blur(4px);
+}
+.tiktok__rail-n {
+  font-size: 9px;
+  font-weight: 700;
+}
+.tiktok__rail-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #1976d2, #7c3aed);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  box-shadow: 0 0 0 2px #fff;
+}
+.tiktok__bottom {
+  position: absolute;
+  left: 14px;
+  right: 58px;
+  bottom: 12px;
+  color: #fff;
+  z-index: 1;
+}
+.tiktok__handle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+.tiktok__desc {
+  margin: 3px 0 0;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: rgb(255 255 255 / 0.92);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.tiktok__song {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 7px 0 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.85);
+}
+.tiktok__disc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  color: #101623;
+  animation: tiktok-spin 3s linear infinite;
+}
+@keyframes tiktok-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ═══════════ Code band ═══════════ */
@@ -730,9 +1017,6 @@ onMounted(() => {
 .lp-section {
   padding: 88px 0;
   background: var(--lp-bg);
-}
-.lp-section--alt {
-  background: var(--lp-bg-alt);
 }
 .lp-head {
   text-align: center;
@@ -808,8 +1092,61 @@ onMounted(() => {
   padding-top: 8px;
 }
 .bento-caption {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 12px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--lp-muted);
+}
+
+/* ═══════════ Parallax ═══════════ */
+.lp-parallax {
+  position: relative;
+}
+.lp-parallax__content {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  color: #fff;
+  pointer-events: none;
+}
+.lp-parallax__title {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 20px rgb(0 0 0 / 0.4);
+}
+.lp-parallax__sub {
+  margin: 0;
+  max-width: 540px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: rgb(255 255 255 / 0.85);
+  text-shadow: 0 1px 10px rgb(0 0 0 / 0.4);
+}
+.lp-parallax__sub code {
+  background: rgb(255 255 255 / 0.18);
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 0.9em;
+}
+
+/* ═══════════ Gallery ═══════════ */
+.lp-gallery {
+  max-width: 860px;
+  margin: 0 auto;
+}
+.lp-gallery__meta {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--lp-muted);
 }
 .theme-demo {
@@ -1042,61 +1379,7 @@ onMounted(() => {
   transform: scale(1.06);
 }
 
-/* ═══════════ Showcase ═══════════ */
-.showcase {
-  overflow: hidden;
-  border-radius: 18px;
-  box-shadow: 0 20px 60px rgb(10 20 40 / 0.08);
-}
-.demo {
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-.demo--form {
-  flex-direction: row;
-  gap: 36px;
-  flex-wrap: wrap;
-}
-.demo-col {
-  flex: 1 1 260px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-.demo-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.progress-bar {
-  min-width: 180px;
-  flex: 1 1 180px;
-}
-.slider-wrap {
-  padding: 6px 2px;
-}
-.slider-label {
-  font-size: 13px;
-  color: var(--lp-muted);
-  margin-bottom: 6px;
-  display: block;
-}
-.demo-accordion {
-  max-width: 560px;
-  margin: 0 auto;
-  width: 100%;
-}
-.demo-p {
-  margin: 0;
-  font-size: 14.5px;
-  color: var(--lp-muted);
-  line-height: 1.6;
-}
-
-/* ═══════════ Install steps ═══════════ */
+/* ═══════════ Steps ═══════════ */
 .steps {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1220,7 +1503,9 @@ onMounted(() => {
   .grad,
   .hero-dot,
   .code-glow,
-  .iphone__eq i {
+  .iphone__eq i,
+  .hero-phone__device,
+  .tiktok__disc {
     animation: none;
   }
   .reveal {
@@ -1232,6 +1517,25 @@ onMounted(() => {
 
 /* ═══════════ Responsive ═══════════ */
 @media (max-width: 960px) {
+  .hero-inner {
+    grid-template-columns: 1fr;
+    gap: 44px;
+    text-align: center;
+  }
+  .hero-copy {
+    align-items: center;
+    text-align: center;
+  }
+  .hero-sub {
+    margin: 18px auto 0;
+    text-align: center;
+  }
+  .hero-actions {
+    justify-content: center;
+  }
+  .hero-stats {
+    justify-content: center;
+  }
   .bento-card,
   .bento-card--wide {
     grid-column: span 6;
@@ -1250,6 +1554,16 @@ onMounted(() => {
   }
   .hero-stat-sep {
     display: none;
+  }
+  .hero-phone__device {
+    width: 300px;
+    padding: 7px;
+  }
+  .hero-phone__screen {
+    height: 626px;
+  }
+  .hero-phone__floor {
+    width: 230px;
   }
 }
 </style>

@@ -7,6 +7,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
+import { useOverlayBack } from "../lib/overlayBack"
 import { COUNTRIES, flagOf } from "../lib/countries"
 import type { Country } from "../lib/countries"
 
@@ -116,6 +117,10 @@ const searchInput = ref<HTMLInputElement | null>(null)
 const open = ref(false)
 const query = ref("")
 const activeIndex = ref(0)
+
+// « Retour » navigateur → ferme le panneau (sheet/modal/dialog) au lieu de naviguer
+const panelOpen = computed(() => isPanelMode.value && open.value)
+useOverlayBack(panelOpen, () => close(), "QCountryPicker")
 
 const selected = computed(() =>
   props.countries.find((c) => c.code === props.modelValue),

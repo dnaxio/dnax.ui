@@ -55,6 +55,15 @@ const usageLines = `<div class="col">
 </div>
 <!-- Hover a truncated line: the full text appears in the tooltip (title). -->`
 
+const usageGenerate = `<q-text :text="LONG" generate />
+<!-- Chaque mot se révèle en séquence : blur + fondu + translation, une seule fois. -->`
+
+const usageHighlight = `<q-text :text="LONG" highlight="fox" />
+<!-- Le marqueur se dessine de gauche à droite — couleur via --q-highlight-color. -->`
+
+const usageBreathing = `<q-text :text="LONG" breathing />
+<!-- Chaque mot s'estompe en cascade, en boucle — durée via --q-breathe-duration. -->`
+
 const usageTag = `<q-text tag="h3" text="Rendered as an h3" />
 <q-text tag="span" text="Inline span element" />
 <q-text tag="p" text="Default paragraph tag" />`
@@ -113,8 +122,11 @@ const next = () => {
       A paragraph element with built-in <b>multi-line truncation</b> and
       <b>animated transitions</b>: set <code>lines</code> to clamp the text to
       that many lines with an ellipsis (full content on hover via
-      <code>title</code>), or pass <code>transition</code> (fade, zoom, slide…) to
-      animate the text each time it changes. For captions overlaid on images, see
+      <code>title</code>), pass <code>transition</code> (fade, zoom, slide…) to
+      animate the text each time it changes, <code>breathing</code> for a
+      soft word-by-word pulse, <code>generate</code> to reveal it word by word,
+      or <code>highlight</code> to draw a marker over a substring. For captions
+      overlaid on images, see
       <a class="doc-link" href="/docs/components/text-caption">QTextCaption</a>.
     </p>
 
@@ -207,6 +219,51 @@ const next = () => {
             class="demo-transitions__text"
           />
         </div>
+      </docs-demo>
+    </section>
+
+    <!-- ═══════ Generate ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Generate</h2>
+      <p class="doc-note">
+        <code>generate</code> reveals the words one by one — blur + fade + a
+        slight rise — like text being generated live (Inspira text-generate
+        style). Replays when <code>text</code> changes; respects
+        <code>prefers-reduced-motion</code>.
+      </p>
+
+      <docs-demo :code="usageGenerate" lang="html" filename="App.vue" :script="scriptLines">
+        <q-text :text="LONG" generate />
+      </docs-demo>
+    </section>
+
+    <!-- ═══════ Highlight ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Highlight</h2>
+      <p class="doc-note">
+        <code>highlight</code> marks a substring of <code>text</code> with a
+        marker that draws itself from left to right (Inspira highlight-text
+        style). Tune the color with the <code>--q-highlight-color</code> CSS
+        variable; respects <code>prefers-reduced-motion</code>.
+      </p>
+
+      <docs-demo :code="usageHighlight" lang="html" filename="App.vue" :script="scriptLines">
+        <q-text :text="LONG" highlight="fox" />
+      </docs-demo>
+    </section>
+
+    <!-- ═══════ Breathing ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Breathing</h2>
+      <p class="doc-note">
+        <code>breathing</code> makes each word fade out and back in a gentle,
+        continuous loop with a cascade delay — the Inspira breathing-text look.
+        Tune the cycle with the <code>--q-breathe-duration</code> CSS variable;
+        respects <code>prefers-reduced-motion</code>.
+      </p>
+
+      <docs-demo :code="usageBreathing" lang="html" filename="App.vue" :script="scriptLines">
+        <q-text :text="LONG" breathing />
       </docs-demo>
     </section>
 

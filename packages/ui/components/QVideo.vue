@@ -8,13 +8,19 @@
 // Events : @ready (media element), @play, @pause, @ended, @timeupdate, @loadedmetadata, @volumechange.
 // Méthodes exposées : play / pause / togglePlay / seek / getCurrentTime / getDuration / setVolume / setMuted / isPlaying.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
+import "@videojs/html/video/skin.css"
 
 interface Props {
   /** URL de la vidéo (mp4, webm, ogg, HLS .m3u8, YouTube…) */
   src?: string
   /** Image d'affiche avant lecture */
   poster?: string
-  /** Affiche les contrôles (défaut true) */
+  /** Image de remplacement affichée tant que la vidéo n'est pas chargée (ou slot #placeholder) */
+  placeholder?: string
+  /** Texte alternatif de l'image placeholder (défaut "Video placeholder") */
+  placeholderAlt?: string
+  /** Affiche les contrôles (défaut true). Le skin par défaut gère ses contrôles
+   *  (état visible/masqué pendant la lecture). */
   controls?: boolean
   /** Démarre la lecture automatiquement (souvent combiné avec muted) */
   autoplay?: boolean
@@ -33,6 +39,8 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   src: "",
   poster: "",
+  placeholder: "",
+  placeholderAlt: "Video placeholder",
   controls: true,
   autoplay: false,
   loop: false,
@@ -61,10 +69,13 @@ const isHls = computed(() => /\.m3u8(\?|$)/.test(props.src))
 
 const mediaEl = ref<HTMLElement | null>(null)
 const playing = ref(false)
+/** true dès que le média a chargé ses métadonnées (ou qu'il joue) → masque le placeholder */
+const metaLoaded = ref(false)
 
 const media = (): any => mediaEl.value
 
 const onPlay = () => {
+  metaLoaded.value = true
   playing.value = true
   emit("play")
 }
@@ -75,7 +86,10 @@ const onPause = () => {
 const onEnded = () => emit("ended")
 const onTimeupdate = () =>
   emit("timeupdate", { currentTime: media()?.currentTime ?? 0, duration: media()?.duration ?? 0 })
-const onLoadedmetadata = () => emit("loadedmetadata", { duration: media()?.duration ?? 0 })
+const onLoadedmetadata = () => {
+  metaLoaded.value = true
+  emit("loadedmetadata", { duration: media()?.duration ?? 0 })
+}
 const onVolumechange = () =>
   emit("volumechange", { muted: media()?.muted ?? false, volume: media()?.volume ?? 1 })
 
@@ -88,24 +102,28 @@ const listeners: Array<[string, EventListener]> = [
   ["volumechange", onVolumechange],
 ]
 
-const attachListeners = () => {
-  const el = mediaEl.value
-  if (!el) return
+const attach = (el: HTMLElement) => {
   for (const [type, fn] of listeners) el.addEventListener(type, fn)
-  emit("ready", el)
 }
 
-const detachListeners = () => {
-  const el = mediaEl.value
+const detach = (el: HTMLElement | null) => {
   if (!el) return
   for (const [type, fn] of listeners) el.removeEventListener(type, fn)
 }
 
-// Re-attache les listeners quand le media element change (changement de source/type)
-watch(mediaEl, (el) => {
-  detachListeners()
-  if (el) attachListeners()
-})
+// Attache les listeners dès que le media element existe (et à chaque changement de
+// type de média) — sinon loadedmetadata est émis avant l'init et le placeholder
+// resterait affiché, bloquant les contrôles.
+watch(mediaEl, (el, old) => {
+  detach(old ?? null)
+  if (el) attach(el)
+}, { immediate: true })
+
+// Clic sur le placeholder : masque-le et lance la lecture
+const onPlaceholderClick = () => {
+  metaLoaded.value = true
+  play()
+}
 
 onMounted(async () => {
   // Charge le framework HTML (custom elements) — uniquement côté client
@@ -119,10 +137,10 @@ onMounted(async () => {
   if (typeof customElements !== "undefined") {
     await customElements.whenDefined("video-player")
   }
-  attachListeners()
+  emit("ready", mediaEl.value)
 })
 
-onBeforeUnmount(detachListeners)
+onBeforeUnmount(() => detach(mediaEl.value ?? null))
 
 // — Méthodes exposées —
 const play = () => media()?.play()
@@ -205,6 +223,18 @@ const wrapperStyle = (): Record<string, string> => {
         />
       </video-skin>
     </video-player>
+
+    <!-- Placeholder tant que la vidéo n'est pas chargée (clic = lecture) -->
+    <div
+      v-if="!metaLoaded && (placeholder || $slots.placeholder)"
+      class="q-video__placeholder"
+      role="button"
+      :aria-label="placeholderAlt"
+      @click="onPlaceholderClick"
+    >
+      <img v-if="placeholder" :src="placeholder" :alt="placeholderAlt" />
+      <slot name="placeholder" />
+    </div>
   </div>
 </template>
 
@@ -237,5 +267,23 @@ const wrapperStyle = (): Record<string, string> => {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* Placeholder de chargement : image ou contenu, cliquable pour lancer la lecture */
+.q-video__placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  background: #000;
+}
+.q-video__placeholder img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 </style>

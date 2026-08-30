@@ -27,6 +27,15 @@ const open = ref(false)
 const openConfirm = ref(false)
 const openBottom = ref(false)
 const openT = ref(false)
+const openMax = ref(false)
+const openMaxT = ref(false)
+const maxTransition = ref<(typeof transitions)[number]>("fade")
+const maxDuration = ref(200)
+const durations = [100, 200, 350, 500, 800] as const
+const openMaxWith = (t: (typeof transitions)[number]) => {
+  maxTransition.value = t
+  openMaxT.value = true
+}
 const eventLog = ref("")
 
 // — Démos des transitions —
@@ -94,6 +103,46 @@ const usagePosition = `<q-btn outline label="Bottom dialog" @click="openBottom =
   </div>
 </q-dialog>`
 
+const usageMax = `<q-btn color="primary" label="Fullscreen dialog" @click="openMax = true" />
+
+<q-dialog v-model="openMax" maximized>
+  <q-dialog-header title="Settings" description="A maximized dialog covers the whole screen" />
+  <div class="demo-dialog-body">
+    <p class="demo-p">
+      <code>maximized</code> stretches the panel edge-to-edge (100vw × 100dvh) with
+      square corners — the iOS fullscreen pattern. The header and footer respect
+      the safe-area insets.
+    </p>
+  </div>
+  <q-dialog-footer>
+    <q-btn flat label="Close" @click="openMax = false" />
+    <q-btn color="primary" label="Save" @click="openMax = false" />
+  </q-dialog-footer>
+</q-dialog>`
+
+const usageMaxTransitions = `<div class="row">
+  <q-btn v-for="t in transitions" :key="t" outline color="primary" no-caps :label="t" @click="openMaxWith(t)" />
+</div>
+
+<div class="row">
+  <q-btn v-for="d in durations" :key="d" flat color="primary" no-caps :label="d + 'ms'" :class="{ 'active': d === maxDuration }" @click="maxDuration = d" />
+</div>
+
+<q-dialog v-model="openMaxT" maximized :transition="maxTransition" :transition-duration="maxDuration">
+  <q-dialog-header :title="'Maximized · ' + maxTransition + ' · ' + maxDuration + 'ms'" description="Fullscreen + transition + duration" />
+  <div class="demo-dialog-body">
+    <p class="demo-p">
+      Combine <code>maximized</code>, any <code>transition</code> and a
+      <code>transition-duration</code> in ms — each click re-opens the fullscreen
+      panel with the chosen entrance animation and speed.
+    </p>
+  </div>
+  <q-dialog-footer>
+    <q-btn flat label="Close" @click="openMaxT = false" />
+    <q-btn color="primary" label="Done" @click="openMaxT = false" />
+  </q-dialog-footer>
+</q-dialog>`
+
 const usageTrigger = `<q-btn color="primary" label="Open dialog" @click="open = true" />
 
 <q-dialog v-model="open">
@@ -155,6 +204,23 @@ const openConfirm = ref(false)`
 const scriptPosition = `import { ref } from "vue"
 
 const openBottom = ref(false)`
+
+const scriptMax = `import { ref } from "vue"
+
+const openMax = ref(false)`
+
+const scriptMaxTransitions = `import { ref } from "vue"
+
+const openMaxT = ref(false)
+const maxTransition = ref("fade")
+const maxDuration = ref(200)
+const durations = [100, 200, 350, 500, 800]
+const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right"]
+
+const openMaxWith = (t) => {
+  maxTransition.value = t
+  openMaxT.value = true
+}`
 
 const scriptTransitions = `import { ref } from "vue"
 
@@ -270,6 +336,60 @@ const scriptTrigger = scriptOpen
               overrides it (<code>fade | zoom | slide-up | …</code>).
             </p>
           </div>
+        </q-dialog>
+      </docs-demo>
+
+      <h3 class="doc-h3">Maximized (fullscreen)</h3>
+      <docs-demo :code="usageMax" lang="html" filename="App.vue" :script="scriptMax">
+        <q-btn color="primary" label="Fullscreen dialog" @click="openMax = true" />
+
+        <q-dialog v-model="openMax" maximized>
+          <q-dialog-header title="Settings" description="A maximized dialog covers the whole screen" />
+          <div class="demo-dialog-body">
+            <p class="demo-p">
+              <code>maximized</code> stretches the panel edge-to-edge (100vw × 100dvh)
+              with square corners — the iOS fullscreen pattern. The header and footer
+              respect the safe-area insets.
+            </p>
+          </div>
+          <q-dialog-footer>
+            <q-btn flat label="Close" @click="openMax = false" />
+            <q-btn color="primary" label="Save" @click="openMax = false" />
+          </q-dialog-footer>
+        </q-dialog>
+      </docs-demo>
+
+      <h3 class="doc-h3">Maximized + transitions</h3>
+      <docs-demo :code="usageMaxTransitions" lang="html" filename="App.vue" :script="scriptMaxTransitions">
+        <div class="demo-row">
+          <q-btn v-for="t in transitions" :key="t" outline color="primary" no-caps :label="t" @click="openMaxWith(t)" />
+        </div>
+        <div class="demo-row">
+          <q-btn
+            v-for="d in durations"
+            :key="d"
+            flat
+            color="primary"
+            no-caps
+            :label="d + 'ms'"
+            :class="{ 'demo-btn--active': d === maxDuration }"
+            @click="maxDuration = d"
+          />
+        </div>
+
+        <q-dialog v-model="openMaxT" maximized :transition="maxTransition" :transition-duration="maxDuration">
+          <q-dialog-header :title="'Maximized · ' + maxTransition + ' · ' + maxDuration + 'ms'" description="Fullscreen + transition + duration" />
+          <div class="demo-dialog-body">
+            <p class="demo-p">
+              Combine <code>maximized</code>, any <code>transition</code> and a
+              <code>transition-duration</code> in ms — each click re-opens the
+              fullscreen panel with the chosen entrance animation and speed.
+            </p>
+          </div>
+          <q-dialog-footer>
+            <q-btn flat label="Close" @click="openMaxT = false" />
+            <q-btn color="primary" label="Done" @click="openMaxT = false" />
+          </q-dialog-footer>
         </q-dialog>
       </docs-demo>
 
@@ -445,9 +565,14 @@ const scriptTrigger = scriptOpen
   margin-top: 14px;
 }
 .demo-dialog-log {
-  margin: 10px 0 0;
+  margin-top: 10px;
   font-size: 13px;
   color: #8b93a1;
+}
+
+.demo-btn--active {
+  background: rgb(25 118 210 / 0.12);
+  border-radius: 8px;
 }
 
 /* espace entre les blocs docs-demo */

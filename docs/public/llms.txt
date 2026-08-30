@@ -1,0 +1,130 @@
+# dnax.ui
+
+> dnax.ui is a Vue 3 design system with a Quasar-style public API — `<q-btn flat dense no-caps>`, boolean modifier props, `v-model` conventions, kebab-case tags — built on shadcn-vue techniques (cva, `cn()`, tailwind-merge, CSS token theming, Iconify icons). This file indexes the documentation site so an LLM can navigate every component, plugin and guide. All pages are written in English.
+
+## About the docs
+
+Each component page follows the same structure: a short lead describing the component, a series of interactive demo sections (each with a Preview / Code tab, and a Script setup block when state is involved), then an **API** section rendered by `docs-api`, with tabs for **Props** (name, type, values, default, required), **Slots**, **Events** (with payloads) and **Methods**. Component props are written in kebab-case in templates and camelCase in TypeScript. Most components accept the shared modifiers `dense`, `outlined`, `bordered`, `flat`, `disable`, `readonly`, `dark`, `color`/`text-color`, `size` and a `label`.
+
+The design system lives in `@dnax/ui` (npm package `@dnax/ui`, source in `packages/ui/`): every `Q*` component is exported from the package root and auto-registered by the Nuxt module as a kebab-case tag (e.g. `QBtn` → `<q-btn>`). Global styles and tokens are in `styles/main.css`. Plugins are used through the `$q` object (`$q.dialog`, `$q.notify`, `$q.loading`, `$q.imagePreview`, `$q.bottomSheet`).
+
+## Getting Started
+
+- [Installation](/docs/getting-started/installation)
+- [Setup](/docs/getting-started/quick-start)
+
+## Showcase
+
+- [Mobile Mockup](/mockup) — every component rendered inside an iOS phone frame (status bar, Dynamic Island, home indicator) for a real on-device feel, ready for Capacitor apps.
+
+## Layouts
+
+- [Header Layout](/docs/components/header)
+- [Footer Layout](/docs/components/footer)
+- [Page Layout](/docs/components/page)
+- [Sidebar Layout](/docs/components/sidebar)
+
+## Styles
+
+- [Grid](/docs/components/grid)
+- [Col](/docs/components/col)
+- [Row](/docs/components/row)
+
+## Components
+
+- [Accordion](/docs/components/accordion)
+- [Action Sheet](/docs/components/action-sheet)
+- [App](/docs/components/app)
+- [Autocomplete](/docs/components/autocomplete)
+- [Avatar](/docs/components/avatar)
+- [Back Header](/docs/components/back-header)
+- [Back Top](/docs/components/back-top)
+- [Badge](/docs/components/badge)
+- [Bottom Sheet](/docs/components/bottom-sheet)
+- [Bubble](/docs/components/bubble)
+- [Button](/docs/components/btn)
+- [Button Group](/docs/components/btn-group)
+- [Card](/docs/components/card)
+- [Carousel](/docs/components/carousel)
+- [Checkbox](/docs/components/checkbox)
+- [Chip](/docs/components/chip)
+- [Circular Progress](/docs/components/circular-progress)
+- [Collapse](/docs/components/collapse)
+- [Config Provider](/docs/components/config-provider)
+- [Container](/docs/components/container)
+- [Count Down](/docs/components/count-down)
+- [Country Picker](/docs/components/country-picker)
+- [Data Grid](/docs/components/data-grid)
+- [Date Picker](/docs/components/date-picker)
+- [Dialog](/docs/components/dialog)
+- [Fab](/docs/components/fab)
+- [File Picker](/docs/components/file-picker)
+- [Gallery](/docs/components/gallery)
+- [Icon](/docs/components/icon)
+- [Image](/docs/components/img)
+- [Image Picker](/docs/components/image-picker)
+- [Image Preview](/docs/components/image-preview)
+- [Image Preview Provider](/docs/components/image-preview-provider)
+- [Infinite Scroll](/docs/components/infinite-scroll)
+- [Inner Loading](/docs/components/inner-loading)
+- [Intersection](/docs/components/intersection)
+- [Input](/docs/components/input)
+- [Input OTP](/docs/components/input-otp)
+- [Input Password](/docs/components/input-password)
+- [Input Tag](/docs/components/input-tag)
+- [Linear Progress](/docs/components/linear-progress)
+- [List](/docs/components/list)
+- [Loading](/docs/components/loading)
+- [Marquee](/docs/components/marquee)
+- [Message Scroller](/docs/components/message-scroller)
+- [Nav Menu](/docs/components/nav-menu)
+- [Pagination](/docs/components/pagination)
+- [Parallax](/docs/components/parallax)
+- [Pull To Refresh](/docs/components/pull-to-refresh)
+- [Radio](/docs/components/radio)
+- [Rating](/docs/components/rating)
+- [Reorder](/docs/components/reorder)
+- [Rolling Text](/docs/components/rolling-text)
+- [Safe Area](/docs/components/safe-area)
+- [Scroll Area](/docs/components/scroll-area)
+- [Select](/docs/components/select)
+- [Separator](/docs/components/separator)
+- [Skeleton](/docs/components/skeleton)
+- [Slider](/docs/components/slider)
+- [Space](/docs/components/space)
+- [Spinner](/docs/components/spinner)
+- [Splitter](/docs/components/splitter)
+- [Sticky](/docs/components/sticky)
+- [Swipe Cell](/docs/components/swipe-cell)
+- [Swiper](/docs/components/swiper)
+- [Syntax](/docs/components/syntax)
+- [Tab Panels](/docs/components/tab-panels)
+- [Table](/docs/components/table)
+- [Tabs](/docs/components/tabs)
+- [Text](/docs/components/text)
+- [Text Caption](/docs/components/text-caption)
+- [Toolbar](/docs/components/toolbar)
+- [Tooltip](/docs/components/tooltip)
+- [Uploader](/docs/components/uploader)
+- [Video](/docs/components/video)
+- [Virtual Scroll](/docs/components/virtual-scroll)
+
+## Plugins API
+
+The imperative plugins are called through the `$q` object (available after installing the corresponding provider, typically mounted by `q-config-provider`). Each page documents the plugin methods, options and the declarative component equivalent when one exists.
+
+- [Dialog](/docs/plugins/dialog)
+- [Bottom Sheet](/docs/plugins/bottom-sheet)
+- [Notify](/docs/plugins/notify)
+- [Loading](/docs/plugins/loading)
+- [Image Preview](/docs/plugins/image-preview)
+
+## Key implementation notes for LLMs
+
+- **Dual identity**: public API is Quasar-flavored (`Q*` component names, kebab-case tags, boolean modifier props, `v-model`), implementation is shadcn-vue-style (cva variants, `cn()` from `lib/utils.ts`, CSS token variables, Iconify icons from `lib/icons.ts`).
+- **Form components** use `:model-value` + `@update:model-value`; visibility components (dialog, menu, sidebar, bottom-sheet) use a boolean `v-model` plus `@show`/`@hide` where relevant.
+- **Colors**: most components accept `color` / `text-color` with either design tokens (`primary`, `secondary`, `positive`, `negative`, `warning`, `info`) or any CSS color.
+- **Safe-area**: fullscreen components (headers, footers, bottom sheets, dialogs, FABs, sheets) apply iOS safe-area insets via `env(safe-area-inset-*)` — requires `viewport-fit=cover`.
+- **Dark mode**: driven by a `.dark` class on a parent (tokens in `styles/main.css`); components inherit `--foreground`, `--card`, `--muted`, `--border` etc.
+- **Icons**: Iconify names like `lucide:menu`; some components accept an `icon` prop.
+- **Back closes overlays**: the Nuxt module auto-installs an `overlayBack` plugin (`installOverlayBackHandler`) — on browser/Capacitor back navigation, the topmost open overlay (dialog, bottom sheet, action sheet, image preview, sidebar, select/date-picker/country-picker in sheet/modal/dialog mode) closes instead of navigating. Components register themselves via `useOverlayBack(open, close, label)` (`lib/overlayBack.ts`); disable with `dnaxUi: { overlayBack: false }`.

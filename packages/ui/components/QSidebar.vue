@@ -17,6 +17,7 @@ export const qSidebarKey: InjectionKey<SidebarContext> = Symbol("q-sidebar")
 import { computed, onBeforeUnmount, onMounted, provide, ref } from "vue"
 import type { StyleValue } from "vue"
 import { cn } from "../lib/utils"
+import { useOverlayBack } from "../lib/overlayBack"
 
 interface Props {
   /** Ouvert (v-model) — mode offcanvas ; ignoré en mode statique */
@@ -95,6 +96,10 @@ const setOpen = (v: boolean) => {
 const toggle = () => setOpen(!open.value)
 
 provide<SidebarContext>(qSidebarKey, { open, setOpen, toggle })
+
+// « Retour » navigateur → ferme la sidebar (mode offcanvas uniquement)
+const overlayOpen = computed(() => !isStatic.value && open.value)
+useOverlayBack(overlayOpen, () => setOpen(false), "QSidebar")
 
 // Échap ferme en offcanvas
 const onDocKeydown = (e: KeyboardEvent) => {

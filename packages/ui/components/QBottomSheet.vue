@@ -15,6 +15,7 @@ export const qBottomSheetKey: InjectionKey<BottomSheetContext> = Symbol("q-botto
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from "vue"
 import { cn } from "../lib/utils"
+import { useOverlayBack } from "../lib/overlayBack"
 
 interface Props {
   /** Ouvert (v-model) */
@@ -58,6 +59,9 @@ provide<BottomSheetContext>(qBottomSheetKey, {
     open.value = v
   },
 })
+
+// « Retour » navigateur → ferme le bottom sheet au lieu de naviguer
+useOverlayBack(open, () => { open.value = false }, "QBottomSheet")
 
 // Échap + verrouillage du scroll du body
 const onDocKeydown = (e: KeyboardEvent) => {

@@ -1314,6 +1314,27 @@ html.dark body {
   -webkit-backdrop-filter: blur(var(--q-translucent-blur, 12px)) saturate(1.4);
 }
 
+/* — Glassmorphism marqué (prop glass) : fond très translucide + flou fort + bordure claire — */
+.q-header--glass,
+.q-footer--glass {
+  --q-glass-bg: rgb(255 255 255 / 0.14);
+  --q-glass-blur: 20px;
+  background-color: var(--q-glass-bg);
+  -webkit-backdrop-filter: blur(var(--q-glass-blur)) saturate(1.6);
+  backdrop-filter: blur(var(--q-glass-blur)) saturate(1.6);
+}
+.q-header--glass {
+  border-bottom: 1px solid rgb(255 255 255 / 0.22);
+}
+.q-footer--glass {
+  border-top: 1px solid rgb(255 255 255 / 0.22);
+}
+.dark .q-header--glass,
+.dark .q-footer--glass {
+  --q-glass-bg: rgb(255 255 255 / 0.07);
+  border-color: rgb(255 255 255 / 0.12);
+}
+
 .q-card--bordered {
   border: 1px solid rgb(0 0 0 / 0.12);
 }
@@ -2546,20 +2567,34 @@ html.dark body {
 .q-image-preview__swiper {
   position: absolute;
   inset: 0;
-}
-.q-image-preview__swiper :deep(.swiper) {
   width: 100%;
   height: 100%;
 }
+/* Le conteneur .swiper (que la classe tombe sur lui ou sur le wrapper .q-swiper)
+   doit occuper toute la preview pour que les slides puissent centrer l'image. */
+.q-image-preview__swiper :deep(.swiper),
+.q-image-preview__swiper.swiper {
+  width: 100%;
+  height: 100%;
+}
+/* Chaîne de hauteur wrapper → slides : centrage vertical garanti */
+.q-image-preview__swiper :deep(.swiper-wrapper),
+.q-image-preview__swiper :deep(.swiper-slide) {
+  height: 100% !important;
+}
+
 .q-image-preview__slide {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
   width: 100%;
   height: 100%;
   cursor: zoom-out;
 }
+/* Centrage absolu (inset 0 + margin auto) : les petites images sont centrées
+   verticalement ET horizontalement, quelle que soit leur taille */
 .q-image-preview__slide img {
+  position: absolute;
+  inset: 0;
+  margin: auto;
   max-width: 92%;
   max-height: 88%;
   object-fit: contain;
@@ -5305,6 +5340,93 @@ html.dark body {
   margin: 0;
 }
 
+/* — breathing text (Inspira-style) : mots qui s'estompent en boucle — */
+.q-text__word,
+.q-text-caption__word {
+  display: inline-block;
+  animation: q-breathe var(--q-breathe-duration, 3.5s) ease-in-out infinite;
+}
+.q-text__word {
+  margin-right: 0.28em;
+}
+.q-text__word:last-child {
+  margin-right: 0;
+}
+@keyframes q-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* — highlight text (Inspira-style) : marqueur qui se dessine de gauche à droite — */
+.q-text__highlight,
+.q-text-caption__highlight {
+  --q-highlight-color: rgb(250 204 21 / 0.55);
+  background-image: linear-gradient(
+    to right,
+    var(--q-highlight-color),
+    var(--q-highlight-color)
+  );
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  border-radius: 3px;
+  padding: 0 0.12em;
+  animation: q-highlight-in 0.7s ease both;
+}
+@keyframes q-highlight-in {
+  from {
+    background-size: 0% 100%;
+  }
+  to {
+    background-size: 100% 100%;
+  }
+}
+
+/* — text generate (Inspira-style) : mots révélés en séquence (blur + fondu) — */
+.q-text__gen-word,
+.q-text-caption__gen-word {
+  display: inline-block;
+  opacity: 0;
+  margin-right: 0.28em;
+  animation: q-text-generate 0.5s ease forwards;
+}
+.q-text__gen-word:last-child,
+.q-text-caption__gen-word:last-child {
+  margin-right: 0;
+}
+@keyframes q-text-generate {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .q-text__word,
+  .q-text-caption__word {
+    animation: none;
+  }
+  .q-text__highlight,
+  .q-text-caption__highlight {
+    animation: none;
+    background-size: 100% 100%;
+  }
+  .q-text__gen-word,
+  .q-text-caption__gen-word {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* troncature multi-lignes avec … (line-clamp) */
 .q-text--clamp {
   display: -webkit-box;
@@ -5858,11 +5980,11 @@ html.dark body {
 
 /* — transitions custom (prop transition) — */
 .q-dialog-fade-enter-active {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--q-dialog-duration-enter, 0.2s) ease;
 }
 
 .q-dialog-fade-leave-active {
-  transition: opacity 0.15s ease-in-out;
+  transition: opacity var(--q-dialog-duration-leave, 0.15s) ease-in-out;
 }
 
 .q-dialog-fade-enter-from,
@@ -5871,19 +5993,19 @@ html.dark body {
 }
 
 .q-dialog-zoom-enter-active {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--q-dialog-duration-enter, 0.2s) ease;
 }
 
 .q-dialog-zoom-leave-active {
-  transition: opacity 0.15s ease-in-out;
+  transition: opacity var(--q-dialog-duration-leave, 0.15s) ease-in-out;
 }
 
 .q-dialog-zoom-enter-active .q-dialog__content {
-  animation: q-dialog-zoom-in 0.22s ease;
+  animation: q-dialog-zoom-in var(--q-dialog-duration-enter, 0.22s) ease;
 }
 
 .q-dialog-zoom-leave-active .q-dialog__content {
-  animation: q-dialog-zoom-out 0.15s ease-in-out forwards;
+  animation: q-dialog-zoom-out var(--q-dialog-duration-leave, 0.15s) ease-in-out forwards;
 }
 
 @keyframes q-dialog-zoom-in {
@@ -5913,29 +6035,29 @@ html.dark body {
 .q-dialog-slide-left-leave-active,
 .q-dialog-slide-right-enter-active,
 .q-dialog-slide-right-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--q-dialog-duration-enter, 0.2s) ease;
 }
 
 .q-dialog-slide-up-enter-active,
 .q-dialog-slide-down-enter-active,
 .q-dialog-slide-left-enter-active,
 .q-dialog-slide-right-enter-active {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--q-dialog-duration-enter, 0.2s) ease;
 }
 
 .q-dialog-slide-up-leave-active,
 .q-dialog-slide-down-leave-active,
 .q-dialog-slide-left-leave-active,
 .q-dialog-slide-right-leave-active {
-  transition: opacity 0.15s ease-in-out;
+  transition: opacity var(--q-dialog-duration-leave, 0.15s) ease-in-out;
 }
 
 .q-dialog-slide-up-enter-active .q-dialog__content {
-  animation: q-dialog-slide-up-in 0.25s ease;
+  animation: q-dialog-slide-up-in var(--q-dialog-duration-enter, 0.25s) ease;
 }
 
 .q-dialog-slide-up-leave-active .q-dialog__content {
-  animation: q-dialog-slide-up-out 0.15s ease-in-out forwards;
+  animation: q-dialog-slide-up-out var(--q-dialog-duration-leave, 0.15s) ease-in-out forwards;
 }
 
 @keyframes q-dialog-slide-up-in {
@@ -5957,11 +6079,11 @@ html.dark body {
 }
 
 .q-dialog-slide-down-enter-active .q-dialog__content {
-  animation: q-dialog-slide-down-in 0.25s ease;
+  animation: q-dialog-slide-down-in var(--q-dialog-duration-enter, 0.25s) ease;
 }
 
 .q-dialog-slide-down-leave-active .q-dialog__content {
-  animation: q-dialog-slide-down-out 0.15s ease-in-out forwards;
+  animation: q-dialog-slide-down-out var(--q-dialog-duration-leave, 0.15s) ease-in-out forwards;
 }
 
 @keyframes q-dialog-slide-down-in {
@@ -5983,11 +6105,11 @@ html.dark body {
 }
 
 .q-dialog-slide-left-enter-active .q-dialog__content {
-  animation: q-dialog-slide-left-in 0.25s ease;
+  animation: q-dialog-slide-left-in var(--q-dialog-duration-enter, 0.25s) ease;
 }
 
 .q-dialog-slide-left-leave-active .q-dialog__content {
-  animation: q-dialog-slide-left-out 0.15s ease-in-out forwards;
+  animation: q-dialog-slide-left-out var(--q-dialog-duration-leave, 0.15s) ease-in-out forwards;
 }
 
 @keyframes q-dialog-slide-left-in {
@@ -6009,11 +6131,11 @@ html.dark body {
 }
 
 .q-dialog-slide-right-enter-active .q-dialog__content {
-  animation: q-dialog-slide-right-in 0.25s ease;
+  animation: q-dialog-slide-right-in var(--q-dialog-duration-enter, 0.25s) ease;
 }
 
 .q-dialog-slide-right-leave-active .q-dialog__content {
-  animation: q-dialog-slide-right-out 0.15s ease-in-out forwards;
+  animation: q-dialog-slide-right-out var(--q-dialog-duration-leave, 0.15s) ease-in-out forwards;
 }
 
 @keyframes q-dialog-slide-right-in {
@@ -7023,6 +7145,96 @@ html.dark body {
 .q-grid--cols-xl-10 { --q-grid-cols: 10; }
 .q-grid--cols-xl-11 { --q-grid-cols: 11; }
 .q-grid--cols-xl-12 { --q-grid-cols: 12; }
+
+/* ===== QIntersection — transitions d'apparition (reveal au scroll) ===== */
+.q-intersection-fade-enter-active,
+.q-intersection-fade-leave-active,
+.q-intersection-scale-enter-active,
+.q-intersection-scale-leave-active,
+.q-intersection-slide-up-enter-active,
+.q-intersection-slide-up-leave-active,
+.q-intersection-slide-down-enter-active,
+.q-intersection-slide-down-leave-active,
+.q-intersection-slide-left-enter-active,
+.q-intersection-slide-left-leave-active,
+.q-intersection-slide-right-enter-active,
+.q-intersection-slide-right-leave-active,
+.q-intersection-flip-enter-active,
+.q-intersection-flip-leave-active {
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
+}
+.q-intersection-fade-enter-from,
+.q-intersection-fade-leave-to {
+  opacity: 0;
+}
+.q-intersection-scale-enter-from {
+  opacity: 0;
+  transform: scale(0.94);
+}
+.q-intersection-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.96);
+}
+.q-intersection-slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(28px);
+}
+.q-intersection-slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(-16px);
+}
+.q-intersection-slide-down-enter-from {
+  opacity: 0;
+  transform: translateY(-28px);
+}
+.q-intersection-slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(16px);
+}
+.q-intersection-slide-left-enter-from {
+  opacity: 0;
+  transform: translateX(28px);
+}
+.q-intersection-slide-left-leave-to {
+  opacity: 0;
+  transform: translateX(-16px);
+}
+.q-intersection-slide-right-enter-from {
+  opacity: 0;
+  transform: translateX(-28px);
+}
+.q-intersection-slide-right-leave-to {
+  opacity: 0;
+  transform: translateX(16px);
+}
+.q-intersection-flip-enter-from {
+  opacity: 0;
+  transform: rotateX(90deg);
+}
+.q-intersection-flip-leave-to {
+  opacity: 0;
+  transform: rotateX(-90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .q-intersection-fade-enter-active,
+  .q-intersection-fade-leave-active,
+  .q-intersection-scale-enter-active,
+  .q-intersection-scale-leave-active,
+  .q-intersection-slide-up-enter-active,
+  .q-intersection-slide-up-leave-active,
+  .q-intersection-slide-down-enter-active,
+  .q-intersection-slide-down-leave-active,
+  .q-intersection-slide-left-enter-active,
+  .q-intersection-slide-left-leave-active,
+  .q-intersection-slide-right-enter-active,
+  .q-intersection-slide-right-leave-active,
+  .q-intersection-flip-enter-active,
+  .q-intersection-flip-leave-active {
+    transition: none;
+  }
+}
 
 /* ===== QDataGrid — grille type tableur (formules, édition, sélection clavier) ===== */
 .q-data-grid {

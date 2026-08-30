@@ -35,6 +35,12 @@ interface Props {
   transition?: QTextTransition
   /** Durée de la transition en ms (défaut 300) */
   transitionDuration?: number
+  /** Respiration douce du texte : chaque mot s'estompe en boucle (stagger) */
+  breathing?: boolean
+  /** Apparition « générée » : chaque mot se révèle en séquence (blur + fondu) */
+  generate?: boolean
+  /** Sous-chaîne de `text` à surligner (marqueur qui se dessine, façon Inspira) */
+  highlight?: string
   class?: string
 }
 
@@ -56,6 +62,21 @@ const transitionStyle = computed<Record<string, string> | undefined>(() =>
 
 /** Les effets slide sortent le texte du cadre → masquer le débordement */
 const overflow = computed(() => props.transition.startsWith("slide"))
+
+/** Mots du texte (prop text) pour l'effet breathing */
+const words = computed(() => String(props.text).split(" ").filter(Boolean))
+
+/** Délai de respiration par mot (cascade) */
+const wordDelay = (i: number) => ({ animationDelay: `${i * 0.12}s` })
+
+/** Parties du texte autour du mot surligné : [avant, mot, après] ou null */
+const hlParts = computed<[string, string, string] | null>(() => {
+  if (!props.highlight || props.text === undefined) return null
+  const t = String(props.text)
+  const idx = t.indexOf(props.highlight)
+  if (idx === -1) return null
+  return [t.slice(0, idx), props.highlight, t.slice(idx + props.highlight.length)]
+})
 </script>
 
 <template>
@@ -78,10 +99,56 @@ const overflow = computed(() => props.transition.startsWith("slide"))
       :duration="transitionDuration"
     >
       <span :key="String(text)" class="q-text__content">
-        <slot>{{ text }}</slot>
+        <template v-if="hlParts">
+          <template v-for="(part, i) in hlParts" :key="i">
+            <span v-if="i === 1" class="q-text__highlight">{{ part }}</span>
+            <template v-else>{{ part }}</template>
+          </template>
+        </template>
+        <template v-else-if="generate && text !== undefined">
+          <span
+            v-for="(w, i) in words"
+            :key="i"
+            class="q-text__gen-word"
+            :style="{ animationDelay: `${i * 0.08}s` }"
+          >{{ w }}</span>
+        </template>
+        <template v-else-if="breathing && text !== undefined">
+          <span
+            v-for="(w, i) in words"
+            :key="i"
+            class="q-text__word"
+            :style="wordDelay(i)"
+          >{{ w }}</span>
+        </template>
+        <slot v-else>{{ text }}</slot>
       </span>
     </Transition>
-    <slot v-else>{{ text }}</slot>
+    <template v-if="!transition">
+      <template v-if="hlParts">
+        <template v-for="(part, i) in hlParts" :key="i">
+          <span v-if="i === 1" class="q-text__highlight">{{ part }}</span>
+          <template v-else>{{ part }}</template>
+        </template>
+      </template>
+      <template v-else-if="generate && text !== undefined">
+        <span
+          v-for="(w, i) in words"
+          :key="i"
+          class="q-text__gen-word"
+          :style="{ animationDelay: `${i * 0.08}s` }"
+        >{{ w }}</span>
+      </template>
+      <template v-else-if="breathing && text !== undefined">
+        <span
+          v-for="(w, i) in words"
+          :key="i"
+          class="q-text__word"
+          :style="wordDelay(i)"
+        >{{ w }}</span>
+      </template>
+      <slot v-else>{{ text }}</slot>
+    </template>
   </component>
 </template>
 

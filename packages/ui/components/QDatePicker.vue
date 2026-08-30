@@ -6,6 +6,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
+import { useOverlayBack } from "../lib/overlayBack"
 import QDateCalendar from "./internal/QDateCalendar.vue"
 
 interface Props {
@@ -71,6 +72,10 @@ const isPanelMode = computed(() => props.mode !== "inline")
 const open = ref(false)
 const rootEl = ref<HTMLElement | null>(null)
 const sheetRef = ref<HTMLElement | null>(null)
+
+// « Retour » navigateur → ferme le panneau (sheet/modal/dialog) au lieu de naviguer
+const panelOpen = computed(() => isPanelMode.value && open.value)
+useOverlayBack(panelOpen, () => closePopup(), "QDatePicker")
 
 // — Affichage du champ —
 const formatFn = computed(
