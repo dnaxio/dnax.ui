@@ -534,7 +534,7 @@ const virtual = computed(() => {
 
     <div v-if="loading" class="q-table__loading">
       <slot name="loading">
-        <span class="q-spinner" aria-hidden="true" />
+        <span class="q-spinner-ring" aria-hidden="true" />
       </slot>
     </div>
 

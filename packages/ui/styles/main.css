@@ -2324,7 +2324,19 @@ html.dark body {
   box-sizing: border-box;
 }
 
-.q-spinner {
+/* ===== QSwiper (wrapper swiperjs) : pagination & navigation aux couleurs du DS ===== */
+.q-swiper {
+  --swiper-pagination-color: var(--primary);
+  --swiper-navigation-color: var(--primary);
+  --swiper-pagination-bullet-inactive-color: rgb(0 0 0 / 0.3);
+  --swiper-pagination-bullet-inactive-opacity: 1;
+}
+.dark .q-swiper {
+  --swiper-pagination-bullet-inactive-color: rgb(255 255 255 / 0.45);
+}
+
+/* Anneau de chargement interne (boutons, refresh, tables…) */
+.q-spinner-ring {
   width: 32px;
   height: 32px;
   border: 3px solid currentColor;
@@ -2416,6 +2428,219 @@ html.dark body {
   background-color: var(--q-tooltip-bg);
   border-radius: 2px;
   transform: rotate(45deg);
+}
+
+/* ===== QReorder — liste réordonnable par glisser-déposer ===== */
+.q-reorder {
+  display: flex;
+  flex-direction: column;
+}
+.q-reorder__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: transform 0.2s ease;
+  cursor: grab;
+  outline: none;
+}
+.q-reorder__item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.q-reorder__item--drag-all {
+  touch-action: none;
+}
+.q-reorder__item--dragging {
+  z-index: 10;
+  transition: none;
+  pointer-events: none;
+  cursor: grabbing;
+}
+.q-reorder__content {
+  flex: 1;
+  min-width: 0;
+}
+.q-reorder__handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  cursor: grab;
+  color: rgb(0 0 0 / 0.35);
+}
+.q-reorder__grip {
+  width: 16px;
+  height: 16px;
+}
+.q-reorder--disabled .q-reorder__item {
+  opacity: 0.55;
+  cursor: default;
+}
+.q-reorder--disabled .q-reorder__handle {
+  cursor: default;
+}
+.dark .q-reorder__handle {
+  color: rgb(255 255 255 / 0.4);
+}
+
+/* ===== QCountDown — compte à rebours ===== */
+.q-count-down {
+  font-variant-numeric: tabular-nums;
+}
+.q-count-down--done {
+  opacity: 0.6;
+}
+
+/* ===== QImagePreview — visionneuse plein écran (carrousel) ===== */
+.q-image-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgb(0 0 0 / 0.92);
+  touch-action: none;
+  padding: 0;
+  padding-top: 0;
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top);
+}
+.q-image-preview__swiper {
+  position: absolute;
+  inset: 0;
+}
+.q-image-preview__swiper :deep(.swiper) {
+  width: 100%;
+  height: 100%;
+}
+.q-image-preview__slide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  cursor: zoom-out;
+}
+.q-image-preview__slide img {
+  max-width: 92%;
+  max-height: 88%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  border-radius: 6px;
+}
+.q-image-preview__btn {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.35);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.q-image-preview__btn:hover {
+  background: rgb(0 0 0 / 0.6);
+}
+.q-image-preview__btn svg {
+  width: 20px;
+  height: 20px;
+}
+.q-image-preview__close {
+  top: calc(14px + env(safe-area-inset-top));
+  right: 14px;
+}
+.q-image-preview__nav {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.q-image-preview__nav--prev {
+  left: 14px;
+}
+.q-image-preview__nav--next {
+  right: 14px;
+}
+.q-image-preview__counter {
+  position: absolute;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.45);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* — transitions d'ouverture — */
+.q-image-preview-fade-enter-active,
+.q-image-preview-fade-leave-active,
+.q-image-preview-up-enter-active,
+.q-image-preview-up-leave-active,
+.q-image-preview-down-enter-active,
+.q-image-preview-down-leave-active,
+.q-image-preview-zoom-enter-active,
+.q-image-preview-zoom-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.q-image-preview-fade-enter-from,
+.q-image-preview-fade-leave-to,
+.q-image-preview-up-enter-from,
+.q-image-preview-up-leave-to,
+.q-image-preview-down-enter-from,
+.q-image-preview-down-leave-to,
+.q-image-preview-zoom-enter-from,
+.q-image-preview-zoom-leave-to {
+  opacity: 0;
+}
+.q-image-preview-up-enter-from,
+.q-image-preview-up-leave-to {
+  transform: translateY(48px);
+}
+.q-image-preview-down-enter-from,
+.q-image-preview-down-leave-to {
+  transform: translateY(-48px);
+}
+.q-image-preview-zoom-enter-from,
+.q-image-preview-zoom-leave-to {
+  transform: scale(0.95);
+}
+
+/* ===== QParallax — image de fond au scroll ===== */
+.q-parallax {
+  position: relative;
+  overflow: hidden;
+  background-color: #111;
+}
+.q-parallax__media {
+  position: absolute;
+  left: 0;
+  right: 0;
+  will-change: transform;
+}
+.q-parallax__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.q-parallax__content {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.q-parallax--disabled .q-parallax__media {
+  transform: none !important;
 }
 
 @keyframes q-tooltip-in {
@@ -6018,10 +6243,10 @@ html.dark body {
   color: rgb(0 0 0 / 0.55);
   font-size: 13px;
 }
-.q-infinite-scroll__loading .q-spinner { width: 20px; height: 20px; border-width: 2px; }
+.q-infinite-scroll__loading .q-spinner-ring { width: 20px; height: 20px; border-width: 2px; }
 .q-infinite-scroll--animated > * { animation: q-infinite-item-in 0.3s ease; }
 @keyframes q-infinite-item-in {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -6555,4 +6780,183 @@ html.dark body {
 }
 .q-input-otp.q-field--error .q-input-otp__box:focus {
   box-shadow: 0 0 0 1px var(--negative);
+}
+
+/* ===== QSpinner — indicateur de chargement (variantes SVG) ===== */
+.q-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.q-spinner__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.q-spinner__svg--wide {
+  width: auto;
+  height: 100%;
+}
+
+/* — rotation (tail, oval, rings) — */
+.q-spinner__oval,
+.q-spinner__ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: q-spinner-rotate 0.9s linear infinite;
+}
+/* L'arc du tail tourne autour du CENTRE du viewBox (22,22), pas de sa propre bbox */
+.q-spinner__arc {
+  transform-box: view-box;
+  transform-origin: 22px 22px;
+  animation: q-spinner-rotate 0.9s linear infinite;
+}
+.q-spinner__ring--2 {
+  animation-direction: reverse;
+  animation-duration: 1.4s;
+}
+.q-spinner__oval {
+  animation-duration: 1.1s;
+}
+@keyframes q-spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* — bars / audio : barres qui pulsent — */
+.q-spinner__bar,
+.q-spinner__eq {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: q-spinner-bar 1.2s ease-in-out infinite;
+}
+.q-spinner__bar--2,
+.q-spinner__eq--2 { animation-delay: 0.1s; }
+.q-spinner__bar--3 { animation-delay: 0.2s; }
+.q-spinner__bar--4 { animation-delay: 0.3s; }
+.q-spinner__bar--5 { animation-delay: 0.4s; }
+.q-spinner__eq--3 { animation-delay: 0.2s; }
+@keyframes q-spinner-bar {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+/* — dots : rebond — */
+.q-spinner__dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: q-spinner-dot 0.9s ease-in-out infinite;
+}
+.q-spinner__dot--2 { animation-delay: 0.15s; }
+.q-spinner__dot--3 { animation-delay: 0.3s; }
+@keyframes q-spinner-dot {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* — grid : cellules qui pulsent — */
+.q-spinner__cell {
+  animation: q-spinner-cell 1.2s ease-in-out infinite;
+}
+.q-spinner__cell--2 { animation-delay: 0.1s; }
+.q-spinner__cell--3 { animation-delay: 0.2s; }
+.q-spinner__cell--4 { animation-delay: 0.1s; }
+.q-spinner__cell--5 { animation-delay: 0.2s; }
+.q-spinner__cell--6 { animation-delay: 0.3s; }
+.q-spinner__cell--7 { animation-delay: 0.2s; }
+.q-spinner__cell--8 { animation-delay: 0.3s; }
+.q-spinner__cell--9 { animation-delay: 0.4s; }
+@keyframes q-spinner-cell {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+/* — puff : pulsation de taille — */
+.q-spinner__puff {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: q-spinner-puff 1.1s ease-in-out infinite;
+}
+@keyframes q-spinner-puff {
+  0%, 100% { transform: scale(0.35); opacity: 0.4; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+/* — ios : segments qui s'estompent en séquence — */
+.q-spinner__seg {
+  animation: q-spinner-ios 1.2s linear infinite;
+}
+.q-spinner__seg--2 { animation-delay: 0.1s; }
+.q-spinner__seg--3 { animation-delay: 0.2s; }
+.q-spinner__seg--4 { animation-delay: 0.3s; }
+.q-spinner__seg--5 { animation-delay: 0.4s; }
+.q-spinner__seg--6 { animation-delay: 0.5s; }
+.q-spinner__seg--7 { animation-delay: 0.6s; }
+.q-spinner__seg--8 { animation-delay: 0.7s; }
+.q-spinner__seg--9 { animation-delay: 0.8s; }
+.q-spinner__seg--10 { animation-delay: 0.9s; }
+.q-spinner__seg--11 { animation-delay: 1s; }
+.q-spinner__seg--12 { animation-delay: 1.1s; }
+@keyframes q-spinner-ios {
+  0%, 100% { opacity: 1; }
+  8% { opacity: 0.15; }
+}
+
+/* — radio : point + ondes — */
+.q-spinner__radio-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: q-spinner-radio-dot 1.2s ease-in-out infinite;
+}
+.q-spinner__radio-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: q-spinner-radio-ring 1.2s ease-out infinite;
+}
+.q-spinner__radio-ring--2 {
+  animation-delay: 0.6s;
+}
+@keyframes q-spinner-radio-ring {
+  from { transform: scale(1); opacity: 0.85; }
+  to { transform: scale(4.6); opacity: 0; }
+}
+@keyframes q-spinner-radio-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* — gears : engrenages contrarotatifs (anneau + 8 dents) — */
+.q-spinner__cog {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: q-spinner-rotate 2s linear infinite;
+}
+.q-spinner__cog--2 {
+  animation-direction: reverse;
+  animation-duration: 1.4s;
+}
+
+/* — cube : cube isométrique rotatif — */
+.q-spinner__cube {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: q-spinner-rotate 1.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-spinner__arc,
+  .q-spinner__oval,
+  .q-spinner__ring,
+  .q-spinner__bar,
+  .q-spinner__eq,
+  .q-spinner__dot,
+  .q-spinner__cell,
+  .q-spinner__puff,
+  .q-spinner__seg,
+  .q-spinner__radio-dot,
+  .q-spinner__radio-ring,
+  .q-spinner__gear,
+  .q-spinner__cog,
+  .q-spinner__cube {
+    animation: none;
+  }
 }

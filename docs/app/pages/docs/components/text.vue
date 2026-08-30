@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// Text — documentation du composant QText : texte avec troncature multi-lignes.
+// Text — documentation du composant QText : texte avec troncature multi-lignes + transitions.
+import { ref } from "vue"
 import { componentSource, componentTag, useComponent } from "~/composables/useComponentDocs"
 import DocsApi from "~/components/DocsApi.vue"
 import DocsDemo from "~/components/DocsDemo.vue"
@@ -11,6 +12,34 @@ const textSource = componentSource("QText")
 const tag = componentTag("QText")
 
 const LONG = "The quick brown fox jumps over the lazy dog and keeps running through the fields, past the river and into the woods where the tall pines sway in the evening breeze."
+
+// — Démo transitions —
+const effect = ref("fade")
+const effects = [
+  "fade",
+  "fade-up",
+  "fade-down",
+  "fade-left",
+  "fade-right",
+  "zoom",
+  "blur",
+  "slide-up",
+  "slide-down",
+  "slide-left",
+  "slide-right",
+]
+const phrases = [
+  "Hello, world!",
+  "Build amazing UIs.",
+  "Transitions make text alive.",
+  "Stay curious ✨",
+]
+const phraseIndex = ref(0)
+const phrase = ref(phrases[0])
+const nextPhrase = () => {
+  phraseIndex.value = (phraseIndex.value + 1) % phrases.length
+  phrase.value = phrases[phraseIndex.value]
+}
 
 const usageBasic = `<q-text text="The quick brown fox jumps over the lazy dog." />
 
@@ -30,9 +59,26 @@ const usageTag = `<q-text tag="h3" text="Rendered as an h3" />
 <q-text tag="span" text="Inline span element" />
 <q-text tag="p" text="Default paragraph tag" />`
 
+const usageTransitions = `<q-select v-model="effect" :options="effects" outlined dense label="Effect" />
+<q-btn flat no-caps icon="refresh-cw" label="Change text" @click="next()" />
+
+<q-text :text="phrase" :transition="effect" :transition-duration="400" tag="h3" />`
+
 const scriptLines = `import { ref } from "vue"
 
 const LONG = "The quick brown fox jumps over the lazy dog and keeps running through the fields, past the river and into the woods where the tall pines sway in the evening breeze."`
+
+const scriptTransitions = `import { ref } from "vue"
+
+const effect = ref("fade")
+const effects = ["fade", "fade-up", "fade-down", "fade-left", "fade-right", "zoom", "blur", "slide-up", "slide-down", "slide-left", "slide-right"]
+const phrases = ["Hello, world!", "Build amazing UIs.", "Transitions make text alive.", "Stay curious ✨"]
+const i = ref(0)
+const phrase = ref(phrases[0])
+const next = () => {
+  i.value = (i.value + 1) % phrases.length
+  phrase.value = phrases[i.value]
+}`
 </script>
 
 <template>
@@ -43,10 +89,11 @@ const LONG = "The quick brown fox jumps over the lazy dog and keeps running thro
     </div>
 
     <p class="doc-lead">
-      A paragraph element with built-in <b>multi-line truncation</b>: set
-      <code>lines</code> and the text clamps to that many lines with an ellipsis —
-      the full content stays available on hover (via the <code>title</code>
-      attribute). For captions overlaid on images, see
+      A paragraph element with built-in <b>multi-line truncation</b> and
+      <b>animated transitions</b>: set <code>lines</code> to clamp the text to
+      that many lines with an ellipsis (full content on hover via
+      <code>title</code>), or pass <code>transition</code> (fade, zoom, slide…) to
+      animate the text each time it changes. For captions overlaid on images, see
       <a class="doc-link" href="/docs/components/text-caption">QTextCaption</a>.
     </p>
 
@@ -100,6 +147,34 @@ const LONG = "The quick brown fox jumps over the lazy dog and keeps running thro
           <q-text tag="h3" text="Rendered as an h3" />
           <q-text tag="span" text="Inline span element" />
           <q-text tag="p" text="Default paragraph tag" />
+        </div>
+      </docs-demo>
+    </section>
+
+    <!-- ═══════ Transitions ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Transitions</h2>
+      <p class="doc-note">
+        <code>transition</code> replays an animation whenever the
+        <code>text</code> prop changes: <code>fade</code>, directional fades,
+        <code>zoom</code>, <code>blur</code> or <code>slide-*</code> — tune the
+        speed with <code>transition-duration</code>. Animations respect
+        <code>prefers-reduced-motion</code>.
+      </p>
+
+      <docs-demo :code="usageTransitions" lang="html" filename="App.vue" :script="scriptTransitions">
+        <div class="demo-transitions">
+          <div class="demo-transitions__controls">
+            <q-select v-model="effect" :options="effects" outlined dense label="Effect" class="demo-transitions__select" />
+            <q-btn flat no-caps icon="lucide:refresh-cw" label="Change text" @click="nextPhrase" />
+          </div>
+          <q-text
+            :text="phrase"
+            :transition="effect"
+            :transition-duration="400"
+            tag="h3"
+            class="demo-transitions__text"
+          />
         </div>
       </docs-demo>
     </section>
@@ -183,5 +258,29 @@ const LONG = "The quick brown fox jumps over the lazy dog and keeps running thro
   gap: 12px;
   max-width: 420px;
   margin: 0 auto;
+}
+
+.demo-transitions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.demo-transitions__controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.demo-transitions__select {
+  width: 180px;
+}
+.demo-transitions__text {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--primary);
 }
 </style>

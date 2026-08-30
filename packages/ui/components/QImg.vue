@@ -127,7 +127,7 @@ const showLoading = computed(() => props.loading || imgLoading.value)
     <!-- Loading / erreur -->
     <div v-if="showLoading" class="q-img__state">
       <slot name="loading">
-        <span class="q-spinner" :style="spinnerStyle" aria-hidden="true" />
+        <span class="q-spinner-ring" :style="spinnerStyle" aria-hidden="true" />
       </slot>
     </div>
     <div v-else-if="imgError" class="q-img__state">

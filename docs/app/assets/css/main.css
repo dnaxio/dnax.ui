@@ -39,6 +39,47 @@ html {
   font-size: 12.5px;
 }
 
+/* ===== Pages plugins ($q.*) — styles partagés ===== */
+.guide {
+  max-width: 760px;
+}
+.guide__title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+.guide__lead {
+  margin: 12px 0 0;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: #5b6472;
+}
+.guide__section {
+  margin-top: 32px;
+}
+.guide__h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+.guide__note {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #5b6472;
+}
+.guide__note code,
+.guide__lead code {
+  background: rgba(25, 118, 210, 0.08);
+  color: var(--primary);
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 0.92em;
+}
+
 /* ===== Dark mode : overrides des pages docs =====
    La classe .dark est posée sur <html> par QConfigProvider (mode dark/system).
    html.dark prime sur les styles scoped (spécificité supérieure). */

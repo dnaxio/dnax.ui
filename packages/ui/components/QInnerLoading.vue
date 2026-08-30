@@ -59,7 +59,7 @@ const overlayClasses = computed(() => cn("q-inner-loading", props.dark && "q-inn
           :style="spinnerStyle"
           aria-hidden="true"
         />
-        <span v-else class="q-spinner" :style="spinnerStyle" aria-hidden="true" />
+        <span v-else class="q-spinner-ring" :style="spinnerStyle" aria-hidden="true" />
         <span v-if="label" class="q-inner-loading__label">{{ label }}</span>
       </slot>
     </div>

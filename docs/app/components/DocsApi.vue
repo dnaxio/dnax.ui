@@ -13,7 +13,7 @@ const props = defineProps<{
   source?: string
 }>()
 
-const propsList = computed(() => propsTableOf(props.comp))
+const propsList = computed(() => propsTableOf(props.comp, props.source))
 const slots = computed(() => slotsOf(props.source))
 const events = computed(() => emitsOf(props.comp, props.source))
 const methods = computed(() => methodsOf(props.source))

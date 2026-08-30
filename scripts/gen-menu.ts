@@ -54,6 +54,7 @@ const FAMILIES: Record<string, string[]> = {
     "QSidebarMenuItem",
     "QSidebarTrigger",
   ],
+  Swiper: ["QSwiper", "QSwiperSlide"],
   Tabs: ["QTab", "QTabs"],
   "Tab Panels": ["QTabPanels", "QTabPanel"],
 };
@@ -69,13 +70,15 @@ const CUSTOM_PAGES = new Set([
   "btn-group",
   "col",
   "collapse",
-  "date-picker",
+  "count-down",
   "data-grid",
+  "date-picker",
   "fab",
   "footer",
   "grid",
   "header",
   "img",
+  "image-preview",
   "infinite-scroll",
   "inner-loading",
   "input-password",
@@ -98,8 +101,11 @@ const CUSTOM_PAGES = new Set([
   "message-scroller",
   "nav-menu",
   "pagination",
+  "parallax",
   "radio",
   "rating",
+  "reorder",
+  "rolling-text",
   "row",
   "pull-to-refresh",
   "safe-area",
@@ -109,7 +115,10 @@ const CUSTOM_PAGES = new Set([
   "sidebar",
   "skeleton",
   "slider",
+  "spinner",
   "splitter",
+  "sticky",
+  "swiper",
   "syntax",
   "tab-panels",
   "table",
@@ -177,10 +186,11 @@ const slugOf = (exportName: string) =>
   SLUG_OVERRIDES[exportName] ?? kebab(exportName);
 
 const PLUGINS = [
-  { title: "Dialog", link: "/docs/plugins/api#dialog" },
-  { title: "Bottom Sheet", link: "/docs/plugins/api#bottom-sheet" },
-  { title: "Notify", link: "/docs/plugins/api#notify" },
-  { title: "Loading", link: "/docs/plugins/api#loading" },
+  { title: "Dialog", link: "/docs/plugins/dialog" },
+  { title: "Bottom Sheet", link: "/docs/plugins/bottom-sheet" },
+  { title: "Notify", link: "/docs/plugins/notify" },
+  { title: "Loading", link: "/docs/plugins/loading" },
+  { title: "Image Preview", link: "/docs/plugins/image-preview" },
 ];
 
 const titleOf = (name: string) => {

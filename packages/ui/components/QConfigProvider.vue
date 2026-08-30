@@ -10,6 +10,7 @@ import QDialogProvider from "./QDialogProvider.vue"
 import QNotifyProvider from "./QNotifyProvider.vue"
 import QLoadingProvider from "./QLoadingProvider.vue"
 import QBottomSheetProvider from "./QBottomSheetProvider.vue"
+import QImagePreviewProvider from "./QImagePreviewProvider.vue"
 import { qConfigKey, qProvidersKey } from "../lib/config"
 import type { QConfigContext, QTheme, ThemeMode } from "../lib/config"
 import { isRadiusScale, RADIUS_VALUES } from "../lib/useComponentProps"
@@ -150,6 +151,7 @@ const themeStyle = computed<Record<string, string>>(() => {
     <q-bottom-sheet-provider />
     <q-notify-provider />
     <q-loading-provider />
+    <q-image-preview-provider />
     <div v-if="render" class="q-config-provider" :class="[props.class, { dark: isDark }]" :style="[themeStyle, props.style]">
       <slot />
     </div>

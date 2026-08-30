@@ -529,7 +529,7 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
         {{ displayText || placeholder }}
       </span>
 
-      <span v-if="loading" class="q-spinner q-autocomplete__spinner" aria-hidden="true" />
+      <span v-if="loading" class="q-spinner-ring q-autocomplete__spinner" aria-hidden="true" />
       <button
         v-if="clearable && hasValue && !disable && !readonly"
         class="q-field__clear"

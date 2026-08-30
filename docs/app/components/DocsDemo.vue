@@ -51,8 +51,8 @@ const tab = ref<"preview" | "code">("preview")
 .demo-block {
   border: 1px solid rgb(0 0 0 / 0.08);
   border-radius: 0px;
-
-  overflow: hidden;
+  /* Pas d'overflow: hidden : les popups des démos (q-select, q-autocomplete…) sont
+     positionnés en absolute sous leur champ et doivent déborder du cadre. */
 }
 .demo-block__tabs {
   background: #f6f7f9;

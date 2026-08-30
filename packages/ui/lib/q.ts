@@ -138,6 +138,48 @@ function closeBottomSheet(ctrl: BottomSheetController) {
   if (idx !== -1) bottomSheets.value.splice(idx, 1)
 }
 
+export interface ImagePreviewOptions {
+  /** URLs d'images — string[] ou { src, title? }[] */
+  images: (string | { src: string; title?: string })[]
+  /** Image initiale */
+  index?: number
+  /** Transition d'ouverture : fade | up | down | zoom */
+  transition?: "fade" | "up" | "down" | "zoom"
+  closeBtn?: boolean
+  counter?: boolean
+  closeOnBackdrop?: boolean
+  closeOnSwipeDown?: boolean
+  nav?: boolean
+  /** Rappel à la fermeture (comme onDismiss des dialogs) */
+  onDismiss?: () => void
+}
+
+export interface ImagePreviewController {
+  /** Va à l'image d'index donné */
+  goTo: (index: number) => void
+  _opts: ImagePreviewOptions
+}
+
+// — Pile de visionneuses (singleton module-level, client-side) —
+const imagePreviews: Ref<ImagePreviewController[]> = ref([])
+
+function openImagePreview(opts: ImagePreviewOptions): ImagePreviewController {
+  const ctrl: ImagePreviewController = {
+    _opts: opts,
+    goTo(index) {
+      ctrl._opts.index = Math.max(0, index)
+    },
+  }
+  imagePreviews.value.push(ctrl)
+  return ctrl
+}
+
+/** Retire une visionneuse de la pile (appelé par QImagePreviewProvider à la fermeture) */
+function closeImagePreview(ctrl: ImagePreviewController) {
+  const idx = imagePreviews.value.indexOf(ctrl)
+  if (idx !== -1) imagePreviews.value.splice(idx, 1)
+}
+
 export interface NotifyOptions {
   /** Message principal */
   message: string
@@ -206,13 +248,16 @@ function notify(opts: NotifyOptions): NotifyController {
   return { dismiss: () => toast.dismiss(id) }
 }
 
-/** API publique : $q.dialog / $q.bottomSheet / $q.notify / $q.platform / $q.breakpoints / $q.screen / $q.loading */
+/** API publique : $q.dialog / $q.bottomSheet / $q.notify / $q.imagePreview / $q.platform / $q.breakpoints / $q.screen / $q.loading */
 export const $q = {
   dialog: {
     open: openDialog,
   },
   bottomSheet: {
     open: openBottomSheet,
+  },
+  imagePreview: {
+    open: openImagePreview,
   },
   notify,
   platform,
@@ -236,6 +281,7 @@ export const QPlugin = {
   },
 }
 
-// — Internes consommés par QDialogProvider / QBottomSheetProvider —
+// — Internes consommés par QDialogProvider / QBottomSheetProvider / QImagePreviewProvider —
 export { dialogs as dialogStack, closeDialog }
 export { bottomSheets as bottomSheetStack, closeBottomSheet }
+export { imagePreviews as imagePreviewStack, closeImagePreview }

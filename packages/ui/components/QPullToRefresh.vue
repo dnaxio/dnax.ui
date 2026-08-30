@@ -119,7 +119,7 @@ const rootClasses = computed(() => [
       <template v-if="refreshing">
         <slot name="refreshing">
           <span
-            class="q-spinner"
+            class="q-spinner-ring"
             :style="{ color: colorValue(color), width: size, height: size }"
             aria-hidden="true"
           />

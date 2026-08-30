@@ -32,19 +32,85 @@ const defaultValue = (def: unknown): string => {
   if (def === undefined || def === null) return "—"
   if (typeof def === "function") {
     try {
-      return JSON.stringify(def())
+      const v = def()
+      const s = JSON.stringify(v)
+      if (s === undefined) return "() => …"
+      // Tableaux d'objets/classes non sérialisables (ex. modules) → forme courte
+      if (
+        Array.isArray(v) &&
+        v.length > 0 &&
+        v.every((x) => x === null || typeof x === "object" || typeof x === "function")
+      )
+        return `() => [${v.length} items]`
+      return s.length > 60 ? s.slice(0, 57) + "…" : s
     } catch {
       return "() => …"
     }
   }
-  return String(def)
+  // Chaînes entre guillemets (visible aussi pour la chaîne vide "") :
+  if (typeof def === "string") {
+    return def.length > 60 ? `"${def.slice(0, 57)}…"` : `"${def}"`
+  }
+  const s = String(def)
+  return s.length > 60 ? s.slice(0, 57) + "…" : s
 }
 
-/** Table des props d'un composant (lue sur sa définition runtime) */
+/**
+ * Valeurs possibles (littéraux de chaînes) des props, analysées dans la source SFC :
+ * type alias (`type X = "a" | "b"`, mono ou multi-lignes) et unions inline de
+ * l'interface Props (`prop?: "a" | "b"` ou `prop?: X` résolu via l'alias).
+ */
+const parsePropsValues = (source?: string): Record<string, string[]> => {
+  const out: Record<string, string[]> = {}
+  if (!source) return out
+
+  const literalsOf = (type: string): string[] | undefined => {
+    const lits = [...type.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((mm) => mm[1]!)
+    return lits.length ? [...new Set(lits)] : undefined
+  }
+
+  // 1) type aliases : `type X = "a" | "b"` (les lignes suivantes commencent par | )
+  const aliasRe = /type\s+([A-Za-z_$][\w$]*)\s*=\s*((?:[^/\n]+|\n\s*\|[^\n]*)+)/g
+  let m: RegExpExecArray | null
+  while ((m = aliasRe.exec(source))) {
+    const lits = literalsOf(m[2]!)
+    if (lits) out[m[1]!] = lits
+  }
+
+  // 2) interface Props : prop?: "a" | "b" (inline) ou prop?: NomDAlias (résolu)
+  // Les commentaires JSDoc sont retirés d'abord (ils contiennent souvent des valeurs citées)
+  const iface = source.match(/interface\s+Props\s*\{([\s\S]*?)\}/)
+  if (iface) {
+    const block = iface[1]!.replace(/\/\*[\s\S]*?\*\//g, "")
+    const propRe = /([A-Za-z_$][\w$]*)\s*\??\s*:\s*([^\n]+?)\s*(?=\n|$)/g
+    let pm: RegExpExecArray | null
+    while ((pm = propRe.exec(block))) {
+      const raw = pm[2]!.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/, "").trim()
+      const inline = literalsOf(raw)
+      if (inline) out[pm[1]!] = inline
+      else {
+        const names = raw
+          .replace(/[()]/g, "")
+          .split(/\s*\|\s*/)
+          .map((t) => t.trim())
+        const fromAlias = names
+          .map((n) => out[n])
+          .filter((v): v is string[] => Boolean(v))
+          .flat()
+        if (fromAlias.length) out[pm[1]!] = [...new Set(fromAlias)]
+      }
+    }
+  }
+  return out
+}
+
+/** Table des props d'un composant (runtime + valeurs possibles depuis la source) */
 export const propsTableOf = (
   comp: any,
-): { name: string; type: string; required: boolean; default: string }[] => {
+  source?: string,
+): { name: string; type: string; required: boolean; default: string; values?: string[] }[] => {
   if (!comp?.props) return []
+  const values = parsePropsValues(source)
   return Object.entries(comp.props).map(([key, def]) => {
     const d = typeof def === "object" && def !== null ? (def as any) : { type: def }
     return {
@@ -52,6 +118,7 @@ export const propsTableOf = (
       type: typeName(d.type),
       required: !!d.required,
       default: defaultValue(d.default),
+      values: values[key],
     }
   })
 }

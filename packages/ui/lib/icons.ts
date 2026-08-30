@@ -26,6 +26,7 @@ export const icons = {
   fileSpreadsheet: "lucide:file-spreadsheet",
   fileText: "lucide:file-text",
   fileVideo: "lucide:file-video",
+  gripVertical: "lucide:grip-vertical",
   imagePlus: "lucide:image-plus",
   menu: "lucide:menu",
   minus: "lucide:minus",

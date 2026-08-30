@@ -8,7 +8,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test:tooltip": "vite build --config vite.harness.config.ts && node dist/harness/tooltip-harness.mjs"
+    "test:tooltip": "vite build --config vite.harness.config.ts && node dist/harness/tooltip-harness.mjs",
+    "test:swiper": "vite build --config vite.swiper.config.ts && node dist/harness/swiper-harness.mjs"
   },
   "dependencies": {
     "@dnax/ui": "workspace:*",

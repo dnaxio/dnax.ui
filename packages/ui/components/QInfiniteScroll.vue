@@ -101,7 +101,7 @@ const classes = computed(() => ({
     <slot />
     <div v-if="loading && !hideLoading" class="q-infinite-scroll__loading" role="status" aria-live="polite">
       <slot name="loading">
-        <span class="q-spinner" aria-hidden="true" />
+        <span class="q-spinner-ring" aria-hidden="true" />
         <span class="q-infinite-scroll__loading-label">Loading more…</span>
       </slot>
     </div>

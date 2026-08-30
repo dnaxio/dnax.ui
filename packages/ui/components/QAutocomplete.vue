@@ -260,7 +260,7 @@ onBeforeUnmount(() => {
         @blur="onBlur"
         @keydown="onKeydown"
       />
-      <span v-if="loading" class="q-spinner q-autocomplete__spinner" aria-hidden="true" />
+      <span v-if="loading" class="q-spinner-ring q-autocomplete__spinner" aria-hidden="true" />
       <button
         v-if="clearable && modelValue !== undefined && !disable"
         class="q-field__clear"
