@@ -61,9 +61,6 @@ const tab = ref<"preview" | "code">("preview")
   background: #fafbfc;
 }
 .demo-block__preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-height: 300px;
   padding: 24px;
 }

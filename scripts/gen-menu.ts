@@ -81,6 +81,7 @@ const CUSTOM_PAGES = new Set([
   "input-password",
   "input-otp",
   "input-tag",
+  "linear-progress",
   "list",
   "loading",
   "loading-provider",
