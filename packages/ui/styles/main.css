@@ -254,6 +254,39 @@ html.dark body {
   color: var(--foreground);
 }
 
+/* Tables & grilles de données : fond blanc codé en dur → surface dark */
+.dark .q-table,
+.dark .q-data-grid {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+.dark .q-table {
+  --q-table-pinned-bg: var(--card);
+}
+.dark .q-data-grid {
+  --q-data-grid-border: rgb(255 255 255 / 0.12);
+  --q-data-grid-header-bg: rgb(255 255 255 / 0.04);
+}
+
+/* Footer de table (pagination) en dark : range + sélecteur lignes/page */
+.dark .q-table__range {
+  color: rgb(255 255 255 / 0.55);
+}
+.dark .q-table__rows-select {
+  color: rgb(255 255 255 / 0.6);
+}
+
+/* Popups & overlays blancs → surface dark */
+.dark .q-select__popup,
+.dark .q-autocomplete__popup,
+.dark .q-nav-menu__panel,
+.dark .q-dialog__content,
+.dark .q-loading__box,
+.dark .q-file-picker__row {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
 .dark .q-table {
   color: var(--foreground);
 }

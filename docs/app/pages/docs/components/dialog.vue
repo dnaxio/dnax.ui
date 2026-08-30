@@ -26,7 +26,16 @@ const tag = componentTag("QDialog")
 const open = ref(false)
 const openConfirm = ref(false)
 const openBottom = ref(false)
+const openT = ref(false)
 const eventLog = ref("")
+
+// — Démos des transitions —
+const transition = ref<"fade" | "zoom" | "slide-up" | "slide-down" | "slide-left" | "slide-right">("fade")
+const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right"] as const
+const openWith = (t: (typeof transitions)[number]) => {
+  transition.value = t
+  openT.value = true
+}
 
 const usageSimple = `<q-btn color="primary" label="Open dialog" @click="open = true" />
 <p v-if="eventLog" class="demo-dialog-log">Last event: <code>{{ eventLog }}</code></p>
@@ -59,6 +68,17 @@ const usageHeaderFooter = `<q-btn color="negative" outline label="Delete account
     <q-btn flat label="Cancel" @click="openConfirm = false" />
     <q-btn color="negative" label="Delete" @click="openConfirm = false" />
   </q-dialog-footer>
+</q-dialog>`
+
+const usageTransitions = `<div class="row">
+  <q-btn v-for="t in transitions" :key="t" outline color="primary" no-caps :label="t" @click="openWith(t)" />
+</div>
+
+<q-dialog v-model="open" :transition="transition">
+  <q-dialog-header :title="'Transition: ' + transition" description="Click the backdrop or press Escape to close." />
+  <div class="body">
+    <p class="demo-p">Same dialog, different <code>transition</code> each time.</p>
+  </div>
 </q-dialog>`
 
 const usagePosition = `<q-btn outline label="Bottom dialog" @click="openBottom = true" />
@@ -136,6 +156,17 @@ const scriptPosition = `import { ref } from "vue"
 
 const openBottom = ref(false)`
 
+const scriptTransitions = `import { ref } from "vue"
+
+const open = ref(false)
+const transition = ref("fade")
+const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right"]
+
+const openWith = (t) => {
+  transition.value = t
+  open.value = true
+}`
+
 const scriptTrigger = scriptOpen
 </script>
 
@@ -194,6 +225,35 @@ const scriptTrigger = scriptOpen
             <q-btn flat label="Cancel" @click="openConfirm = false" />
             <q-btn color="negative" label="Delete" @click="openConfirm = false" />
           </q-dialog-footer>
+        </q-dialog>
+      </docs-demo>
+
+      <h3 class="doc-h3">Transitions</h3>
+      <p class="doc-note">
+        <code>transition</code> accepts <code>fade</code>, <code>zoom</code> and
+        the four slide directions — try them all on the same dialog.
+      </p>
+      <docs-demo :code="usageTransitions" lang="html" filename="App.vue" :script="scriptTransitions">
+        <div class="demo-row">
+          <q-btn
+            v-for="t in transitions"
+            :key="t"
+            outline
+            color="primary"
+            no-caps
+            :label="t"
+            @click="openWith(t)"
+          />
+        </div>
+
+        <q-dialog v-model="openT" :transition="transition">
+          <q-dialog-header
+            :title="'Transition: ' + transition"
+            description="Click the backdrop or press Escape to close."
+          />
+          <div class="demo-dialog-body">
+            <p class="demo-p">Same dialog, different <code>transition</code> each time.</p>
+          </div>
         </q-dialog>
       </docs-demo>
 
