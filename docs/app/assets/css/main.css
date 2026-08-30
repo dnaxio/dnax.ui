@@ -48,15 +48,20 @@ html.dark {
 
 /* — Surfaces — */
 html.dark .docs-content,
-html.dark .section,
-html.dark .cta,
 html.dark .docs-cat,
 html.dark .docs-card__text {
   background-color: var(--background);
 }
 
-html.dark .section--alt {
-  background-color: var(--muted);
+/* — Landing page (index) : tokens de surface — */
+html.dark .landing {
+  --lp-bg: #0b0f16;
+  --lp-bg-alt: #0d141d;
+  --lp-surface: #11161f;
+  --lp-border: rgb(255 255 255 / 0.09);
+  --lp-border-strong: rgb(255 255 255 / 0.16);
+  --lp-text: #e8edf4;
+  --lp-muted: #94a1b3;
 }
 
 html.dark .doc-preview {
@@ -110,10 +115,12 @@ html.dark .doc-tag {
 }
 
 /* — Texte secondaire (#5b6472 → gris clair) — */
-html.dark .feature-text,
 html.dark .demo-p,
 html.dark .slider-label,
 html.dark .cta-text,
+html.dark .lp-sub,
+html.dark .bento-text,
+html.dark .bento-caption,
 html.dark .docs-home__sub,
 html.dark .docs-home__empty,
 html.dark .docs-card__text,

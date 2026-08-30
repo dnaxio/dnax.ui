@@ -8,7 +8,7 @@ const { mode } = useThemeMode()
   <q-config-provider :theme="{
     mode, componentProps: {
     default: {
-      radius:'none'
+      radius:'sm'
     }
   }}">
     <NuxtLayout>
