@@ -19,6 +19,10 @@ interface Props {
   square?: boolean
   /** Coins arrondis : true = md, ou échelle xs|sm|md|lg (none = carré) */
   radius?: RadiusProp
+  /** Glassmorphism : fond translucide + flou d'arrière-plan (backdrop-filter) */
+  glass?: boolean
+  /** Animation au survol : élévation + ombre renforcée */
+  hover?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -27,6 +31,8 @@ const props = withDefaults(defineProps<Props>(), {
   dark: false,
   bordered: false,
   square: false,
+  glass: false,
+  hover: false,
 })
 
 // radius : prop explicite > composantProps.QCard.radius ; échelle → --q-radius
@@ -43,6 +49,8 @@ const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
       'q-card--dark': props.dark,
       'q-card--bordered': props.bordered,
       'q-card--square': props.square,
+      'q-card--glass': props.glass,
+      'q-card--hover': props.hover,
     }"
     :style="roundedStyle"
   >

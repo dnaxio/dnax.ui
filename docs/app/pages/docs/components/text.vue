@@ -16,17 +16,17 @@ const LONG = "The quick brown fox jumps over the lazy dog and keeps running thro
 // — Démo transitions —
 const effect = ref("fade")
 const effects = [
-  "fade",
-  "fade-up",
-  "fade-down",
-  "fade-left",
-  "fade-right",
-  "zoom",
-  "blur",
-  "slide-up",
-  "slide-down",
-  "slide-left",
-  "slide-right",
+  { label: "Fade", value: "fade" },
+  { label: "Fade up", value: "fade-up" },
+  { label: "Fade down", value: "fade-down" },
+  { label: "Fade left", value: "fade-left" },
+  { label: "Fade right", value: "fade-right" },
+  { label: "Zoom", value: "zoom" },
+  { label: "Blur", value: "blur" },
+  { label: "Slide up", value: "slide-up" },
+  { label: "Slide down", value: "slide-down" },
+  { label: "Slide left", value: "slide-left" },
+  { label: "Slide right", value: "slide-right" },
 ]
 const phrases = [
   "Hello, world!",
@@ -59,7 +59,16 @@ const usageTag = `<q-text tag="h3" text="Rendered as an h3" />
 <q-text tag="span" text="Inline span element" />
 <q-text tag="p" text="Default paragraph tag" />`
 
-const usageTransitions = `<q-select v-model="effect" :options="effects" outlined dense label="Effect" />
+const usageTransitions = `<q-select
+  v-model="effect"
+  :options="effects"
+  emit-value
+  option-label="label"
+  option-value="value"
+  outlined
+  dense
+  label="Effect"
+/>
 <q-btn flat no-caps icon="refresh-cw" label="Change text" @click="next()" />
 
 <q-text :text="phrase" :transition="effect" :transition-duration="400" tag="h3" />`
@@ -71,7 +80,19 @@ const LONG = "The quick brown fox jumps over the lazy dog and keeps running thro
 const scriptTransitions = `import { ref } from "vue"
 
 const effect = ref("fade")
-const effects = ["fade", "fade-up", "fade-down", "fade-left", "fade-right", "zoom", "blur", "slide-up", "slide-down", "slide-left", "slide-right"]
+const effects = [
+  { label: "Fade", value: "fade" },
+  { label: "Fade up", value: "fade-up" },
+  { label: "Fade down", value: "fade-down" },
+  { label: "Fade left", value: "fade-left" },
+  { label: "Fade right", value: "fade-right" },
+  { label: "Zoom", value: "zoom" },
+  { label: "Blur", value: "blur" },
+  { label: "Slide up", value: "slide-up" },
+  { label: "Slide down", value: "slide-down" },
+  { label: "Slide left", value: "slide-left" },
+  { label: "Slide right", value: "slide-right" },
+]
 const phrases = ["Hello, world!", "Build amazing UIs.", "Transitions make text alive.", "Stay curious ✨"]
 const i = ref(0)
 const phrase = ref(phrases[0])
@@ -165,7 +186,17 @@ const next = () => {
       <docs-demo :code="usageTransitions" lang="html" filename="App.vue" :script="scriptTransitions">
         <div class="demo-transitions">
           <div class="demo-transitions__controls">
-            <q-select v-model="effect" :options="effects" outlined dense label="Effect" class="demo-transitions__select" />
+            <q-select
+              v-model="effect"
+              :options="effects"
+              emit-value
+              option-label="label"
+              option-value="value"
+              outlined
+              dense
+              label="Effect"
+              class="demo-transitions__select"
+            />
             <q-btn flat no-caps icon="lucide:refresh-cw" label="Change text" @click="nextPhrase" />
           </div>
           <q-text

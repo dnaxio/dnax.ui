@@ -74,6 +74,41 @@ const usageContent = `<q-card bordered class="demo-card">
   </q-card-content>
 </q-card>`
 
+const usageGlass = `<div class="stage">
+  <span class="blob blob--a"></span>
+  <span class="blob blob--b"></span>
+  <span class="blob blob--c"></span>
+
+  <q-card glass class="card glass-card">
+    <q-card-content>
+      <h3 class="glass-title">Glass card</h3>
+      <p class="glass-text">blur(14px) + translucent background — try the hover one.</p>
+    </q-card-content>
+  </q-card>
+
+  <q-card glass hover class="card glass-card">
+    <q-card-content>
+      <h3 class="glass-title">Glass + hover</h3>
+      <p class="glass-text">Same card with the hover animation enabled.</p>
+    </q-card-content>
+  </q-card>
+</div>`
+
+const usageHover = `<div class="row">
+  <q-card hover elevated class="card">
+    <q-card-content>
+      <h3 class="demo-card-title">Elevated + hover</h3>
+      <p class="demo-p">Lifts 4px and strengthens the shadow on hover.</p>
+    </q-card-content>
+  </q-card>
+  <q-card hover bordered class="card">
+    <q-card-content>
+      <h3 class="demo-card-title">Bordered + hover</h3>
+      <p class="demo-p">The border stays, the card lifts smoothly.</p>
+    </q-card-content>
+  </q-card>
+</div>`
+
 const usageActionsOnly = `<q-card bordered class="demo-card">
   <q-card-content>
     <p class="demo-p">Vertical actions with space between:</p>
@@ -100,8 +135,9 @@ const usageActionsOnly = `<q-card bordered class="demo-card">
       components: <b>&lt;q-card&gt;</b> (the container),
       <b>&lt;q-card-content&gt;</b> (a padded content block) and
       <b>&lt;q-card-actions&gt;</b> (an action row). Cards are flat by default —
-      add <code>elevated</code>, <code>bordered</code> or a <code>radius</code>
-      to tune the look.
+      add <code>elevated</code>, <code>bordered</code>, a <code>radius</code>,
+      the <code>glass</code> glassmorphism effect or the <code>hover</code>
+      lift animation to tune the look.
     </p>
 
     <!-- ═══════ QCard ═══════ -->
@@ -160,6 +196,61 @@ const usageActionsOnly = `<q-card bordered class="demo-card">
             </q-card-actions>
           </template>
         </q-card>
+      </docs-demo>
+
+      <h3 class="doc-h3">Glassmorphism</h3>
+      <p class="doc-note">
+        <code>glass</code> gives the card a translucent, blurred background
+        (backdrop-filter) that picks up whatever is behind it — the classic
+        frosted-glass look. Tune it with the
+        <code>--q-card-glass-bg</code>, <code>--q-card-glass-border</code> and
+        <code>--q-card-glass-blur</code> CSS variables.
+      </p>
+      <docs-demo :code="usageGlass" lang="html" filename="App.vue">
+        <div class="demo-glass-stage">
+          <span class="demo-glass-blob demo-glass-blob--a"></span>
+          <span class="demo-glass-blob demo-glass-blob--b"></span>
+          <span class="demo-glass-blob demo-glass-blob--c"></span>
+
+          <q-card glass class="demo-glass-card">
+            <q-card-content>
+              <h3 class="demo-glass-title">Glass card</h3>
+              <p class="demo-glass-text">blur(14px) + translucent background — try the hover one.</p>
+            </q-card-content>
+          </q-card>
+
+          <q-card glass hover class="demo-glass-card">
+            <q-card-content>
+              <h3 class="demo-glass-title">Glass + hover</h3>
+              <p class="demo-glass-text">Same card with the hover animation enabled.</p>
+            </q-card-content>
+          </q-card>
+        </div>
+      </docs-demo>
+
+      <h3 class="doc-h3">Hover animation</h3>
+      <p class="doc-note">
+        <code>hover</code> adds a smooth lift (4px up) with a strengthened shadow
+        on mouse-over — ideal for clickable cards. It works with any other
+        modifier (<code>elevated</code>, <code>bordered</code>, <code>glass</code>…)
+        and respects <code>prefers-reduced-motion</code>.
+      </p>
+      <docs-demo :code="usageHover" lang="html" filename="App.vue">
+        <div class="demo-card-row">
+          <q-card hover elevated class="demo-card">
+            <q-card-content>
+              <h3 class="demo-card-title">Elevated + hover</h3>
+              <p class="demo-p">Lifts 4px and strengthens the shadow on hover.</p>
+            </q-card-content>
+          </q-card>
+
+          <q-card hover bordered class="demo-card">
+            <q-card-content>
+              <h3 class="demo-card-title">Bordered + hover</h3>
+              <p class="demo-p">The border stays, the card lifts smoothly.</p>
+            </q-card-content>
+          </q-card>
+        </div>
       </docs-demo>
 
       <h3 class="doc-h3">API</h3>
@@ -289,5 +380,60 @@ const usageActionsOnly = `<q-card bordered class="demo-card">
   font-size: 16px;
   font-weight: 700;
   color: var(--foreground);
+}
+
+/* — glassmorphism — */
+.demo-glass-stage {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 48px 24px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1976d2, #7c3aed 55%, #0e7490);
+}
+.demo-glass-card {
+  flex: 1;
+  min-width: 220px;
+  color: #fff;
+}
+.demo-glass-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+.demo-glass-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgb(255 255 255 / 0.85);
+}
+.demo-glass-blob {
+  position: absolute;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.35);
+  pointer-events: none;
+}
+.demo-glass-blob--a {
+  width: 190px;
+  height: 190px;
+  top: -50px;
+  left: -40px;
+}
+.demo-glass-blob--b {
+  width: 150px;
+  height: 150px;
+  bottom: -40px;
+  right: 12%;
+  background: rgb(255 214 102 / 0.55);
+}
+.demo-glass-blob--c {
+  width: 110px;
+  height: 110px;
+  top: 28%;
+  right: -24px;
+  background: rgb(102 255 214 / 0.5);
 }
 </style>

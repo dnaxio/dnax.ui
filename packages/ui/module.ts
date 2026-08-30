@@ -18,6 +18,15 @@ export interface DnaxUiModuleOptions {
   css?: boolean
 }
 
+/** Custom elements du framework HTML Video.js v10 (@videojs/html) — balises non-Vue */
+const VIDEOJS_CUSTOM_ELEMENTS = [
+  "video-player",
+  "video-skin",
+  "youtube-video",
+  "hlsjs-video",
+  "mux-video",
+]
+
 export default defineNuxtModule<DnaxUiModuleOptions>({
   meta: {
     name: "@dnax/ui",
@@ -30,6 +39,15 @@ export default defineNuxtModule<DnaxUiModuleOptions>({
   },
   setup(options, nuxt) {
     const { resolve } = createResolver(import.meta.url)
+
+    // Les balises <video-player>/<youtube-video>… sont des custom elements @videojs/html,
+    // pas des composants Vue → les exclure de la résolution (évite le warn
+    // « Failed to resolve component »).
+    nuxt.options.vue.compilerOptions ??= {}
+    const existing = nuxt.options.vue.compilerOptions.isCustomElement
+    nuxt.options.vue.compilerOptions.isCustomElement = (tag: string) =>
+      VIDEOJS_CUSTOM_ELEMENTS.includes(tag) ||
+      (typeof existing === "function" ? existing(tag) : false)
 
     if (options.css) {
       const cssPath = resolve("./styles/main.css")

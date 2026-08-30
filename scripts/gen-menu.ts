@@ -70,6 +70,7 @@ const CUSTOM_PAGES = new Set([
   "btn-group",
   "col",
   "collapse",
+  "container",
   "count-down",
   "data-grid",
   "date-picker",
@@ -95,9 +96,11 @@ const CUSTOM_PAGES = new Set([
   "carousel",
   "checkbox",
   "chip",
+  "country-picker",
   "dialog",
   "icon",
   "input",
+  "marquee",
   "message-scroller",
   "nav-menu",
   "pagination",
@@ -126,6 +129,7 @@ const CUSTOM_PAGES = new Set([
   "text",
   "toolbar",
   "tooltip",
+  "video",
 ]);
 
 const GUIDES = [

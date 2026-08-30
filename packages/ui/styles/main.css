@@ -216,7 +216,8 @@ html.dark body {
 .dark .q-card,
 .dark .q-bottom-sheet__panel,
 .dark .q-select__sheet,
-.dark .q-date-picker__sheet {
+.dark .q-date-picker__sheet,
+.dark .q-country-picker__sheet {
   background-color: var(--card);
   color: var(--foreground);
 }
@@ -1302,7 +1303,8 @@ html.dark body {
 .q-header--translucent,
 .q-footer--translucent,
 .q-back-header--translucent,
-.q-bottom-sheet__panel--translucent {
+.q-bottom-sheet__panel--translucent,
+.q-country-picker__sheet--translucent {
   background-color: color-mix(
     in srgb,
     var(--q-translucent-bg, #fff) var(--q-translucent-opacity, 70%),
@@ -1323,6 +1325,43 @@ html.dark body {
 .q-card--dark {
   background: #1d1d1d;
   color: #fff;
+}
+
+/* Glassmorphism : fond translucide + flou d'arrière-plan (variables personnalisables) */
+.q-card--glass {
+  --q-card-glass-bg: rgb(255 255 255 / 0.14);
+  --q-card-glass-border: rgb(255 255 255 / 0.3);
+  --q-card-glass-blur: 14px;
+  background-color: var(--q-card-glass-bg);
+  border: 1px solid var(--q-card-glass-border);
+  -webkit-backdrop-filter: blur(var(--q-card-glass-blur));
+  backdrop-filter: blur(var(--q-card-glass-blur));
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.12);
+}
+.dark .q-card--glass {
+  --q-card-glass-bg: rgb(255 255 255 / 0.06);
+  --q-card-glass-border: rgb(255 255 255 / 0.14);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
+}
+
+/* Animation au survol : élévation + ombre renforcée */
+.q-card--hover {
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+  will-change: transform;
+}
+.q-card--hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.16);
+}
+.dark .q-card--hover:hover {
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  .q-card--hover {
+    transition: none;
+  }
 }
 
 .q-card__actions-slot {
@@ -4872,6 +4911,148 @@ html.dark body {
   animation: q-sheet-pop-out 0.2s ease forwards;
 }
 
+/* ===== QCountryPicker : panneaux sheet / modal / dialog ===== */
+.q-country-picker__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 0.5);
+}
+.q-country-picker__overlay--sheet {
+  align-items: flex-end;
+}
+.q-country-picker__overlay--dialog {
+  align-items: stretch;
+}
+
+.q-country-picker__sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  overflow: hidden;
+  background-color: #fff;
+  color: inherit;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
+}
+.q-country-picker__sheet--sheet {
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 24px rgb(0 0 0 / 0.2);
+  padding-bottom: 0;
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+  /* retour en douceur après un drag sous le seuil */
+  transition: transform 0.25s ease;
+}
+.q-country-picker__sheet--dragging {
+  transition: none;
+}
+.q-country-picker__sheet--square {
+  border-radius: 0;
+}
+.q-country-picker__sheet--dark {
+  background-color: #1d1d1d;
+  color: #fff;
+}
+.dark .q-country-picker__sheet--dark {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
+/* poignée de drag (mode sheet) : swipe vers le bas pour fermer */
+.q-country-picker__handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0 4px;
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+}
+.q-country-picker__handle-bar {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: rgb(0 0 0 / 0.25);
+}
+.dark .q-country-picker__handle-bar {
+  background-color: rgb(255 255 255 / 0.3);
+}
+.q-country-picker__sheet--dialog {
+  width: 100vw;
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.q-country-picker__sheet--dialog .q-country-picker__sheet-header {
+  padding-top: 0;
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top);
+}
+.q-country-picker__sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgb(0 0 0 / 0.08);
+  font-weight: 600;
+  font-size: 15px;
+}
+.q-country-picker__sheet-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.q-country-picker__sheet-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.q-country-picker__sheet-close:hover {
+  background-color: rgb(0 0 0 / 0.06);
+}
+.q-country-picker__sheet-close svg {
+  width: 16px;
+  height: 16px;
+}
+.q-country-picker__sheet-body {
+  overflow-y: auto;
+}
+
+/* — transition panneau — */
+.q-country-modal-enter-active,
+.q-country-modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+.q-country-modal-enter-from,
+.q-country-modal-leave-to {
+  opacity: 0;
+}
+.q-country-modal-enter-active .q-country-picker__sheet {
+  animation: q-sheet-pop-in 0.25s ease;
+}
+.q-country-modal-leave-active .q-country-picker__sheet {
+  animation: q-sheet-pop-out 0.2s ease forwards;
+}
+
 /* ===== QMessageScroller ===== */
 .q-msg-scroller {
   position: relative;
@@ -5863,6 +6044,278 @@ html.dark body {
 
 .q-container--fluid {
   max-width: none;
+}
+
+/* — arrière-plans décoratifs (background-effect) — */
+.q-container--bg {
+  /* couleurs par défaut (surchargées par les props grid-color / star-color…) */
+  --q-grid-color: rgb(0 0 0 / 0.07);
+  --q-star-color: rgb(0 0 0 / 0.4);
+  --q-wave-color: rgb(25 118 210 / 0.22);
+  --q-wave-color-2: rgb(124 58 237 / 0.16);
+  position: relative;
+  overflow: hidden;
+}
+.dark .q-container--bg {
+  --q-grid-color: rgb(255 255 255 / 0.08);
+  --q-star-color: rgb(255 255 255 / 0.65);
+}
+.q-container__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.q-container--bg > :not(.q-container__bg) {
+  position: relative;
+  z-index: 1;
+}
+
+/* grid : grille de carrés qui s'estompe vers les bords */
+.q-container__bg--grid {
+  background-image:
+    linear-gradient(to right, var(--q-grid-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--q-grid-color) 1px, transparent 1px);
+  background-size: var(--q-grid-spacing, 32px) var(--q-grid-spacing, 32px);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 25%, transparent 78%);
+  mask-image: radial-gradient(ellipse at center, #000 25%, transparent 78%);
+}
+
+/* aurora : halos colorés flous qui dérivent lentement */
+.q-container__bg--aurora::before,
+.q-container__bg--aurora::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.5;
+  animation: q-aurora-drift 16s ease-in-out infinite alternate;
+}
+.q-container__bg--aurora::before {
+  width: 55%;
+  aspect-ratio: 1;
+  top: -22%;
+  left: -12%;
+  background: radial-gradient(circle, var(--q-aurora-color, #22d3ee), transparent 70%);
+}
+.q-container__bg--aurora::after {
+  width: 62%;
+  aspect-ratio: 1;
+  bottom: -26%;
+  right: -12%;
+  background: radial-gradient(circle, var(--q-aurora-color-2, #a78bfa), transparent 70%);
+  animation-delay: -8s;
+}
+@keyframes q-aurora-drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(10%, 8%) scale(1.15);
+  }
+}
+
+/* star : grille d'étoiles qui s'estompe vers les bords + grosses étoiles scintillantes */
+.q-container__bg--star {
+  background-image: radial-gradient(
+    circle,
+    var(--q-star-color) var(--q-star-dot-size, 1px),
+    transparent calc(var(--q-star-dot-size, 1px) + 0.7px)
+  );
+  background-size: var(--q-star-spacing, 24px) var(--q-star-spacing, 24px);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 15%, transparent 80%);
+  mask-image: radial-gradient(ellipse at center, #000 15%, transparent 80%);
+}
+.q-container__bg--star::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    circle,
+    var(--q-star-color) var(--q-star-dot-size, 1px),
+    transparent calc(var(--q-star-dot-size, 1px) + 1px)
+  );
+  background-size: calc(var(--q-star-spacing, 24px) * 3.5) calc(var(--q-star-spacing, 24px) * 3.5);
+  background-position: calc(var(--q-star-spacing, 24px) * 0.6) calc(var(--q-star-spacing, 24px) * 1.3);
+  animation: q-star-twinkle 4s ease-in-out infinite;
+}
+@keyframes q-star-twinkle {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* falling-stars : traits inclinés à traînée qui tombent en boucle (Inspira-style) */
+.q-container__star {
+  position: absolute;
+  top: -15%;
+  width: 2px;
+  height: 90px;
+  border-radius: 999px;
+  background: linear-gradient(to bottom, transparent, var(--q-star-color));
+  transform: rotate(18deg);
+  opacity: 0;
+  animation: q-falling-star var(--q-star-duration, 9s) linear infinite;
+  animation-delay: var(--q-star-delay, 0s);
+}
+@keyframes q-falling-star {
+  0% {
+    top: -15%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    top: 115%;
+    opacity: 0;
+  }
+}
+
+/* flickering-grid : grille de petits carrés dont certaines cellules grésillent */
+.q-container__bg--flickering-grid {
+  background-image:
+    linear-gradient(to bottom, var(--q-grid-color) 3px, transparent 3px),
+    linear-gradient(to right, var(--q-grid-color) 3px, transparent 3px);
+  background-size: var(--q-grid-spacing, 16px) var(--q-grid-spacing, 16px);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 25%, transparent 78%);
+  mask-image: radial-gradient(ellipse at center, #000 25%, transparent 78%);
+}
+.q-container__flicker {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--q-grid-color);
+  opacity: 0.25;
+  animation: q-flicker-cell var(--q-flicker-duration, 2s) linear infinite;
+  animation-delay: var(--q-flicker-delay, 0s);
+}
+@keyframes q-flicker-cell {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  22% {
+    opacity: 0.3;
+  }
+  38% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 0.15;
+  }
+  68% {
+    opacity: 0.85;
+  }
+  82% {
+    opacity: 0.3;
+  }
+}
+
+/* interactive-grid : les cellules s'illuminent autour du curseur (glow suivi par la souris) */
+.q-container__bg--interactive-grid {
+  background-image:
+    linear-gradient(to bottom, color-mix(in srgb, var(--q-grid-color) 35%, transparent) 3px, transparent 3px),
+    linear-gradient(to right, color-mix(in srgb, var(--q-grid-color) 35%, transparent) 3px, transparent 3px);
+  background-size: var(--q-grid-spacing, 16px) var(--q-grid-spacing, 16px);
+}
+.q-container__glow {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to bottom, var(--q-grid-color) 3px, transparent 3px),
+    linear-gradient(to right, var(--q-grid-color) 3px, transparent 3px);
+  background-size: var(--q-grid-spacing, 16px) var(--q-grid-spacing, 16px);
+  -webkit-mask-image: radial-gradient(
+    circle 180px at var(--q-mouse-x, 50%) var(--q-mouse-y, 50%),
+    #000,
+    transparent 75%
+  );
+  mask-image: radial-gradient(
+    circle 180px at var(--q-mouse-x, 50%) var(--q-mouse-y, 50%),
+    #000,
+    transparent 75%
+  );
+}
+
+/* wave : vagues SVG qui glissent en boucle (2 couches) */
+.q-container__wave {
+  position: absolute;
+  left: 0;
+  bottom: -6px;
+  width: 200%;
+  height: 90px;
+  animation: q-wave-slide 12s linear infinite;
+}
+.q-container__wave--2 {
+  bottom: 0;
+  height: 66px;
+  opacity: 0.85;
+  animation-duration: 18s;
+  animation-direction: reverse;
+}
+@keyframes q-wave-slide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .q-container__bg--aurora::before,
+  .q-container__bg--aurora::after,
+  .q-container__bg--star::after,
+  .q-container__star,
+  .q-container__flicker,
+  .q-container__wave {
+    animation: none;
+  }
+}
+
+/* ===== QMarquee — bandeau défilant infini ===== */
+.q-marquee {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.q-marquee__track {
+  display: flex;
+  width: max-content;
+  animation: q-marquee-scroll var(--q-marquee-duration, 20s) linear infinite;
+}
+.q-marquee--reverse .q-marquee__track {
+  animation-direction: reverse;
+}
+.q-marquee--pause-on-hover:hover .q-marquee__track {
+  animation-play-state: paused;
+}
+.q-marquee__copy {
+  display: inline-flex;
+  margin-right: var(--q-marquee-gap, 24px);
+}
+@keyframes q-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .q-marquee__track {
+    animation: none;
+  }
 }
 
 /* ===== QPullToRefresh ===== */
