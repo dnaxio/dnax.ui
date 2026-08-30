@@ -240,24 +240,60 @@ onMounted(() => {
             <span class="bento-caption">--q-radius: {{ radiusDemo }}px</span>
           </div>
 
-          <!-- Mobile -->
+          <!-- Mobile : vrai simulateur iPhone -->
           <div class="bento-card reveal">
             <div class="bento-head">
               <q-icon name="lucide:smartphone" color="positive" size="22px" />
               <h3 class="bento-title">Mobile-first</h3>
             </div>
-            <p class="bento-text">iOS safe-areas & Capacitor ready.</p>
-            <div class="phone-mini" aria-hidden="true">
-              <span class="phone-mini__notch" />
-              <div class="phone-mini__row">
-                <q-skeleton type="circle" size="30px" animation="pulse" />
-                <div class="phone-mini__lines">
-                  <q-skeleton type="text" width="70%" animation="pulse" />
-                  <q-skeleton type="text" width="45%" animation="pulse" />
+            <p class="bento-text">
+              A true iOS simulator — Dynamic Island, status bar, safe-areas &amp; home
+              indicator, Capacitor ready.
+            </p>
+
+            <div class="iphone" aria-hidden="true">
+              <span class="iphone__btn iphone__btn--action" />
+              <span class="iphone__btn iphone__btn--v1" />
+              <span class="iphone__btn iphone__btn--v2" />
+              <span class="iphone__btn iphone__btn--power" />
+
+              <div class="iphone__screen">
+                <div class="iphone__island"><span class="iphone__cam" /></div>
+
+                <div class="iphone__status">
+                  <span class="iphone__time">9:41</span>
+                  <span class="iphone__status-icons">
+                    <q-icon name="lucide:signal" size="10px" />
+                    <q-icon name="lucide:wifi" size="10px" />
+                    <q-icon name="lucide:battery-full" size="13px" />
+                  </span>
                 </div>
+
+                <div class="iphone__app">
+                  <span class="iphone__caption">Now Playing</span>
+                  <div class="iphone__art">
+                    <q-icon name="lucide:music" size="22px" />
+                    <span class="iphone__eq"><i /><i /><i /></span>
+                  </div>
+                  <span class="iphone__track">Midnight City</span>
+                  <span class="iphone__artist">M83 · Hurry Up, We're Dreaming</span>
+                  <div class="iphone__progress"><span class="iphone__progress-fill" /></div>
+                  <div class="iphone__times"><span>1:24</span><span>-2:19</span></div>
+                  <div class="iphone__controls">
+                    <q-icon name="lucide:skip-back" size="15px" />
+                    <span class="iphone__play"><q-icon name="lucide:pause" size="13px" /></span>
+                    <q-icon name="lucide:skip-forward" size="15px" />
+                  </div>
+                </div>
+
+                <div class="iphone__tabbar">
+                  <q-icon name="lucide:house" size="14px" class="iphone__tab--active" />
+                  <q-icon name="lucide:search" size="14px" />
+                  <q-icon name="lucide:library" size="14px" />
+                </div>
+
+                <span class="iphone__home" />
               </div>
-              <q-skeleton type="rect" width="100%" height="34px" animation="pulse" />
-              <span class="phone-mini__bar" />
             </div>
           </div>
 
@@ -783,46 +819,203 @@ onMounted(() => {
   padding: 6px 0 2px;
 }
 
-/* — mini phone — */
-.phone-mini {
-  margin: 6px auto 0;
-  width: 150px;
-  border: 5px solid #16202e;
-  border-radius: 22px;
-  background: #fff;
-  padding: 18px 10px 10px;
+/* — Simulateur iPhone — */
+.iphone {
+  position: relative;
+  width: 186px;
+  margin: 12px auto 6px;
+  padding: 9px;
+  border-radius: 42px;
+  background: linear-gradient(150deg, #3c4149 0%, #171a1f 42%, #0a0c0f 100%);
+  box-shadow:
+    0 20px 44px rgb(5 10 20 / 0.35),
+    inset 0 1px 1px rgb(255 255 255 / 0.28),
+    inset 0 -1px 2px rgb(0 0 0 / 0.65);
+}
+.iphone__btn {
+  position: absolute;
+  width: 3.5px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #2c3037, #101317);
+}
+.iphone__btn--action { left: -3px; top: 52px; height: 16px; }
+.iphone__btn--v1 { left: -3px; top: 78px; height: 26px; }
+.iphone__btn--v2 { left: -3px; top: 110px; height: 40px; }
+.iphone__btn--power { right: -3px; top: 94px; height: 48px; }
+
+.iphone__screen {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  position: relative;
+  height: 366px;
+  border-radius: 33px;
+  background: linear-gradient(180deg, #fdfdfe 0%, #f2f4f8 100%);
+  overflow: hidden;
 }
-.phone-mini__notch {
+.iphone__screen::after {
+  content: "";
   position: absolute;
-  top: 7px;
+  inset: 0;
+  background: linear-gradient(115deg, rgb(255 255 255 / 0.3) 0%, transparent 32%);
+  pointer-events: none;
+}
+
+.iphone__island {
+  position: absolute;
+  top: 10px;
   left: 50%;
   transform: translateX(-50%);
-  width: 44px;
-  height: 8px;
-  border-radius: 999px;
-  background: #16202e;
-}
-.phone-mini__row {
+  z-index: 3;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  width: 62px;
+  height: 17px;
+  padding-right: 5px;
+  border-radius: 999px;
+  background: #05070a;
 }
-.phone-mini__lines {
+.iphone__cam {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #2b3a55, #0a0f18 65%);
+}
+
+.iphone__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 14px 20px 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0b0f16;
+}
+.iphone__status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.iphone__app {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  align-items: center;
+  gap: 7px;
+  padding: 16px 16px 6px;
 }
-.phone-mini__bar {
-  width: 52px;
+.iphone__caption {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #8b93a1;
+}
+.iphone__art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #1976d2, #7c3aed);
+  color: #fff;
+  box-shadow: 0 12px 26px rgb(25 118 210 / 0.38);
+}
+.iphone__eq {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 10px;
+}
+.iphone__eq i {
+  width: 2.5px;
+  border-radius: 1px;
+  background: #fff;
+  transform-origin: bottom;
+  animation: eq-bounce 1s ease-in-out infinite;
+}
+.iphone__eq i:nth-child(1) { height: 6px; }
+.iphone__eq i:nth-child(2) { height: 10px; animation-delay: 0.2s; }
+.iphone__eq i:nth-child(3) { height: 4px; animation-delay: 0.4s; }
+@keyframes eq-bounce {
+  0%, 100% { transform: scaleY(0.45); }
+  50% { transform: scaleY(1); }
+}
+.iphone__track {
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #101623;
+}
+.iphone__artist {
+  font-size: 9.5px;
+  color: #8b93a1;
+}
+.iphone__progress {
+  width: 100%;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.09);
+  overflow: hidden;
+}
+.iphone__progress-fill {
+  display: block;
+  width: 62%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1976d2, #7c3aed);
+}
+.iphone__times {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 8px;
+  font-weight: 600;
+  color: #8b93a1;
+}
+.iphone__controls {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-top: 6px;
+  color: #101623;
+}
+.iphone__play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #101623;
+  color: #fff;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 0.28);
+}
+
+.iphone__tabbar {
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 26px 5px;
+  border-top: 1px solid rgb(0 0 0 / 0.06);
+  color: #9aa4b2;
+}
+.iphone__tab--active {
+  color: var(--primary);
+}
+.iphone__home {
+  width: 68px;
   height: 4px;
   border-radius: 999px;
-  background: #16202e;
-  margin: 2px auto 0;
+  background: #101623;
+  margin: 2px auto 7px;
 }
 
 /* — icons grid — */
@@ -1026,7 +1219,8 @@ onMounted(() => {
   .aurora,
   .grad,
   .hero-dot,
-  .code-glow {
+  .code-glow,
+  .iphone__eq i {
     animation: none;
   }
   .reveal {

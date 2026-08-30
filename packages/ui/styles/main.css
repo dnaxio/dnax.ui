@@ -229,6 +229,21 @@ html.dark body {
 .dark .q-field__control {
   background-color: var(--muted);
   border-color: var(--border);
+  color: var(--foreground);
+}
+
+/* Textes de champ en dark : label, hint, placeholders (blanc translucide) */
+.dark .q-field__label-stack,
+.dark .q-field__hint {
+  color: rgb(255 255 255 / 0.65);
+}
+
+.dark .q-input .q-field__native::placeholder,
+.dark .q-input-tag__native::placeholder,
+.dark .q-input-otp__box::placeholder,
+.dark .q-select__search-input::placeholder,
+.dark .q-select__display--placeholder {
+  color: rgb(255 255 255 / 0.42);
 }
 
 .dark .q-input-password__toggle,
