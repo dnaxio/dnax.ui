@@ -33,7 +33,7 @@ const scrollTo = (sel: string) => {
         <q-icon name="lucide:box" color="primary" size="20px" />
         <span class="dnax-logo dnax-logo--sm">Dnax<b>UI</b></span>
         <q-space />
-        <span class="footer-note">Vue 3 design system · Iconify icons · iOS safe-area</span>
+        <span class="footer-note">Powered by dnax Inc</span>
       </q-toolbar>
     </q-footer>
   </q-app>
