@@ -8,6 +8,7 @@ import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
+import { useOverlayBack } from "../lib/overlayBack"
 
 interface Props {
   /** Valeur sélectionnée */
@@ -38,6 +39,14 @@ interface Props {
   readonly?: boolean
   loading?: boolean
   noOptionsLabel?: string
+  /** Mode d'ouverture : inline (dropdown) | modal (centré) | sheet (bottom sheet) */
+  mode?: "inline" | "modal" | "sheet"
+  /** Largeur du panneau (modal/sheet) */
+  width?: string
+  /** Hauteur de la liste dans les modes panneau (modal/sheet) */
+  height?: string
+  /** Titre du panneau (défaut : label → placeholder) */
+  title?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -55,6 +64,7 @@ const props = withDefaults(defineProps<Props>(), {
   readonly: false,
   loading: false,
   noOptionsLabel: "No options to display",
+  mode: "inline",
 })
 
 const emit = defineEmits<{
@@ -78,10 +88,33 @@ const hasFilter = computed(() => !!instance?.vnode.props?.onFilter)
 
 const rootEl = ref<HTMLElement | null>(null)
 const popupRef = ref<HTMLElement | null>(null)
+const sheetRef = ref<HTMLElement | null>(null)
+const panelInput = ref<HTMLInputElement | null>(null)
 const focused = ref(false)
 const open = ref(false)
 const query = ref(props.inputValue ?? "")
 const activeIndex = ref(0)
+
+// — Mode panneau (modal / sheet) —
+const panelMode = computed(() => props.mode !== "inline")
+
+// « Retour » navigateur → ferme le panneau au lieu de naviguer
+const panelOpen = computed(() => panelMode.value && open.value)
+useOverlayBack(panelOpen, () => closePopup(), "QAutocomplete")
+
+const sheetStyle = computed<Record<string, string>>(() => {
+  const style: Record<string, string> = {}
+  if (props.mode !== "inline" && props.width) style.width = props.width
+  return style
+})
+
+const sheetListStyle = computed<Record<string, string>>(() => {
+  const style: Record<string, string> = {}
+  if (props.height) style.height = props.height
+  return style
+})
+
+const sheetTitle = computed(() => props.title ?? props.label ?? props.placeholder ?? "Select")
 
 // — Valeurs des options —
 const getValue = (opt: any): any =>
@@ -136,6 +169,11 @@ const openPopup = () => {
   if (props.disable || props.readonly) return
   activeIndex.value = 0
   open.value = true
+  if (panelMode.value) nextTick(() => panelInput.value?.focus())
+}
+
+const closePopup = () => {
+  open.value = false
 }
 
 const onInput = (e: Event) => {
@@ -153,7 +191,7 @@ const onSelect = (opt: any) => {
   emit("update:modelValue", getValue(opt))
   emit("update:inputValue", label)
   query.value = label
-  open.value = false
+  closePopup()
 }
 
 const onClear = () => {
@@ -186,8 +224,12 @@ const onFocus = (e: FocusEvent) => {
 
 const onBlur = (e: FocusEvent) => {
   focused.value = false
-  open.value = false
-  commit()
+  // En mode panneau, la perte de focus du champ ne ferme pas (l'input du
+  // panneau prend le relais) ; en inline, perte de focus → fermeture + commit
+  if (!panelMode.value) {
+    open.value = false
+    commit()
+  }
   emit("blur", e)
 }
 
@@ -228,9 +270,12 @@ watch(activeIndex, async () => {
   el?.scrollIntoView({ block: "nearest" })
 })
 
-// Fermeture au clic extérieur
+// Fermeture au clic extérieur (inline) / clic hors panneau (modal/sheet)
 const onDocMousedown = (e: MouseEvent) => {
-  if (rootEl.value && !rootEl.value.contains(e.target as Node)) open.value = false
+  const target = e.target as Node
+  if (rootEl.value?.contains(target)) return
+  if (sheetRef.value?.contains(target)) return
+  open.value = false
 }
 
 onMounted(() => {
@@ -239,10 +284,17 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (typeof document !== "undefined") document.removeEventListener("mousedown", onDocMousedown)
 })
+
+// Verrou du scroll de la page derrière le panneau (modal/sheet)
+watch(open, (v) => {
+  if (typeof document !== "undefined" && panelMode.value) {
+    document.body.style.overflow = v ? "hidden" : ""
+  }
+})
 </script>
 
 <template>
-  <div ref="rootEl" class="q-autocomplete" :class="fieldClasses" :style="roundedStyle">
+  <div ref="rootEl" class="q-autocomplete" :class="fieldClasses" :style="roundedStyle" v-bind="$attrs">
     <label v-if="label" class="q-field__label-stack">{{ label }}</label>
     <div class="q-field__control">
       <input
@@ -283,7 +335,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      v-if="open"
+      v-if="open && mode === 'inline'"
       ref="popupRef"
       class="q-autocomplete__popup"
       role="listbox"
@@ -312,5 +364,84 @@ onBeforeUnmount(() => {
         <slot name="noOptions">{{ noOptionsLabel }}</slot>
       </div>
     </div>
+
+    <!-- Mode modal / sheet : panneau téléporté (header + recherche + liste) -->
+    <Teleport to="body">
+      <Transition name="q-autocomplete-modal">
+        <div
+          v-if="open && mode !== 'inline'"
+          class="q-autocomplete__overlay"
+          :class="`q-autocomplete__overlay--${mode}`"
+          role="presentation"
+          @mousedown.self="closePopup"
+        >
+          <div
+            ref="sheetRef"
+            class="q-autocomplete__sheet"
+            :class="`q-autocomplete__sheet--${mode}`"
+            :style="sheetStyle"
+            role="dialog"
+            aria-modal="true"
+            :aria-label="sheetTitle"
+          >
+            <div class="q-autocomplete__sheet-header">
+              <span class="q-autocomplete__sheet-title">{{ sheetTitle }}</span>
+              <button
+                type="button"
+                class="q-autocomplete__sheet-close"
+                :aria-label="`Fermer ${sheetTitle}`"
+                @click="closePopup"
+              >
+                <Icon :icon="icons.x" aria-hidden="true" />
+              </button>
+            </div>
+            <div class="q-autocomplete__search">
+              <Icon :icon="icons.search" class="q-autocomplete__search-icon" aria-hidden="true" />
+              <input
+                ref="panelInput"
+                class="q-autocomplete__search-input"
+                :value="query"
+                :placeholder="placeholder ?? 'Search…'"
+                role="combobox"
+                :aria-expanded="open ? 'true' : 'false'"
+                aria-autocomplete="list"
+                @input="onInput"
+                @keydown="onKeydown"
+              />
+            </div>
+            <div
+              ref="popupRef"
+              class="q-autocomplete__sheet-list"
+              :style="sheetListStyle"
+              role="listbox"
+              @mousedown.prevent
+            >
+              <template v-if="filtered.length">
+                <div
+                  v-for="(opt, i) in filtered"
+                  :key="String(getValue(opt))"
+                  role="option"
+                  :aria-selected="i === activeIndex ? 'true' : 'false'"
+                  class="q-autocomplete__item"
+                  :class="{
+                    'q-autocomplete__item--active': i === activeIndex,
+                    'q-autocomplete__item--selected': isSelected(opt),
+                  }"
+                  @mouseenter="activeIndex = i"
+                  @mousedown.prevent="onSelect(opt)"
+                >
+                  <slot :option="opt" :index="i" :selected="isSelected(opt)" :active="i === activeIndex">
+                    <span class="q-autocomplete__label">{{ getLabel(opt) }}</span>
+                  </slot>
+                </div>
+              </template>
+              <div v-else class="q-autocomplete__empty">
+                <slot name="noOptions">{{ noOptionsLabel }}</slot>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>

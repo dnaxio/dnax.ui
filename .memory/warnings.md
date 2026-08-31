@@ -1,5 +1,25 @@
 # Pièges rencontrés (tag: warnings)
 
+## QDialog : verrou du scroll de fond — 3 bugs corrigés — 2026-08-31
+
+Le body scrollait toujours derrière un dialog ouvert. Causes + fixes :
+
+1. **iOS Safari** ignore `overflow: hidden` sur `body` seul → verrouiller
+   `document.documentElement` ET `document.body`
+2. **Dialog monté déjà ouvert** (pattern `$q.dialog.open()`, open=ref(true)) : le
+   `watch(open)` sans `immediate` ne se déclenchait jamais → jamais verrouillé.
+   Fix : `onMounted(() => lockIf(props.modelValue))`
+3. **Scroll-chaining** : quand le contenu scrollable du dialog arrive en fin de
+   scroll, le geste se chaîne au body → `overscroll-behavior: contain` sur
+   `.q-dialog__content`
+4. **Pile de dialogs** : compteur module-level `scrollLockCount` + suivi par
+   instance (`didLock`, lock/unlock au plus une fois) → fermer un dialog ne
+   déverrouille pas un autre encore ouvert. Ne PAS utiliser `immediate: true`
+   sur un watch avec compteur (un dialog fermé au mount décrémenterait le
+   compteur d'un autre)
+
+- Build ✅. (2026-08-31)
+
 ## Mobile : :hover collé après le tap — 2026-08-31
 
 Sur tactile, le `:hover` reste appliqué après le tap (pas de souris pour le

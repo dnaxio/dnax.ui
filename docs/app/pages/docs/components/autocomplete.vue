@@ -43,6 +43,10 @@ const loadingVal = ref("")
 const disabledVal = ref("")
 const errorVal = ref("")
 
+// — Démo modes (inline / modal / sheet) —
+const panelVal = ref("")
+const modeDemo = ref<"inline" | "modal" | "sheet">("inline")
+
 const basicCode = `const countries = [
   { name: "France", code: "FR" },
   // … 20 countries in total …
@@ -79,6 +83,23 @@ const statesCode = `<q-autocomplete v-model="dense" :options="countries" option-
 <q-autocomplete v-model="loading" :options="countries" option-value="code" option-label="name" label="Loading" loading outlined />
 <q-autocomplete v-model="disabled" :options="countries" option-value="code" option-label="name" label="Disabled" disable outlined />
 <q-autocomplete v-model="error" :options="countries" option-value="code" option-label="name" label="Invalid code" error error-message="Choose a valid country" outlined />`
+
+const panelCode = `<q-autocomplete
+  v-model="selected"
+  :options="countries"
+  option-value="code"
+  option-label="name"
+  label="Country"
+  :mode="mode"
+  title="Pick a country"
+  outlined
+/>
+<!-- mode : inline (dropdown) | modal (boîte centrée) | sheet (bottom sheet) -->`
+
+const scriptPanel = `import { ref } from "vue"
+
+const selected = ref("")
+const mode = ref("inline")`
 </script>
 
 <template>
@@ -208,6 +229,48 @@ const statesCode = `<q-autocomplete v-model="dense" :options="countries" option-
       </docs-demo>
     </section>
 
+    <!-- ═══════ Sheet & modal ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Sheet &amp; modal modes</h2>
+      <p class="doc-note">
+        <code>mode</code> switches the suggestion panel: <code>inline</code>
+        (default dropdown), <code>modal</code> (centered box) or
+        <code>sheet</code> (bottom sheet, iOS safe-area built in). The panel has
+        a <code>title</code> header, its own search field (the typed text is
+        shared with the field), and closes on backdrop / × / Esc / browser
+        back. <code>width</code> and <code>height</code> tune the panel.
+      </p>
+
+      <docs-demo :code="panelCode" lang="html" filename="App.vue" :script="scriptPanel">
+        <div class="demo-autocomplete">
+          <div class="demo-row">
+            <q-select
+              v-model="modeDemo"
+              :options="['inline', 'modal', 'sheet']"
+              label="mode"
+              outlined
+              dense
+              class="demo-mode-select"
+            />
+          </div>
+          <q-autocomplete
+            v-model="panelVal"
+            :options="countries"
+            option-value="code"
+            option-label="name"
+            label="Country"
+            :mode="modeDemo"
+            title="Pick a country"
+            outlined
+            clearable
+          />
+          <p class="demo-p demo-p--value">
+            Selected: <code>{{ panelVal || "—" }}</code>
+          </p>
+        </div>
+      </docs-demo>
+    </section>
+
     <!-- ═══════ API ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">QAutocomplete</h2>
@@ -292,6 +355,15 @@ const statesCode = `<q-autocomplete v-model="dense" :options="countries" option-
 }
 .demo-p--value {
   margin: 14px 0 0;
+}
+.demo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.demo-mode-select {
+  width: 160px;
 }
 .demo-opt-label {
   flex: 1;

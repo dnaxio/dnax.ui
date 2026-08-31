@@ -22,6 +22,7 @@ const props = withDefaults(defineProps<Props>(), {
       'q-toolbar--inset': props.inset,
       'q-toolbar--shrink': props.shrink,
     }"
+    v-bind="$attrs"
   >
     <slot />
   </div>

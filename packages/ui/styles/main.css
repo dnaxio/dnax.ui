@@ -582,6 +582,20 @@ html.dark body {
   z-index: 100;
 }
 
+/* no-padding : horizontal collé aux bords — safe-area conservées */
+.q-footer--no-padding {
+  padding: 4px 0;
+  padding-bottom: 0;
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: 0;
+  padding-left: constant(safe-area-inset-left);
+  padding-left: env(safe-area-inset-left);
+  padding-right: 0;
+  padding-right: constant(safe-area-inset-right);
+  padding-right: env(safe-area-inset-right);
+}
+
 .q-footer--elevated {
   box-shadow: 0 -2px 4px rgb(0 0 0 / 0.2);
 }
@@ -3406,6 +3420,130 @@ html.dark body {
   }
 }
 
+/* — modes modal / sheet : panneau téléporté — */
+.q-autocomplete__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 0.5);
+}
+.q-autocomplete__overlay--sheet {
+  align-items: flex-end;
+}
+.q-autocomplete__sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 640px;
+  max-height: 70vh;
+  overflow: hidden;
+  background-color: #fff;
+  color: inherit;
+  border-radius: var(--q-radius);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
+}
+.q-autocomplete__overlay--modal .q-autocomplete__sheet {
+  max-width: 480px;
+  max-height: 60vh;
+}
+.q-autocomplete__sheet--sheet {
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 24px rgb(0 0 0 / 0.2);
+  padding-bottom: 0;
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.q-autocomplete__sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgb(0 0 0 / 0.08);
+  font-weight: 600;
+  font-size: 15px;
+}
+.q-autocomplete__sheet-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.q-autocomplete__sheet-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.q-autocomplete__sheet-close:hover {
+  background-color: rgb(0 0 0 / 0.06);
+}
+.q-autocomplete__sheet-close svg {
+  width: 16px;
+  height: 16px;
+}
+.q-autocomplete__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 12px 6px;
+  padding: 0 10px;
+  border: 1px solid rgb(0 0 0 / 0.15);
+  border-radius: 6px;
+  background-color: rgb(0 0 0 / 0.03);
+}
+.q-autocomplete__search-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: rgb(0 0 0 / 0.5);
+}
+.q-autocomplete__search-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+}
+.q-autocomplete__search-input::placeholder {
+  color: rgb(0 0 0 / 0.45);
+}
+.q-autocomplete__sheet-list {
+  overflow-y: auto;
+  padding: 6px;
+}
+
+/* — transition du panneau (réutilise les keyframes q-sheet-pop-*) — */
+.q-autocomplete-modal-enter-active,
+.q-autocomplete-modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+.q-autocomplete-modal-enter-from,
+.q-autocomplete-modal-leave-to {
+  opacity: 0;
+}
+.q-autocomplete-modal-enter-active .q-autocomplete__sheet {
+  animation: q-sheet-pop-in 0.25s ease;
+}
+.q-autocomplete-modal-leave-active .q-autocomplete__sheet {
+  animation: q-sheet-pop-out 0.2s ease forwards;
+}
+
 /* ===== QNavMenu ===== */
 .q-nav-menu {
   position: relative;
@@ -4644,6 +4782,12 @@ html.dark body {
   justify-content: flex-end; /* actions alignées à droite (défaut) */
 }
 
+.q-bottom-sheet__footer--no-padding .q-toolbar,
+.q-bottom-sheet__header--no-padding .q-toolbar,
+.q-dialog__header--no-padding .q-toolbar {
+  padding: 0; /* no-padding : contenu collé aux bords */
+}
+
 .q-bottom-sheet__panel--dark .q-bottom-sheet__header,
 .q-bottom-sheet__panel--dark .q-bottom-sheet__footer {
   border-color: rgb(255 255 255 / 0.12);
@@ -5847,6 +5991,8 @@ html.dark body {
   max-width: 90vw;
   max-height: 90vh;
   overflow: auto;
+  /* Le scroll du contenu ne doit jamais se chaîner à la page derrière */
+  overscroll-behavior: contain;
   background-color: #fff;
   color: inherit;
   border-radius: var(--q-radius);
@@ -6012,6 +6158,10 @@ html.dark body {
 
 .q-dialog__footer .q-toolbar {
   justify-content: flex-end; /* actions alignées à droite (défaut) */
+}
+
+.q-dialog__footer--no-padding .q-toolbar {
+  padding: 0; /* no-padding : actions collées aux bords */
 }
 
 .q-dialog__body {

@@ -55,7 +55,7 @@ const headerClasses = computed(() =>
 </script>
 
 <template>
-  <header ref="rootEl" class="q-back-header" :class="headerClasses" :style="translucentStyle">
+  <header ref="rootEl" class="q-back-header" :class="headerClasses" :style="translucentStyle" v-bind="$attrs">
     <button
       v-if="showBack"
       type="button"

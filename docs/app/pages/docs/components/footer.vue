@@ -68,7 +68,8 @@ const fixedCode = `<q-footer fixed bordered>
       <h2 class="doc-h2">Basic</h2>
       <p class="doc-note">
         In-flow footer with a toolbar inside: brand icon, <code>q-space</code> and
-        flat action buttons.
+        flat action buttons. <code>no-padding</code> removes the horizontal
+        padding (content flush to the edges, safe-area kept).
       </p>
 
       <docs-demo :code="basicCode" lang="html" filename="App.vue">

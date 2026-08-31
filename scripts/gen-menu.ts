@@ -67,6 +67,7 @@ const CUSTOM_PAGES = new Set([
   "action-sheet",
   "autocomplete",
   "avatar",
+  "back-header",
   "back-top",
   "badge",
   "btn-group",

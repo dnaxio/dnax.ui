@@ -55,6 +55,7 @@ useFixedBarOffset(rootEl, "page")
     :virtual-scroll-item-size="virtualScrollItemSize"
     :virtual-scroll-sticky-size-start="virtualScrollStickySizeStart"
     :virtual-scroll-sticky-size-end="virtualScrollStickySizeEnd"
+    v-bind="$attrs"
   >
     <template #default="scope">
       <slot v-bind="scope" />
@@ -66,7 +67,7 @@ useFixedBarOffset(rootEl, "page")
       <slot name="after" />
     </template>
   </q-virtual-scroll>
-  <div v-else :ref="setRoot" class="q-page">
+  <div v-else :ref="setRoot" class="q-page" v-bind="$attrs">
     <slot />
   </div>
 </template>

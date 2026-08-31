@@ -1,5 +1,66 @@
 # Connaissances & bonnes pratiques (tag: knowledges)
 
+## QAutocomplete — modes modal / sheet — 2026-08-31
+
+`QAutocomplete` étendu avec `mode: "inline" | "modal" | "sheet"` (miroir de
+QSelect) :
+
+- Panneau téléporté (Teleport body) : overlay + sheet (header titre + fermer,
+  champ de recherche interne lié au même `query`, liste scrollable)
+- Props : `mode`, `width` (panneau), `height` (liste), `title` (défaut label →
+  placeholder)
+- **Focus** : en mode panneau, `openPopup` focus l'input du panneau (nextTick) ;
+  `onBlur` du champ ne ferme PAS (l'input du panneau prend le relais) — le
+  commit de validation ne tourne qu'en inline
+- Fermeture : backdrop (`@mousedown.self`), ×, Échap, sélection,
+  `useOverlayBack` (retour navigateur) ; `onDocMousedown` vérifie aussi
+  `sheetRef` (téléporté hors de rootEl)
+- Verrou scroll body en mode panneau (comme QSelect) ; safe-area bottom sur
+  `.q-autocomplete__sheet--sheet` ; transitions réutilisent `q-sheet-pop-*`
+- Piège TS : computed d'objet avec branche vide → initialiser `{}` puis
+  assigner (l'union `{ height?: undefined }` casse `Record<string, string>`)
+- Racine `v-bind="$attrs"`. Démo docs « Sheet & modal modes » (selecteur de
+  mode inline/modal/sheet). Build ✅.
+
+## Règle : v-bind="$attrs" sur la racine de TOUT composant — 2026-08-31
+
+Pattern obligatoire : la racine de chaque composant passe `v-bind="$attrs"`
+(positionné APRÈS `:class`/`:style` — class/style fusionnent, les autres attrs
+sont appliqués) pour accepter `class`/`style`/`id`/`data-*` de l'appelant
+(ex. `<q-dialog-footer class="p-2">`).
+
+- En mono-racine, Vue hérite déjà les attrs automatiquement — l'explicite
+  désactive l'héritage auto et garantit le comportement (dont multi-racines
+  comme `QPage` v-if/v-else : poser sur CHAQUE branche)
+- Appliqué à la famille barres/layout : QDialogHeader/Footer/Content,
+  QBottomSheetHeader/Footer, QHeader, QFooter, QToolbar, QSpace, QBackHeader,
+  QContainer, QPage (branches normal + virtual)
+- Ne pas oublier `ref` : il n'est pas dans `$attrs` (séparé) — conserver
+  `ref="rootEl"` à côté de `v-bind="$attrs"`
+- Cas non couverts : composants multi-racines structurels (QSidebar,
+  QConfigProvider) → props explicites (déjà documenté en warnings)
+- ⚠️ Piège d'édition : ne JAMAIS faire un batch d'edits multi-fichiers dans un
+  seul edit_file (un copier-coller de classe erroné a corrompu QDialogFooter
+  → toujours un edit_file par fichier)
+- Build ✅. (2026-08-31)
+
+## QBackHeader — page docs manuelle — 2026-08-31
+
+Page `docs/app/pages/docs/components/back-header.vue` convertie en page manuelle
+riche (Basic, Actions, Back button, Styles, Title slot, API).
+
+- **Piège gen-menu** : `back-header` n'était PAS dans `CUSTOM_PAGES` (seul
+  `back-top` y était) → la page était régénérée. Ajouté à `CUSTOM_PAGES`
+  (scripts/gen-menu.ts) pour la protéger.
+- Props documentées : `title` (+ slot `#title`), `show-back`, `back-icon`
+  (Iconify), `back-label`, `fixed`, `dark`, `translucent` (bool | number),
+  event `@back`, slot défaut (actions à droite)
+- Piège type : `translucent="50"` (attribut string) → erreur TS sur la prop
+  `boolean | number` → `:translucent="50"` dans les démos live ET les snippets
+- Démo fixed : `:deep(.q-back-header--fixed) { position: absolute }` dans une
+  scène relative (comme footer.vue) pour ne pas coller au viewport de la doc
+- Build ✅ après gen-menu (page intacte).
+
 ## QContainer — glass, image de fond glassmorphisée, Ken Burns — 2026-08-31
 
 Trois nouvelles props sur `QContainer` :

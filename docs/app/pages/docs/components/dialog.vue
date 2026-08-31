@@ -457,7 +457,8 @@ const scriptTrigger = scriptOpen
         <code>q-toolbar</code>) with a <code>title</code>, an optional
         <code>description</code> and a close button (<code>show-close</code>,
         enabled by default). Custom content can be passed through the
-        <code>#title</code> and <code>#description</code> slots.
+        <code>#title</code> and <code>#description</code> slots, and
+        <code>no-padding</code> flushes the content to the edges.
       </p>
       <q-syntax :code="usageHeader" lang="html" filename="App.vue" copy />
       <h3 class="doc-h3">API</h3>
@@ -500,7 +501,8 @@ const scriptTrigger = scriptOpen
       <p class="doc-note">
         Sticky bar rendered like the app <code>q-footer</code> (embedded
         <code>q-toolbar</code>) hosting the action buttons, aligned
-        <b>right</b>.
+        <b>right</b>. The toolbar adds a 12px horizontal padding —
+        <code>no-padding</code> removes it to flush the actions to the edges.
       </p>
       <q-syntax :code="usageFooter" lang="html" filename="App.vue" copy />
       <h3 class="doc-h3">API</h3>

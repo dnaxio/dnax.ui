@@ -2,6 +2,7 @@
 // QDialogHeader — header de la modale façon barre d'app (équivalent QHeader) :
 // le contenu est embarqué dans un <q-toolbar> (min-height 50px, padding 0 12px),
 // avec titre + description + bouton fermer (équivalent DialogHeader/Title/Close).
+// no-padding retire le padding horizontal du toolbar.
 import { inject } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
@@ -14,17 +15,24 @@ interface Props {
   description?: string
   /** Bouton fermer */
   showClose?: boolean
+  /** Supprime le padding du toolbar (contenu collé aux bords) */
+  noPadding?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showClose: true,
+  noPadding: false,
 })
 
 const dialog = inject(qDialogKey, null)
 </script>
 
 <template>
-  <div class="q-dialog__header">
+  <div
+    class="q-dialog__header"
+    :class="{ 'q-dialog__header--no-padding': noPadding }"
+    v-bind="$attrs"
+  >
     <q-toolbar>
       <div class="q-dialog__header-text">
         <h2 v-if="title" class="q-dialog__title">{{ title }}</h2>

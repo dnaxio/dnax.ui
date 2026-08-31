@@ -177,7 +177,7 @@ onBeforeUnmount(() => rootEl.value?.removeEventListener("mousemove", onMouseMove
 </script>
 
 <template>
-  <div ref="rootEl" class="q-container" :class="containerClasses" :style="containerStyle">
+  <div ref="rootEl" class="q-container" :class="containerClasses" :style="containerStyle" v-bind="$attrs">
     <img
       v-if="backgroundImage"
       :src="backgroundImage"

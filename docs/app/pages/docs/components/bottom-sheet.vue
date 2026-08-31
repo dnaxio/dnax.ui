@@ -185,7 +185,8 @@ const scriptTrigger = scriptSheet
         <code>q-toolbar</code>) with a <code>title</code>, an optional
         <code>description</code> and a close button that closes the sheet. Custom
         content can be passed through the <code>#title</code> and
-        <code>#description</code> slots.
+        <code>#description</code> slots, and <code>no-padding</code> flushes the
+        content to the edges.
       </p>
       <q-syntax :code="usageHeader" lang="html" filename="App.vue" copy />
       <h3 class="doc-h3">API</h3>
@@ -198,7 +199,8 @@ const scriptTrigger = scriptSheet
       <p class="doc-note">
         Sticky bar rendered like the app <code>q-footer</code> (embedded
         <code>q-toolbar</code>) hosting the action buttons below the scrollable
-        body, aligned <b>right</b>.
+        body, aligned <b>right</b>. <code>no-padding</code> flushes the actions
+        to the edges.
       </p>
       <q-syntax :code="usageFooter" lang="html" filename="App.vue" copy />
       <h3 class="doc-h3">API</h3>

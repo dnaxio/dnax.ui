@@ -2,6 +2,7 @@
 // QBottomSheetHeader — header du panneau façon barre d'app (équivalent QHeader) :
 // le contenu est embarqué dans un <q-toolbar> (min-height 50px, padding 0 12px),
 // avec titre + description + bouton fermer (équivalent DrawerHeader/DrawerTitle).
+// no-padding retire le padding horizontal du toolbar.
 import { inject } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
@@ -12,14 +13,23 @@ import QSpace from "./QSpace.vue"
 interface Props {
   title?: string
   description?: string
+  /** Supprime le padding du toolbar (contenu collé aux bords) */
+  noPadding?: boolean
 }
 
-const props = defineProps<Props>()
+withDefaults(defineProps<Props>(), {
+  noPadding: false,
+})
+
 const sheet = inject(qBottomSheetKey, null)
 </script>
 
 <template>
-  <div class="q-bottom-sheet__header">
+  <div
+    class="q-bottom-sheet__header"
+    :class="{ 'q-bottom-sheet__header--no-padding': noPadding }"
+    v-bind="$attrs"
+  >
     <q-toolbar>
       <div class="q-bottom-sheet__header-text">
         <h2 v-if="title" class="q-bottom-sheet__title">{{ title }}</h2>

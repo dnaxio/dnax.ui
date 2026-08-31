@@ -88,8 +88,36 @@ const onDocKeydown = (e: KeyboardEvent) => {
 // « Retour » navigateur → ferme le dialog au lieu de naviguer
 useOverlayBack(open, () => { open.value = false }, "QDialog")
 
-watch(open, (v) => {
-  if (typeof document !== "undefined") document.body.style.overflow = v ? "hidden" : ""
+// — Verrou du scroll de la page derrière le dialog —
+// Compteur module-level + suivi par instance : chaque dialog verrouille au plus
+// une fois et déverrouille au plus une fois → pile de dialogs ($q.dialog) sans
+// déverrouillage prématuré. Verrouille html + body (iOS Safari ignore
+// overflow:hidden sur body seul).
+let scrollLockCount = 0
+function setBodyScrollLock(locked: boolean) {
+  if (typeof document === "undefined") return
+  scrollLockCount = Math.max(0, scrollLockCount + (locked ? 1 : -1))
+  const on = scrollLockCount > 0
+  document.documentElement.style.overflow = on ? "hidden" : ""
+  document.body.style.overflow = on ? "hidden" : ""
+}
+
+let didLock = false
+const lockIf = (v: boolean) => {
+  if (v && !didLock) {
+    didLock = true
+    setBodyScrollLock(true)
+  }
+  else if (!v && didLock) {
+    didLock = false
+    setBodyScrollLock(false)
+  }
+}
+
+onMounted(() => lockIf(props.modelValue))
+watch(open, lockIf)
+onBeforeUnmount(() => {
+  if (didLock) setBodyScrollLock(false)
 })
 
 onMounted(() => {
@@ -98,8 +126,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (typeof document !== "undefined") {
     document.removeEventListener("keydown", onDocKeydown)
-    document.body.style.overflow = ""
   }
+  if (didLock) setBodyScrollLock(false)
 })
 
 const overlayClasses = computed(() => cn("q-dialog__overlay", `q-dialog__overlay--${props.position}`))

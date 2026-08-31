@@ -16,6 +16,8 @@ interface Props {
   translucent?: boolean | number
   /** Glassmorphism marqué : fond très translucide + flou fort + bordure claire */
   glass?: boolean
+  /** Supprime le padding horizontal (éléments collés aux bords, safe-area conservée) */
+  noPadding?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -23,6 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
   elevated: false,
   reveal: false,
   bordered: false,
+  noPadding: false,
 })
 
 const rootEl = ref<HTMLElement | null>(null)
@@ -71,8 +74,10 @@ onBeforeUnmount(() => {
       'q-footer--reveal-hidden': props.reveal && !visible,
       'q-footer--translucent': props.translucent === true || typeof props.translucent === 'number',
       'q-footer--glass': props.glass,
+      'q-footer--no-padding': props.noPadding,
     }"
     :style="translucentStyle"
+    v-bind="$attrs"
   >
     <slot />
   </footer>

@@ -14,7 +14,7 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="q-dialog__body" :class="{ 'q-dialog__body--scrollable': scrollable }">
+  <div class="q-dialog__body" :class="{ 'q-dialog__body--scrollable': scrollable }" v-bind="$attrs">
     <slot />
   </div>
 </template>

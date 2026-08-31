@@ -41,6 +41,7 @@ const translucentStyle = computed<Record<string, string> | undefined>(() =>
       'q-header--glass': glass,
     }"
     :style="translucentStyle"
+    v-bind="$attrs"
   >
     <slot />
   </div>

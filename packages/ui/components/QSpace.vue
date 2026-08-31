@@ -4,7 +4,7 @@
 </script>
 
 <template>
-  <div class="q-space" aria-hidden="true">
+  <div class="q-space" aria-hidden="true" v-bind="$attrs">
     <slot />
   </div>
 </template>
