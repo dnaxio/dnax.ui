@@ -320,6 +320,37 @@ Pièges : `</script>` dans les template literals des docs doit être échappé
 Provider + « The dialog component ») et config-provider.vue (providerPattern)
 mis à jour. Build ✅. (2026-08-31)
 
+Exemple réel ajouté : docs/app/components/DemoConfirmDialog.vue (composant avec
+<q-dialog> racine + useDialogPluginComponent, chargement async 900ms, renvoie le
+message via onDialogOK(data)) + démo interactive « Live example » dans
+plugins/dialog.vue (bouton « Delete account… », log des résultats ok/cancel/
+dismiss). Piège : dans l'APP (docs/components), importer depuis
+`@dnax/ui/runtime` (import-protection Nuxt) — l'entrée directe `@dnax/ui` est
+interdite ; callbacks onOK/onCancel avec expression retournant un nombre →
+accolades (type void | Promise<void>). Build ✅. (2026-08-31)
+
+QDialog : nouvelles transitions `swipe-left` / `swipe-right` (style Flutter) — le
+panneau traverse TOUT l'écran (100vw, cubic-bezier 0.32,0.72,0,1) : swipe-left
+entre par la droite et sort par la gauche, swipe-right l'inverse. Variables
+`--q-dialog-swipe-from/to` posées par classe enter pour les keyframes in/out
+partagées. Type transition étendu (QDialog.vue) + démos docs (transitions +
+maximized) + scripts. Piège : quand on édite un template literal dans un SFC,
+ne JAMAIS perdre le `}` fermant du code exemple avant le backtick (erreur
+« Duplicate identifier » / « Cannot redeclare » trompeuse). Build ✅.
+(2026-08-31)
+
+Correction swipe : les variables `--q-dialog-swipe-from/to` n'étaient posées que
+sur les classes ENTER-active → à la fermeture (leave-active) elles étaient
+absentes et le keyframe out retombait sur le fallback -100vw (mauvaise direction
+pour swipe-right). Fix : poser les variables sur enter ET leave-active.
+Build ✅. (2026-08-31)
+
+Sémantique swipe clarifiée : comportement aller-retour comme la sidebar — le
+panneau vient du bord et y REVIENT à la fermeture (pas de traversée continue).
+Une seule variable `--q-dialog-swipe-x` (100vw pour left, -100vw pour right)
+posée sur enter+leave, utilisée par les keyframes in (from) ET out (to).
+Build ✅. (2026-08-31)
+
 ## API $q uniformisée : .open() / .show()
 
 Conventions Quasar alignées : `$q.dialog.open()`, `$q.bottomSheet.open()`,

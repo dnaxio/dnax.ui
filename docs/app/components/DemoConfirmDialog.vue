@@ -4,7 +4,7 @@
 // Reçoit title/message via componentProps, simule une suppression async, et
 // renvoie le message à travers onDialogOK(data).
 import { ref } from "vue"
-import { useDialogPluginComponent } from "@dnax/ui"
+import { useDialogPluginComponent } from "@dnax/ui/runtime"
 
 const props = defineProps<{
   title?: string

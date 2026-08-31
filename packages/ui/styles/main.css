@@ -6237,6 +6237,58 @@ html.dark body {
   }
 }
 
+/* swipe-* : le panneau glisse depuis un bord et y REVIENT à la fermeture
+   (aller-retour, comme la sidebar) — swipe-left : vient de la droite et y
+   retourne ; swipe-right : vient de la gauche et y retourne. */
+.q-dialog-swipe-left-enter-active,
+.q-dialog-swipe-left-leave-active,
+.q-dialog-swipe-right-enter-active,
+.q-dialog-swipe-right-leave-active {
+  transition: opacity var(--q-dialog-duration-enter, 0.2s) ease;
+}
+
+.q-dialog-swipe-left-enter-active .q-dialog__content,
+.q-dialog-swipe-left-leave-active .q-dialog__content {
+  --q-dialog-swipe-x: 100vw;
+}
+
+.q-dialog-swipe-right-enter-active .q-dialog__content,
+.q-dialog-swipe-right-leave-active .q-dialog__content {
+  --q-dialog-swipe-x: -100vw;
+}
+
+.q-dialog-swipe-left-enter-active .q-dialog__content,
+.q-dialog-swipe-right-enter-active .q-dialog__content {
+  animation: q-dialog-swipe-in var(--q-dialog-duration-enter, 0.3s) cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.q-dialog-swipe-left-leave-active .q-dialog__content,
+.q-dialog-swipe-right-leave-active .q-dialog__content {
+  animation: q-dialog-swipe-out var(--q-dialog-duration-leave, 0.2s) ease-in forwards;
+}
+
+@keyframes q-dialog-swipe-in {
+  from {
+    opacity: 0.6;
+    transform: translateX(var(--q-dialog-swipe-x, 100vw));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes q-dialog-swipe-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(var(--q-dialog-swipe-x, 100vw));
+  }
+}
+
 /* ===== QContainer ===== */
 .q-container {
   width: 100%;

@@ -40,8 +40,8 @@ interface Props {
   contentStyle?: StyleValue
   noBackdropDismiss?: boolean
   noEscDismiss?: boolean
-  /** Animation : fade | zoom | slide-up | slide-down | slide-left | slide-right (sinon basée sur position) */
-  transition?: "fade" | "zoom" | "slide-up" | "slide-down" | "slide-left" | "slide-right"
+  /** Animation : fade | zoom | slide-up | slide-down | slide-left | slide-right | swipe-left | swipe-right (sinon basée sur position) */
+  transition?: "fade" | "zoom" | "slide-up" | "slide-down" | "slide-left" | "slide-right" | "swipe-left" | "swipe-right"
   /** Durée des transitions d'entrée/sortie en ms (défaut CSS : ~200ms entrée, ~150ms sortie) */
   transitionDuration?: number
 }

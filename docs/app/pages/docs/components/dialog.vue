@@ -39,8 +39,8 @@ const openMaxWith = (t: (typeof transitions)[number]) => {
 const eventLog = ref("")
 
 // — Démos des transitions —
-const transition = ref<"fade" | "zoom" | "slide-up" | "slide-down" | "slide-left" | "slide-right">("fade")
-const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right"] as const
+const transition = ref<"fade" | "zoom" | "slide-up" | "slide-down" | "slide-left" | "slide-right" | "swipe-left" | "swipe-right">("fade")
+const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right", "swipe-left", "swipe-right"] as const
 const openWith = (t: (typeof transitions)[number]) => {
   transition.value = t
   openT.value = true
@@ -233,7 +233,7 @@ const openMaxT = ref(false)
 const maxTransition = ref("fade")
 const maxDuration = ref(200)
 const durations = [100, 200, 350, 500, 800]
-const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right"]
+const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right", "swipe-left", "swipe-right"]
 
 const openMaxWith = (t) => {
   maxTransition.value = t
@@ -244,7 +244,7 @@ const scriptTransitions = `import { ref } from "vue"
 
 const open = ref(false)
 const transition = ref("fade")
-const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right"]
+const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right", "swipe-left", "swipe-right"]
 
 const openWith = (t) => {
   transition.value = t

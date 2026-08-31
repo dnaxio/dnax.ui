@@ -21,9 +21,15 @@ const openDemo = () => {
         color: "negative",
       },
     })
-    .onOK((data) => log.value.unshift(`ok → ${data}`))
-    .onCancel(() => log.value.unshift("cancel"))
-    .onDismiss(() => log.value.unshift("dismiss (backdrop / Esc / ×)"))
+    .onOK((data) => {
+      log.value.unshift(`ok → ${data}`)
+    })
+    .onCancel(() => {
+      log.value.unshift("cancel")
+    })
+    .onDismiss(() => {
+      log.value.unshift("dismiss (backdrop / Esc / ×)")
+    })
 }
 
 const setupCode = `import { usePlugin } from "@dnax/ui"
@@ -107,13 +113,61 @@ const { open, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginCompon
         <b>Quasar-style contract</b>: the component passed to
         <code>$q.dialog.open()</code> must render a <code>&lt;q-dialog&gt;</code>
         as its <b>root</b>, driven by <code>useDialogPluginComponent()</code> — it
-        provides <code>open</code> (bind to <code>v-model</code>), and
+        provides <code>open</code> (bind to <code>v-model</code>, already
+        <code>true</code> so the dialog opens on mount), and
         <code>onDialogHide</code> (bind to <code>@hide</code>) so backdrop / Esc /
         × close resolves <code>onDismiss</code>. Call <code>onDialogOK(data)</code>
         or <code>onDialogCancel()</code> from your actions. Legacy components that
         emit <code>ok / cancel / dismiss / close</code> still work.
       </p>
       <q-syntax :code="componentCode" lang="html" filename="ConfirmDialog.vue" copy />
+
+      <h2 class="guide__h2">Live example</h2>
+      <p class="guide__note">
+        A real dialog component (<code>DemoConfirmDialog</code>) pushed through
+        <code>$q.dialog.open()</code> — try OK (async with loading), Cancel, and
+        the backdrop / Esc.
+      </p>
+      <div class="demo-row">
+        <q-btn unelevated no-caps color="negative" icon="lucide:trash-2" label="Delete account…" @click="openDemo" />
+      </div>
+      <div v-if="log.length" class="demo-log">
+        <p class="demo-log__label">Results</p>
+        <p v-for="(entry, i) in log" :key="i" class="demo-log__entry"><code>{{ entry }}</code></p>
+      </div>
     </section>
   </div>
 </template>
+
+<style scoped>
+.demo-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.demo-log {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.demo-log__label {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8b93a1;
+}
+.demo-log__entry {
+  margin: 0;
+  font-size: 13px;
+  color: #5b6472;
+}
+.demo-log__entry code {
+  background: rgba(25, 118, 210, 0.08);
+  color: var(--primary);
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+</style>
