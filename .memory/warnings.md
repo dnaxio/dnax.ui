@@ -202,3 +202,12 @@ right/bottom, fidèle Vant). Build ✅. (2026-08-31)
 défaut. Fix : résoudre via `colorValue` de `../lib/colors` (token →
 `var(--primary)`, sinon valeur directe hex/rgb) pour activeColor,
 activeBgColor et indicatorColor. Build ✅. (2026-08-31)
+
+## API $q uniformisée : .open() / .show()
+
+Conventions Quasar alignées : `$q.dialog.open()`, `$q.bottomSheet.open()`,
+`$q.imagePreview.open()`, `$q.loading.show()/hide()`, `$q.notify.show()`. `$q.notify`
+était une fonction directe → désormais hybride : appelable ET avec `.show` attaché
+(rétrocompat : `$q.notify(opts)` marche toujours). Les pages plugins docs
+(dialog/bottom-sheet/notify) utilisaient l'appel direct `$q.dialog({…})` etc. →
+mises à jour vers `.open()` / `.show()`. Build ✅. (2026-08-31)

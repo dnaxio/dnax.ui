@@ -56,6 +56,20 @@ const usageCounts = `<q-tabs v-model="tabCounts" no-caps active-color="primary">
   <q-tab name="sent" icon="lucide:send" label="Sent" />
 </q-tabs>`
 
+const usageSwitch = `<div class="row">
+  <q-tabs v-model="tab" active-color="primary" indicator-color="primary" class="col">
+    <q-tab name="one" label="One" />
+    <q-tab name="two" label="Two" />
+    <q-tab name="three" label="Three" />
+  </q-tabs>
+  <q-tabs v-model="tab" switch-indicator active-color="primary" indicator-color="primary" class="col">
+    <q-tab name="one" label="One" />
+    <q-tab name="two" label="Two" />
+    <q-tab name="three" label="Three" />
+  </q-tabs>
+</div>
+<!-- Haut : indicateur en bas (défaut). Bas : switch-indicator → en haut. -->`
+
 // — Scripts des démos (onglet "Script setup") —
 const scriptBasic = `import { ref } from "vue"
 
@@ -175,6 +189,35 @@ const tabCounts = ref("inbox")`
         </q-tabs>
       </docs-demo>
 
+      <h3 class="doc-h3">Switch indicator (top)</h3>
+      <p class="doc-note">
+        Same <code>v-model</code>, two styles — <b>top</b>: the default indicator at
+        the bottom (Material-style); <b>bottom</b>: <code>switch-indicator</code>
+        moves the accent bar to the <b>top</b> (iOS/mobile pattern). In vertical
+        mode it moves from the right edge to the left edge.
+      </p>
+      <docs-demo :code="usageSwitch" lang="html" filename="App.vue" :script="scriptBasic">
+        <div class="demo-switch-row">
+          <div class="demo-switch-col">
+            <p class="demo-p demo-switch-label">default (bottom)</p>
+            <q-tabs v-model="tab" active-color="primary" indicator-color="primary">
+              <q-tab name="one" label="One" />
+              <q-tab name="two" label="Two" />
+              <q-tab name="three" label="Three" />
+            </q-tabs>
+          </div>
+          <div class="demo-switch-col">
+            <p class="demo-p demo-switch-label">switch-indicator (top)</p>
+            <q-tabs v-model="tab" switch-indicator active-color="primary" indicator-color="primary">
+              <q-tab name="one" label="One" />
+              <q-tab name="two" label="Two" />
+              <q-tab name="three" label="Three" />
+            </q-tabs>
+          </div>
+        </div>
+        <p class="demo-p demo-tabs-meta">Selected tab: {{ tab }}</p>
+      </docs-demo>
+
       <h3 class="doc-h3">API</h3>
       <docs-api :comp="tabs" :source="tabsSource" />
     </section>
@@ -272,6 +315,23 @@ const tabCounts = ref("inbox")`
 }
 .demo-align-select {
   width: 180px;
+}
+.demo-switch-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.demo-switch-col {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.demo-switch-label {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8b93a1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 /* parent flex → vérifie que stretch remplit la largeur */
 .demo-tabs-stretch {
