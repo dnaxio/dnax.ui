@@ -5,9 +5,9 @@
 //   app.use(QPlugin)  →  accès $q via this.$q / getCurrentInstance().proxy.$q
 // ou import direct :
 //   import { $q } from "@dnax/ui"  →  $q.dialog.open(...)
-import { ref } from "vue"
+import { inject, ref } from "vue"
 import { h } from "vue"
-import type { App, Component, Ref } from "vue"
+import type { App, Component, InjectionKey, Ref } from "vue"
 import { toast } from "vue-sonner"
 import type { ExternalToast } from "vue-sonner"
 import QNotifyToast from "../components/QNotifyToast.vue"
@@ -42,6 +42,39 @@ export interface DialogController {
     dismiss?: () => void | Promise<void>
   }
   _opts: DialogOptions
+}
+
+// — Contexte plugin dialog (pattern Quasar) —
+// Le composant passé à $q.dialog.open({ component }) DOIT contenir un
+// <q-dialog v-model="open" @hide="onDialogHide"> à sa racine ; il pilote
+// l'ouverture via le composable useDialogPluginComponent().
+export interface DialogPluginContext {
+  /** Ref d'ouverture (v-model du <q-dialog> du composant) */
+  open: Ref<boolean>
+  /** Ferme en validant — le résolveur onOK est appelé */
+  onOK: (data?: unknown) => void
+  /** Ferme en annulant — le résolveur onCancel est appelé */
+  onCancel: () => void
+  /** Fermé par backdrop / Échap / × — le résolveur onDismiss est appelé */
+  onHide: () => void
+}
+
+export const qDialogPluginKey: InjectionKey<DialogPluginContext> = Symbol("q-dialog-plugin")
+
+/**
+ * Composable Quasar-style pour les composants passés à $q.dialog.open().
+ * Le composant doit rendre un <q-dialog v-model="open" @hide="onDialogHide">
+ * comme racine. Expose aussi onDialogOK / onDialogCancel pour fermer en validant
+ * ou en annulant, et onDialogHide à brancher sur @hide du q-dialog.
+ */
+export function useDialogPluginComponent() {
+  const ctx = inject(qDialogPluginKey, null)
+  return {
+    open: ctx?.open ?? ref(false),
+    onDialogHide: () => ctx?.onHide(),
+    onDialogOK: (data?: unknown) => ctx?.onOK(data),
+    onDialogCancel: () => ctx?.onCancel(),
+  }
 }
 
 // — Pile de dialogues (singleton module-level, client-side) —

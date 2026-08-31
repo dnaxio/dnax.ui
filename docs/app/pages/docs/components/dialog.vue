@@ -188,6 +188,24 @@ confirm
   .onOK(() => deleteAccount())
   .onCancel(() => console.log("cancelled"))`
 
+const usagePluginComponent = `<script setup lang="ts">
+import { useDialogPluginComponent } from "@dnax/ui"
+
+const { open, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginComponent()
+<\/script>
+
+<template>
+  <!-- Le composant passé à $q.dialog.open() doit commencer par <q-dialog> -->
+  <q-dialog v-model="open" @hide="onDialogHide">
+    <q-dialog-header title="Confirm deletion" description="This action cannot be undone." />
+    <div class="body">…</div>
+    <q-dialog-footer>
+      <q-btn flat label="Cancel" @click="onDialogCancel" />
+      <q-btn color="negative" label="Delete" @click="onDialogOK" />
+    </q-dialog-footer>
+  </q-dialog>
+</template>`
+
 // — Scripts des démos (onglet "Script setup") —
 const scriptOpen = `import { ref } from "vue"
 
@@ -465,13 +483,18 @@ const scriptTrigger = scriptOpen
       <p class="doc-note">
         Renders the stack of programmatic dialogs pushed with
         <code>$q.dialog.open()</code>. It is mounted automatically by the outermost
-        <code>&lt;q-config-provider&gt;</code> — no extra setup needed. Each entry is
-        rendered inside a <code>&lt;q-dialog&gt;</code>; when the content component emits
-        <code>ok</code>, <code>cancel</code>, <code>dismiss</code> or <code>close</code>,
-        the matching resolver (<code>onOK</code>, <code>onCancel</code>, <code>onDismiss</code>)
-        is called and the entry is removed.
+        <code>&lt;q-config-provider&gt;</code> — no extra setup needed. The component
+        passed in <code>component</code> is rendered <b>as-is</b>: it must start with
+        a <code>&lt;q-dialog&gt;</code> root (Quasar-style) and drive it with
+        <code>useDialogPluginComponent()</code>. Closing (backdrop, Esc, ×,
+        <code>onDialogOK</code>, <code>onDialogCancel</code>) calls the matching
+        resolver (<code>onOK</code>, <code>onCancel</code>, <code>onDismiss</code>)
+        and removes the entry. Legacy components emitting
+        <code>ok / cancel / dismiss / close</code> still work.
       </p>
       <q-syntax :code="usageProvider" lang="ts" filename="app.ts" copy />
+      <h3 class="doc-h3">The dialog component</h3>
+      <q-syntax :code="usagePluginComponent" lang="html" filename="ConfirmDialog.vue" copy />
       <h3 class="doc-h3">API</h3>
       <docs-api :comp="dialogProvider" :source="dialogProviderSource" />
     </section>

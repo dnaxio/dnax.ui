@@ -127,7 +127,22 @@ const confirm = $q.dialog.open({
   description: "This cannot be undone.",
 })
 confirm.onOK(() => remove())
-<\/script>`
+<\/script>
+
+<!-- ConfirmDialog.vue — doit commencer par <q-dialog> (pattern Quasar) -->
+<script setup lang="ts">
+import { useDialogPluginComponent } from "@dnax/ui"
+const { open, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginComponent()
+<\/script>
+<template>
+  <q-dialog v-model="open" @hide="onDialogHide">
+    <q-dialog-header title="Delete?" description="This cannot be undone." />
+    <q-dialog-footer>
+      <q-btn flat label="Cancel" @click="onDialogCancel" />
+      <q-btn color="negative" label="Delete" @click="onDialogOK" />
+    </q-dialog-footer>
+  </q-dialog>
+</template>`
 
 const scriptAppShell = `import { useRouter } from "vue-router"
 

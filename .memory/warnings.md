@@ -305,6 +305,21 @@ QTabs stretch : en plus de `width: 100%`, chaque `.q-tab` reçoit `flex: 1 1 aut
 même avec align left/center/right (règle placée APRÈS `flex: 0 0 auto` pour
 primer). Doc align/stretch mise à jour. Build ✅. (2026-08-31)
 
+## $q.dialog : pattern Quasar (composant = <q-dialog> racine)
+
+Le composant passé à `$q.dialog.open({ component })` doit désormais commencer par
+un `<q-dialog v-model="open" @hide="onDialogHide">` racine, piloté via le
+composable `useDialogPluginComponent()` (exporté depuis @dnax/ui). Le provider
+rend le composant TEL QUEL (plus de wrapper q-dialog) via `internal/QDialogHost.vue`
+qui fournit le contexte (open/onOK/onCancel/onHide) par provide/inject et re-émet
+les events legacy ok/cancel/dismiss/close. Fermeture (backdrop/Échap/×,
+onDialogOK/onDialogCancel) → résolveur appelé + entrée retirée.
+Pièges : `</script>` dans les template literals des docs doit être échappé
+(`<\/script>`) ; le LSP peut rester périmé sur les nouveaux fichiers internal
+(build tranche). Docs : plugins/dialog.vue, components/dialog.vue (section
+Provider + « The dialog component ») et config-provider.vue (providerPattern)
+mis à jour. Build ✅. (2026-08-31)
+
 ## API $q uniformisée : .open() / .show()
 
 Conventions Quasar alignées : `$q.dialog.open()`, `$q.bottomSheet.open()`,

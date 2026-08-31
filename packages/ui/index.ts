@@ -126,7 +126,7 @@ export { default as QUploader } from "./components/QUploader.vue"
 export { default as QVideo } from "./components/QVideo.vue"
 export { default as QVirtualScroll } from "./components/QVirtualScroll.vue"
 
-export { $q, usePlugin, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet } from "./lib/q"
+export { $q, usePlugin, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet, useDialogPluginComponent } from "./lib/q"
 export type {
   DialogOptions,
   DialogController,
