@@ -17,7 +17,7 @@ const providersCode = `<q-config-provider>
 
 const dialogCode = `const $q = usePlugin()
 
-$q.dialog({
+$q.dialog.open({
   component: ConfirmDialog, // imported SFC or global component name
   componentProps: { title: "Delete?", message: "This action cannot be undone." },
   persistent: true,

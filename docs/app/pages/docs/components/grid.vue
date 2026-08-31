@@ -1,6 +1,8 @@
 <script setup lang="ts">
-// Grid — documentation du composant QGrid : le conteneur de la grille responsive.
-// Les cellules (QCol) et l'alias sémantique (QRow) ont leurs propres pages.
+// Grid — documentation du composant QGrid : le conteneur de la grille responsive
+// (mode layout : QCol) et de la grille de cellules Vant-style (mode :column-num :
+// QGridItem). Les cellules (QCol, QGridItem) et l'alias sémantique (QRow) ont
+// leurs propres pages.
 import { componentSource, componentTag, useComponent } from "~/composables/useComponentDocs"
 import DocsApi from "~/components/DocsApi.vue"
 import DocsDemo from "~/components/DocsDemo.vue"
@@ -10,6 +12,13 @@ definePageMeta({ layout: "docs" })
 const grid = useComponent(() => "QGrid")
 const gridSource = componentSource("QGrid")
 const tag = componentTag("QGrid")
+
+const usageCells = `<q-grid :column-num="4" gutter="8" border clickable>
+  <q-grid-item icon="lucide:image" text="Photos" badge="3" />
+  <q-grid-item icon="lucide:video" text="Videos" />
+  <q-grid-item icon="lucide:music" text="Music" dot />
+  <q-grid-item icon="lucide:settings" text="Settings" />
+</q-grid>`
 
 const usageBasic = `<q-grid :cols="12" gap="16px">
   <q-col :span="12"><div class="cell">12</div></q-col>
@@ -117,6 +126,27 @@ const usageColsResponsive = `<q-grid :cols="12" :cols-md="6" :cols-lg="4" gap="1
         filename="App.vue"
         copy
       />
+    </section>
+
+    <!-- ═══════ Cell grid (Vant) ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Cell grid (Vant-style)</h2>
+      <p class="doc-note">
+        Passing <code>column-num</code> switches QGrid to the <b>cell mode</b>: the
+        <code>gutter</code>, <code>border</code>, <code>square</code>,
+        <code>center</code> and <code>clickable</code> options are applied to the
+        <b>&lt;q-grid-item&gt;</b> children — see the
+        <a class="doc-link" href="/docs/components/grid-item">Grid Item</a> page.
+      </p>
+
+      <docs-demo :code="usageCells" lang="html" filename="App.vue">
+        <q-grid :column-num="4" gutter="8" border clickable class="demo-grid">
+          <q-grid-item icon="lucide:image" text="Photos" badge="3" />
+          <q-grid-item icon="lucide:video" text="Videos" />
+          <q-grid-item icon="lucide:music" text="Music" dot />
+          <q-grid-item icon="lucide:settings" text="Settings" />
+        </q-grid>
+      </docs-demo>
     </section>
 
     <!-- ═══════ API ═══════ -->

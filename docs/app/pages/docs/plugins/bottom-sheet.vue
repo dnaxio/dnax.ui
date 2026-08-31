@@ -17,7 +17,7 @@ const providersCode = `<q-config-provider>
 
 const bottomSheetCode = `const $q = usePlugin()
 
-$q.bottomSheet({
+$q.bottomSheet.open({
   component: ShareSheet,
   componentProps: { file },
   title: "Share",

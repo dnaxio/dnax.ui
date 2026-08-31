@@ -44,7 +44,7 @@ useFixedBarOffset(rootEl, "page")
 <template>
   <q-virtual-scroll
     v-if="virtual"
-    ref="setRoot"
+    :ref="setRoot"
     class="q-page"
     :items="items"
     :item-key="itemKey"
@@ -65,7 +65,7 @@ useFixedBarOffset(rootEl, "page")
       <slot name="after" />
     </template>
   </q-virtual-scroll>
-  <div v-else ref="setRoot" class="q-page">
+  <div v-else :ref="setRoot" class="q-page">
     <slot />
   </div>
 </template>

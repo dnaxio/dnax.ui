@@ -25,6 +25,7 @@ export const qTabsKey: InjectionKey<QTabContext> = Symbol("q-tabs")
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, shallowRef, watch } from "vue"
 import { cva } from "class-variance-authority"
 import { cn } from "../lib/utils"
+import { colorValue } from "../lib/colors"
 
 const tabsVariants = cva("q-tabs", {
   variants: {
@@ -149,14 +150,15 @@ const indicatorStyle = computed<Record<string, string>>(() => {
   else {
     style.opacity = "0"
   }
-  if (props.indicatorColor) style.backgroundColor = props.indicatorColor
+  if (props.indicatorColor) style.backgroundColor = colorValue(props.indicatorColor)
   return style
 })
 
 const containerStyle = computed<Record<string, string>>(() => {
   const style: Record<string, string> = {}
-  if (props.activeColor) style["--q-tabs-active-color"] = props.activeColor
-  if (props.activeBgColor) style["--q-tabs-active-bg"] = props.activeBgColor
+  // Token (primary…) → var(--primary) ; sinon valeur directe (hex, rgb…)
+  if (props.activeColor) style["--q-tabs-active-color"] = colorValue(props.activeColor)
+  if (props.activeBgColor) style["--q-tabs-active-bg"] = colorValue(props.activeBgColor)
   return style
 })
 

@@ -4,38 +4,48 @@
 // Problème : les barres fixed sortent du flux (position: fixed) → le contenu de
 // q-page passe dessous. Ce module :
 //  - q-page (mode "page") reçoit un padding-top = hauteur cumulée des barres
-//    fixed frères qui le précèdent (le contenu ne se retrouve plus sous le header)
+//    fixed qui le précèdent (le contenu ne se retrouve plus sous le header)
 //  - chaque barre fixed suivante (mode "bar") s'empile sous la précédente (top)
 //
-// Les barres fixed sont détectées par le sélecteur FIXED_BAR_SELECTOR parmi les
-// frères du même parent ; la hauteur est observée (ResizeObserver) pour suivre
-// les changements de taille (contenu, safe-area).
+// Les barres fixed sont cherchées dans TOUT le sous-arbre de l'enveloppe q-app
+// (pas seulement parmi les frères directs) et ordonnées par position dans le
+// document : l'imbrication intermédiaire (wrapper, rendu conditionnel…) est
+// gérée. Les hauteurs sont observées (ResizeObserver) et l'ajout/suppression de
+// barres aussi (MutationObserver sur la racine).
 import { onBeforeUnmount, onMounted, watch } from "vue"
 import type { Ref } from "vue"
 
 export const FIXED_BAR_SELECTOR = ".q-header--fixed, .q-back-header--fixed"
 
-/** Hauteur cumulée des barres fixed qui précèdent `el` (frères du même parent) */
+/** Racine du layout : le .q-app le plus proche, sinon le parent direct. */
+function layoutRoot(el: HTMLElement): HTMLElement | null {
+  return el.closest(".q-app") ?? el.parentElement
+}
+
+/**
+ * Hauteur cumulée des barres fixed qui précèdent `el` dans l'ordre du document,
+ * sous la même enveloppe q-app. `el` lui-même (cas mode "bar") est exclu.
+ */
 export function fixedBarsHeightBefore(el: HTMLElement): number {
-  const parent = el.parentElement
-  if (!parent) return 0
+  const root = layoutRoot(el)
+  if (!root) return 0
+  const bars = Array.from(root.querySelectorAll<HTMLElement>(FIXED_BAR_SELECTOR))
   let total = 0
-  for (const child of parent.children) {
-    if (child === el) break
-    if (child instanceof HTMLElement && child.matches(FIXED_BAR_SELECTOR)) {
-      total += child.offsetHeight
+  for (const bar of bars) {
+    if (bar === el) continue
+    // DOCUMENT_POSITION_FOLLOWING = la barre est AVANT el dans le document
+    if (bar.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) {
+      total += bar.offsetHeight
     }
   }
   return total
 }
 
-/** Barres fixed frères de `el` (pour l'observation ResizeObserver) */
-function fixedBarSiblings(el: HTMLElement): HTMLElement[] {
-  const parent = el.parentElement
-  if (!parent) return []
-  return Array.from(parent.children).filter(
-    (c): c is HTMLElement => c instanceof HTMLElement && c.matches(FIXED_BAR_SELECTOR),
-  )
+/** Toutes les barres fixed sous l'enveloppe q-app (pour l'observation). */
+function fixedBarsInRoot(el: HTMLElement): HTMLElement[] {
+  const root = layoutRoot(el)
+  if (!root) return []
+  return Array.from(root.querySelectorAll<HTMLElement>(FIXED_BAR_SELECTOR))
 }
 
 /**
@@ -51,6 +61,16 @@ export function useFixedBarOffset(
   enabled: () => boolean = () => true,
 ) {
   let ro: ResizeObserver | null = null
+  let mo: MutationObserver | null = null
+
+  const sync = () => {
+    const node = el.value
+    if (!node || typeof ResizeObserver === "undefined") return
+    const bars = fixedBarsInRoot(node)
+    ro?.disconnect()
+    ro = new ResizeObserver(apply)
+    bars.forEach((b) => ro!.observe(b))
+  }
 
   const apply = () => {
     const node = el.value
@@ -77,22 +97,23 @@ export function useFixedBarOffset(
     }
   }
 
-  const observe = () => {
-    const node = el.value
-    if (!node || typeof ResizeObserver === "undefined") return
-    const bars = fixedBarSiblings(node)
-    if (!bars.length) return
-    ro = new ResizeObserver(apply)
-    bars.forEach((b) => ro!.observe(b))
-  }
-
   onMounted(() => {
     apply()
-    observe()
+    sync()
+    // Barres ajoutées/retirées dynamiquement (rendu conditionnel) → re-synchronise
+    const root = el.value ? layoutRoot(el.value) : null
+    if (root && typeof MutationObserver !== "undefined") {
+      mo = new MutationObserver(() => {
+        sync()
+        apply()
+      })
+      mo.observe(root, { childList: true, subtree: true })
+    }
     window.addEventListener("resize", apply)
   })
   onBeforeUnmount(() => {
     ro?.disconnect()
+    mo?.disconnect()
     window.removeEventListener("resize", apply)
   })
 

@@ -154,3 +154,51 @@ Suite : les chips n'étaient PAS conditionnés sur `multiple` → un select simp
 `use-chips` affichait chip + texte en double. Fix : `v-if="multiple && useChips"`
 sur le v-for des chips (comportement Quasar : `use-chips` ignoré en non-multiple,
 on affiche le texte du display). Build ✅. (2026-08-31)
+
+## Ref fonctionnel : warning « Template ref used on a non-ref value »
+
+Dans QPage.vue, un ref fonctionnel écrit `ref="setRoot"` (forme chaîne) déclenche
+le warning runtime-core « used on a non-ref value. It will not work in the
+production build » — le compilateur ne reconnaît pas la forme chaîne comme un ref
+fonctionnel. Fix : utiliser le binding `:ref="setRoot"` (forme expression) sur
+les deux branches (q-virtual-scroll composant → `.$el`, div → l'élément). Build ✅.
+(2026-08-31)
+
+## fixedLayout : détection sous q-app (pas seulement frères directs)
+
+V1 de `lib/fixedLayout.ts` ne parcourait que les frères directs du même parent →
+si q-page n'était pas un frère direct des headers (wrapper intermédiaire, rendu
+conditionnel), l'offset échouait. V2 : recherche de TOUTES les barres fixed sous
+l'enveloppe `.q-app` (layoutRoot = closest .q-app, sinon parent), ordonnées par
+`compareDocumentPosition` (DOCUMENT_POSITION_FOLLOWING = barre AVANT el), el
+lui-même exclu (mode bar) ; + MutationObserver childList/subtree sur la racine
+pour les barres ajoutées/retirées dynamiquement. Build ✅. (2026-08-31)
+
+## QGrid/QGridItem : mode cellules Vant-style
+
+QGrid étendu (rétrocompatible) : `column-num` (>0) active le mode cellules Vant —
+gutter, border, square, center, clickable, direction (vertical/horizontal),
+reverse, icon-size, icon-color (variables --q-grid-item-\* sur le conteneur).
+Nouveau QGridItem.vue (cellule : icon + text, badge 99+, dot, href/lien,
+disable, slots #icon/#default, emit click) + CSS main.css (`.q-grid--cell`,
+`.q-grid-item`, badge/dot, square aspect-ratio 1, borders, hover cliquable).
+Menu : Grid Item ajouté dans Styles > Columns (gen-menu STYLES + CUSTOM_PAGES
+grid-item) ; page docs grid-item.vue manuelle (Basic, Square, Horizontal,
+Links/colors/slots) + section « Cell grid (Vant-style) » dans grid.vue.
+llms.txt mis à jour. Piège TS : computed style `props.iconColor ? {color}
+: {}` → erreur Record → toujours initialiser `{}` puis assigner. Build ✅.
+(2026-08-31)
+
+Exemple doc grid-item.vue : « 6 items in a 4-column grid » — la grille wrap
+automatiquement, la dernière ligne partielle est gérée (2 cellules sur la 2e
+ligne) et les bordures ferment le cadre (bordure conteneur top/left + items
+right/bottom, fidèle Vant). Build ✅. (2026-08-31)
+
+## QTabs : active-color / indicator-color avec token (primary…) ignorés
+
+`active-color="primary"` était injecté BRUT dans les variables CSS
+(`--q-tabs-active-color: primary` → `color: primary` invalide) et
+`indicator-color` dans `backgroundColor` — le tab actif gardait la couleur
+défaut. Fix : résoudre via `colorValue` de `../lib/colors` (token →
+`var(--primary)`, sinon valeur directe hex/rgb) pour activeColor,
+activeBgColor et indicatorColor. Build ✅. (2026-08-31)

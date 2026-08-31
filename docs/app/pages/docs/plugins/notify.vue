@@ -22,7 +22,7 @@ const providersCode = `<q-config-provider>
 
 const notifyCode = `const $q = usePlugin()
 
-$q.notify({
+$q.notify.show({
   type: "positive", // positive | negative | warning | info
   message: "Saved successfully",
   caption: "All changes are up to date",
@@ -31,7 +31,7 @@ $q.notify({
 })
 
 // With an action
-$q.notify({
+$q.notify.show({
   message: "New version available",
   actions: [{ label: "Update", handler: () => update() }],
 })`
@@ -44,7 +44,7 @@ const usageDemo = `<div class="row">
 </div>`
 
 const fire = (type: "success" | "error" | "warning" | "info", message: string) => {
-  $q.notify({ type, message, caption: "via $q.notify", position: "top-right", timeout: 2500 })
+  $q.notify.show({ type, message, caption: "via $q.notify.show", position: "top-right", timeout: 2500 })
 }
 </script>
 

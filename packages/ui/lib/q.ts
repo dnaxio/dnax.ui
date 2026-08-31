@@ -248,7 +248,12 @@ function notify(opts: NotifyOptions): NotifyController {
   return { dismiss: () => toast.dismiss(id) }
 }
 
-/** API publique : $q.dialog / $q.bottomSheet / $q.notify / $q.imagePreview / $q.platform / $q.breakpoints / $q.screen / $q.loading */
+// API publique : $q.dialog / $q.bottomSheet / $q.notify / $q.imagePreview / $q.platform / $q.breakpoints / $q.screen / $q.loading
+// Conventions Quasar : .open() pour les piles (dialog, bottomSheet, imagePreview),
+// .show() pour notify et loading.
+const notifyPlugin = notify as typeof notify & { show: typeof notify }
+notifyPlugin.show = notify
+
 export const $q = {
   dialog: {
     open: openDialog,
@@ -259,7 +264,7 @@ export const $q = {
   imagePreview: {
     open: openImagePreview,
   },
-  notify,
+  notify: notifyPlugin,
   platform,
   breakpoints: qBreakpoints,
   screen,

@@ -60,6 +60,7 @@ export const menuItems: MenuGroup[] = [
         items: [
           { title: "Grid", link: "/docs/components/grid", export: "QGrid" },
           { title: "Col", link: "/docs/components/col", export: "QCol" },
+          { title: "Grid Item", link: "/docs/components/grid-item", export: "QGridItem" },
         ],
       },
       {
