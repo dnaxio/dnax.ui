@@ -126,6 +126,16 @@ computed dans QSelect.vue :
   réouverture → le panneau repart de la position CSS (avant : il revenait à
   l'endroit où on avait relâché le swipe). Build ✅. (2026-08-31)
 
+  Swipe mobile sidebar : le body bougeait au lieu de la sidebar — cause racine :
+  (1) `touch-action` n'est PAS hérité → le geste démarrant sur le contenu
+  scrollable (.q-sidebar\_\_content overflow-y) était pris par le navigateur comme
+  scroll du body ; fix : `touch-action: pan-y` sur TOUS les descendants
+  (.q-sidebar--offcanvas \*) + `overscroll-behavior: contain` sur la sidebar et le
+  contenu ; (2) le body n'était pas verrouillé à l'ouverture → scroll sous la
+  sidebar ; fix : watch open → `document.body.style.overflow = hidden` (comme
+  QDialog). z-index déjà 2000 (sidebar) / 1999 (backdrop) → suffisant. Build ✅.
+  (2026-08-31)
+
   ## Grid & Grid Item : page fusionnée + Styles plat
 
   Page docs `grid-item.vue` supprimée → tout est documenté sur `grid.vue`

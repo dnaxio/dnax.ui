@@ -113,6 +113,18 @@ onBeforeUnmount(() => {
   if (typeof document !== "undefined") document.removeEventListener("keydown", onDocKeydown)
 })
 
+// Verrouille le scroll du body quand la sidebar offcanvas est ouverte : le body
+// ne bouge plus en arrière-plan (et le swipe ne part pas sur la page)
+watch(
+  () => !isStatic.value && open.value,
+  (locked) => {
+    if (typeof document !== "undefined") {
+      document.body.style.overflow = locked ? "hidden" : ""
+    }
+  },
+  { immediate: true },
+)
+
 const rootClasses = computed(() =>
   cn(
     "q-sidebar",
