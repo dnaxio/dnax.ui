@@ -42,9 +42,10 @@ export const menuItems: MenuGroup[] = [
       {
         title: "Page",
         items: [
+          { title: "Config Provider", link: "/docs/components/config-provider", export: "QConfigProvider" },
+          { title: "Page Layout", link: "/docs/components/page", export: "QPage" },
           { title: "Header Layout", link: "/docs/components/header", export: "QHeader" },
           { title: "Footer Layout", link: "/docs/components/footer", export: "QFooter" },
-          { title: "Page Layout", link: "/docs/components/page", export: "QPage" },
           { title: "Sidebar Layout", link: "/docs/components/sidebar", export: "QSidebar" },
         ],
       },
@@ -91,7 +92,6 @@ export const menuItems: MenuGroup[] = [
       { title: "Chip", link: "/docs/components/chip", export: "QChip" },
       { title: "Circular Progress", link: "/docs/components/circular-progress", export: "QCircularProgress" },
       { title: "Collapse", link: "/docs/components/collapse", export: "QCollapse" },
-      { title: "Config Provider", link: "/docs/components/config-provider", export: "QConfigProvider" },
       { title: "Container", link: "/docs/components/container", export: "QContainer" },
       { title: "Count Down", link: "/docs/components/count-down", export: "QCountDown" },
       { title: "Country Picker", link: "/docs/components/country-picker", export: "QCountryPicker" },

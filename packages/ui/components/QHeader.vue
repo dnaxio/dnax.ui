@@ -1,7 +1,10 @@
 <script setup lang="ts">
 // QHeader — barre haute. fixed = position: fixed en haut (opt-in).
 // Safe-area top/left/right appliquées toujours (styles/main.css).
-import { computed } from "vue"
+// Quand plusieurs barres fixed sont empilées (q-back-header + q-header), chaque
+// barre se décale sous la précédente automatiquement.
+import { computed, ref } from "vue"
+import { useFixedBarOffset } from "../lib/fixedLayout"
 
 interface Props {
   /** Fixe la barre en haut de l'écran (sort du flux) */
@@ -16,6 +19,11 @@ const props = withDefaults(defineProps<Props>(), {
   fixed: false,
 })
 
+const rootEl = ref<HTMLElement | null>(null)
+
+// Empilement : top = hauteur cumulée des barres fixed précédentes (si fixed)
+useFixedBarOffset(rootEl, "bar", () => props.fixed)
+
 const translucentStyle = computed<Record<string, string> | undefined>(() =>
   props.translucent === true || typeof props.translucent === "number"
     ? { "--q-translucent-opacity": `${typeof props.translucent === "number" ? props.translucent : 70}%` }
@@ -25,6 +33,7 @@ const translucentStyle = computed<Record<string, string> | undefined>(() =>
 
 <template>
   <div
+    ref="rootEl"
     class="q-header"
     :class="{
       'q-header--fixed': fixed,

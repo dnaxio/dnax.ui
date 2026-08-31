@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // QBackHeader — barre de retour : <q-back-header title="Détails" fixed @back="router.back()" />
 // Bouton retour + titre + actions à droite ; safe-area top intégrée.
-import { computed } from "vue"
+import { computed, ref } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
+import { useFixedBarOffset } from "../lib/fixedLayout"
 
 interface Props {
   /** Titre de la page */
@@ -32,6 +33,11 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{ back: [] }>()
 
+const rootEl = ref<HTMLElement | null>(null)
+
+// Empilement : top = hauteur cumulée des barres fixed précédentes (si fixed)
+useFixedBarOffset(rootEl, "bar", () => props.fixed)
+
 const translucentStyle = computed<Record<string, string> | undefined>(() =>
   props.translucent === true || typeof props.translucent === "number"
     ? { "--q-translucent-opacity": `${typeof props.translucent === "number" ? props.translucent : 70}%` }
@@ -49,7 +55,7 @@ const headerClasses = computed(() =>
 </script>
 
 <template>
-  <header class="q-back-header" :class="headerClasses" :style="translucentStyle">
+  <header ref="rootEl" class="q-back-header" :class="headerClasses" :style="translucentStyle">
     <button
       v-if="showBack"
       type="button"

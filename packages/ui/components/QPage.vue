@@ -1,6 +1,10 @@
 <script setup lang="ts">
 // QPage — zone de contenu. Prop `virtual` : active le virtual scroll
 // (rendu fenêtré via QVirtualScroll) quand on a beaucoup d'items.
+// Padding-top automatique quand des barres fixed (q-header / q-back-header)
+// précèdent la page : le contenu reste sous les barres (jamais masqué).
+import { onBeforeUnmount, onMounted, ref } from "vue"
+import { useFixedBarOffset } from "../lib/fixedLayout"
 import QVirtualScroll from "./QVirtualScroll.vue"
 
 interface Props {
@@ -25,11 +29,22 @@ interface Props {
 }
 
 defineProps<Props>()
+
+const rootEl = ref<HTMLElement | null>(null)
+// ref fonctionnel : sur un élément → l'élément ; sur q-virtual-scroll (composant) → .$el
+const setRoot = (el: unknown) => {
+  const node = el as (HTMLElement & { $el?: HTMLElement }) | null
+  rootEl.value = node?.$el ?? node ?? null
+}
+
+// Offset automatique : padding-top = hauteur des barres fixed précédentes
+useFixedBarOffset(rootEl, "page")
 </script>
 
 <template>
   <q-virtual-scroll
     v-if="virtual"
+    ref="setRoot"
     class="q-page"
     :items="items"
     :item-key="itemKey"
@@ -50,7 +65,7 @@ defineProps<Props>()
       <slot name="after" />
     </template>
   </q-virtual-scroll>
-  <div v-else class="q-page">
+  <div v-else ref="setRoot" class="q-page">
     <slot />
   </div>
 </template>

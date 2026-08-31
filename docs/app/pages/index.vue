@@ -517,7 +517,9 @@ onMounted(() => {
   overflow: hidden;
   background: radial-gradient(ellipse 90% 60% at 50% -10%, #17345f 0%, #0b1526 55%, #070b13 100%);
   color: #fff;
-  padding: 150px 0 120px;
+  /* q-page ajoute déjà --q-page-offset (hauteur du header fixed) ; on ne
+     compense plus manuellement → padding = marge de design uniquement */
+  padding: 100px 0 120px;
 }
 .hero-aurora {
   position: absolute;
@@ -1547,7 +1549,7 @@ onMounted(() => {
 }
 @media (max-width: 640px) {
   .hero {
-    padding: 120px 0 96px;
+    padding: 70px 0 96px;
   }
   .hero-stats {
     gap: 22px;

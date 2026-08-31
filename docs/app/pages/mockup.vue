@@ -619,7 +619,8 @@ const pickScreen = (id: string) => {
 .mock-hero {
   position: relative;
   overflow: hidden;
-  padding: 124px 0 88px;
+  /* q-page ajoute déjà --q-page-offset (hauteur du header fixed) → marge design seule */
+  padding: 74px 0 88px;
   background: radial-gradient(ellipse 90% 60% at 50% -10%, #17345f 0%, #0b1526 55%, #070b13 100%);
   color: #fff;
 }

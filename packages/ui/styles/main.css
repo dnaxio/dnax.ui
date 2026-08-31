@@ -1,3 +1,23 @@
+/* ===== Reset global (Preflight Tailwind) =====
+   box-sizing: border-box partout : width:100% + padding (q-container, q-btn
+   stretch, q-toolbar…) ne débordent plus du viewport (scroll horizontal).
+   Sans ce reset, les composants en content-box débordaient. */
+*,
+::before,
+::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  tab-size: 4;
+}
+
+body {
+  margin: 0;
+  line-height: inherit;
+}
+
 /* ===== Tokens globaux ===== */
 /* Rayon de base des composants. Surchargé localement par la prop `rounded`
    (échelle none|xs|sm|md|lg via --q-radius) ou les composantProps du thème. */
@@ -580,6 +600,7 @@ html.dark body {
 
   position: relative;
   display: flex;
+  width: 100%;
   min-height: var(--q-tabs-h);
 }
 
@@ -611,16 +632,33 @@ html.dark body {
   flex: 1 1 auto;
 }
 
+/* align non-justify : les tabs gardent leur taille naturelle (sinon flex:1
+   les étire toujours → center/right n'auraient aucun effet) */
+.q-tabs--left .q-tab,
+.q-tabs--center .q-tab,
+.q-tabs--right .q-tab {
+  flex: 0 0 auto;
+}
+
 .q-tabs--dense .q-tab {
   padding: 0 12px;
 }
 
-.q-tabs--shrink {
-  flex: 0 1 auto;
-}
-
 .q-tabs--stretch {
   align-self: stretch;
+  flex: 1 1 auto;
+}
+
+/* Dans un parent flex (QToolbar…) sans align-items: stretch, la barre ne prend
+   que la largeur de son contenu → center/right sans effet. stretch force la
+   largeur disponible ET l'étirement sur l'axe croisé. */
+.q-tabs--stretch.q-tabs {
+  width: 100%;
+}
+
+.q-tabs--shrink {
+  flex: 0 1 auto;
+  width: auto;
 }
 
 .q-tabs--vertical {

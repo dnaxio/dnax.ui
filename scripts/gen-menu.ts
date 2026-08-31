@@ -70,6 +70,7 @@ const CUSTOM_PAGES = new Set([
   "btn-group",
   "col",
   "collapse",
+  "config-provider",
   "container",
   "count-down",
   "data-grid",
@@ -151,7 +152,14 @@ const EXCLUDED = new Set(["QNotifyProvider", "QNotifyToast"]);
 
 // Composants Layout : regroupés sous « Layouts > Page » dans le menu
 // (leurs pages restent générées, mais hors du groupe Components).
+// Ordre : configuration (Config Provider) → disposition (Page) → barres (Header/Footer) → Sidebar.
 const LAYOUTS = [
+  {
+    title: "Config Provider",
+    link: "/docs/components/config-provider",
+    export: "QConfigProvider",
+  },
+  { title: "Page Layout", link: "/docs/components/page", export: "QPage" },
   {
     title: "Header Layout",
     link: "/docs/components/header",
@@ -162,7 +170,6 @@ const LAYOUTS = [
     link: "/docs/components/footer",
     export: "QFooter",
   },
-  { title: "Page Layout", link: "/docs/components/page", export: "QPage" },
   {
     title: "Sidebar Layout",
     link: "/docs/components/sidebar",

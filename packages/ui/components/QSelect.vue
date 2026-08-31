@@ -300,6 +300,12 @@ const inputDisplay = computed(() => {
   return selectedOptions.value[0] ? getOptionLabel(selectedOptions.value[0]) : ""
 })
 
+// En mode multiple + use-chips, le texte du display est remplacé par les chips ;
+// on ne garde le display que pour le placeholder quand la liste est vide.
+const showDisplay = computed(
+  () => !(props.multiple && props.useChips) || selectedOptions.value.length === 0,
+)
+
 const floatActive = computed(
   () => focused.value || query.value !== "" || selectedOptions.value.length > 0 || props.stackLabel,
 )
@@ -497,7 +503,14 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
     <div class="q-field__control" @click="onControlClick">
       <slot name="prepend" />
 
-      <span v-for="(opt, i) in selectedOptions" :key="`${String(getOptionValue(opt))}-${i}`" class="q-select__chip">
+      <!-- Chips : uniquement en multiple + use-chips (comme Quasar — un select
+           simple avec use-chips affiche juste le texte du display) -->
+      <span
+        v-for="(opt, i) in selectedOptions"
+        v-if="multiple && useChips"
+        :key="`${String(getOptionValue(opt))}-${i}`"
+        class="q-select__chip"
+      >
         <span class="q-select__chip-label">{{ getOptionLabel(opt) }}</span>
         <button
           v-if="!disable && !readonly"
@@ -527,7 +540,7 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
         @keydown="onKeydown"
       />
       <span
-        v-else
+        v-else-if="showDisplay"
         class="q-select__display"
         :class="{ 'q-select__display--placeholder': !displayText }"
       >

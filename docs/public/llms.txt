@@ -19,9 +19,10 @@ The design system lives in `@dnax/ui` (npm package `@dnax/ui`, source in `packag
 
 ## Layouts
 
+- [Config Provider](/docs/components/config-provider) — the app root: theme (mode, colors, default component props) + programmatic providers ($q.dialog, $q.bottomSheet, $q.notify…) ; documents the canonical app shell (`<q-config-provider><q-app><q-header/><q-page><q-container/></q-page><q-footer/></q-app></q-config-provider>`) and the structure patterns of each family (dialog, bottom sheet, action sheet, sidebar, field pickers).
+- [Page Layout](/docs/components/page)
 - [Header Layout](/docs/components/header)
 - [Footer Layout](/docs/components/footer)
-- [Page Layout](/docs/components/page)
 - [Sidebar Layout](/docs/components/sidebar)
 
 ## Styles
@@ -50,7 +51,6 @@ The design system lives in `@dnax/ui` (npm package `@dnax/ui`, source in `packag
 - [Chip](/docs/components/chip)
 - [Circular Progress](/docs/components/circular-progress)
 - [Collapse](/docs/components/collapse)
-- [Config Provider](/docs/components/config-provider)
 - [Container](/docs/components/container)
 - [Count Down](/docs/components/count-down)
 - [Country Picker](/docs/components/country-picker)

@@ -18,6 +18,10 @@ const tabAlign = ref("home")
 const tabIcons = ref("inbox")
 const tabCounts = ref("inbox")
 
+// — Démo align/stretch —
+const alignDemo = ref<"left" | "center" | "right" | "justify">("center")
+const stretchDemo = ref(false)
+
 const usageBasic = `<q-tabs v-model="tab" active-color="primary" indicator-color="primary">
   <q-tab name="one" label="One" />
   <q-tab name="two" label="Two" />
@@ -27,7 +31,8 @@ const usageBasic = `<q-tabs v-model="tab" active-color="primary" indicator-color
 
 const usageAlign = `<q-tabs
   v-model="tabAlign"
-  align="justify"
+  :align="align"
+  :stretch="stretch"
   no-caps
   dense
   active-color="secondary"
@@ -58,7 +63,9 @@ const tab = ref("one")`
 
 const scriptAlign = `import { ref } from "vue"
 
-const tabAlign = ref("home")`
+const tabAlign = ref("home")
+const align = ref("center")
+const stretch = ref(false)`
 
 const scriptIcons = `import { ref } from "vue"
 
@@ -106,19 +113,41 @@ const tabCounts = ref("inbox")`
       </docs-demo>
 
       <h3 class="doc-h3">Align &amp; size</h3>
+      <p class="doc-note">
+        <code>align</code> distributes the tabs — <code>left</code>,
+        <code>center</code>, <code>right</code> (natural width) or
+        <code>justify</code> (equal width). <code>stretch</code> makes the bar
+        fill the whole parent width even inside a flex container.
+      </p>
       <docs-demo :code="usageAlign" lang="html" filename="App.vue" :script="scriptAlign">
+        <div class="demo-row demo-row--align">
+          <q-select
+            v-model="alignDemo"
+            :options="['left', 'center', 'right', 'justify']"
+            label="align"
+            outlined
+            dense
+            class="demo-align-select"
+          />
+          <q-checkbox v-model="stretchDemo" label="stretch" color="secondary" />
+        </div>
         <q-tabs
           v-model="tabAlign"
-          align="justify"
+          :align="alignDemo"
+          :stretch="stretchDemo"
           no-caps
           dense
           active-color="secondary"
           indicator-color="secondary"
+          class="demo-tabs-stretch"
         >
           <q-tab name="home" label="Home" />
           <q-tab name="profile" label="Profile" />
           <q-tab name="messages" label="Messages" />
         </q-tabs>
+        <p class="demo-p demo-tabs-meta">
+          align = {{ alignDemo }} · stretch = {{ stretchDemo ? "on" : "off" }}
+        </p>
       </docs-demo>
 
       <h3 class="doc-h3">Icons &amp; alerts</h3>
@@ -233,5 +262,19 @@ const tabCounts = ref("inbox")`
 /* — styles des démos — */
 .demo-tabs-meta {
   margin-top: 12px;
+}
+.demo-row--align {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.demo-align-select {
+  width: 180px;
+}
+/* parent flex → vérifie que stretch remplit la largeur */
+.demo-tabs-stretch {
+  display: flex;
 }
 </style>
