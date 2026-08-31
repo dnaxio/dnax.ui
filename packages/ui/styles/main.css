@@ -4497,11 +4497,8 @@ html.dark body {
 }
 
 .q-bottom-sheet__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px 8px;
+  padding: 0; /* le padding est porté par le <q-toolbar> embarqué */
+  border-bottom: 1px solid rgb(0 0 0 / 0.08);
 }
 
 .q-bottom-sheet__header-text {
@@ -4551,11 +4548,17 @@ html.dark body {
 }
 
 .q-bottom-sheet__footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 8px 16px 16px;
+  padding: 0; /* le padding est porté par le <q-toolbar> embarqué */
+  border-top: 1px solid rgb(0 0 0 / 0.08);
+}
+
+.q-bottom-sheet__footer .q-toolbar {
+  justify-content: flex-end; /* actions alignées à droite (défaut) */
+}
+
+.q-bottom-sheet__panel--dark .q-bottom-sheet__header,
+.q-bottom-sheet__panel--dark .q-bottom-sheet__footer {
+  border-color: rgb(255 255 255 / 0.12);
 }
 
 /* — transitions (slide vertical type vaul) — */

@@ -19,6 +19,38 @@ porte le padding — plus de `display: flex`/`padding: 16px` sur les conteneurs.
 - Shell dialog = flex-column (header/content/footer) ; `QDialogContent`
   `scrollable` → corps qui défile entre les deux barres fixes
 
+## QBottomSheetHeader/Footer = mêmes barres toolbar — 2026-08-31
+
+Étendu à la famille bottom sheet pour la cohérence dialog ↔ sheet :
+`QBottomSheetHeader` (titre + `q-space` + fermer dans `<q-toolbar>`) et
+`QBottomSheetFooter` (actions dans `<q-toolbar>`, alignées à droite via
+`.q-bottom-sheet__footer .q-toolbar { justify-content: flex-end }`).
+
+- `padding: 0` sur header/footer (délégué au toolbar) ; bordure basse ajoutée au
+  header, bordure haute au footer (`--dark` → `rgb(255 255 255 / 0.12)`)
+- Safe-area bottom toujours portée par `.q-bottom-sheet__panel` (le footer se
+  cale au-dessus) ; pas d'inset top (sheet ancré en bas)
+- Docs `bottom-sheet.vue` : notes header/footer à jour. Build ✅.
+
+## QDialogHeader/Footer = barres d'app avec QToolbar embarqué — 2026-08-31
+
+`QDialogHeader` et `QDialogFooter` rendent désormais des barres type `q-header`/
+`q-footer` : `<div.q-dialog__header>` (sticky, bordure basse, fond hérité)
+contenant un **`<q-toolbar>` embarqué** (min-height 50px, padding 0 12px) qui
+porte le padding — plus de `display: flex`/`padding: 16px` sur les conteneurs.
+
+- Header : titre/description à gauche, `<q-space/>`, bouton fermer à droite,
+  slot défaut en fin de toolbar
+- Footer : actions embarquées dans le toolbar, alignées à droite
+  (`.q-dialog__footer .q-toolbar { justify-content: flex-end }`)
+- Imports explicites `QToolbar`/`QSpace` (pas d'auto-import interne dans
+  `packages/ui/components/`)
+- Safe-area : `--maximized`/`--top` → inset top sur le header ; `--maximized`
+  ajoute gauche/droite (paysage) ; `--maximized`/`--bottom` → inset bottom sur
+  le footer — miroir de `QHeader`/`QFooter`
+- Shell dialog = flex-column (header/content/footer) ; `QDialogContent`
+  `scrollable` → corps qui défile entre les deux barres fixes
+
 ## Icônes : @iconify/vue plutôt que @lucide/vue — 2026-08-28
 
 Toutes les icônes passent par **Iconify** (300 000+ icônes, SVG à la demande).
