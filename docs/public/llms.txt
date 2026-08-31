@@ -118,6 +118,7 @@ The imperative plugins are called through the `$q` object (available after insta
 - [Notify](/docs/plugins/notify)
 - [Loading](/docs/plugins/loading)
 - [Image Preview](/docs/plugins/image-preview)
+- [Platform](/docs/plugins/platform)
 
 ## Key implementation notes for LLMs
 

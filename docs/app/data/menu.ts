@@ -150,6 +150,7 @@ export const menuItems: MenuGroup[] = [
       { title: "Notify", link: "/docs/plugins/notify" },
       { title: "Loading", link: "/docs/plugins/loading" },
       { title: "Image Preview", link: "/docs/plugins/image-preview" },
+      { title: "Platform", link: "/docs/plugins/platform" },
     ],
   },
 ]

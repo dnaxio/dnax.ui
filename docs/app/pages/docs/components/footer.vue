@@ -160,8 +160,12 @@ const fixedCode = `<q-footer fixed bordered>
       <h2 class="doc-h2">Fixed</h2>
       <p class="doc-note">
         <code>fixed</code> pins the footer to the bottom of the viewport
-        (<code>position: fixed</code>), out of the page flow. Combined with
-        <code>reveal</code>, it hides when scrolling down and reappears scrolling up.
+        (<code>position: fixed</code>), out of the page flow. The following
+        <code>&lt;q-page&gt;</code> gets an automatic <code>padding-bottom</code>
+        equal to the footer height, so the content is never hidden behind the bar
+        when scrolled to the end — several fixed footers stack from the bottom.
+        Combined with <code>reveal</code>, it hides when scrolling down and
+        reappears scrolling up.
       </p>
 
       <docs-demo :code="fixedCode" lang="html" filename="App.vue">

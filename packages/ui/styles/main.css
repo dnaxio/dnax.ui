@@ -66,9 +66,14 @@ body {
 /* Safe-area intégrées à la règle de base .q-footer (plus bas) */
 
 /* Contenu de page : pas de padding par défaut (barres dans le flux).
-   Compensation UNIQUEMENT si une barre est fixée (:has) : 50px + safe-area */
+   Compensation UNIQUEMENT si une barre est fixée (:has) : 50px + safe-area.
+   Safe-area bas : le contenu scroillé jusqu'au bout ne passe pas sous la barre
+   d'accueil iOS. */
 .q-page {
   flex: 1 1 auto; /* prend l'espace restant */
+  padding-bottom: 0;
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .q-app:has(.q-header--fixed) .q-page {
@@ -5815,14 +5820,28 @@ html.dark body {
 
 /* safe-area : l'encoche en haut est gérée par le header, la barre d'accueil en bas par le footer */
 .q-dialog__content--maximized .q-dialog__header,
-.q-dialog__content--top .q-dialog__header {
+.q-dialog__content--top .q-dialog__header,
+.q-dialog__content--left .q-dialog__header,
+.q-dialog__content--right .q-dialog__header {
   padding-top: 0;
   padding-top: constant(safe-area-inset-top);
   padding-top: env(safe-area-inset-top);
 }
 
+/* fullscreen en paysage : l'encoche latérale passe dans le header (comme QHeader) */
+.q-dialog__content--maximized .q-dialog__header {
+  padding-left: 0;
+  padding-left: constant(safe-area-inset-left);
+  padding-left: env(safe-area-inset-left);
+  padding-right: 0;
+  padding-right: constant(safe-area-inset-right);
+  padding-right: env(safe-area-inset-right);
+}
+
 .q-dialog__content--maximized .q-dialog__footer,
-.q-dialog__content--bottom .q-dialog__footer {
+.q-dialog__content--bottom .q-dialog__footer,
+.q-dialog__content--left .q-dialog__footer,
+.q-dialog__content--right .q-dialog__footer {
   padding-bottom: 0;
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
@@ -5844,11 +5863,7 @@ html.dark body {
   position: sticky;
   top: 0;
   z-index: 1;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px;
+  padding: 0; /* le padding est porté par le <q-toolbar> embarqué */
   border-bottom: 1px solid rgb(0 0 0 / 0.08);
   background-color: inherit; /* reste opaque pendant le scroll du body */
 }
@@ -5899,13 +5914,24 @@ html.dark body {
   position: sticky;
   bottom: 0;
   z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 16px 16px;
+  padding: 0; /* le padding est porté par le <q-toolbar> embarqué */
   border-top: 1px solid rgb(0 0 0 / 0.08);
   background-color: inherit;
+}
+
+.q-dialog__footer .q-toolbar {
+  justify-content: flex-end; /* actions alignées à droite (défaut) */
+}
+
+.q-dialog__body {
+  min-height: 0;
+  padding: 4px 16px 16px;
+}
+
+.q-dialog__body--scrollable {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .q-dialog__trigger {

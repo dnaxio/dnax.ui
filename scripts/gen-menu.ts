@@ -23,6 +23,7 @@ const FAMILIES: Record<string, string[]> = {
   Dialog: [
     "QDialog",
     "QDialogHeader",
+    "QDialogContent",
     "QDialogFooter",
     "QDialogTrigger",
     "QDialogProvider",
@@ -202,6 +203,7 @@ const PLUGINS = [
   { title: "Notify", link: "/docs/plugins/notify" },
   { title: "Loading", link: "/docs/plugins/loading" },
   { title: "Image Preview", link: "/docs/plugins/image-preview" },
+  { title: "Platform", link: "/docs/plugins/platform" },
 ];
 
 const titleOf = (name: string) => {

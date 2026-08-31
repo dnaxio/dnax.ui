@@ -1,5 +1,24 @@
 # Décisions d'architecture / d'API (tag: decisions)
 
+## QDialogHeader/Footer = barres d'app avec QToolbar embarqué — 2026-08-31
+
+`QDialogHeader` et `QDialogFooter` rendent désormais des barres type `q-header`/
+`q-footer` : `<div.q-dialog__header>` (sticky, bordure basse, fond hérité)
+contenant un **`<q-toolbar>` embarqué** (min-height 50px, padding 0 12px) qui
+porte le padding — plus de `display: flex`/`padding: 16px` sur les conteneurs.
+
+- Header : titre/description à gauche, `<q-space/>`, bouton fermer à droite,
+  slot défaut en fin de toolbar
+- Footer : actions embarquées dans le toolbar, alignées à droite
+  (`.q-dialog__footer .q-toolbar { justify-content: flex-end }`)
+- Imports explicites `QToolbar`/`QSpace` (pas d'auto-import interne dans
+  `packages/ui/components/`)
+- Safe-area : `--maximized`/`--top` → inset top sur le header ; `--maximized`
+  ajoute gauche/droite (paysage) ; `--maximized`/`--bottom` → inset bottom sur
+  le footer — miroir de `QHeader`/`QFooter`
+- Shell dialog = flex-column (header/content/footer) ; `QDialogContent`
+  `scrollable` → corps qui défile entre les deux barres fixes
+
 ## Icônes : @iconify/vue plutôt que @lucide/vue — 2026-08-28
 
 Toutes les icônes passent par **Iconify** (300 000+ icônes, SVG à la demande).

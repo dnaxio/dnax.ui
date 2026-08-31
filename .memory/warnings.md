@@ -1,5 +1,42 @@
 # Pièges rencontrés (tag: warnings)
 
+## Safe-area : .q-page bas manquant + panneaux dialog latéraux — 2026-08-31
+
+Audit safe-area complet (AGENTS.md listait `.q-page` → bottom mais la règle
+n'existait pas dans `main.css`). Correctifs :
+
+- `.q-page` : ajout `padding-bottom: env(safe-area-inset-bottom)` (chaîne
+  `0 → constant → env`). Interplay fixedLayout : inline `padding-bottom` (hauteur
+  footer mesurée, qui inclut l'inset du footer) remplace la règle CSS ; sans
+  footer, `""` → retombe sur la règle CSS. Fallback `:has(.q-footer--fixed)`
+  (50px + inset) garde sa spécificité supérieure avant hydration.
+- `q-dialog__header` top-inset étendu à `--left`/`--right` (panneaux latéraux
+  pleine hauteur → touchent l'encoche) ; `q-dialog__footer` bottom-inset étendu
+  à `--left`/`--right` (touchent la barre d'accueil).
+- Déjà OK : `q-header` (top+gauche+droite), `q-footer` (bas+gauche+droite),
+  `q-back-header` (top), bottom-sheet/action-sheet/date/country picker
+  (bas via panel), image-preview, sidebar, fab, back-top, select sheet.
+- Piège : toujours vérifier que la chaîne `0 → constant → env` est complète.
+  Build ✅. (2026-08-31)
+
+## QDialogContent : membre de la famille Dialog (gen-menu) — 2026-08-31
+
+Nouveau `QDialogContent.vue` (corps de modale, prop `scrollable` → le corps défile
+entre header/footer fixes : panneau en flex-column `max-height: 90vh`).
+
+- **Piège gen-menu** : tout composant hors FAMILIES devient un « single » → génère
+  une page. `QDialogContent` seul → `content.vue` (slug inutilisable). Déclaré
+  membre de la famille `Dialog` dans `scripts/gen-menu.ts` FAMILIES (comme Grid)
+  → aucune page, documenté sur la page dialog. `bun run generate` (packages/ui)
+  - `bun scripts/gen-menu.ts` (racine) à chaque ajout.
+- **Piège scroll** : le panneau `.q-dialog__content` a `overflow: auto` (mais
+  `hidden` en maximized) → toujours `flex: 1 1 auto; min-height: 0;
+overflow-y: auto; overscroll-behavior: contain` sur le body scrollable, sinon
+  header/footer sticky ne tiennent pas en maximized.
+- Démo plugin : `docs/app/components/DemoScrollDialog.vue` (terms, 12 paragraphes)
+  poussé via `$q.dialog.open()` ; page `plugins/dialog.vue` section
+  « Header · content · footer ». Build ✅. (2026-08-31)
+
 ## Nuxt : import de l'entrée d'un module interdit dans le code de l'app
 
 `import("@dnax/ui")` depuis `app/` → erreur « Importing directly from module

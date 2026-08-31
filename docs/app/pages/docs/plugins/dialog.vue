@@ -3,6 +3,7 @@
 import { ref } from "vue"
 import { usePlugin } from "@dnax/ui/runtime"
 import DemoConfirmDialog from "~/components/DemoConfirmDialog.vue"
+import DemoScrollDialog from "~/components/DemoScrollDialog.vue"
 
 definePageMeta({ layout: "docs" })
 
@@ -29,6 +30,22 @@ const openDemo = () => {
     })
     .onDismiss(() => {
       log.value.unshift("dismiss (backdrop / Esc / ×)")
+    })
+}
+
+const openTerms = () => {
+  $q.dialog
+    .open({
+      component: DemoScrollDialog,
+    })
+    .onOK(() => {
+      log.value.unshift("accepted")
+    })
+    .onCancel(() => {
+      log.value.unshift("cancel (terms)")
+    })
+    .onDismiss(() => {
+      log.value.unshift("dismiss (terms)")
     })
 }
 
@@ -70,6 +87,29 @@ const { open, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginCompon
     <q-dialog-footer>
       <q-btn flat label="Cancel" @click="onDialogCancel" />
       <q-btn color="negative" label="Delete" @click="onDialogOK" />
+    </q-dialog-footer>
+  </q-dialog>
+</template>`
+
+const contentCode = `<script setup lang="ts">
+import { useDialogPluginComponent } from "@dnax/ui/runtime"
+
+const { open, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginComponent()
+<\/script>
+
+<template>
+  <q-dialog v-model="open" @hide="onDialogHide">
+    <q-dialog-header
+      title="Terms of service"
+      description="Scroll to read the full agreement"
+    />
+    <q-dialog-content scrollable>
+      <!-- corps long : défile entre header et footer fixes -->
+      <p>…</p>
+    </q-dialog-content>
+    <q-dialog-footer>
+      <q-btn flat label="Cancel" @click="onDialogCancel" />
+      <q-btn unelevated no-caps color="primary" label="Accept" @click="onDialogOK" />
     </q-dialog-footer>
   </q-dialog>
 </template>`
@@ -122,14 +162,30 @@ const { open, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginCompon
       </p>
       <q-syntax :code="componentCode" lang="html" filename="ConfirmDialog.vue" copy />
 
+      <h2 class="guide__h2">Header · content · footer</h2>
+      <p class="guide__note">
+        The <code>QDialog</code> family provides a header, a body section and a
+        footer: <code>&lt;q-dialog-header&gt;</code> (title + description +
+        close button, rendered as a <code>q-toolbar</code> bar),
+        <code>&lt;q-dialog-content&gt;</code> and
+        <code>&lt;q-dialog-footer&gt;</code> (actions aligned right). The panel
+        is a flex column capped at <code>90vh</code> — add the
+        <code>scrollable</code> prop on <code>q-dialog-content</code> to let a
+        long body scroll between fixed header and footer (required in
+        <code>maximized</code> mode, where the panel itself never scrolls).
+      </p>
+      <q-syntax :code="contentCode" lang="html" filename="TermsDialog.vue" copy />
+
       <h2 class="guide__h2">Live example</h2>
       <p class="guide__note">
         A real dialog component (<code>DemoConfirmDialog</code>) pushed through
         <code>$q.dialog.open()</code> — try OK (async with loading), Cancel, and
-        the backdrop / Esc.
+        the backdrop / Esc. The second button opens a
+        <code>TermsDialog</code> with a scrollable body.
       </p>
       <div class="demo-row">
         <q-btn unelevated no-caps color="negative" icon="lucide:trash-2" label="Delete account…" @click="openDemo" />
+        <q-btn unelevated no-caps color="primary" icon="lucide:file-text" label="Terms of service…" @click="openTerms" />
       </div>
       <div v-if="log.length" class="demo-log">
         <p class="demo-log__label">Results</p>

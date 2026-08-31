@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // QPage — zone de contenu. Prop `virtual` : active le virtual scroll
 // (rendu fenêtré via QVirtualScroll) quand on a beaucoup d'items.
-// Padding-top automatique quand des barres fixed (q-header / q-back-header)
-// précèdent la page : le contenu reste sous les barres (jamais masqué).
+// Padding-top/padding-bottom automatiques quand des barres fixed
+// (q-header / q-back-header avant, q-footer après) entourent la page : le
+// contenu reste visible, jamais masqué par les barres au scroll.
 import { onBeforeUnmount, onMounted, ref } from "vue"
 import { useFixedBarOffset } from "../lib/fixedLayout"
 import QVirtualScroll from "./QVirtualScroll.vue"

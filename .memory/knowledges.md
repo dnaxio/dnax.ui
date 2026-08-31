@@ -1,5 +1,43 @@
 # Connaissances & bonnes pratiques (tag: knowledges)
 
+## fixedLayout — offset des barres fixed haut ET bas — 2026-08-31
+
+`lib/fixedLayout.ts` gère les barres fixed dans tout `.q-app`
+(`compareDocumentPosition` + ResizeObserver + MutationObserver) :
+
+- Sélecteurs séparés : `FIXED_TOP_SELECTOR` (`.q-header--fixed`,
+  `.q-back-header--fixed`) et `FIXED_BOTTOM_SELECTOR` (`.q-footer--fixed`) ;
+  `FIXED_BAR_SELECTOR` = les deux (observation)
+- `fixedBarsHeightBefore(el)` → barres HAUT avant el (padding-top du q-page,
+  top des barres) ; `fixedBarsHeightAfter(el)` → barres BAS après el
+  (padding-bottom du q-page, bottom des footers)
+- `useFixedBarOffset` modes : `"page"` (padding-top + padding-bottom + vars
+  `--q-page-offset`/`--q-page-offset-bottom`), `"bar"` (top, empilement haut),
+  `"bar-bottom"` (bottom, empilement des footers depuis le bas)
+- QFooter fixed → `useFixedBarOffset(rootEl, "bar-bottom", () => props.fixed)` ;
+  le q-page qui précède reçoit le padding-bottom mesuré (remplace le fallback CSS
+  50px `.q-app:has(.q-footer--fixed)`). `DOCUMENT_POSITION_PRECEDING` =
+  barre APRÈS el (l'inverse de FOLLOWING). Build ✅.
+
+## $q.platform — détection de plateforme (API Quasar complète) — 2026-08-31
+
+`packages/ui/lib/platform.ts` : singleton statique SSR-safe `platform` branché sur
+`$q.platform` (`lib/q.ts`) — API alignée sur
+https://quasar.dev/options/platform-detection.
+
+- `is.*` : `mobile`/`tablet`/`desktop`, `nativeMobile`, `nativeMobileWrapper`
+  (string `'cordova'|'capacitor'`), `ios`/`android`/`iphone`/`ipad`/`ipod`,
+  `mac`/`win`/`linux`, `cros` (Chromebook — UA `CrOS`), `blackberry`/`winphone`/
+  `silk`, navigateurs `chrome`/`firefox`/`safari`/`edge`/`opera`/`vivaldi`/`ie`,
+  `webkit`, wrappers `cordova`/`capacitor`/`electron`/`bex`, `touch`, `mouse`
+- `is.name`/`is.version`/`is.versionNumber` (navigateur) + `is.platform` (nom OS :
+  `mac`/`win`/`linux`/`ios`/`android`/`cros`…) — `detectBrowser()` par spécificité
+  (vivaldi > edge > opera > chrome > firefox > ie > safari)
+- `has.touch` / `has.webStorage` ; `within.iframe` ; `isServer`/`isClient`
+- SSR-safe : branche serveur = booléens false, chaînes vides, versionNumber -1
+- Page docs : `docs/app/pages/docs/plugins/platform.vue` (live demo « Your device »
+  - tableau API) — menu Plugins API (`scripts/gen-menu.ts` PLUGINS + `llms.txt`)
+
 ## Migration icônes lucide → Iconify — 2026-08-28
 
 `@lucide/vue` a été remplacé par `@iconify/vue` dans TOUS les composants de

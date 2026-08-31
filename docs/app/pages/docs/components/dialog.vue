@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Dialog — documentation complète de la famille :
-// QDialog + QDialogHeader + QDialogFooter + QDialogTrigger + QDialogProvider.
+// QDialog + QDialogHeader + QDialogContent + QDialogFooter + QDialogTrigger + QDialogProvider.
 import { ref } from "vue"
 import { componentSource, componentTag, useComponent } from "~/composables/useComponentDocs"
 import DocsApi from "~/components/DocsApi.vue"
@@ -10,12 +10,14 @@ definePageMeta({ layout: "docs" })
 
 const dialog = useComponent(() => "QDialog")
 const dialogHeader = useComponent(() => "QDialogHeader")
+const dialogContent = useComponent(() => "QDialogContent")
 const dialogFooter = useComponent(() => "QDialogFooter")
 const dialogTrigger = useComponent(() => "QDialogTrigger")
 const dialogProvider = useComponent(() => "QDialogProvider")
 
 const dialogSource = componentSource("QDialog")
 const dialogHeaderSource = componentSource("QDialogHeader")
+const dialogContentSource = componentSource("QDialogContent")
 const dialogFooterSource = componentSource("QDialogFooter")
 const dialogTriggerSource = componentSource("QDialogTrigger")
 const dialogProviderSource = componentSource("QDialogProvider")
@@ -173,6 +175,30 @@ const usageFooter = `<q-dialog-footer>
   <q-btn flat label="Cancel" @click="open = false" />
   <q-btn color="primary" label="Confirm" @click="open = false" />
 </q-dialog-footer>`
+
+const usageContent = `<q-dialog v-model="open">
+  <q-dialog-header title="Terms of service" description="Scroll to read the full agreement" />
+  <q-dialog-content scrollable>
+    <p>Long body — scrolls between the fixed header and footer.</p>
+  </q-dialog-content>
+  <q-dialog-footer>
+    <q-btn flat label="Cancel" @click="open = false" />
+    <q-btn color="primary" label="Accept" @click="open = false" />
+  </q-dialog-footer>
+</q-dialog>`
+
+// — Démo QDialogContent scrollable —
+const openScroll = ref(false)
+const scrollParagraphs = Array.from({ length: 12 }, (_, i) => {
+  const base = [
+    "A scrollable body keeps the header and footer fixed while the content moves.",
+    "The panel is a flex column capped at 90vh; the scrollable body shrinks and scrolls internally.",
+    "In maximized dialogs the panel never scrolls (overflow: hidden) — scrollable is required.",
+    "Overscroll-behavior: contain stops the page behind from bouncing on iOS.",
+    "The header and footer are toolbar bars, matching the app chrome (q-header / q-footer).",
+  ]
+  return `${i + 1}. ${base[i % base.length] ?? ""}`
+})
 
 const usageProvider = `import { $q } from "@dnax/ui"
 
@@ -427,21 +453,54 @@ const scriptTrigger = scriptOpen
     <section class="doc-section">
       <h2 class="doc-h2">QDialogHeader — title &amp; close</h2>
       <p class="doc-note">
-        Sticky header with a <code>title</code>, an optional <code>description</code> and a
-        close button (<code>show-close</code>, enabled by default). Custom content can be
-        passed through the <code>#title</code> and <code>#description</code> slots.
+        Sticky bar rendered like the app <code>q-header</code> (embedded
+        <code>q-toolbar</code>) with a <code>title</code>, an optional
+        <code>description</code> and a close button (<code>show-close</code>,
+        enabled by default). Custom content can be passed through the
+        <code>#title</code> and <code>#description</code> slots.
       </p>
       <q-syntax :code="usageHeader" lang="html" filename="App.vue" copy />
       <h3 class="doc-h3">API</h3>
       <docs-api :comp="dialogHeader" :source="dialogHeaderSource" />
     </section>
 
+    <!-- ═══════ QDialogContent ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">QDialogContent — body section</h2>
+      <p class="doc-note">
+        The body of the panel between header and footer. With the
+        <code>scrollable</code> modifier it takes the remaining height and
+        scrolls internally between the two fixed bars — required in
+        <code>maximized</code> dialogs, where the panel itself never scrolls.
+      </p>
+      <q-syntax :code="usageContent" lang="html" filename="App.vue" copy />
+
+      <docs-demo :code="usageContent" lang="html" filename="App.vue">
+        <q-btn color="primary" outline label="Scrollable dialog" @click="openScroll = true" />
+        <q-dialog v-model="openScroll">
+          <q-dialog-header title="Terms of service" description="Scroll to read the full agreement" />
+          <q-dialog-content scrollable>
+            <div class="demo-dialog-body">
+              <p v-for="p in scrollParagraphs" :key="p" class="demo-p">{{ p }}</p>
+            </div>
+          </q-dialog-content>
+          <q-dialog-footer>
+            <q-btn flat label="Cancel" @click="openScroll = false" />
+            <q-btn unelevated no-caps color="primary" label="Accept" @click="openScroll = false" />
+          </q-dialog-footer>
+        </q-dialog>
+      </docs-demo>
+      <h3 class="doc-h3">API</h3>
+      <docs-api :comp="dialogContent" :source="dialogContentSource" />
+    </section>
+
     <!-- ═══════ QDialogFooter ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">QDialogFooter — actions</h2>
       <p class="doc-note">
-        Simple container for the action buttons at the bottom of the panel — usually a
-        dismissive action on the left and a confirming one on the right.
+        Sticky bar rendered like the app <code>q-footer</code> (embedded
+        <code>q-toolbar</code>) hosting the action buttons, aligned
+        <b>right</b>.
       </p>
       <q-syntax :code="usageFooter" lang="html" filename="App.vue" copy />
       <h3 class="doc-h3">API</h3>

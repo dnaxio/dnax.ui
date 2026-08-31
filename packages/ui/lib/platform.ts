@@ -1,5 +1,6 @@
 // $q.platform — détection de plateforme (API groupée sous `is`)
 // + breakpoints réactifs (VueUse useBreakpoints, tailles Quasar).
+// API alignée sur Quasar : https://quasar.dev/options/platform-detection
 import { useBreakpoints } from "@vueuse/core"
 
 export interface QPlatformIs {
@@ -9,6 +10,8 @@ export interface QPlatformIs {
   desktop: boolean
   /** mobile ET Capacitor/Cordova (app native) */
   nativeMobile: boolean
+  /** nom du wrapper natif : 'cordova' | 'capacitor' | undefined */
+  nativeMobileWrapper?: "cordova" | "capacitor"
   ios: boolean
   android: boolean
   iphone: boolean
@@ -22,12 +25,40 @@ export interface QPlatformIs {
   firefox: boolean
   opera: boolean
   safari: boolean
+  vivaldi: boolean
   ie: boolean
+  /** moteur WebKit (Safari, Chrome, Edge…) */
+  webkit: boolean
+  /** extension navigateur (BEX — Chrome/Firefox) */
+  bex: boolean
+  /** Chrome OS (Chromebook) */
+  cros: boolean
+  blackberry: boolean
+  winphone: boolean
+  /** Amazon Silk (Kindle) */
+  silk: boolean
   cordova: boolean
   capacitor: boolean
   electron: boolean
+  /** écran tactile */
   touch: boolean
+  /** pointeur précis (souris) disponible */
   mouse: boolean
+  /** nom du navigateur : 'chrome' | 'firefox' | 'safari' | … | 'generic' */
+  name: string
+  /** version complète du navigateur ('70.0.3538.110') */
+  version: string
+  /** version majeure du navigateur (70, ou -1 si inconnue) */
+  versionNumber: number
+  /** nom de l'OS : 'mac' | 'win' | 'linux' | 'ios' | 'android' | 'cros' | … */
+  platform: string
+}
+
+export interface QPlatformHas {
+  /** écran tactile capable */
+  touch: boolean
+  /** localStorage / sessionStorage disponibles */
+  webStorage: boolean
 }
 
 export interface QPlatform {
@@ -38,25 +69,111 @@ export interface QPlatform {
   isClient: boolean
   /** booléens de détection groupés : $q.platform.is.mobile, is.ios, … */
   is: QPlatformIs
+  /** capacités : has.touch, has.webStorage */
+  has: QPlatformHas
   within: { iframe: boolean }
+}
+
+function emptyIs(): QPlatformIs {
+  return {
+    mobile: false,
+    tablet: false,
+    desktop: false,
+    nativeMobile: false,
+    nativeMobileWrapper: undefined,
+    ios: false,
+    android: false,
+    iphone: false,
+    ipad: false,
+    ipod: false,
+    mac: false,
+    win: false,
+    linux: false,
+    chrome: false,
+    edge: false,
+    firefox: false,
+    opera: false,
+    safari: false,
+    vivaldi: false,
+    ie: false,
+    webkit: false,
+    bex: false,
+    cros: false,
+    blackberry: false,
+    winphone: false,
+    silk: false,
+    cordova: false,
+    capacitor: false,
+    electron: false,
+    touch: false,
+    mouse: false,
+    name: "",
+    version: "",
+    versionNumber: -1,
+    platform: "",
+  }
+}
+
+/** Nom + version du navigateur depuis l'UA (ordre = spécificité) */
+function detectBrowser(ua: string) {
+  const m = (re: RegExp) => ua.match(re)?.[1] ?? ""
+  let name = "generic"
+  let version = ""
+
+  if (/vivaldi\/([\d.]+)/i.test(ua)) {
+    name = "vivaldi"
+    version = m(/vivaldi\/([\d.]+)/i)
+  }
+  else if (/edg\/([\d.]+)/i.test(ua)) {
+    name = "edge"
+    version = m(/edg\/([\d.]+)/i)
+  }
+  else if (/edge\/([\d.]+)/i.test(ua)) {
+    name = "edge"
+    version = m(/edge\/([\d.]+)/i)
+  }
+  else if (/opr\/([\d.]+)/i.test(ua)) {
+    name = "opera"
+    version = m(/opr\/([\d.]+)/i)
+  }
+  else if (/opera\/([\d.]+)/i.test(ua)) {
+    name = "opera"
+    version = m(/opera\/([\d.]+)/i)
+  }
+  else if (/(?:chrome|crios)\/([\d.]+)/i.test(ua)) {
+    name = "chrome"
+    version = m(/(?:chrome|crios)\/([\d.]+)/i)
+  }
+  else if (/(?:firefox|fxios)\/([\d.]+)/i.test(ua)) {
+    name = "firefox"
+    version = m(/(?:firefox|fxios)\/([\d.]+)/i)
+  }
+  else if (/msie ([\d.]+)/i.test(ua)) {
+    name = "ie"
+    version = m(/msie ([\d.]+)/i)
+  }
+  else if (/trident\/.*rv:([\d.]+)/i.test(ua)) {
+    name = "ie"
+    version = m(/trident\/.*rv:([\d.]+)/i)
+  }
+  else if (/version\/([\d.]+)/i.test(ua)) {
+    name = "safari"
+    version = m(/version\/([\d.]+)/i)
+  }
+
+  const versionNumber = version ? parseInt(version.split(".")[0]!, 10) || -1 : -1
+  return { name, version, versionNumber }
 }
 
 function detect(): QPlatform {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
-    const empty = Object.fromEntries(
-      [
-        "mobile", "tablet", "desktop", "nativeMobile", "ios", "android", "iphone",
-        "ipad", "ipod", "mac", "win", "linux", "chrome", "edge", "firefox",
-        "opera", "safari", "ie", "cordova", "capacitor", "electron", "touch", "mouse",
-      ].map((k) => [k, false]),
-    ) as unknown as QPlatformIs
-
     return {
       userAgent: "",
       platform: "",
       isServer: true,
       isClient: false,
-      is: empty,
+      is: emptyIs(),
+      has: { touch: false, webStorage: false },
       within: { iframe: false },
     }
   }
@@ -71,17 +188,54 @@ function detect(): QPlatform {
   // iPad modernes : MacIntel + écran tactile multi-points
   const ipad = /ipad/i.test(ua) || (/macintosh|macintel/i.test(platform) && (nav.maxTouchPoints ?? 0) > 1)
   const android = /android/i.test(ua)
+  const blackberry = /blackberry/i.test(ua)
+  const winphone = /windows phone/i.test(ua)
+  // Chromebooks : navigator.platform vaut "CrOS x86_64" (ou "Linux x86_64" ancien)
+  const cros = /cros/i.test(platform)
+  const silk = /silk/i.test(ua)
 
   const touch = "ontouchstart" in window || (nav.maxTouchPoints ?? 0) > 0
   const mobileUA = /mobile|iphone|ipod|android|windows phone|blackberry/i.test(ua)
   const tablet = ipad || (android && !mobileUA)
   const mobile = mobileUA || (tablet ? false : touch && /android|ipad|iphone/i.test(ua))
 
+  const cordova = "cordova" in window
+  const capacitor = !!(window as any).Capacitor?.isNativePlatform?.()
+  const nativeMobileWrapper: "cordova" | "capacitor" | undefined = capacitor
+    ? "capacitor"
+    : cordova
+      ? "cordova"
+      : undefined
+
+  // nom de l'OS (miroir de l'API Quasar : is.platform)
+  let osName = "generic"
+  if (android) osName = "android"
+  else if (ios) osName = "ios"
+  else if (blackberry) osName = "blackberry"
+  else if (winphone) osName = "winphone"
+  else if (cros) osName = "cros"
+  else if (silk) osName = "silk"
+  else if (/mac|iphone|ipad|ipod/i.test(ua)) osName = "mac"
+  else if (/win/i.test(ua)) osName = "win"
+  else if (/linux/i.test(platform)) osName = "linux"
+
+  let webStorage = false
+  try {
+    webStorage = typeof window.localStorage !== "undefined"
+  }
+  catch {
+    webStorage = false
+  }
+
+  const browser = detectBrowser(ua)
+  const notChromium = !/(edg|opr|vivaldi)/i.test(ua)
+
   const is: QPlatformIs = {
     mobile,
     tablet,
     desktop: !mobileUA && !tablet,
-    nativeMobile: false, // affiné après (Capacitor/Cordova)
+    nativeMobile: mobile && (capacitor || cordova),
+    nativeMobileWrapper,
     ios,
     android,
     iphone,
@@ -90,21 +244,32 @@ function detect(): QPlatform {
     mac: /mac|iphone|ipad|ipod/i.test(ua),
     win: /win/i.test(ua),
     linux: /linux/i.test(platform),
-    chrome: /chrome|crios/i.test(ua) && !/edg/i.test(ua),
-    edge: /edg/i.test(ua),
+    chrome: /chrome|crios/i.test(ua) && notChromium,
+    edge: /edg|edge/i.test(ua),
     firefox: /firefox|fxios/i.test(ua),
     opera: /opr|opera/i.test(ua),
-    safari: /safari/i.test(ua) && !/chrome|crios|edg|opr/i.test(ua),
+    safari: /safari/i.test(ua) && notChromium && !/chrome|crios/i.test(ua),
+    vivaldi: /vivaldi/i.test(ua),
     ie: /msie|trident/i.test(ua),
-    cordova: typeof window !== "undefined" && "cordova" in window,
-    capacitor: typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.(),
+    webkit: /applewebkit/i.test(ua),
+    bex:
+      typeof window !== "undefined" &&
+      !!((window as any).chrome?.runtime?.id || (globalThis as any).browser?.runtime?.id),
+    cros,
+    blackberry,
+    winphone,
+    silk,
+    cordova,
+    capacitor,
     electron: /electron/i.test(ua),
     touch,
-    mouse: typeof window.matchMedia === "function" && window.matchMedia("(pointer: fine)").matches,
+    mouse:
+      typeof window.matchMedia === "function" && window.matchMedia("(pointer: fine)").matches,
+    name: browser.name,
+    version: browser.version,
+    versionNumber: browser.versionNumber,
+    platform: osName,
   }
-
-  // nativeMobile : mobile + Capacitor/Cordova
-  is.nativeMobile = is.mobile && (is.capacitor || is.cordova)
 
   return {
     userAgent: ua,
@@ -112,6 +277,7 @@ function detect(): QPlatform {
     isServer: false,
     isClient: true,
     is,
+    has: { touch, webStorage },
     within: { iframe: window.self !== window.top },
   }
 }

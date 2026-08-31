@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // QFooter — barre basse (safe-area bottom appliquée par styles/main.css : .q-app .q-footer)
 import { computed, onBeforeUnmount, onMounted, ref } from "vue"
+import { useFixedBarOffset } from "../lib/fixedLayout"
 
 interface Props {
   /** Fixe la barre en bas de l'écran (sort du flux) */
@@ -23,6 +24,11 @@ const props = withDefaults(defineProps<Props>(), {
   reveal: false,
   bordered: false,
 })
+
+const rootEl = ref<HTMLElement | null>(null)
+
+// Empilement : bottom = hauteur cumulée des footers fixed suivants (si fixed)
+useFixedBarOffset(rootEl, "bar-bottom", () => props.fixed)
 
 const translucentStyle = computed<Record<string, string> | undefined>(() =>
   props.translucent === true || typeof props.translucent === "number"
@@ -55,6 +61,7 @@ onBeforeUnmount(() => {
 
 <template>
   <footer
+    ref="rootEl"
     class="q-footer"
     :class="{
       'q-footer--fixed': fixed,
