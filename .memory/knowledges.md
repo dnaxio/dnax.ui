@@ -1,5 +1,95 @@
 # Connaissances & bonnes pratiques (tag: knowledges)
 
+## QContainer — glass, image de fond glassmorphisée, Ken Burns — 2026-08-31
+
+Trois nouvelles props sur `QContainer` :
+
+- `glass` : glassmorphism du conteneur (fond translucide + `backdrop-filter`
+  blur + bordure claire + ombre) — vars `--q-container-glass-bg/border/blur`,
+  variante `.dark`
+- `background-image` : URL rendue en couche `<img.q-container__img>`
+  (absolute inset 0, object-fit cover, z-index 0, pointer-events none). Pose
+  aussi `q-container--bg` → `position: relative; overflow: hidden` (clippe
+  l'image aux coins arrondis) + le sélecteur de lift du contenu exclut
+  désormais `.q-container__img`
+- `background-animated` : Ken Burns indéterminé — keyframes
+  `q-container-kenburns` (24s, ease-in-out, `infinite alternate` : zoom 1.06→
+  1.22 + translations ±2% qui alternent) ; glassmorphisée seule :
+  `filter: blur(14px) saturate(1.4)` + `transform: scale(1.15)` (masque les
+  bords du blur)
+- `background-image-size` : `cover`/`contain`/`fill`/`none`/`scale-down` →
+  `object-fit` (var `--q-container-img-fit`) ; valeur CSS libre ("50%",
+  "400px") → `.q-container__img--sized` : boîte `--q-container-img-size`
+  centrée via la propriété `translate` (compose avec le `transform` du Ken
+  Burns, pas d'écrasement) + `object-fit: contain`
+- `background-animation-direction` (alternate défaut / alternate-reverse /
+  normal / reverse) + `background-animation-duration` (défaut 24s) → vars
+  `--q-container-kenburns-direction/duration` dans le shorthand animation
+- Piège : `--animated` anime `transform` → écrase le scale statique de
+  `--glass` ; les keyframes partent de scale ≥1.06 pour rester au-dessus du
+  seuil de masquage du blur dans les deux cas
+- reduced-motion → kenburns coupé. Démo docs : sections « Glass » et
+  « Image background » (Unsplash). Build ✅.
+
+## QTabs — mode collapse-inactive (icône seule, actif étendu) — 2026-08-31
+
+Nouvelle prop `collapse-inactive` sur `QTabs` (pattern mobile bottom-nav) :
+
+- Les tabs inactifs n'affichent que l'icône ; le tab actif s'étend (icône +
+  label) avec une largeur animée
+- CSS : label `max-width: 0 → 999px` + `opacity` + `white-space: nowrap` — la
+  largeur utilisée = min(naturelle, max) → le label se déplie jusqu'à sa largeur
+  réelle et le tab (flex auto) suit ; le gap du contenu passe 0 → 6px sur le
+  tab actif. **Sans `overflow: hidden`** : le texte n'est jamais tronqué →
+  apparition en FONDU (opacity), pas de glissement clippé (retiré 2026-08-31)
+- QTab : en collapse, forcer `q-tab--inline-label` (label à droite de l'icône)
+  et ne PAS poser `q-tab--stacked-icon` — évite le padding stacked ET le
+  fallback `:has()` (qui exige `:not(.q-tab--inline-label)`) de spécificité
+  (0,4,0) qui aurait écrasé le padding 0
+- **Indicateur** : la mesure nextTick tombe pendant la transition max-width
+  (largeur repliée) → écouteur `transitionend` (filtré sur `max-width`, posé
+  une fois sur la racine — l'événement bulle depuis le label) qui re-mesure à
+  la fin de l'expansion/retombée. Combinable avec `animated` + presets
+  (l'indicateur suit le tab qui grandit puis spring à sa place)
+- **Crossfade** : inactif s'estompe pendant que l'actif apparaît en fondu,
+  simultanément (opacity 0.25s des deux côtés). En mode collapse, les
+  animations d'entrée du tab (pop/rise) sont neutralisées
+  (`animation: none` sur spring/elastic/smooth) pour ne pas geler le fade du
+  label entrant — l'indicateur garde son spring
+- **inactive-color** : nouvelle prop `inactive-color` sur QTabs (token ou hex)
+  → var `--q-tabs-inactive-color` sur le conteneur ; `.q-tab` base
+  `color: var(--q-tabs-inactive-color, inherit)` (fallback hérité = inchangé) ;
+  `.q-tab--active` prime par ordre de source (même spécificité). Démo docs
+  « Colors » (active/inactive selects)
+- **transition-duration** : prop `transition-duration` (ms) sur QTabs → var
+  `--q-tabs-duration` posée sur le conteneur. Consommée par : transition de
+  l'indicateur (base 0.25s + presets animated 0.45/0.5/0.6s), transitions du
+  label collapse (max-width 0.3s / opacity 0.25s), animations pop (0.3s) et
+  rise (0.32s) — chaque point d'usage a son fallback `var(--q-tabs-duration,
+…)`, donc non défini = comportement par défaut. Démo docs Animated : select
+  duration (100-800ms)
+- reduced-motion → transition 0s (layout instantané → mesure correcte sans
+  transitionend)
+- Démo docs `tabs.vue` : section « Collapse inactive » combinée à animated.
+  Build ✅.
+
+## QTabs — transitions animées (animated + transition) — 2026-08-31
+
+`QTabs` dispose d'un système de transitions au changement de tab :
+
+- `animated` = interrupteur (appui tactile scale(0.94) + entrée du tab actif)
+- `transition` = preset d'easing de l'indicateur : `spring` (défaut,
+  `cubic-bezier(0.34,1.56,0.64,1)` back-out, pop du tab), `smooth`
+  (`cubic-bezier(0.16,1,0.3,1)` expo-out 0.5s + `q-tab-rise` du contenu),
+  `elastic` (`cubic-bezier(0.68,-0.55,0.27,1.55)` 0.6s, rebond marqué)
+- Classes : `q-tabs--anim-spring|smooth|elastic` (posées seulement si animated) ;
+  le pop est scopé spring/elastic (pas smooth qui a son rise)
+- `prefers-reduced-motion: reduce` → transitions 0s + animations coupées
+- L'indicateur utilise `transform: translateX/translateY` + width → transitionner
+  transform/width (pas left/top, qui causent du jank)
+- Démo docs `tabs.vue` : section « Animated transitions » (q-select de preset).
+  Build ✅.
+
 ## fixedLayout — offset des barres fixed haut ET bas — 2026-08-31
 
 `lib/fixedLayout.ts` gère les barres fixed dans tout `.q-app`

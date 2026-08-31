@@ -1,5 +1,20 @@
 # Pièges rencontrés (tag: warnings)
 
+## Mobile : :hover collé après le tap — 2026-08-31
+
+Sur tactile, le `:hover` reste appliqué après le tap (pas de souris pour le
+relâcher) → fond/effet qui reste « collé » sur l'élément touché.
+
+- Fix appliqué à `.q-tab:hover` : scoper les règles hover dans
+  `@media (hover: hover) and (pointer: fine)` (souris/trackpad uniquement)
+- **54 occurrences `:hover` dans main.css** — même bug potentiel partout
+  (q-btn, q-item, accordion, collapse, nav-menu, carousel, pagination…).
+  À traiter au cas par cas quand signalé (wrap dans la media query),
+  en prenant garde aux règles groupées / variantes .dark / media queries
+  imbriquées.
+- `:active` n'est PAS concerné (se relâche au pointerup) — ne pas toucher.
+  Build ✅. (2026-08-31)
+
 ## Safe-area : .q-page bas manquant + panneaux dialog latéraux — 2026-08-31
 
 Audit safe-area complet (AGENTS.md listait `.q-page` → bottom mais la règle

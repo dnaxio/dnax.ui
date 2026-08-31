@@ -38,6 +38,19 @@ interface Props {
   waveColor?: string
   /** Couleur de la seconde vague (background-effect="wave", défaut violet) */
   waveColor2?: string
+  /** Style glassmorphism : fond translucide + flou d'arrière-plan + bordure claire */
+  glass?: boolean
+  /** URL d'une image de fond — rendue en couche derrière le contenu (cover) */
+  backgroundImage?: string
+  /** Taille de l'image : cover | contain | fill | none | scale-down, ou valeur
+   *  CSS ("50%", "400px" → boîte centrée, image entière visible) */
+  backgroundImageSize?: string
+  /** Anime l'image de fond (Ken Burns indéterminé : zoom + panoramique lents en boucle) */
+  backgroundAnimated?: boolean
+  /** Direction de la boucle Ken Burns : alternate (défaut) | alternate-reverse | normal | reverse */
+  backgroundAnimationDirection?: "alternate" | "alternate-reverse" | "normal" | "reverse"
+  /** Durée d'une itération du Ken Burns (défaut 24s) */
+  backgroundAnimationDuration?: string
   class?: string
 }
 
@@ -46,6 +59,13 @@ const props = withDefaults(defineProps<Props>(), {
   fluid: false,
   padding: "16px",
 })
+
+const IMG_FIT = new Set(["cover", "contain", "fill", "none", "scale-down"])
+
+// Taille CSS libre ("50%", "400px"…) → boîte centrée (object-fit: contain)
+const imgSized = computed(
+  () => !!props.backgroundImageSize && !IMG_FIT.has(props.backgroundImageSize),
+)
 
 const containerStyle = computed<Record<string, string>>(() => {
   const style: Record<string, string> = {
@@ -61,6 +81,18 @@ const containerStyle = computed<Record<string, string>>(() => {
   if (props.auroraColor2) style["--q-aurora-color-2"] = props.auroraColor2
   if (props.waveColor) style["--q-wave-color"] = props.waveColor
   if (props.waveColor2) style["--q-wave-color-2"] = props.waveColor2
+  if (props.backgroundImageSize && IMG_FIT.has(props.backgroundImageSize)) {
+    style["--q-container-img-fit"] = props.backgroundImageSize
+  }
+  if (imgSized.value && props.backgroundImageSize) {
+    style["--q-container-img-size"] = props.backgroundImageSize
+  }
+  if (props.backgroundAnimationDirection) {
+    style["--q-container-kenburns-direction"] = props.backgroundAnimationDirection
+  }
+  if (props.backgroundAnimationDuration) {
+    style["--q-container-kenburns-duration"] = props.backgroundAnimationDuration
+  }
   return style
 })
 
@@ -68,7 +100,8 @@ const containerClasses = computed(() =>
   cn(
     "q-container",
     props.fluid && "q-container--fluid",
-    props.backgroundEffect && "q-container--bg",
+    (props.backgroundEffect || props.backgroundImage) && "q-container--bg",
+    props.glass && "q-container--glass",
     props.class,
   ),
 )
@@ -145,6 +178,19 @@ onBeforeUnmount(() => rootEl.value?.removeEventListener("mousemove", onMouseMove
 
 <template>
   <div ref="rootEl" class="q-container" :class="containerClasses" :style="containerStyle">
+    <img
+      v-if="backgroundImage"
+      :src="backgroundImage"
+      class="q-container__img"
+      :class="{
+        'q-container__img--glass': glass,
+        'q-container__img--animated': backgroundAnimated,
+        'q-container__img--sized': imgSized,
+      }"
+      alt=""
+      aria-hidden="true"
+      draggable="false"
+    />
     <div
       v-if="backgroundEffect"
       class="q-container__bg"

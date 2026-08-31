@@ -713,9 +713,28 @@ html.dark body {
   height: 2px;
   background-color: var(--q-tabs-active-color);
   transition:
-    transform 0.25s ease,
-    width 0.25s ease;
+    transform var(--q-tabs-duration, 0.25s) ease,
+    width var(--q-tabs-duration, 0.25s) ease;
   will-change: transform, width;
+}
+
+/* — transitions animées (prop animated + transition) —
+   L'indicateur est la star du changement de tab : chaque preset lui donne une
+   courbe différente (spring = léger overshoot, smooth = expo-out velouté,
+   elastic = rebond marqué). */
+.q-tabs--animated .q-tabs__indicator {
+  transition-duration: var(--q-tabs-duration, 0.45s);
+}
+.q-tabs--anim-spring .q-tabs__indicator {
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); /* back-out : dépasse puis se pose */
+}
+.q-tabs--anim-smooth .q-tabs__indicator {
+  transition-duration: var(--q-tabs-duration, 0.5s);
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1); /* expo-out : glisse velouté */
+}
+.q-tabs--anim-elastic .q-tabs__indicator {
+  transition-duration: var(--q-tabs-duration, 0.6s);
+  transition-timing-function: cubic-bezier(0.68, -0.55, 0.27, 1.55); /* rebond prononcé */
 }
 
 /* ===== QTabPanels / QTabPanel ===== */
@@ -806,7 +825,9 @@ html.dark body {
   padding: 0 16px;
   border: none;
   background: transparent;
-  color: inherit;
+  /* Couleur des tabs inactifs : inactive-color (QTabs) sinon couleur héritée.
+     .q-tab--active (plus bas) reprend la main par ordre de source. */
+  color: var(--q-tabs-inactive-color, inherit);
   font: inherit;
   font-size: 14px;
   font-weight: 500;
@@ -827,9 +848,15 @@ html.dark body {
   transform: scale(0.94);
 }
 
-/* pop du tab actif (overshoot, prop animated) */
-.q-tabs--animated .q-tab--active {
-  animation: q-tab-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+/* pop du tab actif (overshoot) — spring (défaut) et elastic */
+.q-tabs--anim-spring .q-tab--active,
+.q-tabs--anim-elastic .q-tab--active {
+  animation: q-tab-pop var(--q-tabs-duration, 0.3s) cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* smooth : le contenu du tab actif monte et apparaît (label + icône) */
+.q-tabs--anim-smooth .q-tab--active .q-tab__content {
+  animation: q-tab-rise var(--q-tabs-duration, 0.32s) cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .q-tab--active {
@@ -842,8 +869,12 @@ html.dark body {
   outline-offset: -2px;
 }
 
-.q-tab:hover {
-  background-color: rgb(0 0 0 / 0.04);
+/* Mobile : le :hover reste collé après le tap (pas de souris) → réservé aux
+   devices avec hover réel (souris / trackpad) */
+@media (hover: hover) and (pointer: fine) {
+  .q-tab:hover {
+    background-color: rgb(0 0 0 / 0.04);
+  }
 }
 
 .q-tab:disabled,
@@ -930,6 +961,63 @@ html.dark body {
   }
   100% {
     transform: scale(1);
+  }
+}
+
+@keyframes q-tab-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* — collapse-inactive : les tabs inactifs ne montrent que l'icône ; le tab
+   actif s'étend (icône + label) avec une largeur animée (pattern mobile
+   bottom-nav). max-width 0 → 999px : la largeur utilisée = min(naturelle, max)
+   → le label se déplie jusqu'à sa largeur réelle, le tab suit.
+   PAS d'overflow: hidden : le texte n'est pas tronqué pendant l'ouverture —
+   il apparaît entier en FONDU (opacity), plus joli que le glissement. */
+.q-tabs--collapse-inactive .q-tab__content {
+  gap: 0;
+}
+.q-tabs--collapse-inactive .q-tab__label {
+  max-width: 0;
+  opacity: 0;
+  white-space: nowrap; /* pas de retour à la ligne pendant l'ouverture */
+  transition:
+    max-width var(--q-tabs-duration, 0.3s) cubic-bezier(0.16, 1, 0.3, 1),
+    opacity var(--q-tabs-duration, 0.25s) ease;
+}
+.q-tabs--collapse-inactive .q-tab--active .q-tab__content {
+  gap: 6px;
+}
+.q-tabs--collapse-inactive .q-tab--active .q-tab__label {
+  max-width: 999px;
+  opacity: 1;
+}
+
+/* Crossfade : pendant que le label du tab inactif s'estompe, celui du tab
+   actif apparaît en fondu — simultanément. Les animations d'entrée du tab
+   (pop/rise) sont neutralisées en mode collapse pour ne pas geler ou masquer
+   le fade du label entrant ; l'indicateur garde son spring (transition width). */
+.q-tabs--collapse-inactive.q-tabs--anim-spring .q-tab--active,
+.q-tabs--collapse-inactive.q-tabs--anim-elastic .q-tab--active,
+.q-tabs--collapse-inactive.q-tabs--anim-smooth .q-tab--active .q-tab__content {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-tabs--animated .q-tabs__indicator,
+  .q-tabs--anim-spring .q-tab--active,
+  .q-tabs--anim-elastic .q-tab--active,
+  .q-tabs--anim-smooth .q-tab--active .q-tab__content,
+  .q-tabs--collapse-inactive .q-tab__label {
+    transition-duration: 0s;
+    animation: none;
   }
 }
 
@@ -6350,9 +6438,78 @@ html.dark body {
   z-index: 0;
   pointer-events: none;
 }
-.q-container--bg > :not(.q-container__bg) {
+.q-container--bg > :not(.q-container__bg, .q-container__img) {
   position: relative;
   z-index: 1;
+}
+
+/* — image de fond (prop background-image) : couche cover derrière le contenu — */
+.q-container__img {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: var(--q-container-img-fit, cover);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* taille CSS libre ("50%", "400px"…) : boîte centrée (translate séparé de
+   transform → compose avec le Ken Burns), image entière visible */
+.q-container__img--sized {
+  width: var(--q-container-img-size);
+  height: var(--q-container-img-size);
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  object-fit: contain;
+}
+
+/* glassmorphisée : floutée + saturée + léger zoom pour masquer les bords du blur */
+.q-container__img--glass {
+  filter: blur(14px) saturate(1.4);
+  transform: scale(1.15);
+}
+
+/* — Ken Burns indéterminé (prop background-animated) : zoom + panoramique
+   lents qui bouclent — direction et durée configurables (défaut alternate 24s) */
+.q-container__img--animated {
+  animation:
+    q-container-kenburns var(--q-container-kenburns-duration, 24s) ease-in-out
+    var(--q-container-kenburns-direction, alternate) infinite;
+  will-change: transform;
+}
+@keyframes q-container-kenburns {
+  0% {
+    transform: scale(1.06) translate(0%, 0%);
+  }
+  30% {
+    transform: scale(1.18) translate(-2%, -1.5%);
+  }
+  60% {
+    transform: scale(1.14) translate(2%, 1.5%);
+  }
+  100% {
+    transform: scale(1.22) translate(-1%, 2%);
+  }
+}
+
+/* — glassmorphism du conteneur (prop glass) : fond translucide + flou de ce
+   qui est derrière + bordure claire (variables personnalisables) — */
+.q-container--glass {
+  --q-container-glass-bg: rgb(255 255 255 / 0.14);
+  --q-container-glass-border: rgb(255 255 255 / 0.3);
+  --q-container-glass-blur: 14px;
+  background-color: var(--q-container-glass-bg);
+  border: 1px solid var(--q-container-glass-border);
+  -webkit-backdrop-filter: blur(var(--q-container-glass-blur)) saturate(1.4);
+  backdrop-filter: blur(var(--q-container-glass-blur)) saturate(1.4);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.12);
+}
+.dark .q-container--glass {
+  --q-container-glass-bg: rgb(255 255 255 / 0.06);
+  --q-container-glass-border: rgb(255 255 255 / 0.14);
 }
 
 /* grid : grille de carrés qui s'estompe vers les bords */
@@ -6564,6 +6721,9 @@ html.dark body {
   .q-container__star,
   .q-container__flicker,
   .q-container__wave {
+    animation: none;
+  }
+  .q-container__img--animated {
     animation: none;
   }
 }

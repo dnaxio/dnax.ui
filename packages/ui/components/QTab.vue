@@ -95,9 +95,11 @@ const tabClasses = computed(() =>
     isActive.value && tabs?.activeClass.value,
     (props.noCaps || tabs?.noCaps.value) && "q-tab--no-caps",
     props.disable && "q-tab--disabled",
-    tabs?.inlineLabel.value && "q-tab--inline-label",
+    // Mode replié : le label s'étend à droite de l'icône → forcer l'inline-label
+    // (et neutraliser le padding stacked-icon + le fallback :has) */
+    (tabs?.inlineLabel.value || tabs?.collapseInactive.value) && "q-tab--inline-label",
     // Icône empilée au-dessus du label : padding vertical pour l'aérer du cadre
-    props.icon && !tabs?.inlineLabel.value && "q-tab--stacked-icon",
+    props.icon && !tabs?.inlineLabel.value && !tabs?.collapseInactive.value && "q-tab--stacked-icon",
   ),
 )
 

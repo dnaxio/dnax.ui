@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Container — documentation du composant QContainer : conteneur centré à largeur max
 // + arrière-plans décoratifs (grid / aurora).
+import { ref } from "vue"
 import { componentSource, componentTag, useComponent } from "~/composables/useComponentDocs"
 import DocsApi from "~/components/DocsApi.vue"
 import DocsDemo from "~/components/DocsDemo.vue"
@@ -10,6 +11,12 @@ definePageMeta({ layout: "docs" })
 const container = useComponent(() => "QContainer")
 const containerSource = componentSource("QContainer")
 const tag = componentTag("QContainer")
+
+// — Démo image de fond —
+const imgSizeDemo = ref("cover")
+const imgSizes = ["cover", "contain", "50%", "400px"]
+const imgDirDemo = ref<"alternate" | "alternate-reverse" | "normal" | "reverse">("alternate")
+const imgDirs = ["alternate", "alternate-reverse", "normal", "reverse"]
 
 const usageBasic = `<q-container>
   <p>Max-width 1200px by default, 16px horizontal padding.</p>
@@ -107,6 +114,34 @@ const usageAurora = `<q-container
     colors come from <code>aurora-color</code> / <code>aurora-color-2</code>.
   </p>
 </q-container>`
+
+const usageGlass = `<q-container glass class="demo-surface">
+  <h3 class="demo-title">Glass container</h3>
+  <p class="demo-text">
+    A translucent frosted panel — whatever sits behind it blurs through
+    (backdrop-filter).
+  </p>
+</q-container>`
+
+const usageImage = `<q-container
+  glass
+  background-animated
+  :background-image-size="imgSize"
+  :background-animation-direction="imgDir"
+  background-image="https://images.unsplash.com/photo-1604079628040-94301bb21b91?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  class="demo-surface"
+>
+  <h3 class="demo-title">Glass over a moving image</h3>
+  <p class="demo-text">
+    The background image is glassmorphized (blurred + saturated) and drifts
+    with a slow, indeterminate Ken Burns motion.
+  </p>
+</q-container>`
+
+const scriptImage = `import { ref } from "vue"
+
+const imgSize = ref("cover")
+const imgDir = ref("alternate")`
 </script>
 
 <template>
@@ -333,6 +368,81 @@ const usageAurora = `<q-container
       </docs-demo>
     </section>
 
+    <!-- ═══════ Glass ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Glass</h2>
+      <p class="doc-note">
+        <code>glass</code> turns the container into a frosted panel: a
+        translucent background with a <code>backdrop-filter</code> blur of
+        whatever sits behind it, a light border and a soft shadow. Respects
+        dark mode.
+      </p>
+
+      <docs-demo :code="usageGlass" lang="html" filename="App.vue">
+        <q-container glass class="demo-surface">
+          <h3 class="demo-title">Glass container</h3>
+          <p class="demo-text">
+            A translucent frosted panel — whatever sits behind it blurs through
+            (backdrop-filter).
+          </p>
+        </q-container>
+      </docs-demo>
+    </section>
+
+    <!-- ═══════ Image background ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Image background</h2>
+      <p class="doc-note">
+        <code>background-image</code> renders a URL as a full-bleed layer
+        behind the content. <code>background-image-size</code> controls the
+        box — <code>cover</code> (default), <code>contain</code>, or a CSS
+        size (<code>"50%"</code>, <code>"400px"</code> → centered box).
+        Combined with <code>glass</code> the image is <b>glassmorphized</b>
+        (blurred + saturated) — and <code>background-animated</code> drifts it
+        with a slow, indeterminate Ken Burns motion:
+        <code>background-animation-direction</code> picks the loop behavior
+        (<code>alternate</code> default, <code>alternate-reverse</code>,
+        <code>normal</code> restart, <code>reverse</code>) and
+        <code>background-animation-duration</code> the speed (default 24s).
+        Animations respect <code>prefers-reduced-motion</code>.
+      </p>
+
+      <docs-demo :code="usageImage" lang="html" filename="App.vue" :script="scriptImage">
+        <div class="demo-row demo-row--img">
+          <q-select
+            v-model="imgSizeDemo"
+            :options="imgSizes"
+            label="background-image-size"
+            outlined
+            dense
+            class="demo-img-select"
+          />
+          <q-select
+            v-model="imgDirDemo"
+            :options="imgDirs"
+            label="animation-direction"
+            outlined
+            dense
+            class="demo-img-select"
+          />
+        </div>
+        <q-container
+          glass
+          background-animated
+          :background-image-size="imgSizeDemo"
+          :background-animation-direction="imgDirDemo"
+          background-image="https://images.unsplash.com/photo-1604079628040-94301bb21b91?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+          class="demo-surface demo-surface--img"
+        >
+          <h3 class="demo-title">Glass over a moving image</h3>
+          <p class="demo-text">
+            The background image is glassmorphized (blurred + saturated) and
+            drifts with a slow, indeterminate Ken Burns motion.
+          </p>
+        </q-container>
+      </docs-demo>
+    </section>
+
     <!-- ═══════ API ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">QContainer API</h2>
@@ -445,5 +555,29 @@ const usageAurora = `<q-container
 }
 .demo-surface--dark .demo-text {
   color: rgb(255 255 255 / 0.75);
+}
+
+/* surface image de fond : assez haute pour montrer l'image + texte lisible */
+.demo-surface--img {
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.demo-surface--img .demo-title,
+.demo-surface--img .demo-text {
+  color: #fff;
+  text-shadow: 0 2px 10px rgb(0 0 0 / 0.6);
+}
+.demo-row--img {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.demo-img-select {
+  width: 220px;
 }
 </style>

@@ -16,6 +16,8 @@ export interface QTabContext {
   inlineLabel: Readonly<Ref<boolean>>
   noCaps: Readonly<Ref<boolean>>
   activeClass: Readonly<Ref<string | undefined>>
+  /** Mode replié : seul le tab actif montre icône + label (les autres : icône seule) */
+  collapseInactive: Readonly<Ref<boolean>>
 }
 
 export const qTabsKey: InjectionKey<QTabContext> = Symbol("q-tabs")
@@ -49,6 +51,8 @@ interface Props {
   activeColor?: string
   /** Couleur de fond du tab actif */
   activeBgColor?: string
+  /** Couleur des tabs inactifs (token ou hex — défaut : couleur héritée) */
+  inactiveColor?: string
   /** Classe ajoutée au tab actif */
   activeClass?: string
   /** Couleur de l'indicateur (défaut : activeColor → primary) */
@@ -74,6 +78,19 @@ interface Props {
   contentClass?: string
   /** Anime les tabs au clic (appui scale + pop du tab actif) */
   animated?: boolean
+  /**
+   * Transition du changement de tab (requiert `animated`) :
+   * spring (défaut, rebond léger) | smooth (expo-out velouté, label qui monte)
+   * | elastic (rebond marqué).
+   */
+  transition?: "spring" | "smooth" | "elastic"
+  /** Durée des transitions en ms (indicateur, labels collapse, pop/rise) */
+  transitionDuration?: number
+  /**
+   * Mode replié (pattern mobile) : les tabs inactifs n'affichent que l'icône ;
+   * le tab actif s'étend (icône + label) avec une largeur animée.
+   */
+  collapseInactive?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -81,6 +98,7 @@ const props = withDefaults(defineProps<Props>(), {
   align: "center",
   activeColor: "",
   activeBgColor: "",
+  inactiveColor: "",
   activeClass: "",
   indicatorColor: "",
   dense: false,
@@ -92,6 +110,9 @@ const props = withDefaults(defineProps<Props>(), {
   stretch: false,
   contentClass: "",
   animated: false,
+  transition: "spring",
+  transitionDuration: undefined,
+  collapseInactive: false,
 })
 
 const emit = defineEmits<{ "update:modelValue": [value: string | number | null] }>()
@@ -107,6 +128,7 @@ const indicatorPos = computed<"top" | "bottom" | "none">(() => {
 // shallowRef : on ne veut PAS que Vue dé-unwrappe les Ref contenues dans les enregistrements
 const tabRegs = shallowRef<QTabRegistration[]>([])
 const tick = ref(0)
+const rootEl = ref<HTMLElement | null>(null)
 
 // Recalcule la position de l'indicateur après chaque changement de DOM
 const measure = async () => {
@@ -114,14 +136,25 @@ const measure = async () => {
   tick.value++
 }
 
+// collapse-inactive : le label s'étend/retombe via une transition max-width
+// (0.3s) — à la fin, la largeur du tab actif change encore → re-mesurer,
+// sinon l'indicateur reste calé sur la largeur repliée (mal positionné).
+// transitionend bulle depuis le label jusqu'à la racine : un seul écouteur.
+const onCollapseEnd = (e: Event) => {
+  if ((e as TransitionEvent).propertyName !== "max-width") return
+  measure()
+}
+
 watch([() => props.modelValue, tabRegs], measure)
 
 onMounted(() => {
   measure()
   if (typeof window !== "undefined") window.addEventListener("resize", measure)
+  rootEl.value?.addEventListener("transitionend", onCollapseEnd)
 })
 onBeforeUnmount(() => {
   if (typeof window !== "undefined") window.removeEventListener("resize", measure)
+  rootEl.value?.removeEventListener("transitionend", onCollapseEnd)
 })
 
 const context: QTabContext = {
@@ -136,6 +169,7 @@ const context: QTabContext = {
   inlineLabel: computed(() => props.inlineLabel),
   noCaps: computed(() => props.noCaps),
   activeClass: computed(() => (props.activeClass ? props.activeClass : undefined)),
+  collapseInactive: computed(() => props.collapseInactive),
 }
 
 provide(qTabsKey, context)
@@ -170,6 +204,8 @@ const containerStyle = computed<Record<string, string>>(() => {
   // Token (primary…) → var(--primary) ; sinon valeur directe (hex, rgb…)
   if (props.activeColor) style["--q-tabs-active-color"] = colorValue(props.activeColor)
   if (props.activeBgColor) style["--q-tabs-active-bg"] = colorValue(props.activeBgColor)
+  if (props.inactiveColor) style["--q-tabs-inactive-color"] = colorValue(props.inactiveColor)
+  if (props.transitionDuration) style["--q-tabs-duration"] = `${props.transitionDuration}ms`
   return style
 })
 
@@ -184,12 +220,15 @@ const tabsClasses = computed(() =>
     props.shrink && "q-tabs--shrink",
     props.stretch && "q-tabs--stretch",
     props.animated && "q-tabs--animated",
+    props.animated && `q-tabs--anim-${props.transition}`,
+    props.collapseInactive && "q-tabs--collapse-inactive",
   ),
 )
 </script>
 
 <template>
   <div
+    ref="rootEl"
     class="q-tabs"
     :class="tabsClasses"
     :style="containerStyle"
