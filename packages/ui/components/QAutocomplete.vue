@@ -47,6 +47,27 @@ interface Props {
   height?: string
   /** Titre du panneau (défaut : label → placeholder) */
   title?: string
+  /** Icône Iconify à gauche (remplacée par le slot #prepend s'il est fourni) */
+  iconLeft?: string
+  /** Options spécifiques au mode sheet (width, height, title, style, class, searchPlaceholder) */
+  sheetOptions?: QAutocompleteModeOptions
+  /** Options spécifiques au mode modal */
+  modalOptions?: QAutocompleteModeOptions
+}
+
+export interface QAutocompleteModeOptions {
+  /** Largeur du panneau (remplace width) */
+  width?: string
+  /** Hauteur de la liste scrollable (remplace height) */
+  height?: string
+  /** Titre du panneau (remplace title) */
+  title?: string
+  /** Style appliqué au panneau */
+  style?: Record<string, string>
+  /** Classes ajoutées au panneau */
+  class?: string
+  /** Placeholder du champ de recherche du panneau */
+  searchPlaceholder?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -78,6 +99,7 @@ const emit = defineEmits<{
 
 defineSlots<{
   default?: (props: Record<string, any>) => any // option : { option, index, selected, active }
+  prepend?: () => any
   noOptions?: () => any
   error?: () => any
   hint?: () => any
@@ -98,23 +120,42 @@ const activeIndex = ref(0)
 // — Mode panneau (modal / sheet) —
 const panelMode = computed(() => props.mode !== "inline")
 
+// Options du mode courant (sheet/modal) — surchargent les props directes
+const modeOptions = computed<QAutocompleteModeOptions | undefined>(() => {
+  if (props.mode === "sheet") return props.sheetOptions
+  if (props.mode === "modal") return props.modalOptions
+  return undefined
+})
+
+const panelWidth = computed(() => modeOptions.value?.width ?? props.width)
+const panelHeight = computed(() => modeOptions.value?.height ?? props.height)
+const panelSearchPlaceholder = computed(
+  () => modeOptions.value?.searchPlaceholder ?? props.placeholder ?? "Search…",
+)
+
 // « Retour » navigateur → ferme le panneau au lieu de naviguer
 const panelOpen = computed(() => panelMode.value && open.value)
 useOverlayBack(panelOpen, () => closePopup(), "QAutocomplete")
 
 const sheetStyle = computed<Record<string, string>>(() => {
   const style: Record<string, string> = {}
-  if (props.mode !== "inline" && props.width) style.width = props.width
+  if (props.mode !== "inline" && panelWidth.value) {
+    // width ET maxWidth : sinon le max-width CSS (640px) plafonne le panneau
+    style.width = panelWidth.value
+    style.maxWidth = panelWidth.value
+  }
   return style
 })
 
 const sheetListStyle = computed<Record<string, string>>(() => {
   const style: Record<string, string> = {}
-  if (props.height) style.height = props.height
+  if (panelHeight.value) style.height = panelHeight.value
   return style
 })
 
-const sheetTitle = computed(() => props.title ?? props.label ?? props.placeholder ?? "Select")
+const sheetTitle = computed(
+  () => modeOptions.value?.title ?? props.title ?? props.label ?? props.placeholder ?? "Select",
+)
 
 // — Valeurs des options —
 const getValue = (opt: any): any =>
@@ -297,6 +338,9 @@ watch(open, (v) => {
   <div ref="rootEl" class="q-autocomplete" :class="fieldClasses" :style="roundedStyle" v-bind="$attrs">
     <label v-if="label" class="q-field__label-stack">{{ label }}</label>
     <div class="q-field__control">
+      <slot name="prepend">
+        <Icon v-if="iconLeft" :icon="iconLeft" class="q-field__icon" aria-hidden="true" />
+      </slot>
       <input
         class="q-field__native"
         :value="inputDisplay"
@@ -322,6 +366,12 @@ watch(open, (v) => {
       >
         <Icon :icon="icons.x" aria-hidden="true" />
       </button>
+      <Icon
+        :icon="icons.chevronDown"
+        class="q-autocomplete__arrow"
+        :class="{ 'q-autocomplete__arrow--rotated': open }"
+        aria-hidden="true"
+      />
     </div>
     <div v-if="error" class="q-field__bottom">
       <div class="q-field__error">
@@ -378,8 +428,8 @@ watch(open, (v) => {
           <div
             ref="sheetRef"
             class="q-autocomplete__sheet"
-            :class="`q-autocomplete__sheet--${mode}`"
-            :style="sheetStyle"
+            :class="[`q-autocomplete__sheet--${mode}`, modeOptions?.class]"
+            :style="[sheetStyle, modeOptions?.style]"
             role="dialog"
             aria-modal="true"
             :aria-label="sheetTitle"
@@ -401,7 +451,7 @@ watch(open, (v) => {
                 ref="panelInput"
                 class="q-autocomplete__search-input"
                 :value="query"
-                :placeholder="placeholder ?? 'Search…'"
+                :placeholder="panelSearchPlaceholder"
                 role="combobox"
                 :aria-expanded="open ? 'true' : 'false'"
                 aria-autocomplete="list"

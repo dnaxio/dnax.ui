@@ -1951,6 +1951,9 @@ html.dark body {
   display: inline-flex;
   flex-shrink: 0;
   color: rgb(0 0 0 / 0.45);
+  /* petit espace dédié entre l'icône gauche et la valeur (gap 6px du
+     control + 2px = 8px) — évite l'icône collée au texte */
+  margin-right: 2px;
 }
 
 .q-field__clear {
@@ -3366,6 +3369,18 @@ html.dark body {
   flex-shrink: 0;
 }
 
+.q-autocomplete__arrow {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: rgb(0 0 0 / 0.6);
+  transition: transform 0.2s ease;
+}
+
+.q-autocomplete__arrow--rotated {
+  transform: rotate(180deg);
+}
+
 .q-autocomplete__popup {
   position: absolute;
   top: calc(100% + 4px);
@@ -3455,6 +3470,16 @@ html.dark body {
   padding-bottom: 0;
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* écran < md (768px, convention Tailwind/shadcn) : le sheet prend 100% de la
+   largeur par défaut — tant qu'aucun width n'est fourni (un width inline
+   via sheetOptions/modalOptions ou la prop width prime sur cette règle) */
+@media (max-width: 767px) {
+  .q-autocomplete__sheet--sheet {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 .q-autocomplete__sheet-header {
   display: flex;

@@ -81,6 +81,8 @@ interface Props {
   noOptionsLabel?: string
   /** Icône Iconify de la flèche (défaut : lucide:chevron-down) */
   dropdownIcon?: string
+  /** Icône Iconify à gauche (remplacée par le slot #prepend s'il est fourni) */
+  iconLeft?: string
   /** Recherche floue fuse.js : true (défauts) ou { keys, threshold } — champ de recherche séparé affiché avant la liste */
   useSearch?: boolean | UseSearchOptions
   /** Placeholder du champ de recherche (useSearch) */
@@ -519,7 +521,9 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
   <div ref="rootEl" class="q-select" :class="fieldClasses" :style="fieldRadiusStyle">
     <label v-if="label" class="q-field__label-stack">{{ label }}</label>
     <div class="q-field__control" @click="onControlClick">
-      <slot name="prepend" />
+      <slot name="prepend">
+        <Icon v-if="iconLeft" :icon="iconLeft" class="q-field__icon" aria-hidden="true" />
+      </slot>
 
       <!-- Chips : uniquement en multiple + use-chips (comme Quasar — un select
            simple avec use-chips affiche juste le texte du display) -->

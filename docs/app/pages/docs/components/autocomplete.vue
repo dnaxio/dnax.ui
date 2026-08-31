@@ -91,7 +91,8 @@ const panelCode = `<q-autocomplete
   option-label="name"
   label="Country"
   :mode="mode"
-  title="Pick a country"
+  :sheet-options="{ title: 'Pick a country', width: '100%', searchPlaceholder: 'Search countries…' }"
+  :modal-options="{ title: 'Pick a country', height: '400px' }"
   outlined
 />
 <!-- mode : inline (dropdown) | modal (boîte centrée) | sheet (bottom sheet) -->`
@@ -238,7 +239,12 @@ const mode = ref("inline")`
         <code>sheet</code> (bottom sheet, iOS safe-area built in). The panel has
         a <code>title</code> header, its own search field (the typed text is
         shared with the field), and closes on backdrop / × / Esc / browser
-        back. <code>width</code> and <code>height</code> tune the panel.
+        back. Per-mode tuning goes in <code>sheet-options</code> /
+        <code>modal-options</code> (<code>width</code>, <code>height</code>,
+        <code>title</code>, <code>style</code>, <code>class</code>,
+        <code>search-placeholder</code> — they override the direct props) —
+        e.g. <code>sheet-options="{ width: '100%' }"</code> for a full-width
+        sheet.
       </p>
 
       <docs-demo :code="panelCode" lang="html" filename="App.vue" :script="scriptPanel">

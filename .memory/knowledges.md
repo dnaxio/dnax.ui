@@ -1,5 +1,15 @@
 # Connaissances & bonnes pratiques (tag: knowledges)
 
+## Icône gauche des champs : icon-left + espacement — 2026-08-31
+
+- `icon-left` ajouté à `QSelect` et `QAutocomplete` (QInput l'avait déjà) —
+  rendu `<Icon class="q-field__icon">` dans `.q-field__control`, remplacé par
+  le slot `#prepend` s'il est fourni
+- Espacement : `.q-field__icon { margin-right: 2px }` → icône → valeur =
+  gap 6px du control + 2px = 8px (l'icône n'est plus collée au texte)
+- `#prepend` partagé entre les trois champs (même sémantique que Quasar)
+- Build ✅. (2026-08-31)
+
 ## QAutocomplete — modes modal / sheet — 2026-08-31
 
 `QAutocomplete` étendu avec `mode: "inline" | "modal" | "sheet"` (miroir de
@@ -19,8 +29,22 @@ QSelect) :
   `.q-autocomplete__sheet--sheet` ; transitions réutilisent `q-sheet-pop-*`
 - Piège TS : computed d'objet avec branche vide → initialiser `{}` puis
   assigner (l'union `{ height?: undefined }` casse `Record<string, string>`)
+- Largeur : quand `width` est fourni, poser `width` ET `maxWidth` (sinon le
+  `max-width: 640px` du CSS plafonne) → `width="100%"` = pleine largeur
+  (miroir du sheetWidthStyle de QSelect)
+- **sheetOptions / modalOptions** (`QAutocompleteModeOptions`) : réglages par
+  mode — `width`, `height`, `title`, `style`, `class`, `searchPlaceholder` —
+  qui surchargent les props directes (pattern `modeOptions?.x ?? props.x`,
+  comme QSelect). `:sheet-options="{ width: '100%' }"` = sheet pleine largeur
+- **Défaut mobile** : écran < md (767px) → le sheet est 100% de largeur par
+  défaut (`@media (max-width: 767px) .q-autocomplete__sheet--sheet { width:
+100%; max-width: 100% }`) — un width fourni (inline) prime (miroir du
+  `@media` de QSelect pour le modal 90%)
 - Racine `v-bind="$attrs"`. Démo docs « Sheet & modal modes » (selecteur de
   mode inline/modal/sheet). Build ✅.
+- Flèche dropdown dans le champ (`.q-autocomplete__arrow`, chevron-down,
+  rotation 180° à l'ouverture) — visible dans tous les modes, y compris sheet
+  (2026-08-31)
 
 ## Règle : v-bind="$attrs" sur la racine de TOUT composant — 2026-08-31
 
