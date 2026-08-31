@@ -28,6 +28,7 @@ const FAMILIES: Record<string, string[]> = {
     "QDialogProvider",
   ],
   Fab: ["QFab", "QFabAction"],
+  Grid: ["QGrid", "QGridItem"],
   List: ["QList", "QItem", "QItemSection"],
   Loading: ["QLoading", "QLoadingProvider"],
   "Message Scroller": [
@@ -79,7 +80,6 @@ const CUSTOM_PAGES = new Set([
   "footer",
   "gallery",
   "grid",
-  "grid-item",
   "header",
   "img",
   "image-preview",
@@ -179,29 +179,15 @@ const LAYOUTS = [
 ];
 const LAYOUT_EXPORTS = new Set(LAYOUTS.map((l) => l.export));
 
-// Composants Styles : regroupés sous « Styles > Columns / Rows » dans le menu
-// (leurs pages restent générées/custom, mais hors du groupe Components).
+// Composants Styles : listés à plat sous « Styles » (plus de sous-groupes
+// Columns / Rows) — leurs pages restent générées/custom, mais hors du groupe
+// Components.
 const STYLES = [
-  {
-    title: "Columns",
-    items: [
-      { title: "Grid", link: "/docs/components/grid", export: "QGrid" },
-      { title: "Col", link: "/docs/components/col", export: "QCol" },
-      {
-        title: "Grid Item",
-        link: "/docs/components/grid-item",
-        export: "QGridItem",
-      },
-    ],
-  },
-  {
-    title: "Rows",
-    items: [{ title: "Row", link: "/docs/components/row", export: "QRow" }],
-  },
+  { title: "Grid", link: "/docs/components/grid", export: "QGrid" },
+  { title: "Col", link: "/docs/components/col", export: "QCol" },
+  { title: "Row", link: "/docs/components/row", export: "QRow" },
 ];
-const STYLE_EXPORTS = new Set(
-  STYLES.flatMap((s) => s.items.map((i) => i.export)),
-);
+const STYLE_EXPORTS = new Set(STYLES.map((i) => i.export));
 
 // Slugs de pages surchargés (nom de fichier/lien ≠ kebab de l'export)
 const SLUG_OVERRIDES: Record<string, string> = {
@@ -329,19 +315,10 @@ out += `        ],
   {
     title: "Styles",
     icon: "lucide:frame",
-    groups: [
+    items: [
 `;
-for (const s of STYLES) {
-  out += `      {
-        title: ${JSON.stringify(s.title)},
-        items: [
-`;
-  for (const i of s.items)
-    out += `          { title: ${JSON.stringify(i.title)}, link: ${JSON.stringify(i.link)}, export: ${JSON.stringify(i.export)} },\n`;
-  out += `        ],
-      },
-`;
-}
+for (const s of STYLES)
+  out += `      { title: ${JSON.stringify(s.title)}, link: ${JSON.stringify(s.link)}, export: ${JSON.stringify(s.export)} },\n`;
 out += `    ],
   },
   {

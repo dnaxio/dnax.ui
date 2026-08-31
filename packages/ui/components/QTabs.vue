@@ -59,8 +59,11 @@ interface Props {
   inlineLabel?: boolean
   /** Pas de majuscules sur les tabs */
   noCaps?: boolean
-  /** Indicateur en haut au lieu du bas */
-  switchIndicator?: boolean
+  /**
+   * Position de l'indicateur (opt-in — sans la prop, aucun indicateur) :
+   * true | "bottom" → en bas (défaut) ; "top" → en haut (pattern iOS/mobile).
+   */
+  switchIndicatorPosition?: boolean | "top" | "bottom"
   /** Tabs en colonne (verticales) */
   vertical?: boolean
   /** Ne pas s'étendre (usage dans un QToolbar) */
@@ -83,7 +86,7 @@ const props = withDefaults(defineProps<Props>(), {
   dense: false,
   inlineLabel: false,
   noCaps: false,
-  switchIndicator: false,
+  switchIndicatorPosition: undefined,
   vertical: false,
   shrink: false,
   stretch: false,
@@ -92,6 +95,14 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{ "update:modelValue": [value: string | number | null] }>()
+
+// Position effective de l'indicateur : "top" | "bottom" (défaut) | "none" (masqué)
+const indicatorPos = computed<"top" | "bottom" | "none">(() => {
+  const p = props.switchIndicatorPosition
+  if (p === "top") return "top"
+  if (p === false || p === undefined || p === null) return "none"
+  return "bottom" // true | "" (attribut sans valeur) | "bottom"
+})
 
 // shallowRef : on ne veut PAS que Vue dé-unwrappe les Ref contenues dans les enregistrements
 const tabRegs = shallowRef<QTabRegistration[]>([])
@@ -166,7 +177,10 @@ const tabsClasses = computed(() =>
   cn(
     tabsVariants({ align: props.align, dense: props.dense }),
     props.vertical && "q-tabs--vertical",
-    props.switchIndicator && "q-tabs--switch-indicator",
+    // Indicateur opt-in : bottom (défaut) | top | aucun
+    indicatorPos.value === "none"
+      ? "q-tabs--no-indicator"
+      : indicatorPos.value === "top" && "q-tabs--switch-indicator",
     props.shrink && "q-tabs--shrink",
     props.stretch && "q-tabs--stretch",
     props.animated && "q-tabs--animated",

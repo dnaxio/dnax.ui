@@ -27,9 +27,8 @@ The design system lives in `@dnax/ui` (npm package `@dnax/ui`, source in `packag
 
 ## Styles
 
-- [Grid](/docs/components/grid) — responsive CSS grid container (QCol cells) + Vant-style cell mode (`:column-num` with QGridItem)
+- [Grid](/docs/components/grid) — responsive CSS grid container (QCol cells) + Vant-style cell mode (`:column-num` with QGridItem: icon + text, badge, dot, href, slots), both APIs documented on the same page
 - [Col](/docs/components/col)
-- [Grid Item](/docs/components/grid-item) — Vant-style grid cell (icon + text, badge, dot, href, slots) for `q-grid :column-num`
 - [Row](/docs/components/row)
 
 ## Components

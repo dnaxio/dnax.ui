@@ -656,6 +656,12 @@ html.dark body {
   width: 100%;
 }
 
+/* stretch → chaque tab prend une largeur équitable (comme justify), même si
+   align est left/center/right (placé après pour primer sur flex: 0 0 auto) */
+.q-tabs--stretch .q-tab {
+  flex: 1 1 auto;
+}
+
 .q-tabs--shrink {
   flex: 0 1 auto;
   width: auto;
@@ -679,7 +685,12 @@ html.dark body {
   height: auto;
 }
 
-/* indicateur en haut (switch-indicator) */
+/* Indicateur : masqué par défaut (opt-in via switch-indicator-position) */
+.q-tabs--no-indicator .q-tabs__indicator {
+  display: none;
+}
+
+/* indicateur en haut (switch-indicator-position) */
 .q-tabs--switch-indicator .q-tabs__indicator {
   top: 0;
   bottom: auto;
@@ -845,6 +856,22 @@ html.dark body {
 .q-tab--inline-label {
   flex-direction: row;
   gap: 8px;
+}
+
+/* Icône empilée au-dessus du label : aérer l'icône du haut du cadre (le tab
+   n'a que du padding horizontal par défaut) et le label du bas.
+   Le padding est mis sur le CONTENU (pas le .q-tab qui a height:100% en
+   stretch → le padding y serait absorbé). */
+.q-tab--stacked-icon .q-tab__content {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* Fallback : tout tab avec icône et NON inline-label (indépendant de la classe
+   JS, au cas où l'icône est rendue via slot) */
+.q-tab:not(.q-tab--inline-label):has(> .q-tab__content > .q-tab__icon) .q-tab__content {
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 
 .q-tab__icon {
@@ -3594,6 +3621,8 @@ html.dark body {
   transition:
     transform 0.25s ease,
     visibility 0.25s;
+  /* Scroll vertical natif autorisé, gestes horizontaux (swipe pour fermer) au JS */
+  touch-action: pan-y;
   /* Safe-area : encoche, barre d'accueil et côtés en paysage */
   padding-top: 0;
   padding-top: constant(safe-area-inset-top);

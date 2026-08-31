@@ -64,6 +64,78 @@ fermé**. Conséquences pour les triggers :
 dans l'accordéon — non reproductible en SSR isolé (contexte client/bundle).
 Éliminé par le passage à `@iconify/vue`.
 
+## $q.notify.show : toasts invisibles (CSS vue-sonner manquant)
+
+`$q.notify.show()` poussait bien le toast dans la pile vue-sonner mais RIEN ne
+s'affichait : `vue-sonner/style.css` (styles du Toaster) n'était importé nulle
+part → toasts rendus mais invisibles (position fixe sans styles). Fix : import
+du CSS dans QNotifyProvider.vue (`import "vue-sonner/style.css"`) — le Toaster
+est monté par QConfigProvider, donc le CSS est bundlé avec lui. Vérifié :
+`sonner-toast` présent dans le bundle. (2026-08-31)
+
+## $q.notify : tokens Quasar acceptés en `type`
+
+`type` accepte désormais les tokens Quasar : `positive` = success,
+`negative` = error (warning/info inchangés, success/error toujours valides).
+Mapping dans lib/q.ts via `sonnerType` (positive→success, negative→error).
+Doc notify mise à jour (fire accepte positive/negative). Build ✅. (2026-08-31)
+
+## QTab icône empilée : padding vertical ajouté
+
+En mode non inline-label (icône au-dessus du label), `.q-tab` n'avait que du
+padding horizontal (`padding: 0 16px`) → l'icône collait au haut du cadre.
+Fix : classe `q-tab--stacked-icon` dans QTab.vue (props.icon &&
+!tabs?.inlineLabel) + CSS `padding-top: 8px; padding-bottom: 6px`.
+Build ✅. (2026-08-31)
+
+Suite : padding-bottom 6px insuffisant (label collait encore au bas du cadre)
+→ padding vertical symétrique `padding: 8px 16px`. Build ✅. (2026-08-31)
+
+Encore trop serré → padding vertical augmenté à `12px 16px`. Build ✅.
+(2026-08-31)
+
+## QSelect : normalisation automatique des options primitives
+
+`options` de strings/numbers (ex. `['S','M','L']` ou `[1,2,3]`) sont désormais
+normalisées en `{ value, label }` (label = String(value)) via `normalizedOptions`
+computed dans QSelect.vue :
+
+- `getOptionValue`/`getOptionLabel` gèrent les primitives (valeur = elle-même,
+  label = String)
+- `__raw` non-énumérable sur l'objet normalisé → `select()` émet la valeur
+  d'origine (la primitive), pas l'objet, même sans `emit-value`
+- searcher (fuse) et displayOptions utilisent normalizedOptions
+  Démo docs « Primitive options » ajoutée (strings + numbers). Build ✅.
+  (2026-08-31)
+
+  ## QSidebar : swipe pour fermer (mode offcanvas)
+
+  QSidebar en mode offcanvas supporte désormais le geste mobile : glisser le
+  panneau vers l'extérieur (gauche pour side=left, droite pour side=right) ferme
+  au-delà du seuil (min(80px, 30% largeur)), sinon rebond retour. Implémentation
+  implémentation
+  pattern bottom-sheet : pointerdown/move/up + setPointerCapture, détection geste
+  majoritairement horizontal (scroll vertical du contenu préservé via
+  `touch-action: pan-y` sur .q-sidebar--offcanvas), transition: none pendant le
+  drag puis restauration. Build ✅. (2026-08-31)
+
+  Corrections swipe sidebar : (1) à la fermeture, poser `transform: translateX(±100%)`
+  AVANT setOpen(false) → l'animation continue depuis la position de swipe jusqu'au
+  bord (avant : la classe --open était retirée mais l'inline restait à la position de
+  swipe → disparition brutale) ; (2) `watch(open)` nettoie le transform inline à la
+  réouverture → le panneau repart de la position CSS (avant : il revenait à
+  l'endroit où on avait relâché le swipe). Build ✅. (2026-08-31)
+
+  ## Grid & Grid Item : page fusionnée + Styles plat
+
+  Page docs `grid-item.vue` supprimée → tout est documenté sur `grid.vue`
+  (QGrid layout + QGridItem cell mode, démos Basic/Partial row/Square/Horizontal/
+  Links + API des deux). Menu Styles : sous-groupes « Columns »/« Rows » retirés →
+  items plats (Grid, Col, Row) ; « Grid Item » disparu du menu (famille Grid
+  [QGrid, QGridItem] dans gen-menu FAMILIES pour empêcher la régénération d'une
+  page grid-item.vue). gen-menu STYLES = liste plate ; CUSTOM_PAGES : grid-item
+  retiré. llms.txt mis à jour. Build ✅. (2026-08-31)
+
 ## Zed : état LSP corrompu sur un fichier pourtant valide
 
 Après une série d'éditions, vtsls/Volar peut rester sur un snapshot corrompu d'un
@@ -202,6 +274,26 @@ right/bottom, fidèle Vant). Build ✅. (2026-08-31)
 défaut. Fix : résoudre via `colorValue` de `../lib/colors` (token →
 `var(--primary)`, sinon valeur directe hex/rgb) pour activeColor,
 activeBgColor et indicatorColor. Build ✅. (2026-08-31)
+
+## QTabs : switch-indicator renommé switch-indicator-position (opt-in)
+
+`switchIndicator` (boolean « en haut au lieu du bas ») → `switchIndicatorPosition`
+avec nouvelle sémantique : **true = indicateur EN HAUT, false = AUCUN indicateur**
+(classe `q-tabs--no-indicator` masque l'indicateur, `q-tabs--switch-indicator` le
+met en haut). L'indicateur est donc opt-in. DocsDemo/DocsApi (tabs Preview/Code,
+Props/Slots…) ont reçu `switch-indicator-position` pour préserver leur accent ;
+la page tabs.vue compare « no indicator » vs « top ». Build ✅. (2026-08-31)
+
+Révision : `switchIndicatorPosition` accepte `boolean | "top" | "bottom"` —
+sans la prop → AUCUN indicateur ; prop seule (true/"") ou "bottom" → indicateur
+EN BAS (position par défaut) ; "top" → en haut. Démo docs : 3 états (none /
+bottom / top). DocsDemo/DocsApi gardent l'attribut seul → bottom. Build ✅.
+(2026-08-31)
+
+QTabs stretch : en plus de `width: 100%`, chaque `.q-tab` reçoit `flex: 1 1 auto`
+(`.q-tabs--stretch .q-tab`) → largeur équitable entre les tabs comme `justify`,
+même avec align left/center/right (règle placée APRÈS `flex: 0 0 auto` pour
+primer). Doc align/stretch mise à jour. Build ✅. (2026-08-31)
 
 ## API $q uniformisée : .open() / .show()
 

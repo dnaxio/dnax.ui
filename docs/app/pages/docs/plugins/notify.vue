@@ -43,7 +43,7 @@ const usageDemo = `<div class="row">
   <q-btn no-caps color="info" label="Info" @click="fire('info', 'Heads up')" />
 </div>`
 
-const fire = (type: "success" | "error" | "warning" | "info", message: string) => {
+const fire = (type: "success" | "error" | "warning" | "info" | "positive" | "negative", message: string) => {
   $q.notify.show({ type, message, caption: "via $q.notify.show", position: "top-right", timeout: 2500 })
 }
 </script>

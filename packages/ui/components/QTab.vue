@@ -96,6 +96,8 @@ const tabClasses = computed(() =>
     (props.noCaps || tabs?.noCaps.value) && "q-tab--no-caps",
     props.disable && "q-tab--disabled",
     tabs?.inlineLabel.value && "q-tab--inline-label",
+    // Icône empilée au-dessus du label : padding vertical pour l'aérer du cadre
+    props.icon && !tabs?.inlineLabel.value && "q-tab--stacked-icon",
   ),
 )
 

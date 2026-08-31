@@ -184,7 +184,9 @@ const openStatic = ref(false)`
         static panel pinned while the page scrolls; <code>width</code> and
         <code>height</code> size the panel. <code>side</code> places it on the
         left (default) or right edge, and the panel provides the toggle context
-        to child <b>&lt;q-sidebar-trigger&gt;</b> components.
+        to child <b>&lt;q-sidebar-trigger&gt;</b> components. In offcanvas mode
+        you can also <b>swipe the panel outward</b> to close it (mobile gesture),
+        past half the width threshold.
       </p>
 
       <h3 class="doc-h3">Offcanvas</h3>

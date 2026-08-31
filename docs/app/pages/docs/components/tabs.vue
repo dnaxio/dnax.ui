@@ -22,7 +22,7 @@ const tabCounts = ref("inbox")
 const alignDemo = ref<"left" | "center" | "right" | "justify">("center")
 const stretchDemo = ref(false)
 
-const usageBasic = `<q-tabs v-model="tab" active-color="primary" indicator-color="primary">
+const usageBasic = `<q-tabs v-model="tab" active-color="primary" indicator-color="primary" switch-indicator-position>
   <q-tab name="one" label="One" />
   <q-tab name="two" label="Two" />
   <q-tab name="three" label="Three" />
@@ -43,32 +43,37 @@ const usageAlign = `<q-tabs
   <q-tab name="messages" label="Messages" />
 </q-tabs>`
 
-const usageIcons = `<q-tabs v-model="tabIcons" inline-label no-caps active-color="primary">
+const usageIcons = `<q-tabs v-model="tabIcons" inline-label no-caps active-color="primary" switch-indicator-position>
   <q-tab name="inbox" icon="lucide:inbox" label="Inbox" alert="negative" />
   <q-tab name="sent" icon="lucide:send" label="Sent" />
   <q-tab name="drafts" icon="lucide:file-text" label="Drafts" />
 </q-tabs>`
 
-const usageCounts = `<q-tabs v-model="tabCounts" no-caps active-color="primary">
+const usageCounts = `<q-tabs v-model="tabCounts" no-caps active-color="primary" switch-indicator-position>
   <q-tab name="inbox" icon="lucide:inbox" label="Inbox" :count="12" />
   <q-tab name="social" icon="lucide:users" label="Social" :count="5" count-color="info" />
   <q-tab name="spam" icon="lucide:shield-alert" label="Spam" :count="125" count-color="warning" />
   <q-tab name="sent" icon="lucide:send" label="Sent" />
 </q-tabs>`
 
-const usageSwitch = `<div class="row">
-  <q-tabs v-model="tab" active-color="primary" indicator-color="primary" class="col">
-    <q-tab name="one" label="One" />
-    <q-tab name="two" label="Two" />
-    <q-tab name="three" label="Three" />
-  </q-tabs>
-  <q-tabs v-model="tab" switch-indicator active-color="primary" indicator-color="primary" class="col">
-    <q-tab name="one" label="One" />
-    <q-tab name="two" label="Two" />
-    <q-tab name="three" label="Three" />
-  </q-tabs>
-</div>
-<!-- Haut : indicateur en bas (défaut). Bas : switch-indicator → en haut. -->`
+const usageSwitch = `<q-tabs v-model="tab" active-color="primary" indicator-color="primary">
+  <q-tab name="one" label="One" />
+  <q-tab name="two" label="Two" />
+  <q-tab name="three" label="Three" />
+</q-tabs>
+
+<q-tabs v-model="tab" switch-indicator-position active-color="primary" indicator-color="primary">
+  <q-tab name="one" label="One" />
+  <q-tab name="two" label="Two" />
+  <q-tab name="three" label="Three" />
+</q-tabs>
+
+<q-tabs v-model="tab" switch-indicator-position="top" active-color="primary" indicator-color="primary">
+  <q-tab name="one" label="One" />
+  <q-tab name="two" label="Two" />
+  <q-tab name="three" label="Three" />
+</q-tabs>
+<!-- Sans prop → aucun indicateur · switch-indicator-position → en bas (défaut) · ="top" → en haut -->`
 
 // — Scripts des démos (onglet "Script setup") —
 const scriptBasic = `import { ref } from "vue"
@@ -118,7 +123,7 @@ const tabCounts = ref("inbox")`
 
       <h3 class="doc-h3">Basic</h3>
       <docs-demo :code="usageBasic" lang="html" filename="App.vue" :script="scriptBasic">
-        <q-tabs v-model="tab" active-color="primary" indicator-color="primary">
+        <q-tabs v-model="tab" active-color="primary" indicator-color="primary" switch-indicator-position>
           <q-tab name="one" label="One" />
           <q-tab name="two" label="Two" />
           <q-tab name="three" label="Three" />
@@ -131,7 +136,8 @@ const tabCounts = ref("inbox")`
         <code>align</code> distributes the tabs — <code>left</code>,
         <code>center</code>, <code>right</code> (natural width) or
         <code>justify</code> (equal width). <code>stretch</code> makes the bar
-        fill the whole parent width even inside a flex container.
+        fill the whole parent width <b>and</b> gives every tab an equal share
+        (like <code>justify</code>), even inside a flex container.
       </p>
       <docs-demo :code="usageAlign" lang="html" filename="App.vue" :script="scriptAlign">
         <div class="demo-row demo-row--align">
@@ -166,7 +172,7 @@ const tabCounts = ref("inbox")`
 
       <h3 class="doc-h3">Icons &amp; alerts</h3>
       <docs-demo :code="usageIcons" lang="html" filename="App.vue" :script="scriptIcons">
-        <q-tabs v-model="tabIcons" inline-label no-caps active-color="primary">
+        <q-tabs v-model="tabIcons" inline-label no-caps active-color="primary" switch-indicator-position>
           <q-tab name="inbox" icon="lucide:inbox" label="Inbox" alert="negative" />
           <q-tab name="sent" icon="lucide:send" label="Sent" />
           <q-tab name="drafts" icon="lucide:file-text" label="Drafts" />
@@ -181,7 +187,7 @@ const tabCounts = ref("inbox")`
         <code>count-max</code> caps the display as <code>N+</code> (default 99).
       </p>
       <docs-demo :code="usageCounts" lang="html" filename="App.vue" :script="scriptCounts">
-        <q-tabs v-model="tabCounts" no-caps active-color="primary">
+        <q-tabs v-model="tabCounts" no-caps active-color="primary" switch-indicator-position>
           <q-tab name="inbox" icon="lucide:inbox" label="Inbox" :count="12" />
           <q-tab name="social" icon="lucide:users" label="Social" :count="5" count-color="info" />
           <q-tab name="spam" icon="lucide:shield-alert" label="Spam" :count="125" count-color="warning" />
@@ -189,17 +195,17 @@ const tabCounts = ref("inbox")`
         </q-tabs>
       </docs-demo>
 
-      <h3 class="doc-h3">Switch indicator (top)</h3>
+      <h3 class="doc-h3">Switch indicator position</h3>
       <p class="doc-note">
-        Same <code>v-model</code>, two styles — <b>top</b>: the default indicator at
-        the bottom (Material-style); <b>bottom</b>: <code>switch-indicator</code>
-        moves the accent bar to the <b>top</b> (iOS/mobile pattern). In vertical
-        mode it moves from the right edge to the left edge.
+        The indicator is <b>opt-in</b>: without <code>switch-indicator-position</code>
+        no accent bar is rendered. With the prop alone it sits at the <b>bottom</b>
+        (default position); <code>switch-indicator-position="top"</code> moves it to
+        the <b>top</b> (iOS/mobile pattern) — left edge in vertical mode.
       </p>
       <docs-demo :code="usageSwitch" lang="html" filename="App.vue" :script="scriptBasic">
         <div class="demo-switch-row">
           <div class="demo-switch-col">
-            <p class="demo-p demo-switch-label">default (bottom)</p>
+            <p class="demo-p demo-switch-label">no indicator</p>
             <q-tabs v-model="tab" active-color="primary" indicator-color="primary">
               <q-tab name="one" label="One" />
               <q-tab name="two" label="Two" />
@@ -207,8 +213,16 @@ const tabCounts = ref("inbox")`
             </q-tabs>
           </div>
           <div class="demo-switch-col">
-            <p class="demo-p demo-switch-label">switch-indicator (top)</p>
-            <q-tabs v-model="tab" switch-indicator active-color="primary" indicator-color="primary">
+            <p class="demo-p demo-switch-label">bottom (default)</p>
+            <q-tabs v-model="tab" switch-indicator-position active-color="primary" indicator-color="primary">
+              <q-tab name="one" label="One" />
+              <q-tab name="two" label="Two" />
+              <q-tab name="three" label="Three" />
+            </q-tabs>
+          </div>
+          <div class="demo-switch-col">
+            <p class="demo-p demo-switch-label">top</p>
+            <q-tabs v-model="tab" switch-indicator-position="top" active-color="primary" indicator-color="primary">
               <q-tab name="one" label="One" />
               <q-tab name="two" label="Two" />
               <q-tab name="three" label="Three" />

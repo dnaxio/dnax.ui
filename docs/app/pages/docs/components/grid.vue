@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// Grid — documentation du composant QGrid : le conteneur de la grille responsive
-// (mode layout : QCol) et de la grille de cellules Vant-style (mode :column-num :
-// QGridItem). Les cellules (QCol, QGridItem) et l'alias sémantique (QRow) ont
-// leurs propres pages.
+// Grid — documentation de la famille : QGrid (conteneur responsive + mode
+// cellules Vant) et QGridItem (cellule icône + texte). QCol (cellule du layout)
+// et QRow (alias sémantique) ont leurs propres pages.
+import { ref } from "vue"
 import { componentSource, componentTag, useComponent } from "~/composables/useComponentDocs"
 import DocsApi from "~/components/DocsApi.vue"
 import DocsDemo from "~/components/DocsDemo.vue"
@@ -11,15 +11,11 @@ definePageMeta({ layout: "docs" })
 
 const grid = useComponent(() => "QGrid")
 const gridSource = componentSource("QGrid")
+const gridItem = useComponent(() => "QGridItem")
+const gridItemSource = componentSource("QGridItem")
 const tag = componentTag("QGrid")
 
-const usageCells = `<q-grid :column-num="4" gutter="8" border clickable>
-  <q-grid-item icon="lucide:image" text="Photos" badge="3" />
-  <q-grid-item icon="lucide:video" text="Videos" />
-  <q-grid-item icon="lucide:music" text="Music" dot />
-  <q-grid-item icon="lucide:settings" text="Settings" />
-</q-grid>`
-
+// — Démos layout (QCol) —
 const usageBasic = `<q-grid :cols="12" gap="16px">
   <q-col :span="12"><div class="cell">12</div></q-col>
   <q-col :span="6"><div class="cell">6</div></q-col>
@@ -44,6 +40,51 @@ const usageColsResponsive = `<q-grid :cols="12" :cols-md="6" :cols-lg="4" gap="1
   <q-col v-for="i in 6" :key="i"><div class="cell">Item {{ i }}</div></q-col>
 </q-grid>
 <!-- 6 items : 6 par ligne mobile, 3 à md, 2 à lg (cols change le total) -->`
+
+// — Démos cellules (QGridItem) —
+const usageCells = `<q-grid :column-num="4" gutter="8" border clickable>
+  <q-grid-item icon="lucide:image" text="Photos" badge="3" />
+  <q-grid-item icon="lucide:video" text="Videos" />
+  <q-grid-item icon="lucide:music" text="Music" dot />
+  <q-grid-item icon="lucide:settings" text="Settings" />
+</q-grid>`
+
+const usageSix = `<q-grid :column-num="4" gutter="8" border clickable>
+  <q-grid-item icon="lucide:image" text="Photos" />
+  <q-grid-item icon="lucide:video" text="Videos" />
+  <q-grid-item icon="lucide:music" text="Music" />
+  <q-grid-item icon="lucide:map" text="Maps" />
+  <q-grid-item icon="lucide:book" text="Books" />
+  <q-grid-item icon="lucide:settings" text="Settings" />
+</q-grid>`
+
+const usageSquare = `<q-grid :column-num="3" gutter="10" square border clickable>
+  <q-grid-item icon="lucide:camera" text="Camera" />
+  <q-grid-item icon="lucide:map" text="Maps" />
+  <q-grid-item icon="lucide:book" text="Books" badge="12" />
+</q-grid>`
+
+const usageHorizontal = `<q-grid :column-num="2" gutter="10" border clickable direction="horizontal">
+  <q-grid-item icon="lucide:phone" text="Call" />
+  <q-grid-item icon="lucide:mail" text="Email" />
+</q-grid>`
+
+const usageCustom = `<q-grid :column-num="4" gutter="8" border clickable>
+  <q-grid-item href="/docs" icon="lucide:book-open" text="Docs" />
+  <q-grid-item
+    icon="lucide:heart"
+    text="Favorites"
+    icon-color="#e91e63"
+    badge="99+"
+  />
+  <q-grid-item disable icon="lucide:lock" text="Locked" />
+  <q-grid-item>
+    <template #icon>
+      <q-spinner size="24px" color="primary" />
+    </template>
+    <template #default>Loading</template>
+  </q-grid-item>
+</q-grid>`
 </script>
 
 <template>
@@ -54,17 +95,18 @@ const usageColsResponsive = `<q-grid :cols="12" :cols-md="6" :cols-lg="4" gap="1
     </div>
 
     <p class="doc-lead">
-      A responsive CSS grid container: <b>&lt;q-grid&gt;</b> creates
-      <code>cols</code> tracks (12 by default) and its <b>&lt;q-col&gt;</b>
-      children occupy spans. Breakpoints are <b>configurable</b> via CSS variables
-      (<code>--q-grid-bp-sm/md/lg/xl</code>). See also the dedicated pages for
-      <a class="doc-link" href="/docs/components/col">QCol</a> (cell) and
-      <a class="doc-link" href="/docs/components/row">QRow</a> (semantic alias).
+      Two grids in one family: a responsive <b>&lt;q-grid&gt;</b> with
+      <b>&lt;q-col&gt;</b> spans (12-track layout, configurable breakpoints), and a
+      <b>Vant-style cell grid</b> — <code>:column-num</code> switches the container
+      to equal cells filled by <b>&lt;q-grid-item&gt;</b> (icon + text, badges,
+      links). See also the <a class="doc-link" href="/docs/components/col">QCol</a>
+      page for the layout cell and
+      <a class="doc-link" href="/docs/components/row">QRow</a> for the semantic alias.
     </p>
 
-    <!-- ═══════ Basic ═══════ -->
+    <!-- ═══════ Layout grid ═══════ -->
     <section class="doc-section">
-      <h2 class="doc-h2">Basic</h2>
+      <h2 class="doc-h2">Layout grid</h2>
       <p class="doc-note">
         Spans that add up to 12 fill a row; <code>gap</code> accepts any CSS value.
       </p>
@@ -79,17 +121,13 @@ const usageColsResponsive = `<q-grid :cols="12" :cols-md="6" :cols-lg="4" gap="1
           <q-col :span="4"><div class="demo-cell">4</div></q-col>
         </q-grid>
       </docs-demo>
-    </section>
 
-    <!-- ═══════ Responsive ═══════ -->
-    <section class="doc-section">
-      <h2 class="doc-h2">Responsive</h2>
+      <h3 class="doc-h3">Responsive</h3>
       <p class="doc-note">
         Mobile-first: the base <code>span</code> applies on small screens, and
         <code>-sm / -md / -lg / -xl</code> variants override at each breakpoint.
         Resize the window to see the layout adapt.
       </p>
-
       <docs-demo :code="usageResponsive" lang="html" filename="App.vue">
         <q-grid :cols="12" gap="12px" class="demo-grid">
           <q-col :span="12" :span-md="8" :span-lg="6"><div class="demo-cell demo-cell--accent">Main</div></q-col>
@@ -111,11 +149,8 @@ const usageColsResponsive = `<q-grid :cols="12" :cols-md="6" :cols-lg="4" gap="1
           <q-col v-for="i in 6" :key="i"><div class="demo-cell">Item {{ i }}</div></q-col>
         </q-grid>
       </docs-demo>
-    </section>
 
-    <!-- ═══════ Breakpoints ═══════ -->
-    <section class="doc-section">
-      <h2 class="doc-h2">Configurable breakpoints</h2>
+      <h3 class="doc-h3">Configurable breakpoints</h3>
       <p class="doc-note">
         The breakpoints are CSS variables with defaults — override them anywhere
         (your CSS, <code>:root</code>, a scoped scope) to change the whole grid:
@@ -128,15 +163,15 @@ const usageColsResponsive = `<q-grid :cols="12" :cols-md="6" :cols-lg="4" gap="1
       />
     </section>
 
-    <!-- ═══════ Cell grid (Vant) ═══════ -->
+    <!-- ═══════ Cell grid ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">Cell grid (Vant-style)</h2>
       <p class="doc-note">
         Passing <code>column-num</code> switches QGrid to the <b>cell mode</b>: the
         <code>gutter</code>, <code>border</code>, <code>square</code>,
         <code>center</code> and <code>clickable</code> options are applied to the
-        <b>&lt;q-grid-item&gt;</b> children — see the
-        <a class="doc-link" href="/docs/components/grid-item">Grid Item</a> page.
+        <b>&lt;q-grid-item&gt;</b> children — icon + text, numeric <code>badge</code>
+        or notification <code>dot</code>, optional <code>href</code> link.
       </p>
 
       <docs-demo :code="usageCells" lang="html" filename="App.vue">
@@ -147,12 +182,84 @@ const usageColsResponsive = `<q-grid :cols="12" :cols-md="6" :cols-lg="4" gap="1
           <q-grid-item icon="lucide:settings" text="Settings" />
         </q-grid>
       </docs-demo>
+
+      <h3 class="doc-h3">Partial last row</h3>
+      <p class="doc-note">
+        The grid wraps automatically — a <b>last partial row</b> is fine: with
+        6 items on 4 columns, the second row keeps only 2 cells and the borders
+        still close the frame.
+      </p>
+      <docs-demo :code="usageSix" lang="html" filename="App.vue">
+        <q-grid :column-num="4" gutter="8" border clickable class="demo-grid">
+          <q-grid-item icon="lucide:image" text="Photos" />
+          <q-grid-item icon="lucide:video" text="Videos" />
+          <q-grid-item icon="lucide:music" text="Music" />
+          <q-grid-item icon="lucide:map" text="Maps" />
+          <q-grid-item icon="lucide:book" text="Books" />
+          <q-grid-item icon="lucide:settings" text="Settings" />
+        </q-grid>
+      </docs-demo>
+
+      <h3 class="doc-h3">Square cells</h3>
+      <p class="doc-note">
+        <code>square</code> forces a 1:1 aspect ratio per cell — a classic icon
+        launcher look.
+      </p>
+      <docs-demo :code="usageSquare" lang="html" filename="App.vue">
+        <q-grid :column-num="3" gutter="10" square border clickable class="demo-grid">
+          <q-grid-item icon="lucide:camera" text="Camera" />
+          <q-grid-item icon="lucide:map" text="Maps" />
+          <q-grid-item icon="lucide:book" text="Books" badge="12" />
+        </q-grid>
+      </docs-demo>
+
+      <h3 class="doc-h3">Horizontal items</h3>
+      <p class="doc-note">
+        <code>direction="horizontal"</code> puts the icon beside the text instead
+        of above it; <code>reverse</code> swaps icon/text order.
+      </p>
+      <docs-demo :code="usageHorizontal" lang="html" filename="App.vue">
+        <q-grid :column-num="2" gutter="10" border clickable direction="horizontal" class="demo-grid">
+          <q-grid-item icon="lucide:phone" text="Call" />
+          <q-grid-item icon="lucide:mail" text="Email" />
+        </q-grid>
+      </docs-demo>
+
+      <h3 class="doc-h3">Links, colors &amp; slots</h3>
+      <p class="doc-note">
+        <code>href</code> renders the cell as a link, <code>icon-color</code>
+        overrides the grid-wide color, <code>disable</code> greys it out, and the
+        <code>#icon</code> / <code>#default</code> slots replace icon and text.
+      </p>
+      <docs-demo :code="usageCustom" lang="html" filename="App.vue">
+        <q-grid :column-num="4" gutter="8" border clickable class="demo-grid">
+          <q-grid-item href="/docs" icon="lucide:book-open" text="Docs" />
+          <q-grid-item
+            icon="lucide:heart"
+            text="Favorites"
+            icon-color="#e91e63"
+            badge="99+"
+          />
+          <q-grid-item disable icon="lucide:lock" text="Locked" />
+          <q-grid-item>
+            <template #icon>
+              <q-spinner size="24px" color="primary" />
+            </template>
+            <template #default>Loading</template>
+          </q-grid-item>
+        </q-grid>
+      </docs-demo>
     </section>
 
     <!-- ═══════ API ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">QGrid API</h2>
       <docs-api :comp="grid" :source="gridSource" />
+    </section>
+
+    <section class="doc-section">
+      <h2 class="doc-h2">QGridItem API</h2>
+      <docs-api :comp="gridItem" :source="gridItemSource" />
     </section>
   </div>
 </template>

@@ -25,6 +25,7 @@ const tab = ref<"preview" | "code">("preview")
       align="left"
       active-color="primary"
       indicator-color="primary"
+      switch-indicator-position
       dense
       class="demo-block__tabs"
     >

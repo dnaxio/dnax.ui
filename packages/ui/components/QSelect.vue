@@ -168,11 +168,28 @@ const modeOptions = computed<QSelectModeOptions | undefined>(() => {
   return undefined
 })
 
+// — Options normalisées : les primitives (string/number) deviennent { value, label } —
+const isObjectOption = (o: any): boolean => o !== null && typeof o === "object"
+
+const normalizedOptions = computed<any[]>(() =>
+  props.options.map((o) => {
+    if (isObjectOption(o)) return o
+    // Objet normalisé : garde la valeur d'origine (non-énumérable → invisible
+    // pour l'affichage, la recherche fuse et les clés de rendu)
+    const norm: any = { value: o, label: String(o) }
+    Object.defineProperty(norm, "__raw", { value: o, enumerable: false })
+    return norm
+  }),
+)
+
 // — Valeurs des options —
-const getOptionValue = (opt: any): any =>
-  typeof props.optionValue === "function" ? props.optionValue(opt) : opt?.[props.optionValue]
+const getOptionValue = (opt: any): any => {
+  if (!isObjectOption(opt)) return opt
+  return typeof props.optionValue === "function" ? props.optionValue(opt) : opt?.[props.optionValue]
+}
 
 const getOptionLabel = (opt: any): string => {
+  if (!isObjectOption(opt)) return opt === undefined || opt === null ? "" : String(opt)
   const v = typeof props.optionLabel === "function" ? props.optionLabel(opt) : opt?.[props.optionLabel]
   return v === undefined || v === null ? "" : String(v)
 }
@@ -183,7 +200,7 @@ const selectedOptions = computed<any[]>(() => {
   const list = props.multiple ? (props.modelValue as any[]) : [props.modelValue]
   return list
     .map((v) => {
-      if (props.emitValue) return props.options.find((o) => getOptionValue(o) === v)
+      if (props.emitValue) return normalizedOptions.value.find((o) => getOptionValue(o) === v)
       return v
     })
     .filter((o) => o !== undefined)
@@ -194,7 +211,8 @@ const isSelected = (opt: any) =>
 
 const select = (opt: any) => {
   if (props.disable || props.readonly) return
-  const value = props.emitValue ? getOptionValue(opt) : opt
+  // Primitives normalisées : émettre la valeur d'origine (ex. "red"), pas l'objet
+  const value = props.emitValue ? getOptionValue(opt) : (opt?.__raw !== undefined ? opt.__raw : opt)
 
   if (props.multiple) {
     if (isSelected(opt)) {
@@ -253,7 +271,7 @@ const searchKeys = computed<string[]>(() => {
 })
 
 const searcher = computed(() =>
-  createSearcher(props.options, {
+  createSearcher(normalizedOptions.value, {
     keys: searchKeys.value,
     threshold: typeof props.useSearch === "object" ? (props.useSearch.threshold ?? 0.4) : 0.4,
   }),
@@ -261,7 +279,7 @@ const searcher = computed(() =>
 
 // — Options affichées (recherche floue, filtre simple, ou serveur) —
 const displayOptions = computed(() => {
-  let list = props.options
+  let list = normalizedOptions.value
   if (!hasFilter.value) {
     if (searchEnabled.value && searchKeys.value.length > 0) {
       list = searcher.value.search(query.value)

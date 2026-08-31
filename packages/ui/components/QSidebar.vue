@@ -14,7 +14,7 @@ export const qSidebarKey: InjectionKey<SidebarContext> = Symbol("q-sidebar")
 </script>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, provide, ref } from "vue"
+import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from "vue"
 import type { StyleValue } from "vue"
 import { cn } from "../lib/utils"
 import { useOverlayBack } from "../lib/overlayBack"
@@ -133,14 +133,87 @@ const rootStyle = computed<Record<string, string>>(() => {
   if (props.maxHeight) style.maxHeight = props.maxHeight
   return style
 })
+
+// — Swipe pour fermer (mode offcanvas, pattern bottom-sheet) —
+const rootEl = ref<HTMLElement | null>(null)
+const dragging = ref(false)
+let startX = 0
+let startY = 0
+let currentDx = 0
+let isHorizontal = false
+
+const onPointerDown = (e: PointerEvent) => {
+  if (isStatic.value || !open.value || props.disable) return
+  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  startX = e.clientX
+  startY = e.clientY
+  currentDx = 0
+  isHorizontal = false
+  dragging.value = true
+}
+
+const onPointerMove = (e: PointerEvent) => {
+  if (!dragging.value || !rootEl.value) return
+  const dx = e.clientX - startX
+  const dy = e.clientY - startY
+
+  // Ne capture le geste que s'il est majoritairement horizontal (le scroll
+  // vertical du contenu continue de fonctionner)
+  if (!isHorizontal) {
+    if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+      isHorizontal = true
+      rootEl.value.style.transition = "none"
+    }
+    else return
+  }
+
+  // Sens : left → glisser vers la gauche (dx négatif) ; right → vers la droite
+  const dir = props.side === "right" ? 1 : -1
+  const travel = Math.max(0, dir * dx)
+  currentDx = travel
+  rootEl.value.style.transform = `translateX(${dir === 1 ? travel : -travel}px)`
+}
+
+const onPointerUp = () => {
+  if (!dragging.value) return
+  dragging.value = false
+  const el = rootEl.value
+  if (!el) return
+  el.style.transition = "" // restaure la transition CSS
+  const width = el.offsetWidth || parseInt(props.width, 10) || 260
+  if (currentDx > Math.min(80, width * 0.3)) {
+    // Fermer : l'animation continue depuis la position de swipe jusqu'au bord
+    const final = props.side === "right" ? "100%" : "-100%"
+    el.style.transform = `translateX(${final})`
+    setOpen(false)
+  }
+  else if (el) {
+    el.style.transform = "" // rebond : la transition CSS ramène à l'ouverture
+  }
+  currentDx = 0
+}
+
+// Nettoie le transform inline laissé par le swipe à la réouverture, pour que
+// le panneau reparte de la position CSS (pas de l'endroit où on a relâché)
+watch(open, (v) => {
+  const el = rootEl.value
+  if (!el) return
+  el.style.transition = ""
+  if (v) el.style.transform = ""
+})
 </script>
 
 <template>
   <aside
+    ref="rootEl"
     class="q-sidebar"
     :class="rootClasses"
     :style="[rootStyle, props.style]"
     :aria-hidden="!isStatic && !open ? 'true' : undefined"
+    @pointerdown="onPointerDown"
+    @pointermove="onPointerMove"
+    @pointerup="onPointerUp"
+    @pointercancel="onPointerUp"
   >
     <slot />
   </aside>

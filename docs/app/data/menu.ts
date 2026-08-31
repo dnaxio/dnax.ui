@@ -54,21 +54,10 @@ export const menuItems: MenuGroup[] = [
   {
     title: "Styles",
     icon: "lucide:frame",
-    groups: [
-      {
-        title: "Columns",
-        items: [
-          { title: "Grid", link: "/docs/components/grid", export: "QGrid" },
-          { title: "Col", link: "/docs/components/col", export: "QCol" },
-          { title: "Grid Item", link: "/docs/components/grid-item", export: "QGridItem" },
-        ],
-      },
-      {
-        title: "Rows",
-        items: [
-          { title: "Row", link: "/docs/components/row", export: "QRow" },
-        ],
-      },
+    items: [
+      { title: "Grid", link: "/docs/components/grid", export: "QGrid" },
+      { title: "Col", link: "/docs/components/col", export: "QCol" },
+      { title: "Row", link: "/docs/components/row", export: "QRow" },
     ],
   },
   {

@@ -15,6 +15,8 @@ const tag = componentTag("QSelect")
 const color = ref<{ value: string; label: string } | null>(null)
 const country = ref<string | null>(null)
 const framework = ref<string | null>(null)
+const size = ref<string | null>(null)
+const level = ref<number | null>(null)
 const multi = ref<string[]>([])
 
 const colors = [
@@ -73,6 +75,20 @@ const usageMultiple = `<q-select
   clearable
 />`
 
+const usagePrimitives = `<q-select
+  v-model="size"
+  :options="['S', 'M', 'L', 'XL']"
+  label="Size"
+/>
+
+<q-select
+  v-model="level"
+  :options="[1, 2, 3, 4, 5]"
+  label="Level"
+/>
+<!-- Les options string/number sont normalisées automatiquement en
+     { value: x, label: x } — le v-model garde la valeur d'origine. -->`
+
 // — Scripts des démos (données + refs accompagnant le template) —
 const scriptData = `import { ref } from "vue"
 
@@ -89,6 +105,11 @@ const color = ref(null)`
 const scriptMultiple = `${scriptData}
 
 const multi = ref([])`
+
+const scriptPrimitives = `import { ref } from "vue"
+
+const size = ref("")
+const level = ref(0)`
 
 const scriptCustomKeys = `import { ref } from "vue"
 
@@ -207,6 +228,25 @@ const frameworks = [
       </docs-demo>
     </section>
 
+    <!-- ═══════ Primitive options ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Primitive options</h2>
+      <p class="doc-note">
+        Passing plain strings or numbers as <code>options</code> works out of the
+        box: each value is automatically normalized into <code>{ value, label }</code>
+        (same value, stringified label), and the <code>v-model</code> keeps the
+        original value.
+      </p>
+
+      <docs-demo :code="usagePrimitives" lang="html" filename="App.vue" :script="scriptPrimitives">
+        <div class="demo-field demo-col">
+          <q-select v-model="size" :options="['S', 'M', 'L', 'XL']" label="Size" />
+          <q-select v-model="level" :options="[1, 2, 3, 4, 5]" label="Level" />
+          <p class="demo-p">size = <code>{{ size }}</code> · level = <code>{{ level }}</code></p>
+        </div>
+      </docs-demo>
+    </section>
+
     <!-- ═══════ API ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">API</h2>
@@ -283,6 +323,11 @@ const frameworks = [
 .demo-field {
   width: 100%;
   max-width: 520px;
+}
+.demo-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 /* espace entre les deux blocs docs-demo */

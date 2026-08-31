@@ -55,6 +55,7 @@ const slotDescription = (name: string) =>
       dense
       active-color="primary"
       indicator-color="primary"
+      switch-indicator-position
       class="docs-api__tabs"
     >
       <q-tab v-for="t in tabs" :key="t.name" :name="t.name" :icon="t.icon" :label="t.label" />

@@ -189,8 +189,9 @@ export interface NotifyOptions {
   icon?: string
   /** Couleur de fond : token (primary, negative…) ou hex */
   color?: string
-  /** Type → couleur riche sonner (success, error, warning, info) */
-  type?: "default" | "success" | "error" | "warning" | "info"
+  /** Type → couleur riche sonner. Tokens Quasar acceptés : positive = success,
+   *  negative = error, warning, info (success/error aussi acceptés). */
+  type?: "default" | "success" | "error" | "warning" | "info" | "positive" | "negative"
   /** Position (défaut : bottom-right, celle du QNotifyProvider) */
   position?: ExternalToast["position"]
   /** Durée d'affichage en ms (défaut : 4000) */
@@ -214,9 +215,13 @@ function notify(opts: NotifyOptions): NotifyController {
     icon: icon ? h(icon) : undefined,
   }
 
+  // Tokens Quasar → types sonner : positive = success, negative = error
+  const sonnerType =
+    type === "positive" ? "success" : type === "negative" ? "error" : type
+
   let id: string | number | undefined
 
-  if (color && type === "default") {
+  if (color && sonnerType === "default") {
     // Couleur Quasar custom → rendu custom (QNotifyToast)
     id = toast.custom(QNotifyToast, {
       ...data,
@@ -239,7 +244,7 @@ function notify(opts: NotifyOptions): NotifyController {
       info: toast.info,
       default: toast,
     } as const
-    id = toasts[type](message, {
+    id = toasts[sonnerType](message, {
       ...data,
       action: action ? { label: action.label, onClick: () => action.handler() } : undefined,
     })

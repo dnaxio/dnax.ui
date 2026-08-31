@@ -3,6 +3,7 @@
 // Intégré dans QConfigProvider (rendu automatiquement par le plus externe),
 // mais utilisable aussi en autonome : <q-notify-provider />.
 import { Toaster } from "vue-sonner"
+import "vue-sonner/style.css" // styles du Toaster (sinon les toasts sont rendus mais invisibles)
 
 interface Props {
   /** Position des toasts (défaut : bottom-right) */
