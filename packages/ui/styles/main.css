@@ -1951,9 +1951,9 @@ html.dark body {
   display: inline-flex;
   flex-shrink: 0;
   color: rgb(0 0 0 / 0.45);
-  /* petit espace dédié entre l'icône gauche et la valeur (gap 6px du
-     control + 2px = 8px) — évite l'icône collée au texte */
-  margin-right: 2px;
+  /* espace dédié entre l'icône gauche et la valeur (gap 6px du control + 6px
+     = 12px) — l'icône ne doit jamais être collée au texte */
+  margin-right: 6px;
 }
 
 .q-field__clear {

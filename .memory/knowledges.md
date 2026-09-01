@@ -5,9 +5,11 @@
 - `icon-left` ajouté à `QSelect` et `QAutocomplete` (QInput l'avait déjà) —
   rendu `<Icon class="q-field__icon">` dans `.q-field__control`, remplacé par
   le slot `#prepend` s'il est fourni
-- Espacement : `.q-field__icon { margin-right: 2px }` → icône → valeur =
-  gap 6px du control + 2px = 8px (l'icône n'est plus collée au texte)
-- `#prepend` partagé entre les trois champs (même sémantique que Quasar)
+- Espacement : `.q-field__icon { margin-right: 6px }` → icône → valeur =
+  gap 6px du control + 6px = 12px (l'icône n'est plus collée au texte — le
+  8px initial était insuffisant, passé à 12px)
+- `#prepend` partagé entre les trois champs (même sémantique que Quasar) ; le
+  slot custom reste à la charge de l'utilisateur pour l'espacement
 - Build ✅. (2026-08-31)
 
 ## QAutocomplete — modes modal / sheet — 2026-08-31
