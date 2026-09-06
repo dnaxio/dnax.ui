@@ -35,7 +35,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 defineSlots<{
-  default?: (props: { item: any; index: number; ref: (el: Element | null) => void }) => any
+  default?: (props: { item: any; index: number; ref: (el: unknown) => void }) => any
   before?: () => any
   after?: () => any
 }>()
@@ -49,7 +49,7 @@ const scrollTop = ref(0)
 // — Hauteurs mesurées par index (celles non mesurées → taille estimée) —
 const itemSizes = new Map<number, number>()
 const observers = new Map<number, ResizeObserver>()
-const refFns = new Map<number, (el: Element | null) => void>()
+const refFns = new Map<number, (el: unknown) => void>()
 
 // Préfixe cumulé des offsets (reconstruit quand les tailles changent, pas au scroll)
 let prefix: number[] = [0]
@@ -103,7 +103,7 @@ const observeItem = (index: number, el: Element | null) => {
 const itemRef = (index: number) => {
   let fn = refFns.get(index)
   if (!fn) {
-    fn = (el) => observeItem(index, el)
+    fn = (el: unknown) => observeItem(index, el as Element | null)
     refFns.set(index, fn)
   }
   return fn

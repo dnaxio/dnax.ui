@@ -57,7 +57,7 @@ const FAMILIES: Record<string, string[]> = {
     "QSidebarTrigger",
   ],
   Swiper: ["QSwiper", "QSwiperSlide"],
-  Tabs: ["QTab", "QTabs"],
+  Tabs: ["QTab", "QTabs", "QRouteTab"],
   "Tab Panels": ["QTabPanels", "QTabPanel"],
 };
 
@@ -135,10 +135,12 @@ const CUSTOM_PAGES = new Set([
   "tabs",
   "text",
   "text-caption",
+  "tiptap",
   "toolbar",
   "tooltip",
   "uploader",
   "video",
+  "virtual-scroll",
 ]);
 
 const GUIDES = [
@@ -205,6 +207,18 @@ const PLUGINS = [
   { title: "Loading", link: "/docs/plugins/loading" },
   { title: "Image Preview", link: "/docs/plugins/image-preview" },
   { title: "Platform", link: "/docs/plugins/platform" },
+  { title: "Web Storage", link: "/docs/plugins/web-storage" },
+];
+
+// Directives Vue (Quasar « Vue Directives ») — pages manuelles sous
+// docs/app/pages/docs/directives/ (jamais régénérées par gen-menu).
+const DIRECTIVES = [
+  { title: "V Close", link: "/docs/directives/close" },
+  { title: "V Touch Pan", link: "/docs/directives/touch-pan" },
+  { title: "V Touch Hold", link: "/docs/directives/touch-hold" },
+  { title: "V Touch Swipe", link: "/docs/directives/touch-swipe" },
+  { title: "V Touch Repeat", link: "/docs/directives/touch-repeat" },
+  { title: "V Intersection", link: "/docs/directives/intersection" },
 ];
 
 const titleOf = (name: string) => {
@@ -220,6 +234,7 @@ const titleOf = (name: string) => {
 // Titres de menu surchargés (dérivation automatique imparfaite)
 const TITLE_OVERRIDES: Record<string, string> = {
   QInputOtp: "Input OTP",
+  QEditorJs: "Editor.js",
 };
 const titleOfEntry = (exportName: string) =>
   TITLE_OVERRIDES[exportName] ?? titleOf(exportName);
@@ -344,6 +359,15 @@ for (const p of PLUGINS)
   out += `      { title: ${JSON.stringify(p.title)}, link: ${JSON.stringify(p.link)} },\n`;
 out += `    ],
   },
+  {
+    title: "Vue Directives",
+    icon: "lucide:zap",
+    items: [
+`;
+for (const d of DIRECTIVES)
+  out += `      { title: ${JSON.stringify(d.title)}, link: ${JSON.stringify(d.link)} },\n`;
+out += `    ],
+  },
 ]
 `;
 writeFileSync("docs/app/data/menu.ts", out);
@@ -396,7 +420,7 @@ ${partsBlock}
 }
 
 console.log(
-  `✓ menu.ts : ${GUIDES.length} guides + ${entries.length} composants (${Object.keys(FAMILIES).length} familles)`,
+  `✓ menu.ts : ${GUIDES.length} guides + ${entries.length} composants (${Object.keys(FAMILIES).length} familles) + ${PLUGINS.length} plugins + ${DIRECTIVES.length} directives`,
 );
 console.log(
   `✓ ${entries.length} pages générées dans docs/app/pages/docs/components/`,

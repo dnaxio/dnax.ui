@@ -1,5 +1,66 @@
 # Pièges rencontrés (tag: warnings)
 
+## QDialog transitions slide-\* : micro-translation 32px = « semblant de fade » — 2026-09-05
+
+Sur la page docs dialog.vue, les transitions explicites `transition="slide-up"` /
+`slide-down` (démo position bottom, maximized…) semblaient n'être qu'un fondu.
+
+- **Cause racine** : keyframes `q-dialog-slide-*-in/out` dans `styles/main.css`
+  qui translataient le panneau de **±32px seulement** avec un fondu d'opacité
+  dominant → glissement imperceptible. Les transitions PAR DÉFAUT liées à la
+  position (`q-dialog-in-bottom`…) glissaient déjà pleine course (100%).
+- **Fix (2026-09-05)** : les keyframes `slide-*` glissent maintenant plein
+  écran — `translateY(±100vh)` (up/down) et `translateX(±100vw)`
+  (left/right) — entrée depuis le bord, sortie retour au bord ; le fondu reste
+  porté par l'overlay, le panneau ne fade plus. Durées défaut conservées
+  (0.25s in / 0.15s out, `var(--q-dialog-duration-enter/leave)`).
+- Bottom sheet (`q-bs-*`) déjà correct (translateY(100%)) — non touché.
+
+## Console page video : 4 messages inoffensifs (q-video YouTube + QSyntax) — 2026-09-03
+
+Bruit console constaté sur la page docs `video` (avec `<q-video :src="…YouTube…">`)
+— aucun n'est une erreur de dnax.ui, aucun n'affecte la lecture :
+
+1. **« Allow attribute will take precedence over 'allowfullscreen'. »** — Chrome le
+   signale à la création de l'iframe YouTube construite par le media element
+   `youtube-video` de `@videojs/html` : son template interne pose les DEUX
+   attributs `allow="…; fullscreen; …"` ET `allowfullscreen`. `allow` gagne → le
+   plein écran fonctionne, le legacy est juste redondant. Pas de fix côté dnax.ui
+   (template dans le shadow DOM du custom element) ; `10.0.0-beta.32` = dernière
+   version npm (`bun pm view @videojs/html`) → rien à bump.
+2. **« Error with Permissions-Policy header: Unrecognized feature:
+   'attribution-reporting' / 'browsing-topics'. »** — émises par le document
+   youtube.com EMBARQUÉ dans l'iframe (ses propres headers Permissions-Policy), la
+   console du parent agrège celle de l'iframe. Externe, rien à faire.
+3. **« [vjs] controlsFeature requires a container element for activity tracking. »**
+   — `@videojs/core` (`dom/store/features/controls.js`) : attach du feature
+   « controls » pendant que le container (`<video-skin>`) n'est pas encore
+   enregistré → course de démarrage du framework v10 (beta). Bénin : le re-attach
+   a lieu dès la synchro du container. `console.warn` volontaire en amont, pas
+   corrigeable depuis `QVideo`.
+4. **« [Shiki] N instances have been created… »** (10 sur la page) — `QSyntax.vue`
+   avait un singleton AU SCOPE MODULE (`highlighterPromise ??=`) : le HMR
+   réévalue le module (édition de QSyntax.vue ou de ses imports, ex.
+   `lib/icons.ts`) → chaque cycle créait une instance Shiki orpheline jamais
+   `dispose()` → compteur global. Fix : clé sur `globalThis`
+   (`__dnax_ui_shiki_highlighter__`) + reset si `createHighlighter` échoue.
+
+## QTabs : double-clic requis sur mobile — 2026-08-31
+
+Sur mobile, le premier tap ne passait pas la couleur active — il fallait taper
+2×. Deux causes cumulées, deux fixes :
+
+1. **`:hover` collant** : le 1er tap « consommait » le `:hover` (déjà corrigé
+   plus tôt en scopin `.q-tab:hover` dans `@media (hover: hover) and (pointer:
+fine)`)
+2. **Délai double-tap/zoom iOS** : `touch-action: manipulation` sur `.q-tab`
+   (supprime le délai qui avalait le 1er tap) — fix principal
+3. **`:active` scale en mode animated** : `transform: scale(0.94)` sur
+   `.q-tab:active` pouvait faire sortir le point du doigt de l'élément au
+   relâchement → clic annulé. Scopé à `@media (hover: hover)` (desktop)
+
+- Build ✅. (2026-08-31)
+
 ## QDialog : verrou du scroll de fond — 3 bugs corrigés — 2026-08-31
 
 Le body scrollait toujours derrière un dialog ouvert. Causes + fixes :

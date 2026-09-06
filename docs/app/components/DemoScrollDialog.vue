@@ -26,6 +26,7 @@ const paragraphs = [
     <q-dialog-header
       title="Terms of service"
       description="Scroll to read the full agreement"
+      show-close
     />
     <q-dialog-content scrollable>
       <div class="demo-scroll">

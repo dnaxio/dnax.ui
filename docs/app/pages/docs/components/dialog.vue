@@ -41,8 +41,8 @@ const openMaxWith = (t: (typeof transitions)[number]) => {
 const eventLog = ref("")
 
 // — Démos des transitions —
-const transition = ref<"fade" | "zoom" | "slide-up" | "slide-down" | "slide-left" | "slide-right" | "swipe-left" | "swipe-right">("fade")
-const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right", "swipe-left", "swipe-right"] as const
+const transition = ref<"fade" | "zoom" | "slide-up" | "slide-down" | "sheet-up" | "sheet-down" | "slide-left" | "slide-right" | "swipe-left" | "swipe-right">("fade")
+const transitions = ["fade", "zoom", "slide-up", "slide-down", "sheet-up", "sheet-down", "slide-left", "slide-right", "swipe-left", "swipe-right"] as const
 const openWith = (t: (typeof transitions)[number]) => {
   transition.value = t
   openT.value = true
@@ -68,7 +68,7 @@ const usageSimple = `<q-btn color="primary" label="Open dialog" @click="open = t
 const usageHeaderFooter = `<q-btn color="negative" outline label="Delete account" @click="openConfirm = true" />
 
 <q-dialog v-model="openConfirm">
-  <q-dialog-header title="Confirm deletion" description="This action cannot be undone." />
+  <q-dialog-header title="Confirm deletion" description="This action cannot be undone." show-close />
   <div class="demo-dialog-body">
     <p class="demo-p">
       QDialogHeader renders the title, an optional description and a close button;
@@ -78,6 +78,7 @@ const usageHeaderFooter = `<q-btn color="negative" outline label="Delete account
   <q-dialog-footer>
     <q-btn flat label="Cancel" @click="openConfirm = false" />
     <q-btn color="negative" label="Delete" @click="openConfirm = false" />
+    <q-btn flat round dense icon="lucide:x" v-close aria-label="Close (v-close)" />
   </q-dialog-footer>
 </q-dialog>`
 
@@ -160,7 +161,7 @@ const usageTrigger = `<q-btn color="primary" label="Open dialog" @click="open = 
   </div>
 </q-dialog>`
 
-const usageHeader = `<q-dialog-header title="Settings" description="Tune your preferences" />
+const usageHeader = `<q-dialog-header title="Settings" description="Tune your preferences" show-close />
 
 <!-- or with custom slots -->
 <q-dialog-header>
@@ -177,7 +178,7 @@ const usageFooter = `<q-dialog-footer>
 </q-dialog-footer>`
 
 const usageContent = `<q-dialog v-model="open">
-  <q-dialog-header title="Terms of service" description="Scroll to read the full agreement" />
+  <q-dialog-header title="Terms of service" description="Scroll to read the full agreement" show-close />
   <q-dialog-content scrollable>
     <p>Long body — scrolls between the fixed header and footer.</p>
   </q-dialog-content>
@@ -223,7 +224,7 @@ const { open, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginCompon
 <template>
   <!-- Le composant passé à $q.dialog.open() doit commencer par <q-dialog> -->
   <q-dialog v-model="open" @hide="onDialogHide">
-    <q-dialog-header title="Confirm deletion" description="This action cannot be undone." />
+    <q-dialog-header title="Confirm deletion" description="This action cannot be undone." show-close />
     <div class="body">…</div>
     <q-dialog-footer>
       <q-btn flat label="Cancel" @click="onDialogCancel" />
@@ -259,7 +260,7 @@ const openMaxT = ref(false)
 const maxTransition = ref("fade")
 const maxDuration = ref(200)
 const durations = [100, 200, 350, 500, 800]
-const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right", "swipe-left", "swipe-right"]
+const transitions = ["fade", "zoom", "slide-up", "slide-down", "sheet-up", "sheet-down", "slide-left", "slide-right", "swipe-left", "swipe-right"]
 
 const openMaxWith = (t) => {
   maxTransition.value = t
@@ -270,7 +271,7 @@ const scriptTransitions = `import { ref } from "vue"
 
 const open = ref(false)
 const transition = ref("fade")
-const transitions = ["fade", "zoom", "slide-up", "slide-down", "slide-left", "slide-right", "swipe-left", "swipe-right"]
+const transitions = ["fade", "zoom", "slide-up", "slide-down", "sheet-up", "sheet-down", "slide-left", "slide-right", "swipe-left", "swipe-right"]
 
 const openWith = (t) => {
   transition.value = t
@@ -324,7 +325,7 @@ const scriptTrigger = scriptOpen
         <q-btn color="negative" outline label="Delete account" @click="openConfirm = true" />
 
         <q-dialog v-model="openConfirm">
-          <q-dialog-header title="Confirm deletion" description="This action cannot be undone." />
+          <q-dialog-header title="Confirm deletion" description="This action cannot be undone." show-close />
           <div class="demo-dialog-body">
             <p class="demo-p">
               QDialogHeader renders the title, an optional description and a close button;
@@ -334,14 +335,20 @@ const scriptTrigger = scriptOpen
           <q-dialog-footer>
             <q-btn flat label="Cancel" @click="openConfirm = false" />
             <q-btn color="negative" label="Delete" @click="openConfirm = false" />
+            <q-btn flat round dense icon="lucide:x" v-close aria-label="Close (v-close)" />
           </q-dialog-footer>
         </q-dialog>
       </docs-demo>
 
       <h3 class="doc-h3">Transitions</h3>
       <p class="doc-note">
-        <code>transition</code> accepts <code>fade</code>, <code>zoom</code> and
-        the four slide directions — try them all on the same dialog.
+        <code>transition</code> accepts <code>fade</code>, <code>zoom</code>, the
+        four slide directions, <code>sheet-up</code> / <code>sheet-down</code>
+        (same glide as slide but the opening slows down at the end) and the two
+        swipe directions — try them all on the same dialog. Fine-tune the motion
+        with <code>transition-duration</code> and custom cubic-bezier curves via
+        <code>transition-easing-enter</code> / <code>transition-easing-leave</code>
+        (any CSS easing, e.g. <code>cubic-bezier(0.16, 1, 0.3, 1)</code>).
       </p>
       <docs-demo :code="usageTransitions" lang="html" filename="App.vue" :script="scriptTransitions">
         <div class="demo-row">
@@ -454,9 +461,11 @@ const scriptTrigger = scriptOpen
       <h2 class="doc-h2">QDialogHeader — title &amp; close</h2>
       <p class="doc-note">
         Sticky bar rendered like the app <code>q-header</code> (embedded
-        <code>q-toolbar</code>) with a <code>title</code>, an optional
-        <code>description</code> and a close button (<code>show-close</code>,
-        enabled by default). Custom content can be passed through the
+        <code>q-toolbar</code>) with a <code>title</code> and an optional
+        <code>description</code>. The close button is <b>opt-in</b>: it only
+        renders when <code>show-close</code> is present — or bind any button
+        with the <code>v-close</code> directive (closes the closest dialog /
+        sheet). Custom content can be passed through the
         <code>#title</code> and <code>#description</code> slots, and
         <code>no-padding</code> flushes the content to the edges.
       </p>
@@ -479,7 +488,7 @@ const scriptTrigger = scriptOpen
       <docs-demo :code="usageContent" lang="html" filename="App.vue">
         <q-btn color="primary" outline label="Scrollable dialog" @click="openScroll = true" />
         <q-dialog v-model="openScroll">
-          <q-dialog-header title="Terms of service" description="Scroll to read the full agreement" />
+          <q-dialog-header title="Terms of service" description="Scroll to read the full agreement" show-close />
           <q-dialog-content scrollable>
             <div class="demo-dialog-body">
               <p v-for="p in scrollParagraphs" :key="p" class="demo-p">{{ p }}</p>

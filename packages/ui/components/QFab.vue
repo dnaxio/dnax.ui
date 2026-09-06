@@ -10,7 +10,7 @@ export const qFabKey: InjectionKey<QFabContext> = Symbol("q-fab")
 </script>
 
 <script setup lang="ts">
-import { computed, provide, ref } from "vue"
+import { computed, onBeforeUnmount, onMounted, provide, ref } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { colorValue, foregroundFor } from "../lib/colors"
@@ -48,6 +48,23 @@ const toggle = () => {
   if (!props.disable) open.value = !open.value
 }
 
+// Clic à l'extérieur du FAB → fermeture (actions repliées)
+const rootEl = ref<HTMLElement | null>(null)
+const onDocPointerDown = (e: PointerEvent) => {
+  if (!props.modelValue || !rootEl.value) return
+  if (!rootEl.value.contains(e.target as Node)) open.value = false
+}
+onMounted(() => {
+  if (typeof document !== "undefined") {
+    document.addEventListener("pointerdown", onDocPointerDown)
+  }
+})
+onBeforeUnmount(() => {
+  if (typeof document !== "undefined") {
+    document.removeEventListener("pointerdown", onDocPointerDown)
+  }
+})
+
 provide<QFabContext>(qFabKey, {
   close: () => {
     open.value = false
@@ -61,7 +78,7 @@ const mainStyle = computed<Record<string, string>>(() => ({
 </script>
 
 <template>
-  <div class="q-fab" :class="[`q-fab--${position}`, open && 'q-fab--open']">
+  <div ref="rootEl" class="q-fab" :class="[`q-fab--${position}`, open && 'q-fab--open']">
     <div class="q-fab__actions" role="menu">
       <slot />
     </div>

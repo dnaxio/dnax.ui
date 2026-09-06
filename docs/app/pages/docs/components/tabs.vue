@@ -211,6 +211,12 @@ const scriptAnimated = `import { ref } from "vue"
 const tab = ref("one")
 const transitionDemo = ref("spring")
 const transitionDuration = ref(350)`
+
+const usageRouteTab = `<q-tabs active-color="primary" indicator-color="primary" switch-indicator-position>
+  <q-route-tab to="/docs" exact icon="lucide:book-open" label="Docs" />
+  <q-route-tab to="/mockup" icon="lucide:smartphone" label="Mockup" />
+</q-tabs>
+<!-- Le tab actif suit la route courante ; cliquer navigue (router.push / replace) -->`
 </script>
 
 <template>
@@ -473,6 +479,29 @@ const transitionDuration = ref(350)`
         </q-tabs>
         <p class="demo-p demo-tabs-meta">
           active = {{ activeColorDemo }} · inactive = {{ inactiveColorDemo }}
+        </p>
+      </docs-demo>
+
+      <h3 class="doc-h3">Route tab</h3>
+      <p class="doc-note">
+        <code>q-route-tab</code> is a <code>q-tab</code> bound to the router
+        (Quasar <code>QRouteTab</code>): it becomes <b>active — with the
+        <code>active-color</code> — when the current route matches</b>
+        <code>to</code>, and <b>navigates on click</b>. No <code>v-model</code>
+        needed: the route drives the bar (internally when no model is bound).
+        Matching is a path prefix by default (<code>/docs</code> matches any
+        docs page); add <code>exact</code> to require an exact path (+ hash)
+        match. Click the tabs below to navigate for real.
+      </p>
+
+      <docs-demo :code="usageRouteTab" lang="html" filename="App.vue">
+        <q-tabs active-color="primary" indicator-color="primary" switch-indicator-position>
+          <q-route-tab to="/docs" exact icon="lucide:book-open" label="Docs" />
+          <q-route-tab to="/mockup" icon="lucide:smartphone" label="Mockup" />
+        </q-tabs>
+        <p class="demo-p demo-tabs-meta">
+          Current route: <code>{{ $route.path }}</code> — the matching tab gets
+          the active color without any v-model.
         </p>
       </docs-demo>
 

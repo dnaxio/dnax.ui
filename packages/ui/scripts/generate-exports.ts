@@ -26,12 +26,13 @@ const exports = files
 
 // Exports manuels (composables / helpers) — conservés à chaque régénération
 const manualExports = `
-export { $q, usePlugin, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet, useDialogPluginComponent } from "./lib/q"
+export { $q, usePlugin, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet, useDialogPluginComponent, useBottomSheetPluginComponent } from "./lib/q"
 export type {
   DialogOptions,
   DialogController,
   BottomSheetOptions,
   BottomSheetController,
+  BottomSheetPluginContext,
   NotifyOptions,
   NotifyController,
 } from "./lib/q"
@@ -41,6 +42,8 @@ export { screen } from "./lib/screen"
 export type { QScreen } from "./lib/screen"
 export { loading } from "./lib/loading"
 export type { LoadingOptions, QLoadingPlugin } from "./lib/loading"
+export { localStorage, sessionStorage } from "./lib/storage"
+export type { QWebStorage } from "./lib/storage"
 export {
   registerOverlay,
   unregisterOverlay,
@@ -50,6 +53,17 @@ export {
   installOverlayBackHandler,
 } from "./lib/overlayBack"
 export type { OverlayHandle } from "./lib/overlayBack"
+export { markOverlayClose, closeParentOverlay, vClose } from "./lib/closeOverlay"
+export { vTouchPan } from "./lib/touchPan"
+export type { PanDetails, TouchPanHandler, PanDirection } from "./lib/touchPan"
+export { vTouchHold } from "./lib/touchHold"
+export type { TouchHoldDetails, TouchHoldHandler } from "./lib/touchHold"
+export { vTouchSwipe } from "./lib/touchSwipe"
+export type { TouchSwipeDetails, TouchSwipeHandler, SwipeDirection } from "./lib/touchSwipe"
+export { vTouchRepeat } from "./lib/touchRepeat"
+export type { TouchRepeatDetails, TouchRepeatHandler } from "./lib/touchRepeat"
+export { vIntersection } from "./lib/intersection"
+export type { IntersectionValue } from "./lib/intersection"
 `
 
 await Bun.write(indexFile, `${exports}\n${manualExports}`)

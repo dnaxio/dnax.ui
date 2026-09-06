@@ -30,10 +30,22 @@ const usageGap = `<q-row gap="8px" column-gap="28px">
   <q-col :span="3"><div class="cell">3</div></q-col>
 </q-row>`
 
-const usageResponsive = `<q-row :cols="12" :cols-md="6" :cols-lg="4" gap="12px">
-  <q-col v-for="i in 6" :key="i"><div class="cell">Item {{ i }}</div></q-col>
+const usageResponsive = `<q-row gap="12px">
+  <q-col :span="12" :span-md="6" :span-lg="3"><div class="cell">12 · 6 · 3</div></q-col>
+  <q-col :span="12" :span-md="6" :span-lg="3"><div class="cell">12 · 6 · 3</div></q-col>
+  <q-col :span="12" :span-md="6" :span-lg="3"><div class="cell">12 · 6 · 3</div></q-col>
+  <q-col :span="12" :span-md="6" :span-lg="3"><div class="cell">12 · 6 · 3</div></q-col>
 </q-row>
-<!-- 6 items : 6 par ligne mobile, 3 à md, 2 à lg (cols change le total) -->`
+<!-- mobile : 1 par ligne (12/12) · md (≥1024) : 2 par ligne (6/12) · lg (≥1440) : 4 par ligne (3/12) -->`
+
+const usageResponsiveMixed = `<q-row gap="12px">
+  <q-col :span="12" :span-md="6" :span-lg="3"><div class="cell">12·6·3</div></q-col>
+  <q-col :span="12" :span-md="6" :span-lg="3"><div class="cell">12·6·3</div></q-col>
+  <q-col :span="12" :span-md="4" :span-lg="6"><div class="cell">12·4·6</div></q-col>
+  <q-col :span="12" :span-md="4" :span-lg="6"><div class="cell">12·4·6</div></q-col>
+  <q-col :span="12" :span-md="4" :span-lg="12"><div class="cell">12·4·12</div></q-col>
+</q-row>
+<!-- md : 6+6 sur une ligne puis 4+4+4 → 2 lignes · lg : 3+3, 6+6, 12 → 3 lignes -->`
 
 const usageAlign = `<q-row gap="12px" align="center" style="height: 140px">
   <q-col :span="4"><div class="cell">center</div></q-col>
@@ -98,16 +110,34 @@ const usageAlign = `<q-row gap="12px" align="center" style="height: 140px">
 
     <!-- ═══════ Responsive cols ═══════ -->
     <section class="doc-section">
-      <h2 class="doc-h2">Responsive column count</h2>
+      <h2 class="doc-h2">Responsive columns</h2>
       <p class="doc-note">
-        <code>cols-sm / -md / -lg / -xl</code> change the <em>total</em> number of
-        columns at each breakpoint — combined with plain cells (no span), items
-        flow into fewer/more per row automatically.
+        Each <code>q-col</code> takes its own <code>span</code> at every
+        breakpoint: <code>span</code> (mobile base), <code>span-sm / -md /
+        -lg / -xl</code> override it when the viewport reaches the breakpoint
+        (600 / 1024 / 1440 / 1920px) — pure CSS, no JS. The grid stays on 12
+        columns; <code>cols-*</code> on the row changes the total instead.
       </p>
 
       <docs-demo :code="usageResponsive" lang="html" filename="App.vue">
-        <q-row :cols="12" :cols-md="6" :cols-lg="4" gap="12px" class="demo-grid">
-          <q-col v-for="i in 6" :key="i"><div class="demo-cell">Item {{ i }}</div></q-col>
+        <q-row gap="12px" class="demo-grid">
+          <q-col :span="12" :span-md="6" :span-lg="3"><div class="demo-cell">12 · 6 · 3</div></q-col>
+          <q-col :span="12" :span-md="6" :span-lg="3"><div class="demo-cell">12 · 6 · 3</div></q-col>
+          <q-col :span="12" :span-md="6" :span-lg="3"><div class="demo-cell">12 · 6 · 3</div></q-col>
+          <q-col :span="12" :span-md="6" :span-lg="3"><div class="demo-cell">12 · 6 · 3</div></q-col>
+        </q-row>
+      </docs-demo>
+
+      <p class="doc-note">
+        Spans can differ per column — here a mixed layout at each breakpoint:
+      </p>
+      <docs-demo :code="usageResponsiveMixed" lang="html" filename="App.vue">
+        <q-row gap="12px" class="demo-grid">
+          <q-col :span="12" :span-md="6" :span-lg="3"><div class="demo-cell">12·6·3</div></q-col>
+          <q-col :span="12" :span-md="6" :span-lg="3"><div class="demo-cell">12·6·3</div></q-col>
+          <q-col :span="12" :span-md="4" :span-lg="6"><div class="demo-cell">12·4·6</div></q-col>
+          <q-col :span="12" :span-md="4" :span-lg="6"><div class="demo-cell">12·4·6</div></q-col>
+          <q-col :span="12" :span-md="4" :span-lg="12"><div class="demo-cell">12·4·12</div></q-col>
         </q-row>
       </docs-demo>
     </section>
@@ -215,5 +245,9 @@ const usageAlign = `<q-row gap="12px" align="center" style="height: 140px">
   color: var(--primary);
   font-size: 13px;
   font-weight: 600;
+  /* le contenu ne doit jamais sortir de la cellule (colonnes étroites) */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

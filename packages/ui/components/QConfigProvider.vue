@@ -86,6 +86,11 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   mql?.removeEventListener("change", updateSystem)
+  // Retire les variables de thème posées sur <html> (provider racine)
+  if (isProvidersRoot.value && typeof document !== "undefined") {
+    for (const key of appliedThemeKeys) document.documentElement.style.removeProperty(key)
+    appliedThemeKeys = []
+  }
 })
 
 /** Mode effectif : light | dark | system résolu */
@@ -144,6 +149,26 @@ const themeStyle = computed<Record<string, string>>(() => {
   if (isRadiusScale(global)) style["--q-radius"] = RADIUS_VALUES[global]
   return style
 })
+
+// Thème GLOBAL (provider racine) : pose aussi les variables sur <html> — les
+// overlays téléportés au body (dialogs $q.dialog, …) perdent l'héritage du div
+// .q-config-provider et retomberaient sur :root (couleurs par défaut). Comme la
+// classe .dark déjà posée sur <html>, les téléports héritent du thème réel.
+// Les providers imbriqués (non-root) ne touchent pas <html> : leur div local prime.
+let appliedThemeKeys: string[] = []
+watch(
+  [themeStyle, isProvidersRoot],
+  ([style, root]) => {
+    if (typeof document === "undefined" || !root) return
+    for (const key of appliedThemeKeys) document.documentElement.style.removeProperty(key)
+    appliedThemeKeys = []
+    for (const [k, v] of Object.entries(style)) {
+      document.documentElement.style.setProperty(k, v)
+      appliedThemeKeys.push(k)
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

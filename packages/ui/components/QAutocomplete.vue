@@ -53,6 +53,8 @@ interface Props {
   sheetOptions?: QAutocompleteModeOptions
   /** Options spécifiques au mode modal */
   modalOptions?: QAutocompleteModeOptions
+  /** En mode sheet, swipe vers le bas sur le header pour fermer */
+  swipeToClose?: boolean
 }
 
 export interface QAutocompleteModeOptions {
@@ -86,6 +88,7 @@ const props = withDefaults(defineProps<Props>(), {
   loading: false,
   noOptionsLabel: "No options to display",
   mode: "inline",
+  swipeToClose: false,
 })
 
 const emit = defineEmits<{
@@ -156,6 +159,67 @@ const sheetListStyle = computed<Record<string, string>>(() => {
 const sheetTitle = computed(
   () => modeOptions.value?.title ?? props.title ?? props.label ?? props.placeholder ?? "Select",
 )
+
+// — Swipe down pour fermer (mode sheet, opt-in swipe-to-close) —
+const dragging = ref(false)
+const swipeClosing = ref(false)
+let dragStartY = 0
+let dragDy = 0
+let swipeCloseTimer: number | undefined
+
+const canSwipe = computed(() => props.swipeToClose && props.mode === "sheet")
+
+const onDragStart = (e: PointerEvent) => {
+  if (!canSwipe.value) return
+  ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  dragStartY = e.clientY
+  dragDy = 0
+  dragging.value = true
+}
+
+const onDragMove = (e: PointerEvent) => {
+  if (!dragging.value) return
+  dragDy = Math.max(0, e.clientY - dragStartY)
+  if (sheetRef.value) sheetRef.value.style.transform = `translateY(${dragDy}px)`
+}
+
+const onDragEnd = () => {
+  if (!dragging.value) return
+  dragging.value = false
+  if (dragDy > 80) {
+    // Au-delà du seuil : on CONTINUE le glissement jusqu'à sortie complète
+    // (translateY(100%)) puis on ferme à la fin de la transition — au lieu de
+    // laisser le panneau revenir en place avant le fade (saut visuel).
+    swipeClosing.value = true
+    if (sheetRef.value) sheetRef.value.style.transform = "translateY(100%)"
+    window.clearTimeout(swipeCloseTimer)
+    swipeCloseTimer = window.setTimeout(() => {
+      swipeClosing.value = false
+      closePopup()
+    }, 400) // fallback si la transition ne se déclenche pas (déjà à 100%, reduced-motion)
+  }
+  else if (sheetRef.value) {
+    // Sous le seuil : retour en douceur à la position initiale
+    sheetRef.value.style.transform = ""
+  }
+  dragDy = 0
+}
+
+// Ferme dès que la transition de glissement se termine (plus précis que le timeout)
+const onSheetTransitionEnd = (e: TransitionEvent) => {
+  if (e.propertyName !== "transform" || !swipeClosing.value) return
+  window.clearTimeout(swipeCloseTimer)
+  swipeClosing.value = false
+  closePopup()
+}
+
+const sheetClasses = computed(() => [
+  `q-autocomplete__sheet--${props.mode}`,
+  modeOptions.value?.class,
+  dragging.value && "q-autocomplete__sheet--dragging",
+  canSwipe.value && "q-autocomplete__sheet--swipeable",
+  swipeClosing.value && "q-autocomplete__sheet--swipe-closing",
+])
 
 // — Valeurs des options —
 const getValue = (opt: any): any =>
@@ -242,6 +306,15 @@ const onClear = () => {
   emit("clear")
 }
 
+// Clear du champ de recherche du panneau (sheet/modal) : vide la recherche
+// sans effacer la sélection, garde le focus dans l'input
+const onSearchClear = () => {
+  query.value = ""
+  emit("update:inputValue", "")
+  activeIndex.value = 0
+  nextTick(() => panelInput.value?.focus())
+}
+
 const isSelected = (opt: any) => getValue(opt) === props.modelValue
 
 // À la perte de focus : si le texte saisi ne correspond exactement à aucune
@@ -324,6 +397,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   if (typeof document !== "undefined") document.removeEventListener("mousedown", onDocMousedown)
+  window.clearTimeout(swipeCloseTimer)
 })
 
 // Verrou du scroll de la page derrière le panneau (modal/sheet)
@@ -428,13 +502,20 @@ watch(open, (v) => {
           <div
             ref="sheetRef"
             class="q-autocomplete__sheet"
-            :class="[`q-autocomplete__sheet--${mode}`, modeOptions?.class]"
+            :class="sheetClasses"
             :style="[sheetStyle, modeOptions?.style]"
             role="dialog"
             aria-modal="true"
             :aria-label="sheetTitle"
+            @transitionend="onSheetTransitionEnd"
           >
-            <div class="q-autocomplete__sheet-header">
+            <div
+              class="q-autocomplete__sheet-header"
+              @pointerdown="onDragStart"
+              @pointermove="onDragMove"
+              @pointerup="onDragEnd"
+              @pointercancel="onDragEnd"
+            >
               <span class="q-autocomplete__sheet-title">{{ sheetTitle }}</span>
               <button
                 type="button"
@@ -458,6 +539,15 @@ watch(open, (v) => {
                 @input="onInput"
                 @keydown="onKeydown"
               />
+              <button
+                v-if="query !== ''"
+                type="button"
+                class="q-autocomplete__search-clear"
+                aria-label="Effacer la recherche"
+                @mousedown.prevent="onSearchClear"
+              >
+                <Icon :icon="icons.x" aria-hidden="true" />
+              </button>
             </div>
             <div
               ref="popupRef"

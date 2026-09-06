@@ -27,7 +27,7 @@ const confirm = async () => {
 
 <template>
   <q-dialog v-model="open" @hide="onDialogHide">
-    <q-dialog-header :title="title ?? 'Confirm'" :description="message" />
+    <q-dialog-header :title="title ?? 'Confirm'" :description="message" show-close />
     <div class="demo-confirm-body">
       <p class="demo-confirm-text">
         This dialog is a real component rendered by

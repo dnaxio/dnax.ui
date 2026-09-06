@@ -63,15 +63,28 @@ const slotCode = computed(() => {
 
 const source = computed(() => props.code ?? slotCode.value)
 
-// Highlighter singleton : une seule instance pour toute l'application
-let highlighterPromise: Promise<Highlighter> | null = null
-const getHighlighter = () => {
-  highlighterPromise ??= createHighlighter({
-    themes: [DEFAULT_THEME],
-    langs: DEFAULT_LANGS,
-    engine: createJavaScriptRegexEngine(),
-  })
-  return highlighterPromise
+// Highlighter singleton : une seule instance pour toute l'application.
+// Stocké sur globalThis (et non au scope module) pour survivre aux
+// réévaluations du module (HMR — édition de QSyntax.vue ou de ses imports,
+// ex. lib/icons.ts) : sinon une instance orpheline est créée à chaque cycle
+// et Shiki avertit (« [Shiki] N instances have been created… »).
+const SHIKI_KEY = "__dnax_ui_shiki_highlighter__"
+const getHighlighter = (): Promise<Highlighter> => {
+  const g = globalThis as { [SHIKI_KEY]?: Promise<Highlighter> }
+  let highlighter = g[SHIKI_KEY]
+  if (!highlighter) {
+    highlighter = createHighlighter({
+      themes: [DEFAULT_THEME],
+      langs: DEFAULT_LANGS,
+      engine: createJavaScriptRegexEngine(),
+    }).catch((error: unknown) => {
+      // Une création en échec ne doit pas bloquer les montages suivants
+      delete g[SHIKI_KEY]
+      throw error
+    })
+    g[SHIKI_KEY] = highlighter
+  }
+  return highlighter
 }
 
 const html = ref("")

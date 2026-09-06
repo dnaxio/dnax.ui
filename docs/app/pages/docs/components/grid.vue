@@ -36,10 +36,12 @@ const usageResponsive = `<q-grid :cols="12" gap="12px">
   </q-col>
 </q-grid>`
 
-const usageColsResponsive = `<q-grid :cols="12" :cols-md="6" :cols-lg="4" gap="12px">
-  <q-col v-for="i in 6" :key="i"><div class="cell">Item {{ i }}</div></q-col>
+const usageColsResponsive = `<q-grid :cols="12" gap="12px">
+  <q-col v-for="i in 6" :key="i" :span="12" :span-md="6" :span-lg="4">
+    <div class="cell">Item {{ i }}</div>
+  </q-col>
 </q-grid>
-<!-- 6 items : 6 par ligne mobile, 3 à md, 2 à lg (cols change le total) -->`
+<!-- 6 items : 1 par ligne mobile (12), 2 à md (6), 3 à lg (4) -->`
 
 // — Démos cellules (QGridItem) —
 const usageCells = `<q-grid :column-num="4" gutter="8" border clickable>
@@ -140,13 +142,15 @@ const usageCustom = `<q-grid :column-num="4" gutter="8" border clickable>
 
       <h3 class="doc-h3">Responsive column count</h3>
       <p class="doc-note">
-        <code>cols-md / -lg / -xl</code> change the <em>total</em> number of
-        columns at a breakpoint — combined with plain cells (no span), items flow
-        into fewer/more per row automatically.
+        Spans per breakpoint on each <code>q-col</code> — the classic
+        <code>span / span-md / span-lg</code> pattern (pure CSS
+        <code>@media</code>, no JS):
       </p>
       <docs-demo :code="usageColsResponsive" lang="html" filename="App.vue">
-        <q-grid :cols="12" :cols-md="6" :cols-lg="4" gap="12px" class="demo-grid">
-          <q-col v-for="i in 6" :key="i"><div class="demo-cell">Item {{ i }}</div></q-col>
+        <q-grid :cols="12" gap="12px" class="demo-grid">
+          <q-col v-for="i in 6" :key="i" :span="12" :span-md="6" :span-lg="4">
+            <div class="demo-cell">Item {{ i }}</div>
+          </q-col>
         </q-grid>
       </docs-demo>
 

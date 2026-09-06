@@ -14,6 +14,7 @@ import QNotifyToast from "../components/QNotifyToast.vue"
 import { platform, qBreakpoints } from "./platform"
 import { screen } from "./screen"
 import { loading } from "./loading"
+import { localStorage, sessionStorage } from "./storage"
 
 export interface DialogOptions {
   /** Composant de dialogue (SFC importé) ou nom de composant global */
@@ -112,7 +113,7 @@ export interface BottomSheetOptions {
   component: Component | string
   /** Props passées au composant */
   componentProps?: Record<string, any>
-  /** Titre affiché par QBottomSheetHeader (optionnel) */
+  /** Titre affiché par QBottomSheetHeader (optionnel — sinon le composant rend son propre header) */
   title?: string
   description?: string
   /** Largeur max du panneau (défaut : 640px) */
@@ -128,7 +129,27 @@ export interface BottomSheetOptions {
   persistent?: boolean
   /** Seuil de drag (px) au-delà duquel on ferme */
   dragThreshold?: number
+  /** Animation d'ouverture : slide-up (défaut) | fade | zoom */
+  transition?: "slide-up" | "fade" | "zoom"
+  /** Durée des transitions d'entrée/sortie en ms */
+  transitionDuration?: number
 }
+
+/**
+ * Contexte plugin bottom sheet — fourni par QBottomSheetHost quand le composant
+ * passé à $q.bottomSheet.open() est lui-même un <q-bottom-sheet> (pattern
+ * Quasar, identique à $q.dialog) : open est déjà true, pas besoin de v-model.
+ */
+export interface BottomSheetPluginContext {
+  /** Ref d'ouverture (v-model du <q-bottom-sheet> du composant, déjà true) */
+  open: Ref<boolean>
+  onDialogOK: (data?: unknown) => void
+  onDialogCancel: () => void
+  onDialogHide: () => void
+}
+
+export const qBottomSheetPluginKey: InjectionKey<BottomSheetPluginContext> =
+  Symbol("q-bottom-sheet-plugin")
 
 export interface BottomSheetController {
   onOK: (cb: (data?: any) => void | Promise<void>) => BottomSheetController
@@ -140,6 +161,22 @@ export interface BottomSheetController {
     dismiss?: () => void | Promise<void>
   }
   _opts: BottomSheetOptions
+}
+
+/**
+ * Composable Quasar-style pour les composants passés à $q.bottomSheet.open() :
+ * le composant rend un <q-bottom-sheet v-model="open" @hide="onDialogHide">
+ * comme racine. open est déjà true (le panneau s'affiche à l'ouverture), et
+ * onDialogOK / onDialogCancel résolvent les callbacks du controller.
+ */
+export function useBottomSheetPluginComponent() {
+  const ctx = inject(qBottomSheetPluginKey, null)
+  return {
+    open: ctx?.open ?? ref(false),
+    onDialogHide: () => ctx?.onDialogHide(),
+    onDialogOK: (data?: unknown) => ctx?.onDialogOK(data),
+    onDialogCancel: () => ctx?.onDialogCancel(),
+  }
 }
 
 // — Pile de bottom sheets (singleton module-level, client-side) —
@@ -287,8 +324,9 @@ function notify(opts: NotifyOptions): NotifyController {
 }
 
 // API publique : $q.dialog / $q.bottomSheet / $q.notify / $q.imagePreview / $q.platform / $q.breakpoints / $q.screen / $q.loading
+// / $q.localStorage / $q.sessionStorage (stockage web typé)
 // Conventions Quasar : .open() pour les piles (dialog, bottomSheet, imagePreview),
-// .show() pour notify et loading.
+// .show() pour notify et loading ; méthodes directes pour le stockage.
 const notifyPlugin = notify as typeof notify & { show: typeof notify }
 notifyPlugin.show = notify
 
@@ -307,6 +345,8 @@ export const $q = {
   breakpoints: qBreakpoints,
   screen,
   loading,
+  localStorage,
+  sessionStorage,
 }
 
 /** Accès programmatique aux plugins ($q.dialog, $q.notify, $q.loading…) */

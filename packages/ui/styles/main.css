@@ -850,6 +850,9 @@ html.dark body {
   text-transform: uppercase;
   cursor: pointer;
   user-select: none;
+  /* Supprime le délai double-tap/zoom d'iOS qui « avalait » le premier tap
+     → la couleur active et la sélection se font dès le premier clic. */
+  touch-action: manipulation;
   transition:
     color 0.2s ease,
     background-color 0.2s ease,
@@ -857,9 +860,13 @@ html.dark body {
     transform 0.15s ease;
 }
 
-/* appui au clic : léger aplatissement (prop animated) */
-.q-tabs--animated .q-tab:active:not(:disabled) {
-  transform: scale(0.94);
+/* appui au clic : léger aplatissement (prop animated) — scopé aux devices avec
+   souris : sur mobile le scale peut faire sortir le point du doigt de l'élément
+   au relâchement et ANNULER le clic (second tap requis). */
+@media (hover: hover) and (pointer: fine) {
+  .q-tabs--animated .q-tab:active:not(:disabled) {
+    transform: scale(0.94);
+  }
 }
 
 /* pop du tab actif (overshoot) — spring (défaut) et elastic */
@@ -3459,6 +3466,28 @@ html.dark body {
   color: inherit;
   border-radius: var(--q-radius);
   box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
+  transition: transform 0.25s ease;
+}
+
+/* pendant le swipe : suivi direct, sans transition ni snap */
+.q-autocomplete__sheet--dragging {
+  transition: none;
+}
+
+/* fermeture par swipe : le glissement (translateY 100%) gère la sortie —
+   l'animation leave (pop-out 24px) serait un saut depuis la position glissée */
+.q-autocomplete-modal-leave-active .q-autocomplete__sheet--swipe-closing {
+  animation: none;
+}
+
+/* le header est la zone qui attrape le swipe (cursor grab) — seulement si
+   swipe-to-close est actif (classe --swipeable) */
+.q-autocomplete__sheet--swipeable .q-autocomplete__sheet-header {
+  cursor: grab;
+  touch-action: none;
+}
+.q-autocomplete__sheet--dragging .q-autocomplete__sheet-header {
+  cursor: grabbing;
 }
 .q-autocomplete__overlay--modal .q-autocomplete__sheet {
   max-width: 480px;
@@ -3547,6 +3576,27 @@ html.dark body {
 }
 .q-autocomplete__search-input::placeholder {
   color: rgb(0 0 0 / 0.45);
+}
+.q-autocomplete__search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.15);
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.q-autocomplete__search-clear:hover {
+  background: rgb(0 0 0 / 0.25);
+}
+.q-autocomplete__search-clear svg {
+  width: 12px;
+  height: 12px;
 }
 .q-autocomplete__sheet-list {
   overflow-y: auto;
@@ -4818,25 +4868,37 @@ html.dark body {
   border-color: rgb(255 255 255 / 0.12);
 }
 
-/* — transitions (slide vertical type vaul) — */
+/* — transitions (slide vertical type vaul) — durées configurables via
+   transition-duration (vars --q-bs-duration-enter/leave) */
 .q-bs-enter-active,
-.q-bs-leave-active {
-  transition: opacity 0.25s ease;
+.q-bs-leave-active,
+.q-bs-fade-enter-active,
+.q-bs-fade-leave-active,
+.q-bs-zoom-enter-active,
+.q-bs-zoom-leave-active {
+  transition: opacity var(--q-bs-duration-enter, 0.25s) ease;
 }
-
+.q-bs-leave-active,
+.q-bs-fade-leave-active,
+.q-bs-zoom-leave-active {
+  transition: opacity var(--q-bs-duration-leave, 0.2s) ease;
+}
 .q-bs-enter-from,
-.q-bs-leave-to {
+.q-bs-leave-to,
+.q-bs-fade-enter-from,
+.q-bs-fade-leave-to,
+.q-bs-zoom-enter-from,
+.q-bs-zoom-leave-to {
   opacity: 0;
 }
 
+/* slide-up (défaut) : le panneau glisse depuis le bas */
 .q-bs-enter-active .q-bottom-sheet__panel {
-  animation: q-bs-in 0.25s ease;
+  animation: q-bs-in var(--q-bs-duration-enter, 0.25s) ease;
 }
-
 .q-bs-leave-active .q-bottom-sheet__panel {
-  animation: q-bs-out 0.2s ease forwards;
+  animation: q-bs-out var(--q-bs-duration-leave, 0.2s) ease forwards;
 }
-
 @keyframes q-bs-in {
   from {
     transform: translateY(100%);
@@ -4845,10 +4907,33 @@ html.dark body {
     transform: none;
   }
 }
-
 @keyframes q-bs-out {
   to {
     transform: translateY(100%);
+  }
+}
+
+/* zoom : le panneau scale légèrement depuis le centre-bas */
+.q-bs-zoom-enter-active .q-bottom-sheet__panel {
+  animation: q-bs-zoom-in var(--q-bs-duration-enter, 0.25s) ease;
+}
+.q-bs-zoom-leave-active .q-bottom-sheet__panel {
+  animation: q-bs-zoom-out var(--q-bs-duration-leave, 0.2s) ease forwards;
+}
+@keyframes q-bs-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes q-bs-zoom-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
   }
 }
 
@@ -6399,18 +6484,11 @@ html.dark body {
   }
 }
 
-/* slide-* : glisse depuis un bord (32px) avec fondu */
-.q-dialog-slide-up-enter-active,
-.q-dialog-slide-up-leave-active,
-.q-dialog-slide-down-enter-active,
-.q-dialog-slide-down-leave-active,
-.q-dialog-slide-left-enter-active,
-.q-dialog-slide-left-leave-active,
-.q-dialog-slide-right-enter-active,
-.q-dialog-slide-right-leave-active {
-  transition: opacity var(--q-dialog-duration-enter, 0.2s) ease;
-}
-
+/* slide-* : vrai glissement plein écran — le panneau arrive depuis le bord
+   (100vh / 100vw) et y retourne à la fermeture, comme les transitions par
+   position (q-dialog-in-bottom…). Le fondu du fond est porté par l'overlay ;
+   le panneau glisse sans fade (l'ancienne translation de 32px + fade
+   ressemblait à un simple fondu). */
 .q-dialog-slide-up-enter-active,
 .q-dialog-slide-down-enter-active,
 .q-dialog-slide-left-enter-active,
@@ -6435,19 +6513,16 @@ html.dark body {
 
 @keyframes q-dialog-slide-up-in {
   from {
-    opacity: 0;
-    transform: translateY(32px);
+    transform: translateY(100vh);
   }
   to {
-    opacity: 1;
     transform: none;
   }
 }
 
 @keyframes q-dialog-slide-up-out {
   to {
-    opacity: 0;
-    transform: translateY(32px);
+    transform: translateY(100vh);
   }
 }
 
@@ -6461,19 +6536,16 @@ html.dark body {
 
 @keyframes q-dialog-slide-down-in {
   from {
-    opacity: 0;
-    transform: translateY(-32px);
+    transform: translateY(-100vh);
   }
   to {
-    opacity: 1;
     transform: none;
   }
 }
 
 @keyframes q-dialog-slide-down-out {
   to {
-    opacity: 0;
-    transform: translateY(-32px);
+    transform: translateY(-100vh);
   }
 }
 
@@ -6487,19 +6559,16 @@ html.dark body {
 
 @keyframes q-dialog-slide-left-in {
   from {
-    opacity: 0;
-    transform: translateX(32px);
+    transform: translateX(100vw);
   }
   to {
-    opacity: 1;
     transform: none;
   }
 }
 
 @keyframes q-dialog-slide-left-out {
   to {
-    opacity: 0;
-    transform: translateX(32px);
+    transform: translateX(100vw);
   }
 }
 
@@ -6513,20 +6582,47 @@ html.dark body {
 
 @keyframes q-dialog-slide-right-in {
   from {
-    opacity: 0;
-    transform: translateX(-32px);
+    transform: translateX(-100vw);
   }
   to {
-    opacity: 1;
     transform: none;
   }
 }
 
 @keyframes q-dialog-slide-right-out {
   to {
-    opacity: 0;
-    transform: translateX(-32px);
+    transform: translateX(-100vw);
   }
+}
+
+/* sheet-up / sheet-down : mêmes mouvements que slide-up/down (plein écran),
+   mais l'OUVERTURE décélère en fin de course — courbe « pose » type sheet
+   natif (cubic-bezier(0.32, 0.72, 0, 1)) ; la fermeture reste identique à
+   slide. Keyframes partagées avec slide-*. */
+.q-dialog-sheet-up-enter-active,
+.q-dialog-sheet-down-enter-active {
+  transition: opacity var(--q-dialog-duration-enter, 0.2s) ease;
+}
+
+.q-dialog-sheet-up-leave-active,
+.q-dialog-sheet-down-leave-active {
+  transition: opacity var(--q-dialog-duration-leave, 0.15s) ease-in-out;
+}
+
+.q-dialog-sheet-up-enter-active .q-dialog__content {
+  animation: q-dialog-slide-up-in var(--q-dialog-duration-enter, 0.3s) cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.q-dialog-sheet-up-leave-active .q-dialog__content {
+  animation: q-dialog-slide-up-out var(--q-dialog-duration-leave, 0.15s) ease-in-out forwards;
+}
+
+.q-dialog-sheet-down-enter-active .q-dialog__content {
+  animation: q-dialog-slide-down-in var(--q-dialog-duration-enter, 0.3s) cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.q-dialog-sheet-down-leave-active .q-dialog__content {
+  animation: q-dialog-slide-down-out var(--q-dialog-duration-leave, 0.15s) ease-in-out forwards;
 }
 
 /* swipe-* : le panneau glisse depuis un bord et y REVIENT à la fermeture
@@ -6579,6 +6675,34 @@ html.dark body {
     opacity: 0;
     transform: translateX(var(--q-dialog-swipe-x, 100vw));
   }
+}
+
+/* Easing sur mesure — props transition-easing-enter / transition-easing-leave :
+   l'overlay porte les variables CSS inline (--q-dialog-easing-enter/leave),
+   posées uniquement quand la prop est fournie. Les sélecteurs d'attribut
+   `style*` ne matchent que dans ce cas → la courbe par défaut de chaque
+   transition (ease, ease-in-out, cubic-bezier de sheet/swipe…) reste intacte
+   tant qu'on n'a rien réglé. */
+/* Le panneau : animation-timing-function de TOUTES les transitions qui
+   animent .q-dialog__content (zoom, slide-*, sheet-*, swipe-*, défaut selon
+   position). */
+.q-dialog__overlay[style*="--q-dialog-easing-enter"] .q-dialog__content {
+  animation-timing-function: var(--q-dialog-easing-enter, ease);
+}
+
+.q-dialog__overlay[style*="--q-dialog-easing-leave"] .q-dialog__content {
+  animation-timing-function: var(--q-dialog-easing-leave, ease-in-out);
+}
+
+/* Le fond (overlay) : même easing pour son fondu d'opacité — la phase courante
+   est détectée via la classe de transition (*-enter-active / *-leave-active,
+   commune à fade, zoom, slide…). */
+.q-dialog__overlay[style*="--q-dialog-easing-enter"][class*="-enter-active"] {
+  transition-timing-function: var(--q-dialog-easing-enter, ease);
+}
+
+.q-dialog__overlay[style*="--q-dialog-easing-leave"][class*="-leave-active"] {
+  transition-timing-function: var(--q-dialog-easing-leave, ease-in-out);
 }
 
 /* ===== QContainer ===== */
@@ -7476,7 +7600,11 @@ html.dark body {
 }
 .q-col {
   min-width: 0;
-  grid-column-start: calc(var(--q-col-offset, 0) + 1);
+  /* Placement auto par défaut : fallback -1 → calc(0) = 0 → valeur INVALIDE
+     pour grid-column-start → la propriété retombe sur auto et l'item est
+     auto-placé (sinon TOUS les q-col démarreraient en colonne 1 et se
+     superposeraient — une seule colonne visible). */
+  grid-column-start: calc(var(--q-col-offset, -1) + 1);
   grid-column-end: span var(--q-col-span, 1);
 }
 .q-col--span-1 { --q-col-span: 1; }
@@ -7502,146 +7630,162 @@ html.dark body {
 .q-col--offset-9 { --q-col-offset: 9; }
 .q-col--offset-10 { --q-col-offset: 10; }
 .q-col--offset-11 { --q-col-offset: 11; }
-.q-col--span-sm-1 { --q-col-span: 1; }
-.q-col--span-sm-2 { --q-col-span: 2; }
-.q-col--span-sm-3 { --q-col-span: 3; }
-.q-col--span-sm-4 { --q-col-span: 4; }
-.q-col--span-sm-5 { --q-col-span: 5; }
-.q-col--span-sm-6 { --q-col-span: 6; }
-.q-col--span-sm-7 { --q-col-span: 7; }
-.q-col--span-sm-8 { --q-col-span: 8; }
-.q-col--span-sm-9 { --q-col-span: 9; }
-.q-col--span-sm-10 { --q-col-span: 10; }
-.q-col--span-sm-11 { --q-col-span: 11; }
-.q-col--span-sm-12 { --q-col-span: 12; }
-.q-col--offset-sm-1 { --q-col-offset: 1; }
-.q-col--offset-sm-2 { --q-col-offset: 2; }
-.q-col--offset-sm-3 { --q-col-offset: 3; }
-.q-col--offset-sm-4 { --q-col-offset: 4; }
-.q-col--offset-sm-5 { --q-col-offset: 5; }
-.q-col--offset-sm-6 { --q-col-offset: 6; }
-.q-col--offset-sm-7 { --q-col-offset: 7; }
-.q-col--offset-sm-8 { --q-col-offset: 8; }
-.q-col--offset-sm-9 { --q-col-offset: 9; }
-.q-col--offset-sm-10 { --q-col-offset: 10; }
-.q-col--offset-sm-11 { --q-col-offset: 11; }
-.q-grid--cols-sm-1 { --q-grid-cols: 1; }
-.q-grid--cols-sm-2 { --q-grid-cols: 2; }
-.q-grid--cols-sm-3 { --q-grid-cols: 3; }
-.q-grid--cols-sm-4 { --q-grid-cols: 4; }
-.q-grid--cols-sm-5 { --q-grid-cols: 5; }
-.q-grid--cols-sm-6 { --q-grid-cols: 6; }
-.q-grid--cols-sm-7 { --q-grid-cols: 7; }
-.q-grid--cols-sm-8 { --q-grid-cols: 8; }
-.q-grid--cols-sm-9 { --q-grid-cols: 9; }
-.q-grid--cols-sm-10 { --q-grid-cols: 10; }
-.q-grid--cols-sm-11 { --q-grid-cols: 11; }
-.q-grid--cols-sm-12 { --q-grid-cols: 12; }
-.q-col--span-md-1 { --q-col-span: 1; }
-.q-col--span-md-2 { --q-col-span: 2; }
-.q-col--span-md-3 { --q-col-span: 3; }
-.q-col--span-md-4 { --q-col-span: 4; }
-.q-col--span-md-5 { --q-col-span: 5; }
-.q-col--span-md-6 { --q-col-span: 6; }
-.q-col--span-md-7 { --q-col-span: 7; }
-.q-col--span-md-8 { --q-col-span: 8; }
-.q-col--span-md-9 { --q-col-span: 9; }
-.q-col--span-md-10 { --q-col-span: 10; }
-.q-col--span-md-11 { --q-col-span: 11; }
-.q-col--span-md-12 { --q-col-span: 12; }
-.q-col--offset-md-1 { --q-col-offset: 1; }
-.q-col--offset-md-2 { --q-col-offset: 2; }
-.q-col--offset-md-3 { --q-col-offset: 3; }
-.q-col--offset-md-4 { --q-col-offset: 4; }
-.q-col--offset-md-5 { --q-col-offset: 5; }
-.q-col--offset-md-6 { --q-col-offset: 6; }
-.q-col--offset-md-7 { --q-col-offset: 7; }
-.q-col--offset-md-8 { --q-col-offset: 8; }
-.q-col--offset-md-9 { --q-col-offset: 9; }
-.q-col--offset-md-10 { --q-col-offset: 10; }
-.q-col--offset-md-11 { --q-col-offset: 11; }
-.q-grid--cols-md-1 { --q-grid-cols: 1; }
-.q-grid--cols-md-2 { --q-grid-cols: 2; }
-.q-grid--cols-md-3 { --q-grid-cols: 3; }
-.q-grid--cols-md-4 { --q-grid-cols: 4; }
-.q-grid--cols-md-5 { --q-grid-cols: 5; }
-.q-grid--cols-md-6 { --q-grid-cols: 6; }
-.q-grid--cols-md-7 { --q-grid-cols: 7; }
-.q-grid--cols-md-8 { --q-grid-cols: 8; }
-.q-grid--cols-md-9 { --q-grid-cols: 9; }
-.q-grid--cols-md-10 { --q-grid-cols: 10; }
-.q-grid--cols-md-11 { --q-grid-cols: 11; }
-.q-grid--cols-md-12 { --q-grid-cols: 12; }
-.q-col--span-lg-1 { --q-col-span: 1; }
-.q-col--span-lg-2 { --q-col-span: 2; }
-.q-col--span-lg-3 { --q-col-span: 3; }
-.q-col--span-lg-4 { --q-col-span: 4; }
-.q-col--span-lg-5 { --q-col-span: 5; }
-.q-col--span-lg-6 { --q-col-span: 6; }
-.q-col--span-lg-7 { --q-col-span: 7; }
-.q-col--span-lg-8 { --q-col-span: 8; }
-.q-col--span-lg-9 { --q-col-span: 9; }
-.q-col--span-lg-10 { --q-col-span: 10; }
-.q-col--span-lg-11 { --q-col-span: 11; }
-.q-col--span-lg-12 { --q-col-span: 12; }
-.q-col--offset-lg-1 { --q-col-offset: 1; }
-.q-col--offset-lg-2 { --q-col-offset: 2; }
-.q-col--offset-lg-3 { --q-col-offset: 3; }
-.q-col--offset-lg-4 { --q-col-offset: 4; }
-.q-col--offset-lg-5 { --q-col-offset: 5; }
-.q-col--offset-lg-6 { --q-col-offset: 6; }
-.q-col--offset-lg-7 { --q-col-offset: 7; }
-.q-col--offset-lg-8 { --q-col-offset: 8; }
-.q-col--offset-lg-9 { --q-col-offset: 9; }
-.q-col--offset-lg-10 { --q-col-offset: 10; }
-.q-col--offset-lg-11 { --q-col-offset: 11; }
-.q-grid--cols-lg-1 { --q-grid-cols: 1; }
-.q-grid--cols-lg-2 { --q-grid-cols: 2; }
-.q-grid--cols-lg-3 { --q-grid-cols: 3; }
-.q-grid--cols-lg-4 { --q-grid-cols: 4; }
-.q-grid--cols-lg-5 { --q-grid-cols: 5; }
-.q-grid--cols-lg-6 { --q-grid-cols: 6; }
-.q-grid--cols-lg-7 { --q-grid-cols: 7; }
-.q-grid--cols-lg-8 { --q-grid-cols: 8; }
-.q-grid--cols-lg-9 { --q-grid-cols: 9; }
-.q-grid--cols-lg-10 { --q-grid-cols: 10; }
-.q-grid--cols-lg-11 { --q-grid-cols: 11; }
-.q-grid--cols-lg-12 { --q-grid-cols: 12; }
-.q-col--span-xl-1 { --q-col-span: 1; }
-.q-col--span-xl-2 { --q-col-span: 2; }
-.q-col--span-xl-3 { --q-col-span: 3; }
-.q-col--span-xl-4 { --q-col-span: 4; }
-.q-col--span-xl-5 { --q-col-span: 5; }
-.q-col--span-xl-6 { --q-col-span: 6; }
-.q-col--span-xl-7 { --q-col-span: 7; }
-.q-col--span-xl-8 { --q-col-span: 8; }
-.q-col--span-xl-9 { --q-col-span: 9; }
-.q-col--span-xl-10 { --q-col-span: 10; }
-.q-col--span-xl-11 { --q-col-span: 11; }
-.q-col--span-xl-12 { --q-col-span: 12; }
-.q-col--offset-xl-1 { --q-col-offset: 1; }
-.q-col--offset-xl-2 { --q-col-offset: 2; }
-.q-col--offset-xl-3 { --q-col-offset: 3; }
-.q-col--offset-xl-4 { --q-col-offset: 4; }
-.q-col--offset-xl-5 { --q-col-offset: 5; }
-.q-col--offset-xl-6 { --q-col-offset: 6; }
-.q-col--offset-xl-7 { --q-col-offset: 7; }
-.q-col--offset-xl-8 { --q-col-offset: 8; }
-.q-col--offset-xl-9 { --q-col-offset: 9; }
-.q-col--offset-xl-10 { --q-col-offset: 10; }
-.q-col--offset-xl-11 { --q-col-offset: 11; }
-.q-grid--cols-xl-1 { --q-grid-cols: 1; }
-.q-grid--cols-xl-2 { --q-grid-cols: 2; }
-.q-grid--cols-xl-3 { --q-grid-cols: 3; }
-.q-grid--cols-xl-4 { --q-grid-cols: 4; }
-.q-grid--cols-xl-5 { --q-grid-cols: 5; }
-.q-grid--cols-xl-6 { --q-grid-cols: 6; }
-.q-grid--cols-xl-7 { --q-grid-cols: 7; }
-.q-grid--cols-xl-8 { --q-grid-cols: 8; }
-.q-grid--cols-xl-9 { --q-grid-cols: 9; }
-.q-grid--cols-xl-10 { --q-grid-cols: 10; }
-.q-grid--cols-xl-11 { --q-grid-cols: 11; }
-.q-grid--cols-xl-12 { --q-grid-cols: 12; }
+
+/* breakpoint sm : >= 600px */
+@media (min-width: 600px) {
+  .q-col--span-sm-1 { --q-col-span: 1; }
+  .q-col--span-sm-2 { --q-col-span: 2; }
+  .q-col--span-sm-3 { --q-col-span: 3; }
+  .q-col--span-sm-4 { --q-col-span: 4; }
+  .q-col--span-sm-5 { --q-col-span: 5; }
+  .q-col--span-sm-6 { --q-col-span: 6; }
+  .q-col--span-sm-7 { --q-col-span: 7; }
+  .q-col--span-sm-8 { --q-col-span: 8; }
+  .q-col--span-sm-9 { --q-col-span: 9; }
+  .q-col--span-sm-10 { --q-col-span: 10; }
+  .q-col--span-sm-11 { --q-col-span: 11; }
+  .q-col--span-sm-12 { --q-col-span: 12; }
+  .q-col--offset-sm-1 { --q-col-offset: 1; }
+  .q-col--offset-sm-2 { --q-col-offset: 2; }
+  .q-col--offset-sm-3 { --q-col-offset: 3; }
+  .q-col--offset-sm-4 { --q-col-offset: 4; }
+  .q-col--offset-sm-5 { --q-col-offset: 5; }
+  .q-col--offset-sm-6 { --q-col-offset: 6; }
+  .q-col--offset-sm-7 { --q-col-offset: 7; }
+  .q-col--offset-sm-8 { --q-col-offset: 8; }
+  .q-col--offset-sm-9 { --q-col-offset: 9; }
+  .q-col--offset-sm-10 { --q-col-offset: 10; }
+  .q-col--offset-sm-11 { --q-col-offset: 11; }
+  .q-grid--cols-sm-1 { --q-grid-cols: 1; }
+  .q-grid--cols-sm-2 { --q-grid-cols: 2; }
+  .q-grid--cols-sm-3 { --q-grid-cols: 3; }
+  .q-grid--cols-sm-4 { --q-grid-cols: 4; }
+  .q-grid--cols-sm-5 { --q-grid-cols: 5; }
+  .q-grid--cols-sm-6 { --q-grid-cols: 6; }
+  .q-grid--cols-sm-7 { --q-grid-cols: 7; }
+  .q-grid--cols-sm-8 { --q-grid-cols: 8; }
+  .q-grid--cols-sm-9 { --q-grid-cols: 9; }
+  .q-grid--cols-sm-10 { --q-grid-cols: 10; }
+  .q-grid--cols-sm-11 { --q-grid-cols: 11; }
+  .q-grid--cols-sm-12 { --q-grid-cols: 12; }
+}
+
+/* breakpoint md : >= 1024px */
+@media (min-width: 1024px) {
+  .q-col--span-md-1 { --q-col-span: 1; }
+  .q-col--span-md-2 { --q-col-span: 2; }
+  .q-col--span-md-3 { --q-col-span: 3; }
+  .q-col--span-md-4 { --q-col-span: 4; }
+  .q-col--span-md-5 { --q-col-span: 5; }
+  .q-col--span-md-6 { --q-col-span: 6; }
+  .q-col--span-md-7 { --q-col-span: 7; }
+  .q-col--span-md-8 { --q-col-span: 8; }
+  .q-col--span-md-9 { --q-col-span: 9; }
+  .q-col--span-md-10 { --q-col-span: 10; }
+  .q-col--span-md-11 { --q-col-span: 11; }
+  .q-col--span-md-12 { --q-col-span: 12; }
+  .q-col--offset-md-1 { --q-col-offset: 1; }
+  .q-col--offset-md-2 { --q-col-offset: 2; }
+  .q-col--offset-md-3 { --q-col-offset: 3; }
+  .q-col--offset-md-4 { --q-col-offset: 4; }
+  .q-col--offset-md-5 { --q-col-offset: 5; }
+  .q-col--offset-md-6 { --q-col-offset: 6; }
+  .q-col--offset-md-7 { --q-col-offset: 7; }
+  .q-col--offset-md-8 { --q-col-offset: 8; }
+  .q-col--offset-md-9 { --q-col-offset: 9; }
+  .q-col--offset-md-10 { --q-col-offset: 10; }
+  .q-col--offset-md-11 { --q-col-offset: 11; }
+  .q-grid--cols-md-1 { --q-grid-cols: 1; }
+  .q-grid--cols-md-2 { --q-grid-cols: 2; }
+  .q-grid--cols-md-3 { --q-grid-cols: 3; }
+  .q-grid--cols-md-4 { --q-grid-cols: 4; }
+  .q-grid--cols-md-5 { --q-grid-cols: 5; }
+  .q-grid--cols-md-6 { --q-grid-cols: 6; }
+  .q-grid--cols-md-7 { --q-grid-cols: 7; }
+  .q-grid--cols-md-8 { --q-grid-cols: 8; }
+  .q-grid--cols-md-9 { --q-grid-cols: 9; }
+  .q-grid--cols-md-10 { --q-grid-cols: 10; }
+  .q-grid--cols-md-11 { --q-grid-cols: 11; }
+  .q-grid--cols-md-12 { --q-grid-cols: 12; }
+}
+
+/* breakpoint lg : >= 1440px */
+@media (min-width: 1440px) {
+  .q-col--span-lg-1 { --q-col-span: 1; }
+  .q-col--span-lg-2 { --q-col-span: 2; }
+  .q-col--span-lg-3 { --q-col-span: 3; }
+  .q-col--span-lg-4 { --q-col-span: 4; }
+  .q-col--span-lg-5 { --q-col-span: 5; }
+  .q-col--span-lg-6 { --q-col-span: 6; }
+  .q-col--span-lg-7 { --q-col-span: 7; }
+  .q-col--span-lg-8 { --q-col-span: 8; }
+  .q-col--span-lg-9 { --q-col-span: 9; }
+  .q-col--span-lg-10 { --q-col-span: 10; }
+  .q-col--span-lg-11 { --q-col-span: 11; }
+  .q-col--span-lg-12 { --q-col-span: 12; }
+  .q-col--offset-lg-1 { --q-col-offset: 1; }
+  .q-col--offset-lg-2 { --q-col-offset: 2; }
+  .q-col--offset-lg-3 { --q-col-offset: 3; }
+  .q-col--offset-lg-4 { --q-col-offset: 4; }
+  .q-col--offset-lg-5 { --q-col-offset: 5; }
+  .q-col--offset-lg-6 { --q-col-offset: 6; }
+  .q-col--offset-lg-7 { --q-col-offset: 7; }
+  .q-col--offset-lg-8 { --q-col-offset: 8; }
+  .q-col--offset-lg-9 { --q-col-offset: 9; }
+  .q-col--offset-lg-10 { --q-col-offset: 10; }
+  .q-col--offset-lg-11 { --q-col-offset: 11; }
+  .q-grid--cols-lg-1 { --q-grid-cols: 1; }
+  .q-grid--cols-lg-2 { --q-grid-cols: 2; }
+  .q-grid--cols-lg-3 { --q-grid-cols: 3; }
+  .q-grid--cols-lg-4 { --q-grid-cols: 4; }
+  .q-grid--cols-lg-5 { --q-grid-cols: 5; }
+  .q-grid--cols-lg-6 { --q-grid-cols: 6; }
+  .q-grid--cols-lg-7 { --q-grid-cols: 7; }
+  .q-grid--cols-lg-8 { --q-grid-cols: 8; }
+  .q-grid--cols-lg-9 { --q-grid-cols: 9; }
+  .q-grid--cols-lg-10 { --q-grid-cols: 10; }
+  .q-grid--cols-lg-11 { --q-grid-cols: 11; }
+  .q-grid--cols-lg-12 { --q-grid-cols: 12; }
+}
+
+/* breakpoint xl : >= 1920px */
+@media (min-width: 1920px) {
+  .q-col--span-xl-1 { --q-col-span: 1; }
+  .q-col--span-xl-2 { --q-col-span: 2; }
+  .q-col--span-xl-3 { --q-col-span: 3; }
+  .q-col--span-xl-4 { --q-col-span: 4; }
+  .q-col--span-xl-5 { --q-col-span: 5; }
+  .q-col--span-xl-6 { --q-col-span: 6; }
+  .q-col--span-xl-7 { --q-col-span: 7; }
+  .q-col--span-xl-8 { --q-col-span: 8; }
+  .q-col--span-xl-9 { --q-col-span: 9; }
+  .q-col--span-xl-10 { --q-col-span: 10; }
+  .q-col--span-xl-11 { --q-col-span: 11; }
+  .q-col--span-xl-12 { --q-col-span: 12; }
+  .q-col--offset-xl-1 { --q-col-offset: 1; }
+  .q-col--offset-xl-2 { --q-col-offset: 2; }
+  .q-col--offset-xl-3 { --q-col-offset: 3; }
+  .q-col--offset-xl-4 { --q-col-offset: 4; }
+  .q-col--offset-xl-5 { --q-col-offset: 5; }
+  .q-col--offset-xl-6 { --q-col-offset: 6; }
+  .q-col--offset-xl-7 { --q-col-offset: 7; }
+  .q-col--offset-xl-8 { --q-col-offset: 8; }
+  .q-col--offset-xl-9 { --q-col-offset: 9; }
+  .q-col--offset-xl-10 { --q-col-offset: 10; }
+  .q-col--offset-xl-11 { --q-col-offset: 11; }
+  .q-grid--cols-xl-1 { --q-grid-cols: 1; }
+  .q-grid--cols-xl-2 { --q-grid-cols: 2; }
+  .q-grid--cols-xl-3 { --q-grid-cols: 3; }
+  .q-grid--cols-xl-4 { --q-grid-cols: 4; }
+  .q-grid--cols-xl-5 { --q-grid-cols: 5; }
+  .q-grid--cols-xl-6 { --q-grid-cols: 6; }
+  .q-grid--cols-xl-7 { --q-grid-cols: 7; }
+  .q-grid--cols-xl-8 { --q-grid-cols: 8; }
+  .q-grid--cols-xl-9 { --q-grid-cols: 9; }
+  .q-grid--cols-xl-10 { --q-grid-cols: 10; }
+  .q-grid--cols-xl-11 { --q-grid-cols: 11; }
+  .q-grid--cols-xl-12 { --q-grid-cols: 12; }
+}
 
 /* ===== QGrid — mode cellules (Vant Grid) =====
    Activé par :column-num — cellules QGridItem en grille égale, avec icône + texte. */
@@ -8246,4 +8390,806 @@ html.dark body {
   .q-spinner__cube {
     animation: none;
   }
+}
+
+/* ===== QTiptap ===== */
+.q-tiptap {
+  --q-tiptap-bg: #fff;
+  --q-tiptap-toolbar-bg: #f6f7f9;
+  --q-tiptap-border: var(--border, rgb(0 0 0 / 0.12));
+  --q-tiptap-text: var(--foreground, #1d1d1d);
+  /* ⚠ --muted est un token de FOND (bg grisé shadcn), pas une couleur de texte
+     → icônes/secondary en gris texte explicite */
+  --q-tiptap-muted: #8b93a1;
+  --q-tiptap-primary: var(--primary, #1976d2);
+  --q-tiptap-radius: var(--q-radius, 12px);
+  --q-tiptap-code-bg: rgb(0 0 0 / 0.06);
+  --q-tiptap-quote-bg: rgb(25 118 210 / 0.07);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--q-tiptap-border);
+  border-radius: var(--q-tiptap-radius);
+  background-color: var(--q-tiptap-bg);
+  color: var(--q-tiptap-text);
+}
+.dark .q-tiptap {
+  --q-tiptap-bg: #1e1e22;
+  --q-tiptap-toolbar-bg: #27272c;
+  --q-tiptap-border: rgb(255 255 255 / 0.12);
+  --q-tiptap-text: #ececef;
+  --q-tiptap-muted: #9aa2b1;
+  --q-tiptap-code-bg: rgb(255 255 255 / 0.08);
+  --q-tiptap-quote-bg: rgb(25 118 210 / 0.18);
+}
+.q-tiptap--filled {
+  --q-tiptap-bg: #f6f7f9;
+  --q-tiptap-toolbar-bg: transparent;
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--q-tiptap-border);
+}
+.dark .q-tiptap--filled {
+  --q-tiptap-bg: #26262b;
+  --q-tiptap-toolbar-bg: transparent;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+.q-tiptap--square {
+  border-radius: 0;
+}
+.q-tiptap--disable {
+  opacity: 0.7;
+}
+.q-tiptap--disable .q-tiptap__body {
+  pointer-events: none;
+}
+
+/* — barre d'outils — */
+.q-tiptap__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px 6px;
+  background-color: var(--q-tiptap-toolbar-bg);
+  border-bottom: 1px solid var(--q-tiptap-border);
+}
+.q-tiptap__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.q-tiptap__group + .q-tiptap__group {
+  margin-left: 6px;
+  padding-left: 6px;
+  border-left: 1px solid var(--q-tiptap-border);
+}
+.q-tiptap__tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--q-tiptap-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.q-tiptap__tool svg {
+  width: 17px;
+  height: 17px;
+}
+.q-tiptap__tool:hover:not(:disabled) {
+  background-color: rgb(0 0 0 / 0.06);
+  color: var(--q-tiptap-text);
+}
+.dark .q-tiptap__tool:hover:not(:disabled) {
+  background-color: rgb(255 255 255 / 0.08);
+}
+.q-tiptap__tool--active {
+  background-color: rgb(25 118 210 / 0.14);
+  background-color: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
+  color: var(--q-tiptap-primary);
+}
+.q-tiptap__tool:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.q-tiptap--dense .q-tiptap__tool {
+  width: 26px;
+  height: 26px;
+}
+
+/* — zone d'édition — */
+.q-tiptap__body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.q-tiptap__editor {
+  position: relative;
+  z-index: 1;
+  min-height: 180px;
+}
+.q-tiptap__editor > div,
+.q-tiptap__editor .ProseMirror {
+  min-height: inherit;
+}
+.q-tiptap__editor .ProseMirror {
+  padding: var(--q-tiptap-content-padding, 5%);
+  outline: none;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--q-tiptap-text);
+  caret-color: var(--q-tiptap-primary);
+  word-wrap: break-word;
+}
+
+/* placeholder (visible quand le document est vide) — aligné sur le padding
+   par défaut (5% sur les 4 côtés) */
+.q-tiptap__placeholder {
+  position: absolute;
+  z-index: 0;
+  top: 5%;
+  left: 5%;
+  right: 5%;
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--q-tiptap-muted);
+  pointer-events: none;
+  white-space: pre-wrap;
+}
+
+/* — typographie du contenu édité (ProseMirror) — */
+.q-tiptap__editor .ProseMirror p {
+  margin: 0 0 0.6em;
+}
+.q-tiptap__editor .ProseMirror h1,
+.q-tiptap__editor .ProseMirror h2,
+.q-tiptap__editor .ProseMirror h3 {
+  margin: 0.8em 0 0.4em;
+  color: var(--q-tiptap-text);
+  font-weight: 700;
+  line-height: 1.3;
+}
+.q-tiptap__editor .ProseMirror h1 {
+  font-size: 1.55em;
+}
+.q-tiptap__editor .ProseMirror h2 {
+  font-size: 1.3em;
+}
+.q-tiptap__editor .ProseMirror h3 {
+  font-size: 1.1em;
+}
+.q-tiptap__editor .ProseMirror > *:first-child {
+  margin-top: 0;
+}
+.q-tiptap__editor .ProseMirror ul,
+.q-tiptap__editor .ProseMirror ol {
+  margin: 0 0 0.8em;
+  /* listes décalées d'un retrait (margin-left) ; petit padding pour les
+     marqueurs (puces / numéros) */
+  margin-left: 1.5em;
+  padding-left: 0.4em;
+}
+/* listes imbriquées : retrait réduit pour rester lisible */
+.q-tiptap__editor .ProseMirror ul ul,
+.q-tiptap__editor .ProseMirror ul ol,
+.q-tiptap__editor .ProseMirror ol ul,
+.q-tiptap__editor .ProseMirror ol ol {
+  margin-left: 0.75em;
+}
+/* Tailwind preflight met ul/ol { list-style: none } → restaurer les marqueurs */
+.q-tiptap__editor .ProseMirror ul {
+  list-style-type: disc;
+}
+.q-tiptap__editor .ProseMirror ol {
+  list-style-type: decimal;
+}
+.q-tiptap__editor .ProseMirror ul ul {
+  list-style-type: circle;
+}
+.q-tiptap__editor .ProseMirror ul ul ul {
+  list-style-type: square;
+}
+.q-tiptap__editor .ProseMirror li {
+  margin: 0.15em 0;
+}
+.q-tiptap__editor .ProseMirror li p {
+  margin: 0;
+}
+.q-tiptap__editor .ProseMirror blockquote {
+  margin: 0.6em 0;
+  padding: 6px 12px;
+  border-left: 3px solid var(--q-tiptap-primary);
+  border-radius: 0 8px 8px 0;
+  background: var(--q-tiptap-quote-bg);
+}
+.q-tiptap__editor .ProseMirror blockquote p {
+  margin: 0;
+}
+.q-tiptap__editor .ProseMirror pre {
+  margin: 0.6em 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border: 1px solid var(--q-tiptap-border);
+  border-radius: 8px;
+  background: var(--q-tiptap-code-bg);
+  font-size: 0.92em;
+}
+.q-tiptap__editor .ProseMirror pre code {
+  background: none;
+  padding: 0;
+  font-size: 1em;
+}
+.q-tiptap__editor .ProseMirror code {
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: var(--q-tiptap-code-bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}
+.q-tiptap__editor .ProseMirror a {
+  color: var(--q-tiptap-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.q-tiptap__editor .ProseMirror hr {
+  margin: 0.8em 0;
+  border: none;
+  border-top: 1px solid var(--q-tiptap-border);
+}
+.q-tiptap__editor .ProseMirror img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.6em auto;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--q-tiptap-border);
+}
+.q-tiptap__editor .ProseMirror .ProseMirror-selectednode {
+  outline: 2px solid var(--q-tiptap-primary);
+  border-radius: 4px;
+}
+
+/* — couleur de texte (toolbar + palette popover) — */
+.q-tiptap__tool--color {
+  position: relative;
+}
+.q-tiptap__color-bar {
+  position: absolute;
+  right: 7px;
+  bottom: 4px;
+  left: 7px;
+  height: 3px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+.q-tiptap__tool--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.q-tiptap__tool--color:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--q-tiptap-primary);
+}
+.q-tiptap__palette {
+  position: fixed;
+  z-index: 4000;
+  width: 224px;
+  padding: 10px;
+  background: var(--q-tiptap-bg);
+  border: 1px solid var(--q-tiptap-border);
+  border-radius: 12px;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.18);
+}
+.q-tiptap__palette-title {
+  margin: 0 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--q-tiptap-muted);
+}
+.q-tiptap__palette-swatches {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.q-tiptap__swatch {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--q-tiptap-border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.q-tiptap__swatch:hover {
+  transform: scale(1.12);
+}
+.q-tiptap__swatch--active {
+  box-shadow:
+    0 0 0 2px var(--q-tiptap-bg),
+    0 0 0 4px var(--q-tiptap-primary);
+}
+.q-tiptap__swatch--none {
+  background: #fff;
+  background-image: linear-gradient(
+    to top right,
+    transparent calc(50% - 1px),
+    #e5484d calc(50% - 1px),
+    #e5484d calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+}
+.q-tiptap__palette-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--q-tiptap-border);
+  font-size: 12px;
+  color: var(--q-tiptap-muted);
+  cursor: pointer;
+}
+.q-tiptap__palette-custom input[type="color"] {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--q-tiptap-border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.q-tiptap__palette-custom input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+.q-tiptap__palette-custom input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+/* — mentions (@) : puce dans le document + popup de suggestion — */
+.q-tiptap__editor .ProseMirror span[data-type="mention"] {
+  display: inline-block;
+  padding: 0 5px;
+  margin: 0 1px;
+  border-radius: 6px;
+  background: rgb(25 118 210 / 0.12);
+  background: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
+  color: var(--q-tiptap-primary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.q-tiptap__mention-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 220px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--q-tiptap-bg);
+  border: 1px solid var(--q-tiptap-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.18);
+}
+.q-tiptap__mention-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--q-tiptap-text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.q-tiptap__mention-item:hover,
+.q-tiptap__mention-item--active {
+  background: rgb(25 118 210 / 0.12);
+  background: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
+  color: var(--q-tiptap-primary);
+}
+.q-tiptap__mention-empty {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--q-tiptap-muted);
+}
+
+/* — bubble menu : barre contextuelle de formatage (sélection) — */
+.q-tiptap__bubble {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: max-content;
+  padding: 4px;
+  background: var(--q-tiptap-bg);
+  border: 1px solid var(--q-tiptap-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.16);
+}
+.q-tiptap__bubble-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--q-tiptap-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.q-tiptap__bubble-btn svg {
+  width: 15px;
+  height: 15px;
+}
+.q-tiptap__bubble-btn:hover:not(:disabled) {
+  background-color: rgb(0 0 0 / 0.06);
+  color: var(--q-tiptap-text);
+}
+.dark .q-tiptap__bubble-btn:hover:not(:disabled) {
+  background-color: rgb(255 255 255 / 0.08);
+}
+.q-tiptap__bubble-btn--active {
+  background-color: rgb(25 118 210 / 0.14);
+  background-color: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
+  color: var(--q-tiptap-primary);
+}
+.q-tiptap__bubble-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.q-tiptap__bubble-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: var(--q-tiptap-border);
+}
+.q-tiptap__bubble .q-tiptap__color-bar {
+  right: 6px;
+  bottom: 3px;
+  left: 6px;
+}
+
+/* — drag handle : poignée de déplacement des blocs — */
+.q-tiptap__drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  /* espace minimum entre l'icône et l'élément dragué (≥ 5% de la largeur de
+     l'éditeur, relatif au conteneur positionné .q-tiptap__body) */
+  margin-right: 5%;
+  color: var(--q-tiptap-muted);
+  cursor: grab;
+  border-radius: 6px;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.q-tiptap__drag-handle:hover {
+  color: var(--q-tiptap-primary);
+  background: rgb(25 118 210 / 0.12);
+  background: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
+}
+.q-tiptap__drag-handle:active {
+  cursor: grabbing;
+}
+.q-tiptap__drag-handle svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Les popups (mentions, palette, bubble) sont montés HORS de .q-tiptap
+   (Teleport / body via props.mount) → ils n'héritent PAS de --q-tiptap-*.
+   On leur redéfinit leurs variables localement : fond blanc en light
+   (--card), sombre via html.dark. */
+.q-tiptap__mention-list,
+.q-tiptap__palette,
+.q-tiptap__bubble,
+.q-tiptap__table-menu {
+  --q-tiptap-bg: var(--card, #ffffff);
+  --q-tiptap-border: var(--border, rgb(0 0 0 / 0.12));
+  --q-tiptap-text: var(--foreground, #1d1d1d);
+  --q-tiptap-muted: #8b93a1;
+  --q-tiptap-primary: var(--primary, #1976d2);
+}
+.dark .q-tiptap__mention-list,
+.dark .q-tiptap__palette,
+.dark .q-tiptap__bubble,
+.dark .q-tiptap__table-menu {
+  --q-tiptap-bg: #1e1e22;
+  --q-tiptap-border: rgb(255 255 255 / 0.12);
+  --q-tiptap-text: #ececef;
+  --q-tiptap-muted: #9aa2b1;
+  --q-tiptap-primary: var(--primary, #1976d2);
+}
+
+/* — sélecteur de taille de police (toolbar, q-select) — */
+.q-tiptap__size {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 2px;
+}
+.q-tiptap__font-size {
+  width: 100px;
+  font-size: 12px;
+}
+.q-tiptap__font-size .q-select__display {
+  font-size: 12px;
+}
+.q-tiptap__font-size.q-field--dense .q-select__arrow {
+  width: 14px;
+  height: 14px;
+}
+.q-tiptap__font-size .q-select__popup {
+  width: 100px;
+  min-width: 100px;
+}
+.q-tiptap__font-size .q-select__option-label {
+  font-size: 12px;
+}
+
+/* — tableaux : rendu dans le document + popup d'actions — */
+.q-tiptap__editor .ProseMirror .tableWrapper {
+  overflow-x: auto;
+}
+.q-tiptap__editor .ProseMirror table {
+  width: 100%;
+  margin: 0.6em 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.q-tiptap__editor .ProseMirror th,
+.q-tiptap__editor .ProseMirror td {
+  position: relative;
+  min-width: 60px;
+  padding: 6px 10px;
+  border: 1px solid var(--q-tiptap-border);
+  vertical-align: top;
+}
+.q-tiptap__editor .ProseMirror th {
+  background: var(--q-tiptap-toolbar-bg);
+  font-weight: 600;
+  text-align: left;
+}
+.q-tiptap__editor .ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(25 118 210 / 0.14);
+  background: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
+  pointer-events: none;
+}
+.q-tiptap__editor .ProseMirror .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 5px;
+  background: var(--q-tiptap-primary);
+  cursor: col-resize;
+}
+.q-tiptap__editor .ProseMirror td p,
+.q-tiptap__editor .ProseMirror th p {
+  margin: 0 0 0.2em;
+}
+.q-tiptap__table-menu {
+  position: fixed;
+  z-index: 4000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 212px;
+  padding: 5px;
+  background: var(--q-tiptap-bg);
+  border: 1px solid var(--q-tiptap-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.18);
+}
+.q-tiptap__table-action {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--q-tiptap-text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.q-tiptap__table-action:hover {
+  background: rgb(25 118 210 / 0.12);
+  background: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
+  color: var(--q-tiptap-primary);
+}
+
+/* ===== QEditorJs (Editor.js, éditeur par blocs) ===== */
+.q-editor-js {
+  border: 1px solid var(--border, rgb(0 0 0 / 0.12));
+  border-radius: var(--q-radius, 12px);
+  background: var(--card, #ffffff);
+  color: var(--foreground, #1d1d1d);
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+.q-editor-js:focus-within {
+  border-color: var(--primary, #1976d2);
+}
+.q-editor-js--disable {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.q-editor-js__holder {
+  padding: 14px 16px;
+}
+.q-editor-js .codex-editor__redactor {
+  padding-bottom: 40px;
+}
+.q-editor-js .ce-block__content,
+.q-editor-js .ce-toolbar__content {
+  max-width: none;
+}
+.q-editor-js .ce-block {
+  margin-bottom: 8px;
+}
+.q-editor-js .ce-paragraph {
+  color: var(--foreground, #1d1d1d);
+  font-size: 14px;
+  line-height: 1.7;
+  outline: none;
+}
+.q-editor-js .ce-paragraph[data-placeholder]:empty::before {
+  color: var(--muted, #8b93a1);
+}
+.q-editor-js .ce-header {
+  color: var(--foreground, #1d1d1d);
+  font-weight: 700;
+  line-height: 1.3;
+}
+.q-editor-js h1.ce-header {
+  font-size: 1.55em;
+}
+.q-editor-js h2.ce-header {
+  font-size: 1.3em;
+}
+.q-editor-js h3.ce-header {
+  font-size: 1.1em;
+}
+.q-editor-js .cdx-list {
+  color: var(--foreground, #1d1d1d);
+  line-height: 1.7;
+}
+.q-editor-js .cdx-checklist {
+  color: var(--foreground, #1d1d1d);
+}
+.q-editor-js .ce-code__textarea {
+  background: color-mix(in srgb, var(--foreground, #1d1d1d) 6%, transparent);
+  color: var(--foreground, #1d1d1d);
+  border: 1px solid var(--border, rgb(0 0 0 / 0.12));
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.q-editor-js .cdx-quote {
+  margin: 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--primary, #1976d2);
+  background: color-mix(in srgb, var(--primary, #1976d2) 8%, transparent);
+  color: var(--foreground, #1d1d1d);
+  border-radius: 0 8px 8px 0;
+}
+.q-editor-js .ce-toolbar__plus,
+.q-editor-js .ce-toolbar__settings-btn {
+  color: var(--foreground, #1d1d1d);
+}
+.q-editor-js .ce-toolbar__plus:hover,
+.q-editor-js .ce-toolbar__settings-btn:hover {
+  color: var(--primary, #1976d2);
+}
+.q-editor-js .ce-inline-toolbar,
+.q-editor-js .ce-conv-toolbar,
+.q-editor-js .ce-toolbox__button,
+.q-editor-js .ce-popover {
+  background: var(--card, #ffffff);
+  color: var(--foreground, #1d1d1d);
+  border: 1px solid var(--border, rgb(0 0 0 / 0.12));
+}
+.q-editor-js .ce-toolbox__button--active,
+.q-editor-js .ce-inline-tool--active {
+  color: var(--primary, #1976d2);
+}
+
+/* NodeView Vue de la table : wrapper + table + tbody (contentDOM) */
+.q-tiptap__editor .ProseMirror .q-tiptap__table-wrapper {
+  position: relative;
+  overflow-x: auto;
+  margin: 0.6em 0;
+}
+.q-tiptap__editor .ProseMirror .q-tiptap__table-wrapper table {
+  margin: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+/* Poignées de redimensionnement des colonnes (NodeView Vue) */
+.q-tiptap__resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 7px;
+  margin-left: -3.5px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.q-tiptap__resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2.5px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+.q-tiptap__resize-handle:hover::after,
+.q-tiptap__resize-handle:active::after {
+  background: var(--q-tiptap-primary);
+}
+
+/* — dialog image / lien (saisie URL) — */
+.q-tiptap__dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 300px;
+  padding: 14px 16px;
+}
+
+/* — task list (NodeView Vue → q-checkbox dnax.ui) — */
+.q-tiptap__editor .ProseMirror ul[data-type="taskList"] {
+  padding-left: 0;
+  list-style: none;
+}
+.q-tiptap__editor .ProseMirror ul[data-type="taskList"] li[data-node-view-wrapper] {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  list-style: none;
+}
+.q-tiptap__task-check {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+.q-tiptap__task-content {
+  flex: 1;
+  min-width: 0;
+}
+.q-tiptap__task-content--checked {
+  color: var(--q-tiptap-muted);
+  text-decoration: line-through;
 }

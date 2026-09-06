@@ -17,6 +17,7 @@ import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 import { useOverlayBack } from "../lib/overlayBack"
+import { markOverlayClose } from "../lib/closeOverlay"
 
 type DialogPosition = "standard" | "top" | "right" | "bottom" | "left"
 
@@ -40,10 +41,18 @@ interface Props {
   contentStyle?: StyleValue
   noBackdropDismiss?: boolean
   noEscDismiss?: boolean
-  /** Animation : fade | zoom | slide-up | slide-down | slide-left | slide-right | swipe-left | swipe-right (sinon basée sur position) */
-  transition?: "fade" | "zoom" | "slide-up" | "slide-down" | "slide-left" | "slide-right" | "swipe-left" | "swipe-right"
+  /** Animation : fade | zoom | slide-up | slide-down | sheet-up | sheet-down
+   *  (même glissement que slide, ouverture qui décélère en fin de course) |
+   *  slide-left | slide-right | swipe-left | swipe-right (sinon basée sur position) */
+  transition?: "fade" | "zoom" | "slide-up" | "slide-down" | "sheet-up" | "sheet-down" | "slide-left" | "slide-right" | "swipe-left" | "swipe-right"
   /** Durée des transitions d'entrée/sortie en ms (défaut CSS : ~200ms entrée, ~150ms sortie) */
   transitionDuration?: number
+  /** Courbe d'easing de l'OUVERTURE — valeur CSS ("cubic-bezier(0.32, 0.72, 0, 1)",
+   *  "ease-out", "linear"…) — défaut : courbe propre à chaque transition
+   *  (sheet-* = décélération en fin de course, slide-* = ease…) */
+  transitionEasingEnter?: string
+  /** Courbe d'easing de la FERMETURE — même principe que transition-easing-enter */
+  transitionEasingLeave?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -59,6 +68,8 @@ const props = withDefaults(defineProps<Props>(), {
   noBackdropDismiss: false,
   noEscDismiss: false,
   transitionDuration: undefined,
+  transitionEasingEnter: "",
+  transitionEasingLeave: "",
 })
 
 const emit = defineEmits<{
@@ -87,6 +98,11 @@ const onDocKeydown = (e: KeyboardEvent) => {
 
 // « Retour » navigateur → ferme le dialog au lieu de naviguer
 useOverlayBack(open, () => { open.value = false }, "QDialog")
+
+// v-close : marque l'overlay comme fermable (la directive remonte jusqu'ici)
+const markOverlay = (el: unknown) => {
+  markOverlayClose(el as HTMLElement | null, () => { open.value = false })
+}
 
 // — Verrou du scroll de la page derrière le dialog —
 // Compteur module-level + suivi par instance : chaque dialog verrouille au plus
@@ -153,15 +169,19 @@ const transitionName = computed(() =>
   props.transition ? `q-dialog-${props.transition}` : "q-dialog",
 )
 
-// Durée des transitions (enter/leave) via variables CSS sur l'overlay
-const durationStyle = computed<StyleValue>(() =>
-  props.transitionDuration
-    ? {
-        "--q-dialog-duration-enter": `${props.transitionDuration}ms`,
-        "--q-dialog-duration-leave": `${props.transitionDuration}ms`,
-      }
-    : {},
-)
+// Réglages des transitions (durée + courbes d'easing) exposés en variables CSS
+// sur l'overlay : --q-dialog-duration-enter/leave et
+// --q-dialog-easing-enter/leave (consommées par styles/main.css).
+const transitionStyle = computed<StyleValue>(() => {
+  const style: Record<string, string> = {}
+  if (props.transitionDuration) {
+    style["--q-dialog-duration-enter"] = `${props.transitionDuration}ms`
+    style["--q-dialog-duration-leave"] = `${props.transitionDuration}ms`
+  }
+  if (props.transitionEasingEnter) style["--q-dialog-easing-enter"] = props.transitionEasingEnter
+  if (props.transitionEasingLeave) style["--q-dialog-easing-leave"] = props.transitionEasingLeave
+  return style
+})
 </script>
 
 <template>
@@ -169,9 +189,10 @@ const durationStyle = computed<StyleValue>(() =>
     <Transition :name="transitionName" @after-enter="emit('show')" @after-leave="emit('hide')">
       <div
         v-if="open"
+        :ref="markOverlay"
         class="q-dialog__overlay"
         :class="overlayClasses"
-        :style="durationStyle"
+        :style="transitionStyle"
         @mousedown.self="!persistent && !noBackdropDismiss && (open = false)"
       >
         <div

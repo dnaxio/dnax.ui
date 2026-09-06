@@ -38,6 +38,7 @@ const countries = [
 // — Démos —
 const selected = ref("")
 const selectedSlot = ref("")
+const iconVal = ref("")
 const dense = ref("")
 const loadingVal = ref("")
 const disabledVal = ref("")
@@ -79,6 +80,18 @@ const slotCode = `<q-autocomplete
   </template>
 </q-autocomplete>`
 
+const iconCode = `<q-autocomplete
+  v-model="selected"
+  :options="countries"
+  option-value="code"
+  option-label="name"
+  label="Country"
+  icon-left="lucide:map-pin"
+  outlined
+  clearable
+/>
+<!-- Le slot #prepend reste disponible pour un contenu custom (il remplace icon-left) -->`
+
 const statesCode = `<q-autocomplete v-model="dense" :options="countries" option-value="code" option-label="name" label="Dense & filled" filled dense />
 <q-autocomplete v-model="loading" :options="countries" option-value="code" option-label="name" label="Loading" loading outlined />
 <q-autocomplete v-model="disabled" :options="countries" option-value="code" option-label="name" label="Disabled" disable outlined />
@@ -91,6 +104,7 @@ const panelCode = `<q-autocomplete
   option-label="name"
   label="Country"
   :mode="mode"
+  swipe-to-close
   :sheet-options="{ title: 'Pick a country', width: '100%', searchPlaceholder: 'Search countries…' }"
   :modal-options="{ title: 'Pick a country', height: '400px' }"
   outlined
@@ -101,6 +115,26 @@ const scriptPanel = `import { ref } from "vue"
 
 const selected = ref("")
 const mode = ref("inline")`
+
+const usageSwipe = `<q-autocomplete
+  v-model="selected"
+  :options="countries"
+  option-value="code"
+  option-label="name"
+  label="Country"
+  mode="sheet"
+  swipe-to-close
+  title="Pick a country"
+  outlined
+/>
+<!-- Drag the header down to dismiss the sheet (swipe-to-close, sheet mode) -->`
+
+const scriptSwipe = `import { ref } from "vue"
+
+const selected = ref("")`
+
+// — Démo swipe-to-close —
+const swipeVal = ref("")
 </script>
 
 <template>
@@ -177,6 +211,35 @@ const mode = ref("inline")`
       </docs-demo>
     </section>
 
+    <!-- ═══════ Left icon ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Left icon</h2>
+      <p class="doc-note">
+        No template needed — <code>icon-left</code> renders an Iconify icon at
+        the start of the field (with proper spacing from the value). For custom
+        content, the <code>#prepend</code> slot is still available and
+        overrides the prop.
+      </p>
+
+      <docs-demo :code="iconCode" lang="html" filename="App.vue">
+        <div class="demo-autocomplete">
+          <q-autocomplete
+            v-model="iconVal"
+            :options="countries"
+            option-value="code"
+            option-label="name"
+            label="Country"
+            icon-left="lucide:map-pin"
+            outlined
+            clearable
+          />
+          <p class="demo-p demo-p--value">
+            Selected: <code>{{ iconVal || "—" }}</code>
+          </p>
+        </div>
+      </docs-demo>
+    </section>
+
     <!-- ═══════ Variants & states ═══════ -->
     <section class="doc-section">
       <h2 class="doc-h2">Variants &amp; states</h2>
@@ -244,7 +307,8 @@ const mode = ref("inline")`
         <code>title</code>, <code>style</code>, <code>class</code>,
         <code>search-placeholder</code> — they override the direct props) —
         e.g. <code>sheet-options="{ width: '100%' }"</code> for a full-width
-        sheet.
+        sheet. With <code>swipe-to-close</code> (sheet mode), dragging the
+        header down dismisses the panel.
       </p>
 
       <docs-demo :code="panelCode" lang="html" filename="App.vue" :script="scriptPanel">
@@ -267,11 +331,43 @@ const mode = ref("inline")`
             label="Country"
             :mode="modeDemo"
             title="Pick a country"
+            swipe-to-close
             outlined
             clearable
           />
           <p class="demo-p demo-p--value">
             Selected: <code>{{ panelVal || "—" }}</code>
+          </p>
+        </div>
+      </docs-demo>
+    </section>
+
+    <!-- ═══════ Swipe to close ═══════ -->
+    <section class="doc-section">
+      <h2 class="doc-h2">Swipe to close</h2>
+      <p class="doc-note">
+        On the <code>sheet</code> mode, <code>swipe-to-close</code> turns the
+        header into a drag handle: pull the panel down and release past the
+        threshold (80px) to dismiss it, or let go early to spring it back — the
+        native bottom-sheet gesture. Try it on touch or with the mouse.
+      </p>
+
+      <docs-demo :code="usageSwipe" lang="html" filename="App.vue" :script="scriptSwipe">
+        <div class="demo-autocomplete">
+          <q-autocomplete
+            v-model="swipeVal"
+            :options="countries"
+            option-value="code"
+            option-label="name"
+            label="Country"
+            mode="sheet"
+            swipe-to-close
+            title="Pick a country"
+            outlined
+            clearable
+          />
+          <p class="demo-p demo-p--value">
+            Selected: <code>{{ swipeVal || "—" }}</code>
           </p>
         </div>
       </docs-demo>

@@ -85,5 +85,29 @@ export default defineNuxtPlugin((nuxtApp) => {
 `,
       })
     }
+
+    // Directive globale v-close : <q-btn v-close> ferme le dialog/sheet parent
+    addPluginTemplate({
+      filename: "dnax-ui-directives.mjs",
+      mode: "client",
+      getContents: () => `
+import { defineNuxtPlugin } from "#imports"
+import { vClose } from "@dnax/ui/runtime"
+import { vTouchPan } from "@dnax/ui/runtime"
+import { vTouchHold } from "@dnax/ui/runtime"
+import { vTouchSwipe } from "@dnax/ui/runtime"
+import { vTouchRepeat } from "@dnax/ui/runtime"
+import { vIntersection } from "@dnax/ui/runtime"
+
+export default defineNuxtPlugin((nuxtApp) => {
+  nuxtApp.vueApp.directive("close", vClose)
+  nuxtApp.vueApp.directive("touch-pan", vTouchPan)
+  nuxtApp.vueApp.directive("touch-hold", vTouchHold)
+  nuxtApp.vueApp.directive("touch-swipe", vTouchSwipe)
+  nuxtApp.vueApp.directive("touch-repeat", vTouchRepeat)
+  nuxtApp.vueApp.directive("intersection", vIntersection)
+})
+`,
+    })
   },
 })

@@ -15,6 +15,8 @@ const tag = componentTag("QConfigProvider")
 // — Démo thème live —
 const mode = ref<"light" | "dark">("light")
 const radiusDemo = ref<"none" | "sm" | "md" | "lg">("md")
+const primaryColor = ref("#1976d2")
+const colorOptions = ["#1976d2", "#e91e63", "#10b981", "#f59e0b", "#8b5cf6", "#0f172a"]
 const RADII: { label: string; value: "none" | "sm" | "md" | "lg" }[] = [
   { label: "none", value: "none" },
   { label: "sm", value: "sm" },
@@ -151,10 +153,15 @@ const router = useRouter()`
 const scriptTheme = `import { ref } from "vue"
 
 const mode = ref("light")
-const radius = ref("md")`
+const radius = ref("md")
+const primary = ref("#1976d2")`
 
 const usageTheme = `<q-config-provider
-  :theme="{ mode, componentProps: { default: { radius } } }"
+  :theme="{
+    mode,
+    colors: { primary },
+    componentProps: { default: { radius } },
+  }"
 >
   <div class="demo-stage">
     <q-btn unelevated no-caps color="primary" label="Button" />
@@ -277,9 +284,21 @@ const usageTheme = `<q-config-provider
             />
           </q-btn-group>
           <q-select v-model="radiusDemo" :options="RADII" option-label="label" option-value="value" emit-value label="radius" outlined dense class="demo-radius" />
+          <q-select
+            v-model="primaryColor"
+            :options="colorOptions"
+            label="colors.primary"
+            outlined
+            dense
+            class="demo-radius"
+          />
         </div>
         <q-config-provider
-          :theme="{ mode, componentProps: { default: { radius: radiusDemo } } }"
+          :theme="{
+            mode,
+            colors: { primary: primaryColor },
+            componentProps: { default: { radius: radiusDemo } },
+          }"
         >
           <div class="demo-stage demo-stage--theme">
             <q-btn unelevated no-caps color="primary" label="Button" />

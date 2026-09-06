@@ -16,6 +16,7 @@ export const qBottomSheetKey: InjectionKey<BottomSheetContext> = Symbol("q-botto
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from "vue"
 import { cn } from "../lib/utils"
 import { useOverlayBack } from "../lib/overlayBack"
+import { markOverlayClose } from "../lib/closeOverlay"
 
 interface Props {
   /** Ouvert (v-model) */
@@ -33,6 +34,10 @@ interface Props {
   translucent?: boolean | number
   /** Seuil de drag (px) au-delà duquel on ferme */
   dragThreshold?: number
+  /** Animation d'ouverture : slide-up (défaut) | fade | zoom */
+  transition?: "slide-up" | "fade" | "zoom"
+  /** Durée des transitions d'entrée/sortie en ms */
+  transitionDuration?: number
   /** Style du panneau (variables de thème pour les contenus téléportés) */
   contentStyle?: Record<string, string>
 }
@@ -62,6 +67,11 @@ provide<BottomSheetContext>(qBottomSheetKey, {
 
 // « Retour » navigateur → ferme le bottom sheet au lieu de naviguer
 useOverlayBack(open, () => { open.value = false }, "QBottomSheet")
+
+// v-close : marque l'overlay comme fermable (la directive remonte jusqu'ici)
+const markOverlay = (el: unknown) => {
+  markOverlayClose(el as HTMLElement | null, () => { open.value = false })
+}
 
 // Échap + verrouillage du scroll du body
 const onDocKeydown = (e: KeyboardEvent) => {
@@ -120,6 +130,21 @@ const radiusStyle = computed<Record<string, string> | undefined>(() => {
   return undefined
 })
 
+// Nom de transition : q-bs (défaut slide-up) | q-bs-fade | q-bs-zoom
+const transitionName = computed(() =>
+  props.transition ? `q-bs-${props.transition}` : "q-bs",
+)
+
+// Durée (ms) → variables consommées par les transitions/animations CSS
+const transitionStyle = computed<Record<string, string> | undefined>(() =>
+  props.transitionDuration
+    ? {
+        "--q-bs-duration-enter": `${props.transitionDuration}ms`,
+        "--q-bs-duration-leave": `${props.transitionDuration}ms`,
+      }
+    : undefined,
+)
+
 const panelClasses = computed(() =>
   cn(
     "q-bottom-sheet__panel",
@@ -143,9 +168,10 @@ const translucentStyle = computed<Record<string, string> | undefined>(() =>
   </span>
 
   <Teleport to="body">
-    <Transition name="q-bs">
+    <Transition :name="transitionName" :duration="transitionDuration">
       <div
         v-if="open"
+        :ref="markOverlay"
         class="q-bottom-sheet__overlay"
         @click="!persistent && (open = false)"
       >
@@ -153,7 +179,7 @@ const translucentStyle = computed<Record<string, string> | undefined>(() =>
           ref="panelRef"
           class="q-bottom-sheet__panel"
           :class="panelClasses"
-          :style="[panelStyle, radiusStyle, translucentStyle, props.contentStyle]"
+          :style="[panelStyle, radiusStyle, translucentStyle, transitionStyle, props.contentStyle]"
           role="dialog"
           aria-modal="true"
           @click.stop

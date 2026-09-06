@@ -24,7 +24,7 @@ export const qTabsKey: InjectionKey<QTabContext> = Symbol("q-tabs")
 </script>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, shallowRef, watch } from "vue"
+import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, provide, ref, shallowRef, watch } from "vue"
 import { cva } from "class-variance-authority"
 import { cn } from "../lib/utils"
 import { colorValue } from "../lib/colors"
@@ -117,6 +117,24 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{ "update:modelValue": [value: string | number | null] }>()
 
+// — Mode non-contrôlé : sans v-model (pas de listener update:modelValue), QTabs
+// maintient son propre état interne — indispensable pour QRouteTab (le tab
+// actif suit la route sans v-model parent) et pour tout usage sans v-model.
+const instance = getCurrentInstance()
+const controlled = computed(
+  () => !!instance && "onUpdate:modelValue" in (instance.vnode.props ?? {}),
+)
+const internal = ref<string | number | null>(null)
+
+const activeName = computed<string | number | null>(() =>
+  controlled.value ? (props.modelValue ?? null) : internal.value,
+)
+
+const setActive = (name: string | number) => {
+  if (controlled.value) emit("update:modelValue", name)
+  else internal.value = name
+}
+
 // Position effective de l'indicateur : "top" | "bottom" (défaut) | "none" (masqué)
 const indicatorPos = computed<"top" | "bottom" | "none">(() => {
   const p = props.switchIndicatorPosition
@@ -145,7 +163,7 @@ const onCollapseEnd = (e: Event) => {
   measure()
 }
 
-watch([() => props.modelValue, tabRegs], measure)
+watch([activeName, tabRegs], measure)
 
 onMounted(() => {
   measure()
@@ -158,8 +176,8 @@ onBeforeUnmount(() => {
 })
 
 const context: QTabContext = {
-  activeName: computed(() => props.modelValue),
-  setActive: (name) => emit("update:modelValue", name),
+  activeName,
+  setActive,
   register: (tab) => {
     tabRegs.value = [...tabRegs.value, tab]
   },
@@ -175,7 +193,7 @@ const context: QTabContext = {
 provide(qTabsKey, context)
 
 const activeTabEl = computed(
-  () => tabRegs.value.find((t) => t.name === props.modelValue)?.el.value ?? null,
+  () => tabRegs.value.find((t) => t.name === activeName.value)?.el.value ?? null,
 )
 
 const indicatorStyle = computed<Record<string, string>>(() => {

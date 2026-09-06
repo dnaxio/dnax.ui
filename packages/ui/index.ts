@@ -44,6 +44,7 @@ export { default as QDialogFooter } from "./components/QDialogFooter.vue"
 export { default as QDialogHeader } from "./components/QDialogHeader.vue"
 export { default as QDialogProvider } from "./components/QDialogProvider.vue"
 export { default as QDialogTrigger } from "./components/QDialogTrigger.vue"
+export { default as QEditorJs } from "./components/QEditorJs.vue"
 export { default as QFab } from "./components/QFab.vue"
 export { default as QFabAction } from "./components/QFabAction.vue"
 export { default as QFilePicker } from "./components/QFilePicker.vue"
@@ -91,6 +92,7 @@ export { default as QRadio } from "./components/QRadio.vue"
 export { default as QRating } from "./components/QRating.vue"
 export { default as QReorder } from "./components/QReorder.vue"
 export { default as QRollingText } from "./components/QRollingText.vue"
+export { default as QRouteTab } from "./components/QRouteTab.vue"
 export { default as QRow } from "./components/QRow.vue"
 export { default as QSafeArea } from "./components/QSafeArea.vue"
 export { default as QScrollArea } from "./components/QScrollArea.vue"
@@ -121,18 +123,20 @@ export { default as QTable } from "./components/QTable.vue"
 export { default as QTabs } from "./components/QTabs.vue"
 export { default as QText } from "./components/QText.vue"
 export { default as QTextCaption } from "./components/QTextCaption.vue"
+export { default as QTiptap } from "./components/QTiptap.vue"
 export { default as QToolbar } from "./components/QToolbar.vue"
 export { default as QTooltip } from "./components/QTooltip.vue"
 export { default as QUploader } from "./components/QUploader.vue"
 export { default as QVideo } from "./components/QVideo.vue"
 export { default as QVirtualScroll } from "./components/QVirtualScroll.vue"
 
-export { $q, usePlugin, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet, useDialogPluginComponent } from "./lib/q"
+export { $q, usePlugin, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet, useDialogPluginComponent, useBottomSheetPluginComponent } from "./lib/q"
 export type {
   DialogOptions,
   DialogController,
   BottomSheetOptions,
   BottomSheetController,
+  BottomSheetPluginContext,
   NotifyOptions,
   NotifyController,
 } from "./lib/q"
@@ -142,6 +146,8 @@ export { screen } from "./lib/screen"
 export type { QScreen } from "./lib/screen"
 export { loading } from "./lib/loading"
 export type { LoadingOptions, QLoadingPlugin } from "./lib/loading"
+export { localStorage, sessionStorage } from "./lib/storage"
+export type { QWebStorage } from "./lib/storage"
 export {
   registerOverlay,
   unregisterOverlay,
@@ -151,3 +157,14 @@ export {
   installOverlayBackHandler,
 } from "./lib/overlayBack"
 export type { OverlayHandle } from "./lib/overlayBack"
+export { markOverlayClose, closeParentOverlay, vClose } from "./lib/closeOverlay"
+export { vTouchPan } from "./lib/touchPan"
+export type { PanDetails, TouchPanHandler, PanDirection } from "./lib/touchPan"
+export { vTouchHold } from "./lib/touchHold"
+export type { TouchHoldDetails, TouchHoldHandler } from "./lib/touchHold"
+export { vTouchSwipe } from "./lib/touchSwipe"
+export type { TouchSwipeDetails, TouchSwipeHandler, SwipeDirection } from "./lib/touchSwipe"
+export { vTouchRepeat } from "./lib/touchRepeat"
+export type { TouchRepeatDetails, TouchRepeatHandler } from "./lib/touchRepeat"
+export { vIntersection } from "./lib/intersection"
+export type { IntersectionValue } from "./lib/intersection"

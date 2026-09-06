@@ -4,7 +4,6 @@
 // Mode cellules (Vant) : activé par `column-num` → <q-grid-item> enfants
 // (icône + texte), ex. menu d'app : <q-grid :column-num="4" gutter="8" clickable>
 import { computed } from "vue"
-import { useGridBreakpoints } from "../lib/breakpoints"
 
 interface Props {
   /** Nombre de colonnes du layout (défaut : 12) */
@@ -60,8 +59,6 @@ const props = withDefaults(defineProps<Props>(), {
   iconColor: "",
 })
 
-const bp = useGridBreakpoints()
-
 const px = (v: string | number | undefined) =>
   v === undefined ? undefined : typeof v === "number" ? `${v}px` : v
 
@@ -84,12 +81,12 @@ const style = computed<Record<string, string>>(() => {
   s.alignItems = props.align
   return s
 })
-
+// Classes cols responsive TOUJOURS posées — activées par les @media CSS
 const classes = computed(() => ({
-  ...(bp.value.sm && props.colsSm ? { [`q-grid--cols-sm-${props.colsSm}`]: true } : {}),
-  ...(bp.value.md && props.colsMd ? { [`q-grid--cols-md-${props.colsMd}`]: true } : {}),
-  ...(bp.value.lg && props.colsLg ? { [`q-grid--cols-lg-${props.colsLg}`]: true } : {}),
-  ...(bp.value.xl && props.colsXl ? { [`q-grid--cols-xl-${props.colsXl}`]: true } : {}),
+  ...(props.colsSm ? { [`q-grid--cols-sm-${props.colsSm}`]: true } : {}),
+  ...(props.colsMd ? { [`q-grid--cols-md-${props.colsMd}`]: true } : {}),
+  ...(props.colsLg ? { [`q-grid--cols-lg-${props.colsLg}`]: true } : {}),
+  ...(props.colsXl ? { [`q-grid--cols-xl-${props.colsXl}`]: true } : {}),
   "q-grid--cell": isCellMode.value,
   "q-grid--border": isCellMode.value && props.border,
   "q-grid--square": isCellMode.value && props.square,
