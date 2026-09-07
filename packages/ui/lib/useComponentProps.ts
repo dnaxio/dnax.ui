@@ -1,6 +1,7 @@
 import { computed, inject, toValue } from "vue"
 import type { ComputedRef, MaybeRefOrGetter } from "vue"
 import { qConfigKey } from "./config"
+import type { QAppLang } from "./config"
 
 /** Échelle de rayon : none (carré) → lg (très arrondi) */
 export type RadiusScale = "none" | "xs" | "sm" | "md" | "lg"
@@ -18,6 +19,12 @@ export const RADIUS_VALUES: Record<RadiusScale, string> = {
 
 export const isRadiusScale = (v: unknown): v is RadiusScale =>
   v === "none" || v === "xs" || v === "sm" || v === "md" || v === "lg"
+
+/** Langue d'application fournie par QConfigProvider ("en" par défaut). */
+export function useConfigLang(): ComputedRef<QAppLang> {
+  const config = inject(qConfigKey, null)
+  return computed(() => config?.lang.value ?? "en")
+}
 
 /**
  * Props par défaut d'un composant depuis `theme.componentProps` :

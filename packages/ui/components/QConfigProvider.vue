@@ -12,7 +12,7 @@ import QLoadingProvider from "./QLoadingProvider.vue"
 import QBottomSheetProvider from "./QBottomSheetProvider.vue"
 import QImagePreviewProvider from "./QImagePreviewProvider.vue"
 import { qConfigKey, qProvidersKey } from "../lib/config"
-import type { QConfigContext, QTheme, ThemeMode } from "../lib/config"
+import type { QAppLang, QConfigContext, QTheme, ThemeMode } from "../lib/config"
 import { isRadiusScale, RADIUS_VALUES } from "../lib/useComponentProps"
 
 interface Props {
@@ -23,6 +23,8 @@ interface Props {
    * :theme="{ mode: 'dark', colors: { primary: '#ff0000' }, componentProps: { QBtn: { radius: 'md' } } }"
    */
   theme?: QTheme | ThemeMode
+  /** Langue appliquée aux composants qui la supportent ("en" | "fr") */
+  lang?: QAppLang
   /** Rend un div conteneur ; sinon fournit le thème sans élément DOM */
   render?: boolean
   /** Classe(s) additionnelle(s) sur le conteneur */
@@ -33,6 +35,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   theme: () => ({}),
+  lang: undefined,
   render: true,
   class: "",
   style: undefined,
@@ -67,8 +70,12 @@ const mergedTheme = computed<QTheme>(() => {
     mode: self.mode ?? parentTheme?.mode ?? "system",
     colors: { ...parentTheme?.colors, ...self.colors },
     componentProps: mergeComponentProps(parentTheme?.componentProps, self.componentProps),
+    lang: props.lang ?? self.lang ?? parentTheme?.lang ?? "en",
   }
 })
+
+/** Langue effective : prop > theme.lang > parent */
+const lang = computed<QAppLang>(() => mergedTheme.value.lang ?? "en")
 
 // — Mode clair/sombre —
 const systemDark = ref(false)
@@ -100,9 +107,6 @@ const isDark = computed<boolean>(() => {
   if (mode === "light") return false
   return systemDark.value
 })
-
-// Applique .dark sur le conteneur ET sur <html> (les overlays téléportés au body
-// — dialog, sheets — doivent aussi passer en sombre)
 watch(
   isDark,
   (dark) => {
@@ -113,7 +117,7 @@ watch(
   { immediate: true },
 )
 
-provide<QConfigContext>(qConfigKey, { theme: mergedTheme, isDark })
+provide<QConfigContext>(qConfigKey, { theme: mergedTheme, isDark, lang })
 
 // Providers intégrés ($q.dialog + $q.notify) : rendus UNE fois par le
 // QConfigProvider le plus externe (les imbriqués ne re-rendent pas → pas de doublons)

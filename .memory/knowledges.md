@@ -177,6 +177,17 @@ packages/ui/lib`) — `formula.test.ts` (~25 cas : opérateurs, A1/abs/plages,
   types avec colonnes Email/Website + dans « QSpreadsheet API », sous-sections
   Rows (type → valeur stockée), Columns (schéma complet), Selection/Validation/
   Sheets — pour montrer la structure des données
+- **i18n en/fr (2026-09-07)** : prop `lang` ("en" défaut | "fr") + dictionnaire
+  `I18N` + helpers `t(key)` / `fmt(key,{…})` / `sheetName(n)` — libellés des
+  menus contextuels, barres Find/CF, popup filtre, barre d'état, messages
+  vides, placeholders fx, noms de feuilles par défaut. ⚠ tooltips/aria des
+  icônes toolbar restent EN (étendre I18N si besoin)
+- **Lang global QConfigProvider (2026-09-07)** : prop `lang="fr"|"en"`
+  fusionnée dans `QTheme.lang` + `QConfigContext.lang` (provide)
+  (`config.ts`), priorité prop > theme.lang > parent > "en". Helper
+  `useConfigLang()` (`useComponentProps.ts`) pour tout composant.
+  QSpreadsheet : `lang` = prop ?? configLang. ⚠ ne pas fournir qConfigKey
+  AVANT la déclaration de isDark/lang (TDZ)
 - **Sélecteur : badges colorés** — `type:"select" + chip:true` rend chaque
   valeur en badge avec sa couleur d'option (token via colorValue/foregroundFor,
   hex libre) ; le rendu est `chipFor`→style inline `backgroundColor/color`

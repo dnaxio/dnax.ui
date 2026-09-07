@@ -266,9 +266,12 @@ const usageTheme = `<q-config-provider
         <code>:theme</code> accepts a mode string (<code>"light" | "dark" |
         "system"</code>) or an object — <code>colors</code> overrides any design
         token, <code>componentProps</code> sets default props per component (a
-        <code>default.radius</code> drives the global <code>--q-radius</code>).
-        The <code>.dark</code> class is applied to <code>&lt;html&gt;</code> so
-        teleported overlays follow the theme too.
+        <code>default.radius</code> drives the global <code>--q-radius</code>),
+        and <code>lang="fr" | "en"</code> localizes every component that
+        supports it (e.g. <code>QSpreadsheet</code> — menus, find, filters,
+        conditional formatting, status bar; a component <code>lang</code> prop
+        still overrides it). The <code>.dark</code> class is applied to
+        <code>&lt;html&gt;</code> so teleported overlays follow the theme too.
       </p>
       <docs-demo :code="usageTheme" lang="html" filename="App.vue" :script="scriptTheme">
         <div class="demo-row">

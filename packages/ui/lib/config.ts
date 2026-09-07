@@ -14,10 +14,14 @@ export interface QThemeColors {
   warning?: string
 }
 
+export type QAppLang = "en" | "fr"
+
 export interface QTheme {
   /** Mode clair/sombre : light | dark | system (défaut : system = préférence OS) */
   mode?: ThemeMode
   colors?: QThemeColors
+  /** Langue par défaut appliquée aux composants qui la supportent */
+  lang?: QAppLang
   /** Props par défaut par composant (clé = nom du composant, ex. "QBtn") */
   componentProps?: Record<string, Record<string, unknown>>
 }
@@ -26,6 +30,8 @@ export interface QConfigContext {
   theme: Ref<QTheme>
   /** true si le mode effectif est sombre (résout "system") */
   isDark: Readonly<Ref<boolean>>
+  /** Langue de l'application ("en" par défaut) */
+  lang: Readonly<Ref<QAppLang>>
 }
 
 export const qConfigKey: InjectionKey<QConfigContext> = Symbol("q-config")

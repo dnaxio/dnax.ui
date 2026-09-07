@@ -4,8 +4,9 @@
 // tri, copier/coller, undo/redo, cellules typées avec badges colorés.
 import { computed, onMounted, ref } from "vue"
 import { componentSource, componentTag, useComponent } from "~/composables/useComponentDocs"
-import DocsApi from "~/components/DocsApi.vue"
-import DocsDemo from "~/components/DocsDemo.vue"
+import DocsApi from "~/components/DocsApi.vue";
+import DocsDemo from "~/components/DocsDemo.vue";
+
 
 definePageMeta({ layout: "docs" })
 
@@ -956,9 +957,11 @@ const columnsSummary = computed(() => peopleColumns)
         <code>+</code> to add a sheet, <code>×</code> to remove one (keeps at
         least one). Tabs sit at the <b>top</b> by default; use
         <code>sheets-position="bottom"</code> to put them under the grid
-        (Excel-style). Each sheet keeps its own rows, columns, formatting,
-        column widths, row heights and filters; undo history resets when
-        switching.
+        (Excel-style). The whole UI (context menu, find, filters, conditional
+        formatting, status bar…) is localized with <code>lang="en"</code>
+        (default) or <code>lang="fr"</code>. Each sheet keeps its own rows,
+        columns, formatting, column widths, row heights and filters; undo
+        history resets when switching.
       </p>
 
       <docs-demo :code="usageSheets" lang="html" filename="App.vue" :script="scriptSheets">

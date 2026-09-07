@@ -111,7 +111,7 @@ import { Icon } from "@iconify/vue"
 import { cn } from "../lib/utils"
 import { icons } from "../lib/icons"
 import { colorValue, foregroundFor } from "../lib/colors"
-import { radiusStyle, useRadius } from "../lib/useComponentProps"
+import { radiusStyle, useRadius, useConfigLang } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 import { evaluateFormula, isError, FormulaError } from "../lib/formula"
 import type { FormulaValue } from "../lib/formula"
@@ -152,6 +152,8 @@ interface Props {
   sheets?: QSpreadsheetSheet[]
   /** Position des onglets de feuilles : "top" (défaut) ou "bottom" (Excel) */
   sheetsPosition?: "top" | "bottom"
+  /** Langue de l'interface : "en" (défaut) ou "fr" */
+  lang?: "en" | "fr"
   /** Affiche le numéro de ligne (colonne de gauche) */
   showRowNumbers?: boolean
   /** Affiche l'en-tête de colonne (lettre + label) */
@@ -187,6 +189,7 @@ const props = withDefaults(defineProps<Props>(), {
   virtualScroll: true,
   sheets: undefined,
   sheetsPosition: "top",
+  lang: "en",
   showRowNumbers: true,
   showColumnHeaders: true,
   selected: null,
@@ -197,6 +200,157 @@ const props = withDefaults(defineProps<Props>(), {
   readonly: false,
   disable: false,
 })
+
+// ─── i18n (en | fr) ───
+const I18N = {
+  en: {
+    sheet: "Sheet",
+    fxPlaceholder: "Value or formula (=SUM(A1:A3)…)",
+    fxNoSel: "Select a cell…",
+    cut: "Cut",
+    copy: "Copy",
+    paste: "Paste",
+    clearContents: "Clear contents",
+    insertRowAbove: "Insert row above",
+    insertRowBelow: "Insert row below",
+    deleteRows: "Delete selected rows",
+    insertColLeft: "Insert column left",
+    insertColRight: "Insert column right",
+    deleteCols: "Delete selected columns",
+    sortAsc: "Sort A → Z",
+    sortDesc: "Sort Z → A",
+    bold: "Bold",
+    italic: "Italic",
+    wrapText: "Wrap text",
+    mergeCells: "Merge cells",
+    unmerge: "Unmerge selection",
+    hideRows: "Hide selected rows",
+    hideCol: "Hide column",
+    showHidden: "Show all hidden",
+    showCol: "Show column “{name}”",
+    condFormat: "Conditional formatting…",
+    fillColor: "Fill color",
+    textColor: "Text color",
+    clearFormat: "Clear formatting",
+    rowLbl: "Row",
+    colLbl: "Column",
+    cellLbl: "Cell",
+    findPh: "Find…",
+    replacePh: "Replace…",
+    replace: "Replace",
+    replaceAll: "Replace all",
+    close: "Close",
+    prev: "Previous",
+    next: "Next",
+    filterTitle: "Filter column",
+    selectAll: "Select all",
+    noValues: "{{ t('noValues') }}",
+    clearFilter: "Clear filter",
+    searchValues: "Search values…",
+    blanks: "(Blanks)",
+    noRowsFilter: "No rows match the filter.",
+    noRowsYet: "No rows yet — add one with the toolbar or right-click.",
+    noColsYet: "{{ t('noColsYet') }}",
+    condGreater: "greater than",
+    condGe: "≥",
+    condLess: "less than",
+    condLe: "≤",
+    condEq: "equal",
+    condContains: "contains",
+    condBlank: "is blank",
+    condNotBlank: "not blank",
+    condFormula: "formula (A1)",
+    condAdd: "Add rule",
+    condUpdate: "Update",
+    condColumn: "Column",
+    condValue: "Value",
+    condClear: "Clear all rules",
+    condSelection: "Selection",
+    statusRowsShown: "{total} rows · {shown} shown",
+    statusRows: "{total} rows",
+    statusSheets: "{n} sheets",
+    addSheet: "Add sheet",
+    removeSheet: "Remove sheet",
+    empty: "…",
+  },
+  fr: {
+    sheet: "Feuille",
+    fxPlaceholder: "Valeur ou formule (=SOMME(A1:A3)…)",
+    fxNoSel: "Sélectionnez une cellule…",
+    cut: "Couper",
+    copy: "Copier",
+    paste: "Coller",
+    clearContents: "Effacer le contenu",
+    insertRowAbove: "Insérer une ligne au-dessus",
+    insertRowBelow: "Insérer une ligne en dessous",
+    deleteRows: "Supprimer les lignes sélectionnées",
+    insertColLeft: "Insérer une colonne à gauche",
+    insertColRight: "Insérer une colonne à droite",
+    deleteCols: "Supprimer les colonnes sélectionnées",
+    sortAsc: "Trier A → Z",
+    sortDesc: "Trier Z → A",
+    bold: "Gras",
+    italic: "Italique",
+    wrapText: "Retour à la ligne",
+    mergeCells: "Fusionner les cellules",
+    unmerge: "Défusionner la sélection",
+    hideRows: "Masquer les lignes sélectionnées",
+    hideCol: "Masquer la colonne",
+    showHidden: "Tout afficher",
+    showCol: "Afficher la colonne «{name}»",
+    condFormat: "Mise en forme conditionnelle…",
+    fillColor: "Couleur de fond",
+    textColor: "Couleur du texte",
+    clearFormat: "Effacer la mise en forme",
+    rowLbl: "Ligne",
+    colLbl: "Colonne",
+    cellLbl: "Cellule",
+    findPh: "Rechercher…",
+    replacePh: "Remplacer…",
+    replace: "Remplacer",
+    replaceAll: "Tout remplacer",
+    close: "Fermer",
+    prev: "Précédent",
+    next: "Suivant",
+    filterTitle: "Filtrer la colonne",
+    selectAll: "Tout sélectionner",
+    noValues: "Aucune valeur",
+    clearFilter: "Effacer le filtre",
+    searchValues: "Rechercher des valeurs…",
+    blanks: "(Vides)",
+    noRowsFilter: "Aucune ligne ne correspond au filtre.",
+    noRowsYet: "Aucune ligne — ajoutez-en via la barre d'outils ou un clic droit.",
+    noColsYet: "Ajoutez une colonne via la barre d'outils (+) ou un clic droit.",
+    condGreater: "supérieur à",
+    condGe: "≥",
+    condLess: "inférieur à",
+    condLe: "≤",
+    condEq: "égal à",
+    condContains: "contient",
+    condBlank: "est vide",
+    condNotBlank: "non vide",
+    condFormula: "formule (A1)",
+    condAdd: "Ajouter la règle",
+    condUpdate: "Mettre à jour",
+    condColumn: "Colonne",
+    condValue: "Valeur",
+    condClear: "Tout effacer",
+    condSelection: "Sélection",
+    statusRowsShown: "{total} lignes · {shown} affichées",
+    statusRows: "{total} lignes",
+    statusSheets: "{n} feuilles",
+    addSheet: "Ajouter une feuille",
+    removeSheet: "Supprimer la feuille",
+    empty: "…",
+  },
+} as const
+type UiKey = keyof (typeof I18N)["en"]
+const configLang = useConfigLang()
+const lang = computed(() => props.lang ?? configLang.value)
+const t = (key: UiKey): string => I18N[lang.value][key] ?? I18N.en[key]
+const fmt = (key: UiKey, params: Record<string, string | number>) =>
+  String(t(key)).replace(/\{([a-z]+)\}/g, (_m, k: string) => String(params[k] ?? ""))
+const sheetName = (n: number) => fmt("sheet", {}) + " " + n
 
 const emit = defineEmits<{
   "update:rows": [value: Record<string, any>[]]
@@ -1883,7 +2037,7 @@ const filterValueItems = (name: string): FilterValueItem[] => {
   const allowed = activeFilterOf(name)
   const items: FilterValueItem[] = [...map.entries()].map(([key, info]) => {
     let label: string
-    if (info.blank) label = "(Blanks)"
+    if (info.blank) label = t("blanks")
     else if (col?.type === "select") {
       const opt = col.options?.find((o) => o.value === info.raw)
       label = opt?.label ?? String(info.raw)
@@ -2537,7 +2691,7 @@ watch(
       return {
         ...s,
         key,
-        name: s.name ?? "Sheet " + n,
+        name: s.name ?? sheetName(n),
         rows: (s.rows ?? []).map((r) => ({ ...r })),
         columns: s.columns ? s.columns.map((c) => ({ ...c })) : undefined,
       }
@@ -2561,7 +2715,7 @@ watch([state, cols], () => {
 const activeSheetName = computed(() => {
   const s = localSheets.value[sheetIdx.value]
   if (s) return s.name ?? "Sheet " + (sheetIdx.value + 1)
-  return props.sheets?.[0]?.name ?? "Sheet 1"
+  return props.sheets?.[0]?.name ?? sheetName(1)
 })
 const sheetRename = ref<{ idx: number; val: string } | null>(null)
 const startSheetRename = (idx: number) => {
@@ -2601,7 +2755,7 @@ const addSheet = () => {
   }
   const num = localSheets.value.length + 1
   const key = "sheet-" + num + "-" + Date.now().toString(36)
-  const sheet: QSpreadsheetSheet = { key, name: "Sheet " + num, rows: [], columns: [] }
+  const sheet: QSpreadsheetSheet = { key, name: sheetName(num), rows: [], columns: [] }
   localSheets.value = [...localSheets.value, sheet]
   sheetMeta.value = { ...sheetMeta.value, [key]: makeExtras([]) }
   persistCurrent()
@@ -2691,7 +2845,7 @@ const loadDocument = (doc: QSpreadsheetDocument | string) => {
     n++
     local.push({
       key,
-      name: s.name ?? "Sheet " + n,
+      name: s.name ?? sheetName(n),
       columns: s.columns ? s.columns.map((c) => ({ ...c })) : undefined,
       rows: (s.rows ?? []).map((r) => ({ ...r })),
     })
@@ -3270,11 +3424,11 @@ const statusDims = computed(() => {
   const rect = selRect.value
   return rect ? (rect.r1 - rect.r0 + 1) + " × " + (rect.c1 - rect.c0 + 1) : null
 })
-const statusSheets = computed(() => (multiMode.value ? localSheets.value.length + " sheets" : ""))
+const statusSheets = computed(() => (multiMode.value ? fmt("statusSheets", { n: localSheets.value.length }) : ""))
 const statusRowInfo = computed(() =>
   (hasActiveFilters.value || hiddenRows.value.length
-    ? state.value.length + " rows · " + visibleRows.value.length + " shown"
-    : state.value.length + " rows"),
+    ? fmt("statusRowsShown", { total: state.value.length, shown: visibleRows.value.length })
+    : fmt("statusRows", { total: state.value.length })),
 )
 
 // ════════ Fill formats only (bas de la sélection) ════════
@@ -3417,7 +3571,7 @@ defineExpose({
       <span class="q-spreadsheet__sheet-name" :title="selLabel || 'Sheet'">
         <Icon :icon="icons.fileSpreadsheet" aria-hidden="true" />
         <span v-if="selLabel">{{ selLabel }}</span>
-        <span v-else>Sheet</span>
+        <span v-else>{{ t('sheet') }}</span>
       </span>
 
       <span class="q-spreadsheet__tb-group">
@@ -3491,7 +3645,7 @@ defineExpose({
         class="q-spreadsheet__fx-input"
         :value="fxDraft"
         :disabled="readonly || disable"
-        :placeholder="fxCanEdit ? 'Value or formula (=SUM(A1:A3)…)' : 'Select a cell…'"
+        :placeholder="fxCanEdit ? t('fxPlaceholder') : t('fxNoSel')"
         spellcheck="false"
         @input="onFxInput"
         @keydown="onFxKeydown"
@@ -3506,7 +3660,7 @@ defineExpose({
         ref="findInputEl"
         class="q-spreadsheet__find-input"
         :value="findQuery"
-        placeholder="Find…"
+        :placeholder="t('findPh')"
         spellcheck="false"
         @input="onFindInput"
         @keydown="onFindKeydown"
@@ -3514,7 +3668,7 @@ defineExpose({
       <input
         class="q-spreadsheet__find-input q-spreadsheet__find-input--repl"
         v-model="findReplaceText"
-        placeholder="Replace…"
+        :placeholder="t('replacePh')"
         spellcheck="false"
         @keydown.enter.prevent="findReplaceCurrent"
         @keydown.esc="closeFind"
@@ -3522,19 +3676,19 @@ defineExpose({
       <span class="q-spreadsheet__find-count">
         {{ findQuery && findMatches.length ? (findIdx + 1) + " / " + findMatches.length : "0" }}
       </span>
-      <button class="q-spreadsheet__tool" type="button" title="Previous" aria-label="Previous" :disabled="!findMatches.length" @click="findNext(-1)">
+      <button class="q-spreadsheet__tool" type="button" :title="t('prev')" :aria-label="t('prev')" :disabled="!findMatches.length" @click="findNext(-1)">
         <Icon :icon="icons.chevronUp" aria-hidden="true" />
       </button>
-      <button class="q-spreadsheet__tool" type="button" title="Next" aria-label="Next" :disabled="!findMatches.length" @click="findNext(1)">
+      <button class="q-spreadsheet__tool" type="button" :title="t('next')" :aria-label="t('next')" :disabled="!findMatches.length" @click="findNext(1)">
         <Icon :icon="icons.chevronDown" aria-hidden="true" />
       </button>
-      <button class="q-spreadsheet__tool" type="button" title="Replace" aria-label="Replace" :disabled="!findMatches.length || readonly || disable" @click="findReplaceCurrent">
+      <button class="q-spreadsheet__tool" type="button" :title="t('replace')" :aria-label="t('replace')" :disabled="!findMatches.length || readonly || disable" @click="findReplaceCurrent">
         <Icon :icon="icons.refreshCw" aria-hidden="true" />
       </button>
-      <button class="q-spreadsheet__tool" type="button" title="Replace all" aria-label="Replace all" :disabled="!findMatches.length || readonly || disable" @click="findReplaceAll">
+      <button class="q-spreadsheet__tool" type="button" :title="t('replaceAll')" :aria-label="t('replaceAll')" :disabled="!findMatches.length || readonly || disable" @click="findReplaceAll">
         <Icon :icon="icons.eraser" aria-hidden="true" />
       </button>
-      <button class="q-spreadsheet__tool q-spreadsheet__find-close" type="button" title="Close" aria-label="Close find" @click="closeFind">
+      <button class="q-spreadsheet__tool q-spreadsheet__find-close" type="button" :title="t('close')" aria-label="Close find" @click="closeFind">
         <Icon :icon="icons.x" aria-hidden="true" />
       </button>
     </div>
@@ -3545,25 +3699,25 @@ defineExpose({
       <span class="q-spreadsheet__cf-title">
         {{ cfDraft.c0 !== cfDraft.c1 || cfDraft.r0 !== cfDraft.r1
           ? colLetter(cfDraft.c0) + (cfDraft.r0 + 1) + ':' + colLetter(cfDraft.c1) + (cfDraft.r1 + 1)
-          : 'Selection' }}
+          : t('condSelection') }}
       </span>
       <select v-model="cfDraft.kind" class="q-spreadsheet__cf-kind" title="Condition">
-        <option value="gt">greater than</option>
-        <option value="gte">≥</option>
-        <option value="lt">less than</option>
-        <option value="lte">≤</option>
-        <option value="eq">equal</option>
-        <option value="contains">contains</option>
-        <option value="blank">is blank</option>
-        <option value="notblank">not blank</option>
-        <option value="formula">formula (A1)</option>
+        <option value="gt">{{ t('condGreater') }}</option>
+        <option value="gte">{{ t('condGe') }}</option>
+        <option value="lt">{{ t('condLess') }}</option>
+        <option value="lte">{{ t('condLe') }}</option>
+        <option value="eq">{{ t('condEq') }}</option>
+        <option value="contains">{{ t('condContains') }}</option>
+        <option value="blank">{{ t('condBlank') }}</option>
+        <option value="notblank">{{ t('condNotBlank') }}</option>
+        <option value="formula">{{ t('condFormula') }}</option>
       </select>
       <input
         v-model="cfDraft.value"
         class="q-spreadsheet__find-input"
         type="text"
         style="width: 90px"
-        :placeholder="cfDraft.kind === 'formula' ? '=A1>10' : 'Value'"
+        :placeholder="cfDraft.kind === 'formula' ? '=A1>10' : t('condValue')"
         spellcheck="false"
       />
       <label class="q-spreadsheet__cf-col" title="Apply to the whole column">
@@ -3592,12 +3746,12 @@ defineExpose({
         <Icon :icon="icons.bold" aria-hidden="true" />
       </button>
       <button class="demo-btn q-spreadsheet__cf-apply" type="button" @click="addCondRule">
-        {{ condRules.some((r) => r.id === cfDraft.id) ? 'Update' : 'Add rule' }}
+        {{ condRules.some((r) => r.id === cfDraft.id) ? t('condUpdate') : t('condAdd') }}
       </button>
-      <button class="q-spreadsheet__tool" type="button" title="Clear all rules" aria-label="Clear rules" @click="clearCondRules">
+      <button class="q-spreadsheet__tool" type="button" :title="t('condClear')" :aria-label="t('condClear')" @click="clearCondRules">
         <Icon :icon="icons.trash2" aria-hidden="true" />
       </button>
-      <button class="q-spreadsheet__tool" type="button" title="Close" aria-label="Close conditional" @click="openCf">
+      <button class="q-spreadsheet__tool" type="button" :title="t('close')" aria-label="Close conditional" @click="openCf">
         <Icon :icon="icons.x" aria-hidden="true" />
       </button>
 
@@ -3799,8 +3953,8 @@ defineExpose({
               :colspan="(showRowNumbers ? 1 : 0) + visibleColsCount"
               class="q-spreadsheet__no-rows"
             >
-              <template v-if="hasActiveFilters">No rows match the filter.</template>
-              <template v-else>No rows yet — click “Add row” or right-click a header.</template>
+              <template v-if="hasActiveFilters">{{ t('noRowsFilter') }}</template>
+              <template v-else>{{ t('noRowsYet') }}</template>
             </td>
           </tr>
         </tbody>
@@ -3932,7 +4086,7 @@ defineExpose({
     <div class="q-spreadsheet__status">
       <span class="q-spreadsheet__status-cell" :title="selLabel || 'Sheet'">
         <Icon :icon="icons.fileSpreadsheet" aria-hidden="true" />
-        {{ selLabel || 'Sheet' }}
+        {{ selLabel || t('sheet') }}
       </span>
       <span v-if="statusDims" class="q-spreadsheet__status-item">{{ statusDims }}</span>
       <span v-if="selectionStats.count" class="q-spreadsheet__status-item q-spreadsheet__status-stats">
@@ -3966,60 +4120,60 @@ defineExpose({
         @contextmenu.prevent
       >
         <div class="q-spreadsheet__ctx-title">
-          <span v-if="ctxMenu.kind === 'row' && sel">Row {{ sel.row + 1 }}</span>
-          <span v-else-if="ctxMenu.kind === 'col' && sel">Column {{ colLetter(colIndex(sel.column)) }}</span>
-          <span v-else>{{ selLabel || 'Cell' }}</span>
+          <span v-if="ctxMenu.kind === 'row' && sel">{{ t('rowLbl') }} {{ sel.row + 1 }}</span>
+          <span v-else-if="ctxMenu.kind === 'col' && sel">{{ t('colLbl') }} {{ colLetter(colIndex(sel.column)) }}</span>
+          <span v-else>{{ selLabel || t('cellLbl') }}</span>
         </div>
 
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit" @click="doCut">
-          <Icon :icon="icons.scissors" aria-hidden="true" /> Cut
+          <Icon :icon="icons.scissors" aria-hidden="true" /> {{ t('cut') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :disabled="!sel" @click="doCopy">
-          <Icon :icon="icons.copy" aria-hidden="true" /> Copy
+          <Icon :icon="icons.copy" aria-hidden="true" /> {{ t('copy') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit" @click="doPaste">
-          <Icon :icon="icons.clipboardPaste" aria-hidden="true" /> Paste
+          <Icon :icon="icons.clipboardPaste" aria-hidden="true" /> {{ t('paste') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit || !sel" @click="doClearCells">
-          <Icon :icon="icons.eraser" aria-hidden="true" /> Clear contents
+          <Icon :icon="icons.eraser" aria-hidden="true" /> {{ t('clearContents') }}
         </button>
 
         <div class="q-spreadsheet__sep" />
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit" @click="insertRowAt('above')">
-          <Icon :icon="icons.arrowUp" aria-hidden="true" /> Insert row above
+          <Icon :icon="icons.arrowUp" aria-hidden="true" /> {{ t('insertRowAbove') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit" @click="insertRowAt('below')">
-          <Icon :icon="icons.arrowDown" aria-hidden="true" /> Insert row below
+          <Icon :icon="icons.arrowDown" aria-hidden="true" /> {{ t('insertRowBelow') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit || !selRect" @click="removeSelectedRows">
-          <Icon :icon="icons.trash2" aria-hidden="true" /> Delete selected rows
+          <Icon :icon="icons.trash2" aria-hidden="true" /> {{ t('deleteRows') }}
         </button>
         <div class="q-spreadsheet__sep" />
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit" @click="insertColumnAt('left')">
-          <Icon :icon="icons.chevronLeft" aria-hidden="true" /> Insert column left
+          <Icon :icon="icons.chevronLeft" aria-hidden="true" /> {{ t('insertColLeft') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit" @click="insertColumnAt('right')">
-          <Icon :icon="icons.chevronRight" aria-hidden="true" /> Insert column right
+          <Icon :icon="icons.chevronRight" aria-hidden="true" /> {{ t('insertColRight') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit || !selRect" @click="removeSelectedColumns">
-          <Icon :icon="icons.x" aria-hidden="true" /> Delete selected columns
+          <Icon :icon="icons.x" aria-hidden="true" /> {{ t('deleteCols') }}
         </button>
         <div class="q-spreadsheet__sep" />
         <button type="button" class="q-spreadsheet__mi" :disabled="!sel" @click="doSortBy(false)">
-          <Icon :icon="icons.sortAsc" aria-hidden="true" /> Sort A → Z
+          <Icon :icon="icons.sortAsc" aria-hidden="true" /> {{ t('sortAsc') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :disabled="!sel" @click="doSortBy(true)">
-          <Icon :icon="icons.sortDesc" aria-hidden="true" /> Sort Z → A
+          <Icon :icon="icons.sortDesc" aria-hidden="true" /> {{ t('sortDesc') }}
         </button>
         <div class="q-spreadsheet__sep" />
         <button type="button" class="q-spreadsheet__mi" :class="{ 'q-spreadsheet__mi--on': isBoldSel }" :disabled="!canEdit" @click="toggleBoldSelection">
-          <Icon :icon="icons.bold" aria-hidden="true" /> Bold
+          <Icon :icon="icons.bold" aria-hidden="true" /> {{ t('bold') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :class="{ 'q-spreadsheet__mi--on': isItalicSel }" :disabled="!canEdit" @click="toggleItalicSelection">
-          <Icon :icon="icons.italic" aria-hidden="true" /> Italic
+          <Icon :icon="icons.italic" aria-hidden="true" /> {{ t('italic') }}
         </button>
 
-        <div class="q-spreadsheet__ctx-label">Fill color</div>
+        <div class="q-spreadsheet__ctx-label">{{ t('fillColor') }}</div>
         <div class="q-spreadsheet__swatches">
           <button
             v-for="c in FORMAT_COLORS"
@@ -4033,7 +4187,7 @@ defineExpose({
             @click="setBgColorSelection(c)"
           />
         </div>
-        <div class="q-spreadsheet__ctx-label">Text color</div>
+        <div class="q-spreadsheet__ctx-label">{{ t('textColor') }}</div>
         <div class="q-spreadsheet__swatches">
           <button
             v-for="c in TEXT_COLORS"
@@ -4048,36 +4202,36 @@ defineExpose({
           />
         </div>
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit || !sel" @click="clearFormatSelection">
-          <Icon :icon="icons.eraser" aria-hidden="true" /> Clear formatting
+          <Icon :icon="icons.eraser" aria-hidden="true" /> {{ t('clearFormat') }}
         </button>
         <div class="q-spreadsheet__sep" />
         <button type="button" class="q-spreadsheet__mi" :class="{ 'q-spreadsheet__mi--on': anchorWrap }" :disabled="!canEdit || !sel" @click="toggleWrapSelection">
-          <Icon :icon="icons.alignLeft" aria-hidden="true" /> Wrap text
+          <Icon :icon="icons.alignLeft" aria-hidden="true" /> {{ t('wrapText') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit || !canMergeSel" @click="mergeCells">
-          <Icon :icon="icons.tableCellsMerge" aria-hidden="true" /> Merge cells
+          <Icon :icon="icons.tableCellsMerge" aria-hidden="true" /> {{ t('mergeCells') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit" @click="unmergeCells">
-          <Icon :icon="icons.x" aria-hidden="true" /> Unmerge selection
+          <Icon :icon="icons.x" aria-hidden="true" /> {{ t('unmerge') }}
         </button>
         <div class="q-spreadsheet__sep" />
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit || !sel" @click="hideSelectedRows">
-          <Icon :icon="icons.eyeOff" aria-hidden="true" /> Hide selected rows
+          <Icon :icon="icons.eyeOff" aria-hidden="true" /> {{ t('hideRows') }}
         </button>
         <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit || !sel" @click="hideColumnName(activeColName)">
-          <Icon :icon="icons.eyeOff" aria-hidden="true" /> Hide column
+          <Icon :icon="icons.eyeOff" aria-hidden="true" /> {{ t('hideCol') }}
         </button>
         <button v-if="hasHiddenRows || hasHiddenCols" type="button" class="q-spreadsheet__mi" :disabled="!canEdit" @click="showAllHidden">
-          <Icon :icon="icons.eye" aria-hidden="true" /> Show all hidden
+          <Icon :icon="icons.eye" aria-hidden="true" /> {{ t('showHidden') }}
         </button>
         <template v-for="entry in hiddenColEntries" :key="entry.name">
           <button type="button" class="q-spreadsheet__mi" @click="showColumnName(entry.name)">
-            <Icon :icon="icons.eye" aria-hidden="true" /> Show column “{{ entry.name }}”
+            <Icon :icon="icons.eye" aria-hidden="true" /> {{ fmt('showCol', { name: entry.name }) }}
           </button>
         </template>
         <div class="q-spreadsheet__sep" />
         <button type="button" class="q-spreadsheet__mi" :disabled="!sel" @click="openCfFromMenu">
-          <Icon :icon="icons.highlighter" aria-hidden="true" /> Conditional formatting…
+          <Icon :icon="icons.highlighter" aria-hidden="true" /> {{ t('condFormat') }}
         </button>
       </div>
     </Teleport>
@@ -4102,7 +4256,7 @@ defineExpose({
         <input
           v-model="filterSearch"
           class="q-spreadsheet__fpop-search"
-          placeholder="Search values…"
+          :placeholder="t('searchValues')"
           spellcheck="false"
         />
         <div class="q-spreadsheet__fpop-list">
@@ -4115,7 +4269,7 @@ defineExpose({
             <span class="q-spreadsheet__fpop-check">
               <Icon v-if="filterIsAll" :icon="icons.check" aria-hidden="true" />
             </span>
-            <span class="q-spreadsheet__fpop-label">Select all</span>
+            <span class="q-spreadsheet__fpop-label">{{ t('selectAll') }}</span>
           </button>
           <button
             type="button"
@@ -4134,7 +4288,7 @@ defineExpose({
             <span class="q-spreadsheet__fpop-count">{{ item.count }}</span>
           </button>
           <div v-if="filterItemsFor.length === 0" class="q-spreadsheet__fpop-empty">
-            No values
+            {{ t('noValues') }}
           </div>
         </div>
         <button
@@ -4143,7 +4297,7 @@ defineExpose({
           class="q-spreadsheet__mi"
           @click="filterClear"
         >
-          <Icon :icon="icons.eraser" aria-hidden="true" /> Clear filter
+          <Icon :icon="icons.eraser" aria-hidden="true" /> {{ t('clearFilter') }}
         </button>
       </div>
     </Teleport>
