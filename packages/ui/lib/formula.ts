@@ -503,6 +503,71 @@ function evalCall(node: Extract<Node, { kind: "call" }>, ctx: FormulaContext): F
     }
     return name === "and"
   }
+  // IFS : paires cond → valeur, évaluées paresseusement
+  if (name === "ifs") {
+    if (node.args.length % 2 !== 0) return err("#VALUE!")
+    for (let i = 0; i < node.args.length; i += 2) {
+      const cond = toScalar(evalNode(node.args[i]!, ctx, false))
+      if (isError(cond)) return cond
+      if (truthy(cond)) return toScalar(evalNode(node.args[i + 1]!, ctx, false))
+    }
+    return err("#N/A")
+  }
+  // SWITCH(expr, v1, r1, …, défaut?)
+  if (name === "switch") {
+    if (!node.args.length) return err("#N/A")
+    const expr = toScalar(evalNode(node.args[0]!, ctx, false))
+    if (isError(expr)) return expr
+    const last = node.args.length - 1
+    const hasDefault = node.args.length % 2 === 0
+    for (let i = 1; i <= (hasDefault ? last - 1 : last); i += 2) {
+      const val = toScalar(evalNode(node.args[i]!, ctx, false))
+      if (isError(val)) return val
+      if (String(expr) === String(val)) return toScalar(evalNode(node.args[i + 1]!, ctx, false))
+    }
+    return hasDefault ? toScalar(evalNode(node.args[last]!, ctx, false)) : err("#N/A")
+  }
+  if (name === "ifna" && node.args.length >= 1) {
+    const v = toScalar(evalNode(node.args[0]!, ctx, false))
+    if (isError(v) && v.code === "#N/A")
+      return node.args[1] !== undefined ? toScalar(evalNode(node.args[1]!, ctx, false)) : null
+    return v
+  }
+  // VLOOKUP : recherche EXACTE de la 1re colonne d'une plage A1 (col_index 1-based)
+  if (name === "vlookup" && node.args.length >= 3) {
+    const key = toScalar(evalNode(node.args[0]!, ctx, false))
+    const rangeNode = node.args[1]!
+    const colNumRaw = toScalar(evalNode(node.args[2]!, ctx, false))
+    const colNum = Number(colNumRaw)
+    const colI = Number.isNaN(colNum) ? 1 : Math.trunc(colNum)
+    if (isError(key)) return key
+    if (rangeNode.kind === "range") {
+      const a = resolveRefPos(rangeNode.start)
+      const b = resolveRefPos(rangeNode.end)
+      if (a && b) {
+        const r0 = Math.min(a[0], b[0])
+        const r1 = Math.max(a[0], b[0])
+        const c0 = Math.min(a[1], b[1])
+        const c1 = Math.max(a[1], b[1])
+        const outC = c0 + colI - 1
+        if (outC < c0 || outC > c1) return err("#REF!")
+        for (let r = r0; r <= r1; r++) {
+          const cell = ctx.resolveCell(r, c0)
+          if (cell === undefined) continue
+          const hit =
+            typeof key === "number" && typeof cell === "number"
+              ? key === cell
+              : String(key ?? "") === String(cell ?? "")
+          if (hit) {
+            const found = ctx.resolveCell(r, outC)
+            return found === undefined ? err("#REF!") : found
+          }
+        }
+        return err("#N/A")
+      }
+    }
+    return err("#VALUE!")
+  }
 
   const fn = FUNCTIONS[name]
   if (!fn) return err("#NAME?")
@@ -614,6 +679,110 @@ const FUNCTIONS: Record<string, GridFunction> = {
     return toNum(v)
   }),
 }
+
+// ─── Fonctions étendues (texte / dates / logique) — 2026-09-07 ───
+const pad2 = (n: number) => (n < 10 ? "0" + n : String(n))
+const toLocalDate = (v: FormulaValue): Date | FormulaError => {
+  if (v === null || v === undefined || v === "") return err("#VALUE!")
+  if (typeof v === "number") return new Date(v * 86400000) // série Excel approx.
+  const s = String(v).trim().replace(" ", "T")
+  const d = new Date(s.length >= 10 ? s : s + "T00:00:00")
+  return Number.isNaN(d.getTime()) ? err("#VALUE!") : d
+}
+const isoLocal = (d: Date, time = false) => {
+  const base =
+    d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate())
+  return time ? base + "T" + pad2(d.getHours()) + ":" + pad2(d.getMinutes()) : base
+}
+const isoUTC = (d: Date) =>
+  d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate())
+
+Object.assign(FUNCTIONS, {
+  // Logique étendue (évaluées paresseusement dans evalCall : IFS, SWITCH, IFNA, VLOOKUP)
+  // Texte
+  left: (args: FormulaValue[]) => {
+    const s = toStr(args[0] ?? null)
+    const n = args[1] === undefined ? 1 : Math.max(0, Math.trunc(Number(args[1]) || 0))
+    return s.slice(0, n)
+  },
+  right: (args: FormulaValue[]) => {
+    const s = toStr(args[0] ?? null)
+    const n = args[1] === undefined ? 1 : Math.max(0, Math.trunc(Number(args[1]) || 0))
+    return n === 0 ? "" : s.slice(-n)
+  },
+  mid: (args: FormulaValue[]) => {
+    const s = toStr(args[0] ?? null)
+    const start = Math.max(1, Math.trunc(Number(args[1]) || 0))
+    const len = args[2] === undefined ? s.length : Math.max(0, Math.trunc(Number(args[2]) || 0))
+    return s.slice(start - 1, start - 1 + len)
+  },
+  find: (args: FormulaValue[]) => {
+    const find = toStr(args[0] ?? null)
+    const within = toStr(args[1] ?? null)
+    const start = Math.max(1, Math.trunc(Number(args[2]) || 0)) - 1
+    if (!find) return err("#VALUE!")
+    const i = within.indexOf(find, Math.max(0, start))
+    return i === -1 ? err("#VALUE!") : i + 1
+  },
+  substitute: (args: FormulaValue[]) => {
+    const text = toStr(args[0] ?? null)
+    const oldS = toStr(args[1] ?? null)
+    const newS = toStr(args[2] ?? null)
+    if (!oldS) return text
+    const which = args[3] === undefined ? -1 : Math.trunc(Number(args[3]) || 0)
+    if (which <= 0) return text.split(oldS).join(newS)
+    let count = 0
+    let idx = 0
+    while (true) {
+      const at = text.indexOf(oldS, idx)
+      if (at === -1) return text
+      count++
+      if (count === which) {
+        return text.slice(0, at) + newS + text.slice(at + oldS.length)
+      }
+      idx = at + oldS.length
+    }
+  },
+  replace: (args: FormulaValue[]) => {
+    const s = toStr(args[0] ?? null)
+    const start = Math.max(1, Math.trunc(Number(args[1]) || 0)) - 1
+    const num = Math.max(0, Math.trunc(Number(args[2]) || 0))
+    const repl = toStr(args[3] ?? null)
+    return s.slice(0, start) + repl + s.slice(start + num)
+  },
+  concatenate: (args: FormulaValue[]) => FUNCTIONS.concat!(args, false),
+  // Dates (ISO : AAAA-MM-JJ, AAAA-MM-JJT HH:mm)
+  today: () => isoLocal(new Date()),
+  now: () => isoLocal(new Date(), true),
+  date: (args: FormulaValue[]) => {
+    const y = Math.trunc(Number(args[0]) || 0)
+    const m = Math.trunc(Number(args[1]) || 0)
+    const d = Math.trunc(Number(args[2]) || 0)
+    const dt = new Date(Date.UTC(y, m - 1, d))
+    return isoUTC(dt)
+  },
+  year: (args: FormulaValue[]) => {
+    const d = toLocalDate(args[0] ?? null)
+    return isError(d) ? d : d.getFullYear()
+  },
+  month: (args: FormulaValue[]) => {
+    const d = toLocalDate(args[0] ?? null)
+    return isError(d) ? d : d.getMonth() + 1
+  },
+  day: (args: FormulaValue[]) => {
+    const d = toLocalDate(args[0] ?? null)
+    return isError(d) ? d : d.getDate()
+  },
+  edate: (args: FormulaValue[]) => {
+    const d = toLocalDate(args[0] ?? null)
+    if (isError(d)) return d
+    const months = Math.trunc(Number(args[1]) || 0)
+    d.setMonth(d.getMonth() + months)
+    return isoLocal(d)
+  },
+  // Aléatoire / autres
+  rand: () => Math.random(),
+})
 
 /** Évalue une formule ("=…" optionnel). Retourne une valeur ou une FormulaError. */
 export function evaluateFormula(source: string, ctx: FormulaContext): FormulaValue {

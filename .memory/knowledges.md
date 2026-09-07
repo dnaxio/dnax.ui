@@ -1,5 +1,211 @@
 # Connaissances & bonnes pratiques (tag: knowledges)
 
+## QSpreadsheet — tableur type Excel — 2026-09-07
+
+`packages/ui/components/QSpreadsheet.vue` : `<q-spreadsheet v-model:rows="rows"
+:columns="cols" />` — grille éditable type Excel.
+
+- **API** : rows (objets par column.name) + columns `{ name, label, width,
+minWidth/maxWidth, type: text|number|integer|boolean|date|datetime|select,
+editable, options
+[{value,label,color}], chip (badge coloré), format, cellClass,
+cellBackground, align, headerClass/Style }` ; `v-model:selected`
+  (QSpreadsheetSelection {row,column,endRow,endColumn}) ; `defaultColWidth`,
+  `rowHeight`, `height`, `showToolbar/showRowNumbers/showColumnHeaders`,
+  `showFormulaBar` (barre fx),
+  `dense/flat/bordered/dark/readonly/disable/radius`
+- **Emits** : update:rows/columns/selected + selection-change, cell-click,
+  cell-change (old/new), cell-edit-start/end, structure-change ({rows,columns,
+  reason: add/remove-row|column, sort, undo, redo})
+- **Interaction** : sélection cellule/plage (clic, shift+clic, drag via
+  pointerdown+pointerenter, isPointerDown global), clavier (flèches, Tab,
+  Entrée/F2 édition, Delete/Backspace efface, Ctrl+C/V copier-coller TSV,
+  Ctrl+Z/Y undo-redo via snapshots rows+cols, Ctrl+A tout sélectionner,
+  frappe directe remplace — type-to-replace)
+- **Édition** : overlay positionné sur la cellule (getBoundingClientRect du td
+  vs conteneur scroll, refocus + select) ; coerceValue par type (nombre→Number,
+  select→value par label, vide→null) ; booléens = case à cocher (pas d'éditeur) ;
+  select = input + popup d'options filtrables (arrow/Enter/type)
+- **Éditeur natif selon type (2026-09-07)** : number → input type=number
+  step="any" (décimales), integer → type=number step="1" coerce Math.trunc,
+  date → input type=date, datetime → input type=datetime-local, text → text ;
+  alignement droite pour number/integer (classe --number) ; tri : number et
+  integer comparés numériquement, date/datetime en ISO (lexicographique =
+  chronologique) ; format ne change que l'affichage (le draft édite la valeur
+  brute)
+- **Formules A1 (2026-09-07)** : toute valeur qui commence par "=" est une
+  formule — réutilise le moteur `lib/formula.ts` (QDataGrid) : `=B1*C1`,
+  `=SUM(D1:D4)`, `$D$5` absolu, fonctions IF/SUM/ROUND… Évaluation
+  **mémorisée** dans un computed (memo + visiting → `#CYCLE!`, hors grille →
+  `#REF!`), recalculée à chaque pushRows ; l'affichage montre la VALEUR
+  (cellText→eval puis format), le raw reste "=…" dans la ligne (tooltip =
+  source) ; erreurs rendues en rouge (`.q-spreadsheet__cell--error`)
+- **Éditeur formule** : draft qui commence par "=" → textarea monospace
+  auto-extensible (positionEditor élargit ≈7.6px/car, max 480, clampé au
+  conteneur) ; Shift+Enter = retour ligne, Enter = commit + descend
+- **Barre fx (2026-09-07)** : prop `showFormulaBar`, div entre toolbar et
+  grille (ref lettre+n° + input texte) ; draft synchro sur sel/state
+  (`watch([sel,state], syncFx)`), commitFx → coerceValue (formules passent
+  brutes), Enter = commit+descend, Esc = restaure, blur = commit ; désactivée
+  pour booléen/select (fxCanEdit)
+- **coerceValue** : `=` prioritaire → conserve la formule brute (sauf
+  booléen/select) même en colonne number/integer/date ; tri et copier/coller
+  utilisent les valeurs ÉVALUÉES (copie = valeur affichée, façon Excel)
+- **Autofill / recopie (2026-09-07)** : poignée 8px en bas-droite de la
+  sélection (`.q-spreadsheet__fill`, positionnée comme l'éditeur via rect du td
+  ancré + scrollLeft/Top) ; drag → fillTarget (prévisualisation
+  `.q-spreadsheet__cell--fill`). Motif : source = bloc cyclique modulo ;
+  SÉRIES si 2 graines numériques (step) ou dates ISO (step jours) vers le bas/
+  droite uniquement ; formules recopiées avec décalage des références A1
+  relatives (`shiftFormulaRefs`, `$` préservé, plages incluses). Historique
+  push une seule fois ; la zone remplie devient la sélection
+- **Freeze panes (2026-09-07)** : props `frozenRows`/`frozenCols` ; sticky par
+  cellules (`td/th` position:sticky + left/top cumulés inline ; offsets :
+  gutter 34 + somme colWNum / head 28 + somme rowH). ⚠ les cellules gelées
+  doivent avoir un fond OPAQUE (`--q-spreadsheet-bg` inline) sinon le contenu
+  scrollé transparaît ; ne PAS mettre `position: relative` sur `.rownum`
+  (écrase le sticky)
+- **Filtres colonne (2026-09-07)** : entonnoir `.q-spreadsheet__fbtn` dans
+  chaque en-tête → popup téléportée (recherche, valeurs uniques avec comptes,
+  vides = token `__q_spreadsheet_blank__`, select affiché par label) ;
+  `filters: Record<colName, string[]|null>`. Rendering : `visibleRows`
+  (indices réels — les numéros gardent des trous), clavier saute les lignes
+  masquées, édition/undo inchangés
+- **Clic droit + insertion (2026-09-07)** : menu contextuel téléporté
+  (`.q-spreadsheet__ctx`) sur cellule/ligne/colonne (sélection pré-posée par
+  selectRow/selectCol) : cut/copy/paste, insertRowAt(above/below),
+  insertColumnAt(left/right), suppressions, tri, gras/italique, couleurs
+  fond/texte (swatches), clear formatting. Fermeture : pointerdown doc
+  (`closest('.q-spreadsheet__ctx')`)
+- **Formatage cellule (2026-09-07)** : `cellFmt: Record<"r:name", {bold,
+italic, bg, color}>` INTERNE (non sérialisé dans rows) + undo via snapshot
+  étendu (rows, cols, formats, rowHeights). Priorité fond : fmt.bg >
+  sélection > col.cellBackground > gel → `--q-spreadsheet-bg`
+- **Resize lignes (2026-09-07)** : `rowHeights` keyé par index + handle bas du
+  numéro ; les clés indexées (formats, hauteurs) sont ré-indexées sur
+  insert/suppression (`shiftRowKeys`, `dropRowRangeKeys`) ; suppression de
+  colonne purge aussi filters/colWidths/cellFmt (`dropColumnKeys`)
+- **Démos docs visibles sans interaction (2026-09-07)** : pré-appliquer l'état
+  via les méthodes exposées dans `onMounted` de la page docs — ex.
+  `filterDemo.setFilterOnly('dept',['it'])` (filtre visible d'emblée),
+  `opsDemo.select(...)` + `setBgColorSelection(...)` (formatage pré-appliqué)
+  — pour les features interactives (clic droit, autofill, gel, filtre)
+- **Clavier Excel (2026-09-07)** : Home/End (début/fin de ligne), Ctrl+Home/End
+  (A1 / dernière cellule utilisée), PageUp/PageDown (viewport), Ctrl+flèches
+  (saut aux bords du bloc de données contigu — les lignes filtrées sont
+  sautées), Ctrl+D / Ctrl+R (recopie la ligne du dessus / colonne de gauche
+  dans la sélection), double-clic sur la poignée = fill jusqu'à la fin des
+  données voisines (fillHandleDbl)
+- **Formules étendues (2026-09-07)** dans `lib/formula.ts` : IFS / SWITCH /
+  IFNA / VLOOKUP évalués paresseusement dans `evalCall` (VLOOKUP exploite la
+  géométrie A1 des plages : 1re colonne = clé, col_index 1-based, sinon
+  #N/A) ; texte LEFT/RIGHT/MID/FIND/SUBSTITUTE(n-ième)/REPLACE/CONCATENATE ;
+  dates ISO TODAY/NOW/DATE/EDATE/YEAR/MONTH/DAY (DATE = getUTC\* pour éviter le
+  décalage de fuseau) ; RAND
+- **Autocomplétion fonctions (2026-09-07)** : liste FORMULA_FNS (50+ entrées
+  name/sig) affichée dès qu'on tape après "=" (trailing letters de
+  fxSource=draft ou fxDraft) dans l'éditeur formule (sous le textarea) ET dans
+  la barre fx (Teleport positionné sous l'input, fxPopStyle via rect) ;
+  Tab accepte (remplace la fin par NOM(), ↑/↓ naviguent, Esc ferme, clic
+  accepte via acceptFxAt)
+- **Virtualisation (2026-09-07)** : prop `virtualScroll` (défaut true), actif
+  si visibleRows > 150 ET frozenRows == 0. Rendu slice + rangées d'espacement
+  (`.q-spreadsheet__vpad`), positions cumulées par computed `visInfo` (headH +
+  rowH), binaire search sur scroll (updateRange dans onViewportScroll/
+  resize/mount/watch visibleRows+rowHeights) ; ensureRowVisible dans select
+  (scrollTop = top - headH - overscan) pour garder la cellule cible rendue ;
+  focusCell/éditeur requièrent que la cellule soit dans la fenêtre rendue
+- **Mise en page / CF / validation (2026-09-07)** : CellFormat.wrap (wrap +
+  hauteur auto via rowDisplayH/rowContentHeight, span `.cell-text--wrap`) ;
+  fusions `merges[]` (seul le top-left est rendu rowspan/colspan, clic ailleurs
+  → owner, purge sur ops structurelles, virtualisation coupée si merges) ;
+  masquage hiddenRows/hiddenCols (intégré à visibleRows + nav clavier, classes
+  `--hide`) ; conditional rules condRules[] (gt/gte/lt/lte/eq/contains/blank/
+  notblank + bg/bold, priorité format manuel > règle > sélection) ; validation
+  colonne col.validation {min,max,integer,pattern,message} refusée à la saisie
+  (validateAndSet), erreurs valErrors → `--invalid` + title ⚠
+- **Multi-feuilles (2026-09-07)** : prop `sheets` (v-model:sheets, records
+  {key,name,columns?,rows?}) — onglets (clic switch, double-clic rename,
+  +/× add/remove). Moteur = références actuelles (state/cols/…) + registry
+  `sheetMeta: Record<key,{cols,widths,filters,formats,rowHeights}>` ;
+  `persistCurrent()` écrit le record courant, `loadSheetIntoEngine` charge
+  (largeurs gravées dans col.width sinon le watcher cols les écrase) ;
+  l'undo est vidé à chaque switch ; watcher [state,cols] synchronise le record
+  et émet `update:sheets` avec la MÊME référence (évite la boucle du watcher
+  props par comparaison d'identité)
+- **Sérialisation / export (2026-09-07)** : `buildDocument()/toJSON()`
+  (version 1, active + sheets avec rows/columns/formats/widths/rowHeights/
+  filters), `loadDocument(json|object)` (reconstruit meta + onglets),
+  `exportJson()` télécharge le classeur, `exportCsv(opts)`/`getCsv(opts)`
+  exporte la feuille ACTIVE (headers optionnels, valeurs affichées, BOM UTF-8,
+  quote si delim/quote/newline) ; méthodes exposées via defineExpose
+- **Find & Replace + import/clipboard (2026-09-07)** : barre inline
+  `q-spreadsheet__find` (Ctrl+F ou loupe) — occurrences dans les lignes
+  VISIBLES (filtres respectés), valeurs affichées (labels select), next/prev,
+  replace un/tout (regex échappée, insensible à la casse sauf flag) ; classes
+  `--find` / `--find-cur`. Méthodes exposées : `importCsv(text,{delimiter,
+headers})` (remplace la feuille active, colonnes = 1re ligne si headers,
+  vides→null), `copyFormulas()` (sources brutes), `pasteTransposed()`
+  (lignes↔colonnes)
+- **Tests unitaires (2026-09-07)** : `bun test` (racine `bun test
+packages/ui/lib`) — `formula.test.ts` (~25 cas : opérateurs, A1/abs/plages,
+  erreurs, SUM/…, IF/IFS/SWITCH/IFERROR/VLOOKUP, texte, dates, math) et
+  `spreadsheet.test.ts` (colLetter/colFromLetters, shiftFormulaRefs,
+  csvEscape/csvSplitLine/parseCsv, deriveCols, isoAddDays) ; logique pure
+  extraite du SFC vers `lib/spreadsheet.ts` (aucune dépendance DOM/Vue).
+  ⚠ littéraux TRUE/FALSE non supportés par le moteur → utiliser 1/0 dans les
+  tests ; parseCsv ignore la ligne finale vide (flag sawDelim)
+- **Barre d'état + zoom + autofill complet (2026-09-07)** : barre basse
+  `.q-spreadsheet__status` (cellule active, dims sélection, Σ/x̄/n des valeurs
+  numériques sélectionnées via evalAt, chips « rows shown » quand filtre/
+  masquage, nb de feuilles, contrôles zoom −/%/+/reset). Zoom = prop CSS
+  `zoom` sur la `<table>` (zoomLevel 0.5–2, exposé zoomIn/Out/resetZoom/
+  getZoom). Autofill : fill copie dans les 4 directions (haut/gauche déjà
+  pattern), **Ctrl/meta pendant le drag = copie forcée sans série**
+  (`fillCopy`, lu dans pointermove) ; `fillFormatsDown()` duplique le format
+  de la 1re ligne sur la sélection
+- **Scroll virtuel fluide (2026-09-07)** : `scroll-behavior: smooth` sur
+  `.q-spreadsheet__viewport` (animé pour les scrolls programmatiques —
+  flèches/clavier hors fenêtre, Home/End, page — pas le scroll souris qui
+  reste natif) ; `prefers-reduced-motion: reduce` → auto. `ensureRowVisible`
+  pose un `pendingFocus` (ligne+colonne) et le focus est différé dans
+  `updateRange` (nextTick flushPendingFocus) quand la ligne entre dans la
+  fenêtre virtuelle — éviter de focuser un td pas encore rendu
+- **Types élargis + doc data model (2026-09-07)** : union
+  QSpreadsheetCellType += string (alias text), email, url — éditeurs natifs
+  (input type email/url) ; coerce/stockage = texte ; page docs : démo Cell
+  types avec colonnes Email/Website + dans « QSpreadsheet API », sous-sections
+  Rows (type → valeur stockée), Columns (schéma complet), Selection/Validation/
+  Sheets — pour montrer la structure des données
+- **Sélecteur : badges colorés** — `type:"select" + chip:true` rend chaque
+  valeur en badge avec sa couleur d'option (token via colorValue/foregroundFor,
+  hex libre) ; le rendu est `chipFor`→style inline `backgroundColor/color`
+- \*\*Drag : col headers (lettres A..Z) cliquables = sélection colonne, numéros
+  de ligne = sélection ligne, corner = tout sélectionner ; resize colonne par
+  drag (colWidths interne, min 60/max 600, réinitialisé à chaque changement de
+  columns)
+- **SSR-safe** : aucune création dans setup ; tout est refs/computed/watch
+- Styles dans main.css : section `QSpreadsheet` (`.q-spreadsheet`, toolbar,
+  table sticky corner/colhead/rownum, cellules --in-range/--active (outline
+  primary 2px), checkbox, badge, editor overlay + options list)
+- Page docs custom `docs/components/spreadsheet.vue` (People badges, cell
+  types, events, variants/readonly) — CUSTOM_PAGES ; menu « Spreadsheet »
+
+## QBar — barre fine (type fenêtre/app) — 2026-09-05
+
+`packages/ui/components/QBar.vue` : `<q-bar dense dark as="header">` —
+barre compacte façon Quasar (contrôles fenêtre, menus, statut ; Electron
+frameless, entêtes de dialogs desktop).
+
+- Props : `dense` (compact), `dark` (fond sombre forcé), `as` (balise,
+  défaut div), `role` (défaut "toolbar"), `label` (aria-label du toolbar)
+- Rendu `role="toolbar"` + aria-label ; slot défaut ; `.q-bar__dot` helper
+  (points macOS) dans main.css
+- CSS : flex gap 10, min-height 40 (32 dense), padding 0 12 (10 dense),
+  couleur/background via tokens + `.q-bar--dark` (fond #1d1d1d)
+- Page docs custom `docs/components/bar.vue` (démos macOS, sombre/contrôles
+  fenêtre, props/as) — dans CUSTOM_PAGES ; menu « Bar »
+
 ## QFab — fermeture au clic extérieur — 2026-09-05
 
 `QFab.vue` : quand le FAB est ouvert (`modelValue`), un écouteur

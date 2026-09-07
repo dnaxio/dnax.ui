@@ -1,5 +1,68 @@
 # Pièges rencontrés (tag: warnings)
 
+## QSpreadsheet : radiusStyle hors cn() + édition boolean — 2026-09-07
+
+- ⚠ `radiusStyle(…)` renvoie un OBJET style (`--q-radius`), pas des classes :
+  le passer dans `cn()`/`rootClasses` (fusion de classes) est faux ET casse le
+  typage (`ComputedRef<RadiusProp>` non déplié hors template). Toujours le
+  binder sur la racine via `:style="radiusStyle(effectiveRadius)"` (le template
+  déplie le ref) — cf. QDataGrid/QTable
+- ⚠ Colonne `type: "boolean"` : PAS d'éditeur texte — `startEdit` doit
+  retourner tôt sinon un overlay input s'ouvre sur « true/false ». Bascule via
+  case à cocher dédiée (click.stop) ; Enter/F2 sur cellule boolean → toggle
+- ⚠ `startEdit` sur colonne select : pré-remplir le draft avec le LABEL de
+  l'option courante (pas la value) pour que le filtre de la popup soit utile
+
+## QSpreadsheet avancé — gel, re-indexation, menus — 2026-09-07
+
+- ⚠ Freeze : ne JAMAIS poser `position: relative` sur `.q-spreadsheet__rownum`
+  (ni toute cellule sticky) — écrase `position: sticky` → gel inopérant. Les
+  cellules gelées exigent un fond OPAQUE (inline `var(--q-spreadsheet-bg)`)
+  sinon le contenu qui scrolle dessous transparaît
+- ⚠ Maps indexées par ligne (formats `r:name`, hauteurs `rowHeights[r]`) :
+  invalidées par insert/suppression → toujours passer par `shiftRowKeys` /
+  `dropRowRangeKeys`. Clés par nom de colonne (widths, filtres) à purger à la
+  suppression de colonne (`dropColumnKeys`)
+- ⚠ Booléens/select : l'éditeur ET la barre fx doivent les exclure
+  (fxCanEdit / garde startEdit) ; filtres : « Select all » avec filtre actif
+  sélectionne aussi les lignes masquées (comportement assumé)
+- ⚠ Virtualisation : active seulement au-delà de ~150 lignes ET sans
+  `frozenRows` (sinon gel inopérant) ; `ensureRowVisible` doit être appelé par
+  select sinon focusCell/éditeur ne trouvent pas la cellule hors fenêtre
+- ⚠ VLOOKUP/IFS/SWITCH sont traités dans `evalCall` AVANT la table FUNCTIONS
+  (évaluation paresseuse + géométrie de plage) — y ajouter une clé dupliquée
+  serait ignorée ; `SUBSTITUTE(t,old,new,n)` buggé (n-ième) corrigé le
+  2026-09-07
+- ⚠ SFC : ne JAMAIS mettre un littéral `</script>` (même dans une chaîne) dans
+  un bloc `<script setup>` — le parseur Vue coupe le bloc (Invalid end tag) ;
+  reformuler l'exemple (retirer les balises script)
+- ⚠ Multi-feuilles : émettre `update:sheets` avec la MÊME référence que le
+  tableau interne (sinon boucle watcher props → reload engine) ; passer par
+  `persistCurrent()` avant tout goSheet/removeSheet/addSheet ; l'historique
+  undo est volontairement vidé au changement de feuille
+- ⚠ Template : ne PAS mettre `v-if` ET `v-for` sur le même élément (perte de
+  portée col/ci) → masquer via classes `--hide` (display:none) ; fusions /
+  règles indexées : purge obligatoire sur insert/delete
+  (`purgeMergesAndRules`)
+- ⚠ Zoom : `zoom` CSS posé sur la `<table>` (Firefox ≥126) — largeurs sticky /
+  resize proportionnels ; la barre d'état calcule Σ via `evalAt` (valeurs
+  évaluées des formules)
+- ⚠ Template Vue : un REF FONCTION s'écrit `:ref="fn"`, PAS `ref="fn"`
+  (forme chaîne = déclare un ref nommé, la fonction n'est jamais appelée).
+  Régression du 2026-09-07 : `scrollEl` null → l'éditeur de cellule ne
+  s'ouvrait/focus jamais (seule la barre fx fonctionnait), la hauteur 40vh
+  et la virtualisation ne s'appliquaient pas
+
+## Collision de sessions sur un même fichier + head BSD — 2026-09-07
+
+- Deux sessions d'agent (ou un buffer éditeur ouvert) sur le même fichier :
+  `write_file` échoue avec « Failed to discard unsaved changes: oneshot
+  canceled » — ne pas insister sur write_file, demander/coordonner
+- macOS : `head -n -5` (comptage négatif) est ILLÉGAL (BSD head) ; un fallback
+  `cat tmp > file` après un head échoué peut VIDER le fichier cible → toujours
+  vérifier `wc -l` après ce type de manipulation, garder une copie de secours
+  dans $TMPDIR avant
+
 ## QDialog transitions slide-\* : micro-translation 32px = « semblant de fade » — 2026-09-05
 
 Sur la page docs dialog.vue, les transitions explicites `transition="slide-up"` /

@@ -9024,6 +9024,38 @@ html.dark body {
   color: var(--q-tiptap-primary);
 }
 
+/* ===== QBar ===== */
+.q-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--foreground, #1d1d1d);
+  background: transparent;
+  user-select: none;
+}
+.q-bar--dense {
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.q-bar--dark {
+  color: #ececef;
+  background: #1d1d1d;
+}
+.q-bar > * {
+  flex-shrink: 0;
+}
+.q-bar__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
 /* ===== QEditorJs (Editor.js, éditeur par blocs) ===== */
 .q-editor-js {
   border: 1px solid var(--border, rgb(0 0 0 / 0.12));
@@ -9192,4 +9224,1143 @@ html.dark body {
 .q-tiptap__task-content--checked {
   color: var(--q-tiptap-muted);
   text-decoration: line-through;
+}
+
+/* ===== QSpreadsheet (tableur type Excel) ===== */
+.q-spreadsheet {
+  --q-spreadsheet-border: rgb(0 0 0 / 0.1);
+  --q-spreadsheet-header-bg: rgb(0 0 0 / 0.03);
+  --q-spreadsheet-row-alt: rgb(0 0 0 / 0.015);
+  --q-spreadsheet-range: rgb(25 118 210 / 0.1);
+  --q-spreadsheet-range-brd: var(--primary, #1976d2);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--q-radius, 0);
+  background: #fff;
+  color: var(--foreground, #1d1d1d);
+  font-size: 13px;
+}
+.q-spreadsheet--bordered {
+  border: 1px solid var(--q-spreadsheet-border);
+}
+.q-spreadsheet--flat {
+  box-shadow: none;
+}
+.q-spreadsheet--disable {
+  opacity: 0.6;
+  pointer-events: none;
+  user-select: none;
+}
+.q-spreadsheet--dark,
+.dark .q-spreadsheet {
+  --q-spreadsheet-border: rgb(255 255 255 / 0.12);
+  --q-spreadsheet-header-bg: rgb(255 255 255 / 0.05);
+  --q-spreadsheet-row-alt: rgb(255 255 255 / 0.02);
+  background: var(--card, #1d1d1d);
+  color: var(--foreground, #ececef);
+}
+
+/* ─── Barre d'outils ─── */
+.q-spreadsheet__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--q-spreadsheet-border);
+  background: var(--q-spreadsheet-header-bg);
+}
+.q-spreadsheet__sheet-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--foreground, #1d1d1d);
+  background: rgb(25 118 210 / 0.08);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.q-spreadsheet__tb-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  border-left: 1px solid var(--q-spreadsheet-border);
+}
+.q-spreadsheet__tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground, #1d1d1d);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.q-spreadsheet__tool:hover:not(:disabled) {
+  background: rgb(25 118 210 / 0.1);
+  color: var(--primary, #1976d2);
+}
+.q-spreadsheet__tool:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.q-spreadsheet__tool .iconify {
+  font-size: 17px;
+}
+.q-spreadsheet--dense .q-spreadsheet__tool {
+  width: 24px;
+  height: 24px;
+}
+
+/* ─── Viewport / table ─── */
+.q-spreadsheet__viewport {
+  position: relative;
+  overflow: auto;
+  outline: none;
+}
+.q-spreadsheet__table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+/* ─── En-têtes ─── */
+.q-spreadsheet__corner,
+.q-spreadsheet__colhead,
+.q-spreadsheet__rownum {
+  position: sticky;
+  background-color: var(--q-spreadsheet-header-bg);
+  color: var(--foreground, #1d1d1d);
+  font-weight: 600;
+  user-select: none;
+}
+.q-spreadsheet__corner {
+  top: 0;
+  left: 0;
+  z-index: 6;
+  width: 34px;
+  min-width: 34px;
+  height: 28px;
+  border-right: 1px solid var(--q-spreadsheet-border);
+  border-bottom: 1px solid var(--q-spreadsheet-border);
+  text-align: center;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.q-spreadsheet__colhead {
+  top: 0;
+  z-index: 4;
+  height: 28px;
+  padding: 0 10px 0 6px;
+  border-right: 1px solid var(--q-spreadsheet-border);
+  border-bottom: 1px solid var(--q-spreadsheet-border);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+}
+.q-spreadsheet__colhead--sel {
+  background: rgb(25 118 210 / 0.12);
+}
+.q-spreadsheet__colhead-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  height: 100%;
+  padding-right: 6px;
+}
+.q-spreadsheet__colhead-letter {
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary, #1976d2);
+}
+.q-spreadsheet__colhead-label {
+  font-size: 11.5px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.q-spreadsheet__rownum {
+  left: 0;
+  z-index: 3;
+  width: 34px;
+  min-width: 34px;
+  border-right: 1px solid var(--q-spreadsheet-border);
+  border-bottom: 1px solid var(--q-spreadsheet-border);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.q-spreadsheet__rownum--sel {
+  background: rgb(25 118 210 / 0.12);
+  color: var(--primary, #1976d2);
+}
+.q-spreadsheet__row--sel {
+  background: var(--q-spreadsheet-range);
+}
+.q-spreadsheet__resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 6px;
+  cursor: col-resize;
+}
+.q-spreadsheet__colhead {
+  position: sticky;
+}
+
+/* ─── Cellules ─── */
+.q-spreadsheet__cell {
+  position: relative;
+  height: var(--q-spreadsheet-row-height, 32px);
+  padding: 2px 8px;
+  border-right: 1px solid var(--q-spreadsheet-border);
+  border-bottom: 1px solid var(--q-spreadsheet-border);
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: cell;
+  outline: none;
+}
+.q-spreadsheet__cell-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.q-spreadsheet__cell--number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.q-spreadsheet__cell--center {
+  text-align: center;
+}
+.q-spreadsheet__cell--right {
+  text-align: right;
+}
+.q-spreadsheet__cell--in-range {
+  background: var(--q-spreadsheet-range);
+}
+.q-spreadsheet__cell--active {
+  background: var(--q-spreadsheet-range);
+  box-shadow: inset 0 0 0 2px var(--q-spreadsheet-range-brd);
+}
+.q-spreadsheet__cell--editing {
+  background: #fff;
+  box-shadow: none;
+}
+.q-spreadsheet__cell--readonly {
+  cursor: default;
+}
+.q-spreadsheet__cell--bool {
+  text-align: center;
+}
+
+/* ─── Case à cocher booléenne ─── */
+.q-spreadsheet__checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 1.5px solid var(--q-spreadsheet-border);
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.q-spreadsheet__checkbox--on {
+  background: var(--primary, #1976d2);
+  border-color: var(--primary, #1976d2);
+}
+.q-spreadsheet__checkbox:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.q-spreadsheet__checkbox .iconify {
+  font-size: 12px;
+}
+
+/* ─── Badges (type select + chip) ─── */
+.q-spreadsheet__badge {
+  display: inline-block;
+  max-width: 100%;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+/* ─── Éditeur overlay ─── */
+.q-spreadsheet__editor {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  border: 2px solid var(--primary, #1976d2);
+  background: #fff;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.14);
+}
+.q-spreadsheet--dark .q-spreadsheet__editor,
+.dark .q-spreadsheet__editor {
+  background: var(--card, #1d1d1d);
+}
+.q-spreadsheet__editor-input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 2px 6px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--foreground, #1d1d1d);
+  font: inherit;
+}
+.q-spreadsheet__editor--select {
+  flex-direction: column;
+  align-items: stretch;
+  border-color: rgb(25 118 210 / 0.45);
+}
+.q-spreadsheet__editor--select .q-spreadsheet__editor-input {
+  border-bottom: 1px solid var(--q-spreadsheet-border);
+}
+.q-spreadsheet__options {
+  max-height: 180px;
+  overflow: auto;
+  padding: 4px;
+}
+.q-spreadsheet__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground, #1d1d1d);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.q-spreadsheet__option:hover,
+.q-spreadsheet__option--active {
+  background: rgb(25 118 210 / 0.1);
+}
+.q-spreadsheet__option-swatch {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--q-spreadsheet-border);
+}
+
+/* ─── Barre de formule (fx) ─── */
+.q-spreadsheet__fx {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--q-spreadsheet-border);
+  background: var(--q-spreadsheet-header-bg);
+}
+.q-spreadsheet__fx-ref {
+  flex-shrink: 0;
+  min-width: 46px;
+  padding: 2px 6px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 11.5px;
+  color: var(--primary, #1976d2);
+  background: rgb(25 118 210 / 0.08);
+  border: 1px solid var(--q-spreadsheet-border);
+  border-radius: 4px;
+}
+.q-spreadsheet__fx-badge {
+  flex-shrink: 0;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 11px;
+  color: #8b93a1;
+  user-select: none;
+}
+.q-spreadsheet__fx-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--foreground, #1d1d1d);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.q-spreadsheet__fx-input:focus {
+  border-color: var(--primary, #1976d2);
+  background: #fff;
+}
+.dark .q-spreadsheet__fx-input:focus,
+.q-spreadsheet--dark .q-spreadsheet__fx-input:focus {
+  background: var(--card, #1d1d1d);
+}
+.q-spreadsheet__fx-input:disabled {
+  opacity: 0.55;
+}
+
+/* ─── Éditeur formule (textarea monospace) ─── */
+.q-spreadsheet__editor--formula {
+  align-items: stretch;
+  border-color: rgb(25 118 210 / 0.55);
+}
+.q-spreadsheet__editor-area {
+  width: 100%;
+  min-height: 28px;
+  padding: 4px 6px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--foreground, #1d1d1d);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.45;
+  resize: none;
+}
+
+/* ─── Erreurs de formule ─── */
+.q-spreadsheet__cell--error {
+  color: #c62828;
+  font-weight: 600;
+}
+.q-spreadsheet--dark .q-spreadsheet__cell--error,
+.dark .q-spreadsheet__cell--error {
+  color: #ff8a80;
+}
+
+/* ─── fond opaque pour le freeze (variables) ─── */
+.q-spreadsheet {
+  --q-spreadsheet-bg: #ffffff;
+}
+.q-spreadsheet--dark,
+.dark .q-spreadsheet {
+  --q-spreadsheet-bg: var(--card, #1d1d1d);
+}
+
+/* ─── Resize lignes (handle bas du numéro) ─── */
+.q-spreadsheet__row-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 5px;
+  cursor: row-resize;
+}
+/* ─── Bouton filtre colonne ─── */
+.q-spreadsheet__fbtn {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #8b93a1;
+  opacity: 0.45;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+.q-spreadsheet__colhead:hover .q-spreadsheet__fbtn,
+.q-spreadsheet__fbtn--on {
+  opacity: 1;
+}
+.q-spreadsheet__fbtn--on {
+  color: var(--primary, #1976d2);
+  background: rgb(25 118 210 / 0.12);
+}
+.q-spreadsheet__fbtn .iconify {
+  font-size: 13px;
+}
+
+/* ─── Freeze panes ─── */
+.q-spreadsheet__cell--frozen-row,
+.q-spreadsheet__cell--frozen-col {
+  position: sticky;
+  z-index: 2;
+}
+.q-spreadsheet__cell--frozen-both {
+  position: sticky;
+  z-index: 3;
+}
+.q-spreadsheet__colhead--frozen {
+  z-index: 5;
+}
+.q-spreadsheet__rownum--frozen {
+  z-index: 3;
+}
+.q-spreadsheet__rownum--frozen,
+.q-spreadsheet__colhead--frozen,
+.q-spreadsheet__cell--frozen-row,
+.q-spreadsheet__cell--frozen-col,
+.q-spreadsheet__cell--frozen-both {
+  box-shadow: -1px 0 0 0 var(--q-spreadsheet-border), 0 -1px 0 0 var(--q-spreadsheet-border);
+}
+
+/* ─── Poignée autofill + prévisualisation ─── */
+.q-spreadsheet__fill {
+  position: absolute;
+  z-index: 40;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid #fff;
+  border-radius: 2px;
+  background: var(--primary, #1976d2);
+  cursor: crosshair;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.2);
+}
+.q-spreadsheet__cell--fill {
+  box-shadow: inset 0 0 0 2px var(--primary, #1976d2);
+}
+
+/* ─── Pas de lignes ─── */
+.q-spreadsheet__no-rows {
+  padding: 14px 16px;
+  color: #8b93a1;
+  font-size: 12.5px;
+  text-align: center;
+  border-right: 1px solid var(--q-spreadsheet-border);
+  border-bottom: 1px solid var(--q-spreadsheet-border);
+}
+
+/* ─── Menu contextuel / popup filtre (téléportés body) ─── */
+.q-spreadsheet__ctx,
+.q-spreadsheet__fpop {
+  z-index: 1300;
+  min-width: 214px;
+  max-width: 300px;
+  padding: 5px;
+  color: var(--foreground, #1d1d1d);
+  background: var(--card, #fff);
+  border: 1px solid var(--border, rgb(0 0 0 / 0.12));
+  border-radius: 9px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.16);
+  font-size: 13px;
+  user-select: none;
+}
+.dark .q-spreadsheet__ctx,
+.dark .q-spreadsheet__fpop {
+  color: #ececef;
+  background: #1d1d1d;
+}
+.q-spreadsheet__ctx-title {
+  padding: 4px 8px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8b93a1;
+  border-bottom: 1px solid var(--border, rgb(0 0 0 / 0.08));
+  margin-bottom: 4px;
+}
+.q-spreadsheet__mi {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.q-spreadsheet__mi:hover:not(:disabled) {
+  background: rgb(25 118 210 / 0.09);
+}
+.q-spreadsheet__mi--on {
+  color: var(--primary, #1976d2);
+  background: rgb(25 118 210 / 0.12);
+}
+.q-spreadsheet__mi:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+.q-spreadsheet__mi .iconify {
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.q-spreadsheet__sep {
+  height: 1px;
+  margin: 5px 6px;
+  background: var(--border, rgb(0 0 0 / 0.09));
+}
+.q-spreadsheet__ctx-label {
+  padding: 6px 8px 3px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8b93a1;
+}
+.q-spreadsheet__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 2px 6px 6px;
+}
+.q-spreadsheet__swatch {
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 1px solid var(--border, rgb(0 0 0 / 0.14));
+  border-radius: 4px;
+  cursor: pointer;
+}
+.q-spreadsheet__swatch--on {
+  outline: 2px solid var(--primary, #1976d2);
+  outline-offset: 1px;
+}
+.q-spreadsheet__swatch:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ─── Popup filtre ─── */
+.q-spreadsheet__fpop {
+  width: 248px;
+}
+.q-spreadsheet__fpop-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 6px;
+}
+.q-spreadsheet__fpop-head .iconify {
+  color: var(--primary, #1976d2);
+  flex-shrink: 0;
+}
+.q-spreadsheet__fpop-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.q-spreadsheet__fpop-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.q-spreadsheet__fpop-close:hover {
+  background: rgb(0 0 0 / 0.08);
+}
+.q-spreadsheet__fpop-search {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--border, rgb(0 0 0 / 0.16));
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.q-spreadsheet__fpop-search:focus {
+  border-color: var(--primary, #1976d2);
+}
+.q-spreadsheet__fpop-list {
+  max-height: 240px;
+  overflow: auto;
+  margin-top: 6px;
+}
+.q-spreadsheet__fpop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.q-spreadsheet__fpop-row:hover {
+  background: rgb(25 118 210 / 0.08);
+}
+.q-spreadsheet__fpop-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  border: 1px solid var(--border, rgb(0 0 0 / 0.2));
+  border-radius: 4px;
+  color: #fff;
+}
+.q-spreadsheet__fpop-row--on .q-spreadsheet__fpop-check {
+  background: var(--primary, #1976d2);
+  border-color: var(--primary, #1976d2);
+}
+.q-spreadsheet__fpop-check .iconify {
+  font-size: 11px;
+}
+.q-spreadsheet__fpop-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.q-spreadsheet__fpop-label--blank {
+  color: #8b93a1;
+  font-style: italic;
+}
+.q-spreadsheet__fpop-count {
+  color: #8b93a1;
+  font-size: 11.5px;
+}
+.q-spreadsheet__fpop-empty {
+  padding: 10px;
+  color: #8b93a1;
+  font-size: 12px;
+  text-align: center;
+}
+.q-spreadsheet__fpop > .q-spreadsheet__mi {
+  margin-top: 4px;
+}
+
+/* ─── place pour le bouton filtre dans l'en-tête ─── */
+.q-spreadsheet__colhead-inner {
+  padding-right: 26px;
+}
+
+/* ─── Suggestions de fonctions (formule) ─── */
+.q-spreadsheet__editor--formula {
+  flex-direction: column;
+  align-items: stretch;
+}
+.q-spreadsheet__fnsug {
+  display: flex;
+  flex-direction: column;
+  max-height: 208px;
+  overflow: auto;
+  padding: 3px;
+  border-top: 1px solid var(--q-spreadsheet-border);
+  background: var(--card, #fff);
+}
+.q-spreadsheet--dark .q-spreadsheet__fnsug,
+.dark .q-spreadsheet__fnsug {
+  background: var(--card, #1d1d1d);
+}
+.q-spreadsheet__fnsug-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.q-spreadsheet__fnsug-item code {
+  color: var(--primary, #1976d2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 700;
+}
+.q-spreadsheet__fnsug-item span {
+  color: #8b93a1;
+  font-size: 11.5px;
+}
+.q-spreadsheet__fnsug-item:hover,
+.q-spreadsheet__fnsug-item--on {
+  background: rgb(25 118 210 / 0.1);
+}
+.q-spreadsheet__fnsug--fx {
+  position: fixed;
+  z-index: 1320;
+  border: 1px solid var(--border, rgb(0 0 0 / 0.12));
+  border-radius: 8px;
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.16);
+}
+
+/* ─── Virtualisation : rangées d'espacement ─── */
+.q-spreadsheet__vpad td {
+  padding: 0 !important;
+  border: none !important;
+}
+
+/* ─── Onglets de feuilles (classeur multi) ─── */
+.q-spreadsheet__sheets {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 6px 8px 0;
+  overflow-x: auto;
+  background: var(--q-spreadsheet-header-bg);
+  border-bottom: 1px solid var(--q-spreadsheet-border);
+  user-select: none;
+}
+.q-spreadsheet__sheet-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  padding: 5px 10px 6px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  background: transparent;
+  color: var(--foreground, #1d1d1d);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.q-spreadsheet__sheet-tab:hover {
+  background: rgb(0 0 0 / 0.05);
+}
+.dark .q-spreadsheet__sheet-tab:hover,
+.q-spreadsheet--dark .q-spreadsheet__sheet-tab:hover {
+  background: rgb(255 255 255 / 0.08);
+}
+.q-spreadsheet__sheet-tab--on {
+  background: var(--card, #fff);
+  border-color: var(--q-spreadsheet-border);
+  color: var(--primary, #1976d2);
+  font-weight: 600;
+}
+.dark .q-spreadsheet__sheet-tab--on,
+.q-spreadsheet--dark .q-spreadsheet__sheet-tab--on {
+  background: var(--card, #1d1d1d);
+}
+.q-spreadsheet__sheet-name-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.q-spreadsheet__sheet-rename {
+  width: 110px;
+  padding: 2px 4px;
+  border: 1px solid var(--primary, #1976d2);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.q-spreadsheet__sheet-close,
+.q-spreadsheet__sheet-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.q-spreadsheet__sheet-close:hover {
+  color: #c62828;
+  background: rgb(198 40 40 / 0.12);
+}
+.q-spreadsheet__sheet-close .iconify {
+  font-size: 12px;
+}
+.q-spreadsheet__sheet-add {
+  margin: 0 2px 4px;
+  color: #8b93a1;
+  font-size: 15px;
+}
+.q-spreadsheet__sheet-add:hover {
+  color: var(--primary, #1976d2);
+  background: rgb(25 118 210 / 0.1);
+}
+
+/* ─── Find & Replace ─── */
+.q-spreadsheet__find {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--q-spreadsheet-border);
+  background: rgb(255 251 235);
+}
+.dark .q-spreadsheet__find,
+.q-spreadsheet--dark .q-spreadsheet__find {
+  background: rgb(255 180 0 / 0.08);
+}
+.q-spreadsheet__find-icon {
+  flex-shrink: 0;
+  color: #8b93a1;
+  font-size: 15px;
+}
+.q-spreadsheet__find-input {
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--q-spreadsheet-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.q-spreadsheet__find-input:focus {
+  border-color: var(--primary, #1976d2);
+}
+.q-spreadsheet__find-input--repl {
+  flex: 1;
+}
+.q-spreadsheet__find-count {
+  font-size: 11.5px;
+  color: #8b93a1;
+  white-space: nowrap;
+}
+.q-spreadsheet__find-close {
+  margin-left: 2px;
+}
+.q-spreadsheet__cell--find {
+  background-color: rgb(255 235 59 / 0.35) !important;
+}
+.q-spreadsheet__cell--find-cur {
+  background-color: rgb(255 214 0 / 0.45) !important;
+  box-shadow: inset 0 0 0 2px #f5b301 !important;
+}
+
+/* ─── Wrap text / hauteur auto / fusion / lignes masquées ─── */
+.q-spreadsheet__cell-text--wrap {
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.35;
+}
+.q-spreadsheet__cell--merged {
+  overflow: hidden;
+}
+.q-spreadsheet__cell--invalid {
+  box-shadow: inset 0 0 0 2px #ef4444 !important;
+}
+
+/* ─── Toolbar actif ─── */
+.q-spreadsheet__tool--on {
+  color: var(--primary, #1976d2);
+  background: rgb(25 118 210 / 0.14);
+}
+
+/* ─── Panneau Conditional formatting ─── */
+.q-spreadsheet__cf {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--q-spreadsheet-border);
+  background: rgb(239 246 255);
+  font-size: 12.5px;
+}
+.dark .q-spreadsheet__cf,
+.q-spreadsheet--dark .q-spreadsheet__cf {
+  background: rgb(30 58 138 / 0.25);
+}
+.q-spreadsheet__cf-title {
+  font-weight: 600;
+  color: var(--primary, #1976d2);
+}
+.q-spreadsheet__cf-kind {
+  padding: 4px 6px;
+  border: 1px solid var(--q-spreadsheet-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+}
+.q-spreadsheet__swatches--mini {
+  gap: 3px;
+  padding: 2px;
+}
+.q-spreadsheet__swatches--mini .q-spreadsheet__swatch {
+  width: 14px;
+  height: 14px;
+}
+.q-spreadsheet__cf-apply {
+  padding: 3px 10px !important;
+}
+.q-spreadsheet__cf-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  width: 100%;
+}
+.q-spreadsheet__cf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--q-spreadsheet-border);
+  border-radius: 999px;
+  font-size: 11px;
+}
+.q-spreadsheet__cf-chip .q-spreadsheet__sheet-close {
+  width: 14px;
+  height: 14px;
+}
+.q-spreadsheet__cell--hide,
+.q-spreadsheet__colhead--hide {
+  display: none;
+}
+
+/* ─── Barre d'état + zoom ─── */
+.q-spreadsheet__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-top: 1px solid var(--q-spreadsheet-border);
+  background: var(--q-spreadsheet-header-bg);
+  font-size: 11.5px;
+  color: #8b93a1;
+  user-select: none;
+}
+.q-spreadsheet__status-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  color: var(--foreground, #1d1d1d);
+}
+.q-spreadsheet__status-item {
+  color: #8b93a1;
+}
+.q-spreadsheet__status-stats {
+  font-variant-numeric: tabular-nums;
+  color: var(--primary, #1976d2);
+}
+.q-spreadsheet__status-chip {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgb(25 118 210 / 0.12);
+  color: var(--primary, #1976d2);
+}
+.q-spreadsheet__status-spacer {
+  flex: 1;
+}
+.q-spreadsheet__status-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.q-spreadsheet__status-zoom .q-spreadsheet__tool {
+  width: 22px;
+  height: 20px;
+}
+.q-spreadsheet__status-zoom-pct {
+  min-width: 42px;
+  padding: 2px 4px;
+  border: 1px solid var(--q-spreadsheet-border);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  text-align: center;
+  cursor: pointer;
+}
+.q-spreadsheet__status-zoom-pct:hover {
+  color: var(--primary, #1976d2);
+  border-color: var(--primary, #1976d2);
+}
+
+/* ─── Scroll animé (smooth) pour la virtualisation ─── */
+.q-spreadsheet__viewport {
+  scroll-behavior: smooth;
+}
+.q-spreadsheet__viewport:focus {
+  outline: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .q-spreadsheet__viewport {
+    scroll-behavior: auto;
+  }
+}
+
+/* ─── Onglets de feuilles en bas (Excel) ─── */
+.q-spreadsheet__sheets--bottom {
+  align-items: flex-start;
+  padding: 0 8px 6px;
+  border-bottom: 0;
+  border-top: 1px solid var(--q-spreadsheet-border);
+}
+.q-spreadsheet__sheets--bottom .q-spreadsheet__sheet-tab {
+  border-top: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0 0 7px 7px;
+}
+.q-spreadsheet__sheets--bottom .q-spreadsheet__sheet-tab--on {
+  border-color: var(--q-spreadsheet-border);
+}
+.q-spreadsheet__sheets--bottom .q-spreadsheet__sheet-add {
+  margin: 4px 2px 0;
 }
