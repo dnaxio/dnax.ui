@@ -50,6 +50,7 @@
     "@tiptap/vue-3": "^3.31.3",
     "@videojs/html": "^10.0.0-beta.32",
     "@vueuse/core": "^14.4.0",
+    "arktype": "^2.2.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "embla-carousel": "^8.5.0",

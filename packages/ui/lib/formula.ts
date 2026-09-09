@@ -568,6 +568,42 @@ function evalCall(node: Extract<Node, { kind: "call" }>, ctx: FormulaContext): F
     }
     return err("#VALUE!")
   }
+  // XLOOKUP(key, table, return_range, [not_found]) — correspondance exacte
+  if (name === "xlookup" && node.args.length >= 3) {
+    const key = toScalar(evalNode(node.args[0]!, ctx, false))
+    const tableNode = node.args[1]!
+    const retNode = node.args[2]!
+    if (!isError(key) && tableNode.kind === "range" && retNode.kind === "range") {
+      const ta = resolveRefPos(tableNode.start)
+      const tb = resolveRefPos(tableNode.end)
+      const ra = resolveRefPos(retNode.start)
+      const rb = resolveRefPos(retNode.end)
+      if (ta && tb && ra && rb) {
+        const r0 = Math.min(ta[0], tb[0])
+        const r1 = Math.max(ta[0], tb[0])
+        const c0 = Math.min(ta[1], tb[1])
+        const retR0 = Math.min(ra[0], rb[0])
+        const retC = ra[1]
+        for (let r = r0; r <= r1; r++) {
+          const cell = ctx.resolveCell(r, c0)
+          if (cell === undefined) continue
+          const hit =
+            typeof key === "number" && typeof cell === "number"
+              ? key === cell
+              : String(key ?? "") === String(cell ?? "")
+          if (hit) {
+            const row = retR0 + (r - r0)
+            const found = ctx.resolveCell(row, retC)
+            if (found === undefined) return err("#REF!")
+            return found
+          }
+        }
+        if (node.args[3] !== undefined) return toScalar(evalNode(node.args[3], ctx, false))
+        return err("#N/A")
+      }
+    }
+    return err("#VALUE!")
+  }
 
   const fn = FUNCTIONS[name]
   if (!fn) return err("#NAME?")
@@ -779,6 +815,93 @@ Object.assign(FUNCTIONS, {
     const months = Math.trunc(Number(args[1]) || 0)
     d.setMonth(d.getMonth() + months)
     return isoLocal(d)
+  },
+  // Dates avancées (2026-09-07)
+  weekday: (args: FormulaValue[]) => {
+    const d = toLocalDate(args[0] ?? null)
+    if (isError(d)) return d
+    const t = Math.trunc(Number(args[1]) ?? 1) || 1
+    const wd = d.getDay() // 0 = dimanche
+    if (t === 2) return wd === 0 ? 7 : wd
+    if (t === 3) return wd === 0 ? 6 : wd - 1
+    return wd + 1 // 1 = dimanche .. 7 = samedi
+  },
+  eomonth: (args: FormulaValue[]) => {
+    const d = toLocalDate(args[0] ?? null)
+    if (isError(d)) return d
+    const m = Math.trunc(Number(args[1]) || 0)
+    d.setMonth(d.getMonth() + m + 1, 0)
+    return isoLocal(d)
+  },
+  datedif: (args: FormulaValue[]) => {
+    const a = toLocalDate(args[0] ?? null)
+    const b = toLocalDate(args[1] ?? null)
+    if (isError(a) || isError(b)) return isError(a) ? a : b
+    const unit = toStr(args[2] ?? "d").toUpperCase()
+    let ms = b.getTime() - a.getTime()
+    if (ms < 0 && unit !== "YD") return err("#NUM!")
+    const days = Math.floor(ms / 86400000)
+    if (unit === "D") return days
+    if (unit === "M") {
+      return (
+        (b.getFullYear() - a.getFullYear()) * 12 +
+        (b.getMonth() - a.getMonth()) -
+        (b.getDate() < a.getDate() ? 1 : 0)
+      )
+    }
+    if (unit === "Y") {
+      let y = b.getFullYear() - a.getFullYear()
+      if (b.getMonth() < a.getMonth() || (b.getMonth() === a.getMonth() && b.getDate() < a.getDate())) y--
+      return y
+    }
+    if (unit === "MD") {
+      const tmp = new Date(a)
+      tmp.setFullYear(b.getFullYear(), b.getMonth(), 1)
+      tmp.setMonth(tmp.getMonth() + 1, 0)
+      const base = Math.max(1, tmp.getDate())
+      return b.getDate() < a.getDate() ? b.getDate() + (base - a.getDate()) : b.getDate() - a.getDate()
+    }
+    if (unit === "YD") {
+      const anchor = new Date(b)
+      anchor.setFullYear(a.getFullYear())
+      if (anchor < a) anchor.setFullYear(a.getFullYear() + 1)
+      return Math.round((b.getTime() - anchor.getTime()) / 86400000)
+    }
+    return err("#VALUE!")
+  },
+  text: (args: FormulaValue[]) => {
+    const v = args[0] ?? null
+    const fmt = toStr(args[1] ?? "")
+    // nombres : 0.00 / 0% / milliers
+    if (typeof v === "number" || (typeof v === "string" && !Number.isNaN(Number(v)))) {
+      const n = typeof v === "number" ? v : Number(v)
+      const f = fmt.trim()
+      if (f.includes("%")) return String(Math.round(n * 100)) + "%"
+      const dec = /0+(\.0+)?/.exec(f)?.[0]
+      const digits = dec && dec.includes(".") ? dec.length - dec.indexOf(".") - 1 : 0
+      if (f === "0") return String(Math.round(n))
+      return n.toFixed(digits)
+    }
+    // dates ISO → tokens YYYY MM DD HH mm
+    const d = toLocalDate(v)
+    if (!isError(d)) {
+      const map: Record<string, string> = {
+        YYYY: String(d.getFullYear()),
+        YY: pad2(d.getFullYear() % 100),
+        MM: pad2(d.getMonth() + 1),
+        DD: pad2(d.getDate()),
+        HH: pad2(d.getHours()),
+        mm: pad2(d.getMinutes()),
+        hh: pad2(d.getHours() % 12 || 12),
+        ss: pad2(d.getSeconds()),
+        dddd: "",
+      }
+      let out = fmt
+      for (const k of Object.keys(map)) out = out.split(k).join(map[k]!)
+      out = out.replace(/dddd|ddd/g, "")
+      return out
+    }
+    return toStr(v)
   },
   // Aléatoire / autres
   rand: () => Math.random(),

@@ -7,7 +7,6 @@ import { componentSource, componentTag, useComponent } from "~/composables/useCo
 import DocsApi from "~/components/DocsApi.vue";
 import DocsDemo from "~/components/DocsDemo.vue";
 
-
 definePageMeta({ layout: "docs" })
 
 const spreadsheet = useComponent(() => "QSpreadsheet")
@@ -405,11 +404,11 @@ const usageFindImport = `<q-spreadsheet
 <q-btn label="Import sample CSV" @click="grid.importCsv(CSV_SAMPLE, { headers: true })" />
 
 <!--
-  • Ctrl+F ou l'icône loupe de la toolbar : Find & Replace (suivant / précédent,
-    remplacer un / tout, sensible à la casse non inclus ici).
-  • grid.importCsv(text, { delimiter, headers }) remplace la feuille active.
-  • grid.copyFormulas() copie les sources, grid.pasteTransposed() colle en
-    transposant (lignes ↔ colonnes).
+  • Ctrl+F or the toolbar magnifier: Find & Replace (next / previous, replace one / all).
+  • grid.importFile() / grid.importCsv(text, { delimiter, headers }) replace the
+    active sheet (CSV / TSV / JSON).
+  • grid.copyFormulas() copies sources; grid.pasteValues() pastes VALUES
+    ("=…" as literal text); grid.pasteTransposed() transposes rows ↔ columns.
 -->`
 
 // — Mise en page, conditional formatting & validation —
@@ -435,10 +434,12 @@ const usageLayout = `<q-spreadsheet
 />
 
 <!--
-  • Right-click a cell → Wrap text, Merge cells, Unmerge, Hide rows/columns.
-  • Toolbar icône surligneur → Conditional formatting (règle sur la sélection).
-  • colonnes.validation = { min, max, integer, pattern, message } : la saisie
-    invalide est refusée et la cellule est marquée en rouge (title = message).
+  • Right-click a cell → Wrap text, Merge cells, Unmerge, Hide rows/columns,
+    drag a row number / column header to reorder.
+  • Toolbar highlighter → Conditional formatting (fill / data bar / color scale,
+    whole-column or formula rules).
+  • columns.validation + validators prop (ranges): min, max, integer, pattern,
+    required, list — invalid input is rejected and the cell turns red.
 -->`
 
 // — Classeur multi-feuilles & export —
@@ -818,6 +819,7 @@ const columnsSummary = computed(() => peopleColumns)
           <tr><td><code>SWITCH(e,v1,r1,…,d)</code></td><td>First matching value → result (lazy)</td><td><code>=SWITCH(B1,"a",1,"b",2,0)</code></td></tr>
           <tr><td><code>IFNA(v, fallback)</code></td><td>Fallback on <code>#N/A</code> only</td><td><code>=IFNA(VLOOKUP(A1,D1:F9,2),"?")</code></td></tr>
           <tr><td><code>VLOOKUP(key, range, col, [approx])</code></td><td>Exact match in the 1st column of a range, returns the <code>col</code>-th cell</td><td><code>=VLOOKUP(A1,D1:F9,2)</code></td></tr>
+          <tr><td><code>XLOOKUP(key, table, ret, [fallback])</code></td><td>Exact match in <code>table</code>, returns the cell from <code>ret</code> on the same row</td><td><code>=XLOOKUP(A1,D1:D9,F1:F9,"?")</code></td></tr>
           <tr><th colspan="3" class="doc-table-group">Math</th></tr>
           <tr><td><code>ABS(n)</code></td><td>Absolute value</td><td><code>=ABS(A1)</code></td></tr>
           <tr><td><code>ROUND(n, d)</code></td><td>Round to <code>d</code> decimals</td><td><code>=ROUND(A1,2)</code></td></tr>
@@ -843,6 +845,10 @@ const columnsSummary = computed(() => peopleColumns)
           <tr><td><code>DATE(y,m,d)</code></td><td>Date from year / month / day</td><td><code>=DATE(2026,9,7)</code></td></tr>
           <tr><td><code>YEAR(d)</code> / <code>MONTH(d)</code> / <code>DAY(d)</code></td><td>Part of a date</td><td><code>=MONTH(A1)</code></td></tr>
           <tr><td><code>EDATE(d, months)</code></td><td>Date shifted by months</td><td><code>=EDATE(A1,3)</code></td></tr>
+          <tr><td><code>WEEKDAY(d, [type])</code></td><td>1=Sun…7=Sat (type 1) · 1=Mon…7=Sun (2) · 0=Mon…6=Sun (3)</td><td><code>=WEEKDAY(A1,2)</code></td></tr>
+          <tr><td><code>EOMONTH(d, months)</code></td><td>Last day of the month shifted by <code>months</code></td><td><code>=EOMONTH(A1,1)</code></td></tr>
+          <tr><td><code>DATEDIF(a, b, unit)</code></td><td>Days / months / years between dates (D, M, Y, MD, YD)</td><td><code>=DATEDIF(A1,B1,"D")</code></td></tr>
+          <tr><td><code>TEXT(v, format)</code></td><td>Format a number (<code>0.00</code>, <code>0%</code>) or ISO date (<code>YYYY-MM-DD HH:mm</code>…)</td><td><code>=TEXT(A1,"DD/MM/YYYY")</code></td></tr>
           <tr><th colspan="3" class="doc-table-group">Conversion &amp; info</th></tr>
           <tr><td><code>VALUE(t)</code> / <code>N(v)</code></td><td>Coerce to a number</td><td><code>=VALUE(A1)</code></td></tr>
           <tr><td><code>ISBLANK(v)</code> / <code>ISNUMBER(v)</code> / <code>ISTEXT(v)</code></td><td>Type checks</td><td><code>=IF(ISBLANK(A1),"—",A1)</code></td></tr>
@@ -1027,24 +1033,31 @@ const columnsSummary = computed(() => peopleColumns)
     <section class="doc-section">
       <h2 class="doc-h2">Cell layout, conditional formatting &amp; validation</h2>
       <p class="doc-note">
-        <b>Layout</b> (clic droit) : <code>Wrap text</code> affiche le texte sur
-        plusieurs lignes et fait pousser la hauteur de la ligne ;
-        <code>Merge cells</code> fusionne la sélection (le contenu affiché est
-        celui de la cellule en haut à gauche), <code>Unmerge</code> les sépare ;
-        <code>Hide rows / columns</code> masque (la navigation clavier les
-        saute) — « Show all hidden » / liste des colonnes masquées dans le menu.
+        <b>Layout</b> (right-click menu) : <code>Wrap text</code> wraps on
+        several lines and grows the row height; <code>Merge cells</code> merges
+        the selection (top-left value is shown), <code>Unmerge</code> splits it
+        back; <code>Hide rows / columns</code> hides (keyboard navigation skips
+        them) — “Show all hidden” and the list of hidden columns live in the
+        menu. Drag a <b>row number</b> or a <b>column header</b> to reorder.
       </p>
       <p class="doc-note">
-        <b>Conditional formatting</b> (icône surligneur de la toolbar) : ajoute
-        une règle sur la sélection (comparaison / contient / vide) avec fond et
-        gras ; les règles sont réévaluées en direct.
+        <b>Conditional formatting</b> (highlighter icon in the toolbar): rule on
+        the selection or a <b>whole column</b> (“Column” checkbox), with
+        conditions <code>greater than / ≥ / &lt; / ≤ / equal / contains / blank
+        / not blank / formula (A1) / always</code>. Three renders:
+        <b>fill</b> (background), <b>data bar</b> (bar proportional to the
+        column min/max), <b>color scale</b> (gradient between two colors).
+        Rules recalculate live, can be edited by clicking a chip and are part
+        of <code>toJSON()</code>.
       </p>
       <p class="doc-note">
-        <b>Validation</b> par colonne (<code>columns.validation</code> :
-        <code>min</code>, <code>max</code>, <code>integer</code>,
-        <code>pattern</code>, <code>message</code>) : la saisie invalide est
-        refusée, la cellule est cerclée de rouge et le message apparaît en
-        infobulle. Ici, essayez de saisir <code>150</code> dans Score.
+        <b>Validation</b> — <code>columns.validation</code>: <code>min</code>,
+        <code>max</code>, <code>integer</code>, <code>pattern</code>,
+        <code>required</code> (empty rejected), <code>list</code> (allowed
+        values), <code>message</code>; plus the <code>validators</code> prop for
+        <b>cell ranges</b>: <code>[{ r0, c0, r1, c1, validation }]</code>.
+        Invalid input is rejected, the cell turns red and the message shows as
+        a tooltip. Try typing <code>150</code> in Score here.
       </p>
 
       <docs-demo :code="usageLayout" lang="html" filename="App.vue">
@@ -1228,11 +1241,16 @@ const columnsSummary = computed(() => peopleColumns)
       <p class="doc-note">
         <b>Selection</b> (<code>v-model:selected</code>) is
         <code>{ row, column, endRow, endColumn }</code> — rows are 0-based,
-        columns are names. <b>Sheets</b> (<code>v-model:sheets</code>) is an
-        array of <code>{ key?, name?, columns?, rows? }</code>; the serialized
-        document (<code>toJSON()</code>) adds <code>version: 1</code>,
-        <code>active</code> and per-sheet <code>formats</code> /
-        <code>widths</code> / <code>rowHeights</code> / <code>filters</code>.
+        columns are names. <b>Validation by range</b>: the <code>validators</code>
+        prop takes <code>{ r0, c0, r1, c1, validation }[]</code> (same rules as
+        column validation, plus <code>required</code> / <code>list</code>).
+        <b>Sheets</b> (<code>v-model:sheets</code>) is an array of
+        <code>{ key?, name?, columns?, rows? }</code>; the serialized document
+        (<code>toJSON()</code>) adds <code>version: 1</code>, <code>active</code>
+        and per-sheet <code>formats</code> / <code>widths</code> /
+        <code>rowHeights</code> / <code>filters</code> / <code>rules</code>
+        (conditional formatting) / <code>merges</code> / <code>hiddenRows</code>
+        / <code>hiddenCols</code>.
       </p>
 
     </section>

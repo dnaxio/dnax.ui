@@ -112,6 +112,33 @@ describe("VLOOKUP", () => {
   })
 })
 
+describe("XLOOKUP + dates avancées", () => {
+  const grid: Grid = [
+    ["A", 1, "x"],
+    ["B", 2, "y"],
+    ["A", 3, "z"],
+  ]
+  const e = harness(grid)
+  it("XLOOKUP retourne la cellule correspondante du range retour", () => {
+    expect(e('=XLOOKUP("B",A1:A3,B1:B3)')).toBe(2)
+    expect(e('=XLOOKUP("A",A1:A3,C1:C3)')).toBe("x")
+  })
+  it("XLOOKUP fallback / #N/A", () => {
+    expect(String(e('=XLOOKUP("Z",A1:A3,B1:B3,"?")'))).toBe("?")
+    expect(String(e('=XLOOKUP("Z",A1:A3,B1:B3)'))).toBe("#N/A")
+  })
+  it("WEEKDAY / EOMONTH / DATEDIF / TEXT", () => {
+    const d = harness([[]])
+    // 2026-09-07 = lundi
+    expect(d('=WEEKDAY("2026-09-07",2)')).toBe(1)
+    expect(d('=EOMONTH("2026-01-15",0)')).toBe("2026-01-31")
+    expect(d('=DATEDIF("2026-01-01","2026-02-10","D")')).toBe(40)
+    expect(d('=TEXT(1.5,"0.00")')).toBe("1.50")
+    expect(d('=TEXT(0.12,"0%")')).toBe("12%")
+    expect(d('=TEXT("2026-09-07","YYYY-MM-DD")')).toBe("2026-09-07")
+  })
+})
+
 describe("fonctions texte", () => {
   const e = harness([[]])
   it("LEFT / RIGHT / MID", () => {

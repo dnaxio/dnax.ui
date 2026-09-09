@@ -1,5 +1,20 @@
 # Connaissances & bonnes pratiques (tag: knowledges)
 
+## QBoard — dashboard tuiles (Power BI-like) — 2026-09-07
+
+`packages/ui/components/QBoard.vue` : `<q-board v-model:items="tiles" :columns="12">`
+wrapper par-dessus **QInteract** (drag/resize à l'intérieur).
+
+- Items en unités GRILLE : { id, column, row, spanColumns, spanRows, … } ;
+  grille de fond `.q-board__grid` (lignes + labels optionnels `showLabels`),
+  cellule adaptative (ResizeObserver → width/columns), rangées = `rowHeight`
+- Conversion tuiles↔px interne (`buildPx` stable pour ne pas casser le drag
+  de QInteract pendant un déplacement), reconversion tuiles à drag-end/resize-end
+  (round + clamp), events `drag-end`/`resize-end` relayés en tuiles
+- API : addItem/removeItem/clear/layout/getItems ; `rows` auto depuis les tuiles
+  ou props rows/height ; slots #item/#handle/#empty forwardés
+- Naming : QInteract = conteneur générique ; QBoard = dashboard (alias possible)
+
 ## QSpreadsheet — tableur type Excel — 2026-09-07
 
 `packages/ui/components/QSpreadsheet.vue` : `<q-spreadsheet v-model:rows="rows"
@@ -188,7 +203,36 @@ packages/ui/lib`) — `formula.test.ts` (~25 cas : opérateurs, A1/abs/plages,
   `useConfigLang()` (`useComponentProps.ts`) pour tout composant.
   QSpreadsheet : `lang` = prop ?? configLang. ⚠ ne pas fournir qConfigKey
   AVANT la déclaration de isDark/lang (TDZ)
-- **Sélecteur : badges colorés** — `type:"select" + chip:true` rend chaque
+- **Paste values / import fichier / undo élargi / sérialisation totale
+  (2026-09-07)** : `pasteValues()` colle en TEXTE les "=" (préfixe apostrophe
+  `'` masqué à l'affichage/édition — celluleText + startEdit strip) ;
+  `importFile()` ouvre un sélecteur (CSV/TSV délimiteur auto, JSON →
+  loadDocument) ; Snapshot étendu (widths, filters, hiddenRows/Cols, merges,
+  rules) → undo des resize/lignes-hauteurs/masquage/merge/CF/filtres
+  (pushHistory avant purge structurelle dans les 4 ops) ; `toJSON()`/feuilles
+  incluent désormais merges + hiddenRows/hiddenCols (SheetExtras étendu)
+- **Features 2/3/4/6 (2026-09-07)** : formules += XLOOKUP (géométrie retour),
+  WEEKDAY (types 1-3), EOMONTH, DATEDIF (D/M/Y/MD/YD), TEXT (tokens YYYY MM
+  DD HH mm hh ss + 0.00/0%) — natif, PAS de Moment (pur, ISO, pas de dep). CF :
+  mode fill/bar (gradient % colNumericRange)/scale (lerp hex), kind "always";
+  validation étendue : col.validation {required, list} + prop `validators`
+  (plages {r0,c0,r1,c1,validation}) via guardValidation(row,…) — pas d'ArkType
+  (schémas optionnels en lazy plus tard si demandé). Drag & drop réordonne
+  lignes (state) & colonnes (ordre cols) via pointerdown header + drop preview
+- **ArkType validation optionnelle (2026-09-07)** : dep `arktype` ajoutée ;
+  `validation.schema` (string ArkType) sur colonne/plages — lazy dynamic
+  import (promesse cachée), v2 renvoie un TABLEAU de problèmes directement
+  (`type(s)(v) => []` si ok, message via [0]); validateAndSet est async et
+  attendu dans commitEdit/commitFx
+- **QInteract — dashboard drag & resize (2026-09-07)** : conteneur de
+  widgets ; items {id,x,y,w,h,…}, v-model:items + v-model:selected ; drag
+  (tout l'élément ou poignée si `handle`), resize poignée bas-droite, snap
+  (`snap`), clamps conteneur (padding/minW/H), bringToFront ; events
+  drag/resize start-move-end + select ; méthodes addItem/removeItem/clear/
+  getItem/toGrid(columns)/realPos ; slot #item (+#handle/#empty) ; CSS grille
+  `.q-interact--grid`. Nom : QInteract générique — QBoard envisageable comme
+  alias si usage dashboard only
+- **Sélecteur : badges colorés\*\*** — `type:"select" + chip:true` rend chaque
   valeur en badge avec sa couleur d'option (token via colorValue/foregroundFor,
   hex libre) ; le rendu est `chipFor`→style inline `backgroundColor/color`
 - \*\*Drag : col headers (lettres A..Z) cliquables = sélection colonne, numéros

@@ -10364,3 +10364,176 @@ html.dark body {
 .q-spreadsheet__sheets--bottom .q-spreadsheet__sheet-add {
   margin: 4px 2px 0;
 }
+
+/* ─── Drag & drop réordonner lignes / colonnes ─── */
+.q-spreadsheet__rownum,
+.q-spreadsheet__colhead {
+  cursor: grab;
+}
+.q-spreadsheet__rownum--drop,
+.q-spreadsheet__colhead--drop {
+  background: rgb(25 118 210 / 0.22) !important;
+}
+
+/* ===== QInteract (drag & resize de widgets) ===== */
+.q-interact {
+  --q-interact-border: rgb(0 0 0 / 0.1);
+  --q-interact-line: rgb(25 118 210 / 0.14);
+  --q-interact-accent: var(--primary, #1976d2);
+
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--q-interact-border);
+  border-radius: 10px;
+  background: rgb(0 0 0 / 0.015);
+  user-select: none;
+}
+.q-interact--grid {
+  background-image:
+    linear-gradient(var(--q-interact-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--q-interact-line) 1px, transparent 1px);
+  background-position: -1px -1px;
+}
+.q-interact--static {
+  cursor: default;
+}
+.q-interact__item {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--q-interact-border);
+  border-radius: 8px;
+  background: var(--card, #fff);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+  cursor: grab;
+  touch-action: none;
+}
+.q-interact__item--active {
+  border-color: var(--q-interact-accent);
+  box-shadow: 0 0 0 1.5px var(--q-interact-accent), 0 6px 18px rgb(0 0 0 / 0.12);
+  z-index: 10;
+}
+.q-interact__item--dragging,
+.q-interact__item--resizing {
+  z-index: 11;
+  cursor: grabbing;
+  box-shadow: 0 12px 26px rgb(0 0 0 / 0.18);
+}
+.q-interact__handle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--foreground, #1d1d1d);
+  border-bottom: 1px solid var(--q-interact-border);
+  background: rgb(0 0 0 / 0.03);
+  cursor: grab;
+}
+.q-interact--dense .q-interact__handle {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+.q-interact__grip {
+  display: inline-flex;
+  color: #8b93a1;
+}
+.q-interact__content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.q-interact__default {
+  padding: 12px;
+  font-size: 13px;
+}
+.q-interact__resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+}
+.q-interact__resize::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--q-interact-accent);
+  border-bottom: 2px solid var(--q-interact-accent);
+  opacity: 0.55;
+}
+.q-interact__item:hover .q-interact__resize::after {
+  opacity: 1;
+}
+.q-interact--dark {
+  --q-interact-border: rgb(255 255 255 / 0.12);
+  background: rgb(255 255 255 / 0.02);
+}
+.q-interact--dark .q-interact__item {
+  background: var(--card, #1d1d1d);
+  color: #ececef;
+}
+.q-interact--dark .q-interact__handle {
+  background: rgb(255 255 255 / 0.05);
+}
+
+/* ===== QBoard (dashboard type Power BI) ===== */
+.q-board {
+  --q-board-line: rgb(25 118 210 / 0.12);
+  --q-board-label: rgb(139 147 161 / 0.6);
+
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--q-interact-border, rgb(0 0 0 / 0.1));
+  border-radius: 10px;
+  background: rgb(0 0 0 / 0.02);
+  overflow: hidden;
+}
+.q-board__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--q-board-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--q-board-line) 1px, transparent 1px);
+  background-position: -1px -1px;
+  pointer-events: none;
+}
+.q-board__cell-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--q-board-label);
+  user-select: none;
+}
+.q-board__cell-label--col {
+  top: 2px;
+}
+.q-board__cell-label--row {
+  left: 3px;
+}
+.q-board__interact {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.q-board--dark {
+  --q-board-line: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.02);
+}
+.q-board--dense .q-board__cell-label {
+  font-size: 9px;
+}

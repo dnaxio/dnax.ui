@@ -65,8 +65,23 @@ export interface QSpreadsheetValidation {
   integer?: boolean
   /** Expression régulière validée contre le texte */
   pattern?: string
+  /** Champ obligatoire (vide refusé) */
+  required?: boolean
+  /** Valeurs autorisées (liste) */
+  list?: any[]
   /** Message d'erreur affiché (sinon message générique) */
   message?: string
+  /** Schéma ArkType (string) — ex. "number.integer & >= 0 & <= 100" (optionnel) */
+  schema?: string
+}
+
+/** Validation par plage de cellules (rows/cols 0-based) */
+export interface QSpreadsheetRangeValidator {
+  r0: number
+  c0: number
+  r1: number
+  c1: number
+  validation: QSpreadsheetValidation
 }
 
 export interface QSpreadsheetSelection {
@@ -154,6 +169,8 @@ interface Props {
   sheetsPosition?: "top" | "bottom"
   /** Langue de l'interface : "en" (défaut) ou "fr" */
   lang?: "en" | "fr"
+  /** Validations par plage : [{ r0,c0,r1,c1, validation }] — s'ajoutent aux colonnes */
+  validators?: QSpreadsheetRangeValidator[]
   /** Affiche le numéro de ligne (colonne de gauche) */
   showRowNumbers?: boolean
   /** Affiche l'en-tête de colonne (lettre + label) */
@@ -190,6 +207,7 @@ const props = withDefaults(defineProps<Props>(), {
   sheets: undefined,
   sheetsPosition: "top",
   lang: "en",
+  validators: undefined,
   showRowNumbers: true,
   showColumnHeaders: true,
   selected: null,
@@ -578,6 +596,8 @@ const cellText = (row: number, column: string): string => {
   if (isError(ev)) return ev.toString()
   if (col?.type === "select") return "" // rendu via badge / label
   let out: any = ev === null || ev === undefined ? "" : ev
+  // Apostrophe littérale (paste values) : affichée sans le préfixe
+  if (typeof out === "string" && out.startsWith("'")) out = out.slice(1)
   if (col?.format && out !== "") out = col.format(out, state.value[row] ?? {})
   if (out === null || out === undefined || out === "") return ""
   return String(out)
@@ -680,7 +700,9 @@ const startEdit = (row: number, column: string, initial?: string) => {
     const opt = col.options?.find((o) => o.value === raw)
     draft.value = initial ?? opt?.label ?? ""
   } else {
-    draft.value = initial ?? String(raw ?? "")
+    let rawStr = String(raw ?? "")
+    if (rawStr.startsWith("'")) rawStr = rawStr.slice(1)
+    draft.value = initial ?? rawStr
   }
   editing.value = { row, column }
   emit("cell-edit-start", { row, column })
@@ -759,7 +781,7 @@ const coerceValue = (col: QSpreadsheetColumn | undefined, text: string, old: any
   return text
 }
 
-const commitEdit = () => {
+const commitEdit = async () => {
   if (!editing.value) return
   const { row, column } = editing.value
   const col = colOf(column)
@@ -769,7 +791,7 @@ const commitEdit = () => {
   editing.value = null
   emit("cell-edit-end", { row, column, canceled: false })
   nextTick(() => focusCell(row, column))
-  if (next !== old) validateAndSet(row, column, old, next)
+  if (next !== old) await validateAndSet(row, column, old, next)
 }
 
 const setCellValue = (row: number, column: string, old: any, next: any) => {
@@ -889,6 +911,12 @@ interface Snapshot {
   cols: QSpreadsheetColumn[]
   formats: Record<string, CellFormat>
   rowHeights: Record<number, number>
+  widths: Record<string, number | string>
+  filters: Record<string, string[] | null>
+  hiddenRows: number[]
+  hiddenCols: string[]
+  merges: MergeRange[]
+  rules: CondRule[]
 }
 const undoStack: Snapshot[] = []
 const redoStack: Snapshot[] = []
@@ -898,6 +926,12 @@ const takeSnapshot = (): Snapshot => ({
   cols: cols.value.map((c) => ({ ...c })),
   formats: { ...cellFmt.value },
   rowHeights: { ...rowHeights.value },
+  widths: { ...colWidths.value },
+  filters: JSON.parse(JSON.stringify(filters.value)),
+  hiddenRows: [...hiddenRows.value],
+  hiddenCols: [...hiddenCols.value],
+  merges: merges.value.map((m) => ({ ...m })),
+  rules: condRules.value.map((r) => ({ ...r })),
 })
 const pushHistory = () => {
   undoStack.push(takeSnapshot())
@@ -912,6 +946,12 @@ const restoreSnapshot = (s: Snapshot) => {
   state.value = s.rows.map((r) => ({ ...r }))
   cellFmt.value = { ...s.formats }
   rowHeights.value = { ...s.rowHeights }
+  colWidths.value = { ...s.widths }
+  filters.value = JSON.parse(JSON.stringify(s.filters))
+  hiddenRows.value = [...s.hiddenRows]
+  hiddenCols.value = [...s.hiddenCols]
+  merges.value = s.merges.map((m) => ({ ...m }))
+  condRules.value = s.rules.map((r) => ({ ...r }))
   emit("update:columns", cols.value)
   pushRows(state.value)
 }
@@ -949,10 +989,10 @@ const addRow = (at?: number) => {
 
 const removeSelectedRows = () => {
   if (props.readonly || props.disable) return
+  pushHistory()
   purgeMergesAndRules()
   const rect = selRect.value
   if (!rect || !state.value.length) return
-  pushHistory()
   const indexes = new Set<number>()
   for (let r = rect.r0; r <= rect.r1; r++) indexes.add(r)
   const sorted = [...indexes].sort((a, b) => b - a)
@@ -990,10 +1030,10 @@ const addColumn = (at?: number) => {
 
 const removeSelectedColumns = () => {
   if (props.readonly || props.disable) return
+  pushHistory()
   purgeMergesAndRules()
   const rect = selRect.value
   if (!rect || !cols.value.length) return
-  pushHistory()
   const indexes = new Set<number>()
   for (let c = rect.c0; c <= rect.c1; c++) indexes.add(c)
   const removed = [...indexes].sort((a, b) => b - a)
@@ -1459,7 +1499,7 @@ const fxCanEdit = computed(() => {
   return !!col && col.editable !== false && col.type !== "boolean" && col.type !== "select"
 })
 
-const commitFx = () => {
+const commitFx = async () => {
   if (!sel.value) return
   if (!fxCanEdit.value) {
     syncFx()
@@ -1469,7 +1509,7 @@ const commitFx = () => {
   const col = colOf(s.column)!
   const old = state.value[s.row]?.[s.column]
   const next = coerceValue(col, fxDraft.value, old)
-  if (next !== old) validateAndSet(s.row, s.column, old, next)
+  if (next !== old) await validateAndSet(s.row, s.column, old, next)
   nextTick(() => focusCell(s.row, s.column))
 }
 
@@ -1636,6 +1676,7 @@ const rowH = (r: number) => rowHeights.value[r] ?? props.rowHeight
 const rowResizing = ref<{ r: number; y: number; h: number } | null>(null)
 const startRowResize = (e: PointerEvent, r: number) => {
   if (props.disable) return
+  pushHistory()
   e.preventDefault()
   e.stopPropagation()
   rowResizing.value = { r, y: e.clientY, h: rowH(r) }
@@ -1873,12 +1914,15 @@ interface CondRule {
   c0: number
   r1: number
   c1: number
-  kind: "gt" | "lt" | "eq" | "gte" | "lte" | "contains" | "blank" | "notblank" | "formula"
+  kind: "gt" | "lt" | "eq" | "gte" | "lte" | "contains" | "blank" | "notblank" | "formula" | "always"
   value?: string | number
-  /** Si défini : la règle s'applique à TOUTE la colonne (r0..r1 ignorés) */
   colName?: string
-  /** Condition par formule A1 (kind: "formula") — ex. "=A1>10" */
   formula?: string
+  /** Rendu : fill (fond uni), bar (barre de données), scale (échelle de couleurs) */
+  mode?: "fill" | "bar" | "scale"
+  barColor?: string
+  scaleLow?: string
+  scaleHigh?: string
   bg?: string
   color?: string
   bold?: boolean
@@ -2048,12 +2092,15 @@ const filterValueItems = (name: string): FilterValueItem[] => {
   return items
 }
 const setFilterAll = (name: string) => {
+  pushHistory()
   filters.value = { ...filters.value, [name]: null }
 }
 const setFilterOnly = (name: string, keys: string[]) => {
+  pushHistory()
   filters.value = { ...filters.value, [name]: keys.length ? keys : null }
 }
 const toggleFilterValue = (name: string, key: string) => {
+  pushHistory()
   const cur = activeFilterOf(name)
   const arr = cur ? [...cur] : []
   const i = arr.indexOf(key)
@@ -2162,6 +2209,7 @@ const doSortBy = (desc = false) => {
 // ─── Insertion au curseur (lignes / colonnes) ───
 const insertRowAt = (pos: "above" | "below") => {
   if (!canEdit.value) return
+  pushHistory()
   purgeMergesAndRules()
   if (!state.value.length) {
     addRow()
@@ -2180,7 +2228,6 @@ const insertRowAt = (pos: "above" | "below") => {
         : anchor.row + 1
       : state.value.length
   const idx = Math.max(0, Math.min(state.value.length, at))
-  pushHistory()
   const next = [...state.value]
   next.splice(idx, 0, blankRow())
   state.value = next
@@ -2192,6 +2239,7 @@ const insertRowAt = (pos: "above" | "below") => {
 }
 const insertColumnAt = (pos: "left" | "right") => {
   if (!canEdit.value) return
+  pushHistory()
   purgeMergesAndRules()
   const rect = selRect.value
   const anchor = sel.value
@@ -2202,7 +2250,6 @@ const insertColumnAt = (pos: "left" | "right") => {
       : rect.c1 + 1
     : fromIdx + (pos === "left" ? 0 : 1)
   const idx = Math.max(0, Math.min(cols.value.length, at))
-  pushHistory()
   let n = cols.value.length + 1
   const used = new Set(cols.value.map((c) => c.name))
   let name = "column" + n
@@ -2460,6 +2507,7 @@ const maxW = (col: QSpreadsheetColumn) => (col.maxWidth ?? 600) + "px"
 const resizing = ref<{ col: QSpreadsheetColumn; x: number; w: number } | null>(null)
 const startResize = (e: PointerEvent, col: QSpreadsheetColumn) => {
   if (props.disable) return
+  pushHistory()
   e.preventDefault()
   e.stopPropagation()
   const current = colWidths.value[col.name]
@@ -2611,6 +2659,9 @@ interface SheetExtras {
   formats: Record<string, CellFormat>
   rowHeights: Record<number, number>
   rules: CondRule[]
+  merges: MergeRange[]
+  hiddenRows: number[]
+  hiddenCols: string[]
 }
 const sheetsMode = computed(() => Array.isArray(props.sheets))
 const multiMode = computed(() => sheetsMode.value && (props.sheets?.length ?? 0) > 0)
@@ -2629,6 +2680,9 @@ const makeExtras = (cols: QSpreadsheetColumn[]): SheetExtras => {
     formats: {},
     rowHeights: {},
     rules: [],
+    merges: [],
+    hiddenRows: [],
+    hiddenCols: [],
   }
 }
 const persistCurrent = () => {
@@ -2644,6 +2698,9 @@ const persistCurrent = () => {
   ext.formats = { ...cellFmt.value }
   ext.rowHeights = { ...rowHeights.value }
   ext.rules = condRules.value.map((r) => ({ ...r }))
+  ext.merges = merges.value.map((m) => ({ ...m }))
+  ext.hiddenRows = [...hiddenRows.value]
+  ext.hiddenCols = [...hiddenCols.value]
   sheetMeta.value = { ...sheetMeta.value, [key]: ext }
 }
 const loadSheetIntoEngine = (idx: number) => {
@@ -2668,6 +2725,9 @@ const loadSheetIntoEngine = (idx: number) => {
   rowHeights.value = { ...ext.rowHeights }
   filters.value = JSON.parse(JSON.stringify(ext.filters))
   condRules.value = (ext.rules ?? []).map((r) => ({ ...r }))
+  merges.value = (ext.merges ?? []).map((m) => ({ ...m }))
+  hiddenRows.value = [...(ext.hiddenRows ?? [])]
+  hiddenCols.value = [...(ext.hiddenCols ?? [])]
   colWidths.value = { ...ext.widths }
   setSel(null)
   editing.value = null
@@ -2799,6 +2859,9 @@ const buildDocument = (): QSpreadsheetDocument => {
     ext.formats = { ...cellFmt.value }
     ext.rowHeights = { ...rowHeights.value }
     ext.rules = condRules.value.map((r) => ({ ...r }))
+    ext.merges = merges.value.map((m) => ({ ...m }))
+    ext.hiddenRows = [...hiddenRows.value]
+    ext.hiddenCols = [...hiddenCols.value]
     sheetMeta.value = { ...sheetMeta.value, "sheet-1": ext }
   }
   const all =
@@ -2824,6 +2887,9 @@ const buildDocument = (): QSpreadsheetDocument => {
       rowHeights: { ...ext.rowHeights },
       filters: JSON.parse(JSON.stringify(ext.filters)),
       rules: ext.rules.map((r) => ({ ...r })),
+      merges: ext.merges.map((m) => ({ ...m })),
+      hiddenRows: [...ext.hiddenRows],
+      hiddenCols: [...ext.hiddenCols],
     }
   })
   return { version: 1, active: currentKeyOf(), sheets }
@@ -2856,6 +2922,9 @@ const loadDocument = (doc: QSpreadsheetDocument | string) => {
       formats: s.formats ?? {},
       rowHeights: s.rowHeights ?? {},
       rules: ((s as any).rules ?? []).map((r: CondRule) => ({ ...r })),
+      merges: ((s as any).merges ?? []).map((m: MergeRange) => ({ ...m })),
+      hiddenRows: [...(((s as any).hiddenRows as number[]) ?? [])],
+      hiddenCols: [...(((s as any).hiddenCols as string[]) ?? [])],
     }
   }
   localSheets.value = local
@@ -3092,6 +3161,75 @@ const copyFormulas = async () => {
     /* presse-papiers indisponible */
   }
 }
+// Paste values only : un texte qui commence par "=" est collé en TEXTE
+// littéral (préfixe apostrophe, masqué à l'affichage), pas en formule.
+const coerceLiteral = (col: QSpreadsheetColumn | undefined, text: string, old: any) => {
+  const t = text.trim()
+  if (t === "") return null
+  if (t.startsWith("=")) return "'" + text
+  return coerceValue(col, text, old)
+}
+const pasteValues = async () => {
+  if (props.readonly || props.disable) return
+  let lines = internalClip.value
+  if (!lines.length) {
+    try {
+      const text = await navigator.clipboard.readText()
+      lines = text.split(/\r?\n/).map((l) => l.split("\t"))
+    } catch {
+      return
+    }
+  }
+  const s = sel.value
+  if (!lines.length || !s) return
+  pushHistory()
+  const r0 = s.row
+  const c0 = Math.max(0, colIndex(s.column))
+  for (let i = 0; i < lines.length; i++) {
+    for (let j = 0; j < (lines[i]?.length ?? 0); j++) {
+      const r = r0 + i
+      const c = c0 + j
+      if (r >= state.value.length || c >= cols.value.length) continue
+      const col = cols.value[c]!
+      if (col.editable === false) continue
+      const old = state.value[r]?.[col.name]
+      const next = coerceLiteral(col, lines[i]![j] ?? "", old)
+      if (next !== old) setCellValue(r, col.name, old, next)
+    }
+  }
+  internalClip.value = lines
+}
+/** Ouvre un sélecteur de fichier : CSV/TSV → importCsv, JSON → loadDocument */
+const importFile = () => {
+  const input = document.createElement("input")
+  input.type = "file"
+  input.accept = ".csv,.tsv,.json,text/csv,application/json"
+  input.onchange = () => {
+    const file = input.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const text = String(reader.result ?? "")
+      if (!text) return
+      if (/\.json$/i.test(file.name)) {
+        try {
+          loadDocument(text)
+        } catch {
+          /* JSON invalide : ignoré */
+        }
+        return
+      }
+      const first = text.split(/\r?\n/).find((l) => l.trim() !== "") ?? ""
+      const cnt = (ch: string) => (first.match(new RegExp(ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) ?? []).length
+      let delim = ","
+      if (first.includes("\t")) delim = "\t"
+      else if (cnt(";") > cnt(",")) delim = ";"
+      importCsv(text, { delimiter: delim, headers: true })
+    }
+    reader.readAsText(file)
+  }
+  input.click()
+}
 const pasteTransposed = async () => {
   if (props.readonly || props.disable) return
   let lines = internalClip.value
@@ -3152,27 +3290,33 @@ const cellTextWrapClass = (r: number, name: string) =>
 const hideSelectedRows = () => {
   const rect = selRect.value
   if (!rect) return
+  pushHistory()
   const set = new Set(hiddenRows.value)
   for (let r = rect.r0; r <= rect.r1; r++) set.add(r)
   hiddenRows.value = [...set]
   setSel(null)
 }
 const hideRowAt = (r: number) => {
+  pushHistory()
   if (!hiddenRowSet.value.has(r)) hiddenRows.value = [...hiddenRows.value, r]
   setSel(null)
 }
 const showAllRows = () => {
+  pushHistory()
   hiddenRows.value = []
 }
 const hideColumnName = (name: string) => {
+  pushHistory()
   if (!isColHiddenName(name)) hiddenCols.value = [...hiddenCols.value, name]
   setSel(null)
 }
 const hideColumnAt = (ci: number) => hideColumnName(colNameAt(ci))
 const showColumnName = (name: string) => {
+  pushHistory()
   hiddenCols.value = hiddenCols.value.filter((n) => n !== name)
 }
 const showAllHidden = () => {
+  pushHistory()
   hiddenRows.value = []
   hiddenCols.value = []
 }
@@ -3199,6 +3343,7 @@ const mergeInfoOf = (r: number, c: number) => {
 const mergeCells = () => {
   const rect = selRect.value
   if (!rect || (rect.r0 === rect.r1 && rect.c0 === rect.c1)) return
+  pushHistory()
   merges.value = [...merges.value, { r0: rect.r0, c0: rect.c0, r1: rect.r1, c1: rect.c1 }]
   const owner = colNameAt(rect.c0)
   select(rect.r0, owner)
@@ -3210,6 +3355,7 @@ const canMergeSel = computed(() => {
 const unmergeCells = () => {
   const rect = selRect.value
   if (!rect) return
+  pushHistory()
   merges.value = merges.value.filter(
     (m) => !(m.r0 >= rect.r0 && m.r1 <= rect.r1 && m.c0 >= rect.c0 && m.c1 <= rect.c1),
   )
@@ -3263,17 +3409,42 @@ const editCondRule = (rule: CondRule) => {
   cfDraft.value = { ...rule }
 }
 const addCondRule = () => {
+  pushHistory()
   const d = cfDraft.value
-  condRules.value = [
-    ...condRules.value.filter((r) => r.id !== d.id),
-    { ...d },
-  ]
+  const norm: CondRule = {
+    ...d,
+    mode: d.mode ?? "fill",
+    barColor: d.barColor ?? d.bg ?? "#93c5fd",
+    scaleLow: d.scaleLow ?? "#fca5a5",
+    scaleHigh: d.scaleHigh ?? "#86efac",
+  }
+  condRules.value = [...condRules.value.filter((r) => r.id !== norm.id), norm]
 }
 const removeCondRule = (id: string) => {
+  pushHistory()
   condRules.value = condRules.value.filter((r) => r.id !== id)
 }
 const clearCondRules = () => {
+  pushHistory()
   condRules.value = []
+}
+const hexToRgb = (h: string) => {
+  let s = h.replace("#", "")
+  if (s.length === 3) s = s.split("").map((c) => c + c).join("")
+  if (!/^[0-9a-f]{6}$/i.test(s)) return null
+  return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)]
+}
+const colNumericRange = (name: string): [number, number] | null => {
+  let min = Infinity
+  let max = -Infinity
+  for (const row of state.value) {
+    const v = row?.[name]
+    if (typeof v === "number" && !Number.isNaN(v)) {
+      if (v < min) min = v
+      if (v > max) max = v
+    }
+  }
+  return Number.isFinite(min) ? [min, max] : null
 }
 const condStyleOf = (r: number, c: number, name: string) => {
   if (cellFmtOf(r, name)?.bg) return undefined // formatage manuel prioritaire
@@ -3285,27 +3456,59 @@ const condStyleOf = (r: number, c: number, name: string) => {
   const n = num ? Number(val) : NaN
   const s = val === null || val === undefined ? "" : String(val)
   const hit =
-    rule.kind === "formula"
-      ? evalRuleFormula(rule.formula ?? "FALSE", r)
-      : rule.kind === "blank"
-        ? val === null || val === undefined || s === ""
-        : rule.kind === "notblank"
-          ? !(val === null || val === undefined || s === "")
-          : rule.kind === "contains"
-            ? s.toLowerCase().includes(String(rule.value ?? "").toLowerCase())
-            : num && !Number.isNaN(n)
-              ? rule.kind === "gt"
-                ? n > Number(rule.value)
-                : rule.kind === "gte"
-                  ? n >= Number(rule.value)
-                  : rule.kind === "lt"
-                    ? n < Number(rule.value)
-                    : rule.kind === "lte"
-                      ? n <= Number(rule.value)
-                      : rule.kind === "eq" && n === Number(rule.value)
-              : false
+    rule.kind === "always"
+      ? true
+      : rule.kind === "formula"
+        ? evalRuleFormula(rule.formula ?? "FALSE", r)
+        : rule.kind === "blank"
+          ? val === null || val === undefined || s === ""
+          : rule.kind === "notblank"
+            ? !(val === null || val === undefined || s === "")
+            : rule.kind === "contains"
+              ? s.toLowerCase().includes(String(rule.value ?? "").toLowerCase())
+              : num && !Number.isNaN(n)
+                ? rule.kind === "gt"
+                  ? n > Number(rule.value)
+                  : rule.kind === "gte"
+                    ? n >= Number(rule.value)
+                    : rule.kind === "lt"
+                      ? n < Number(rule.value)
+                      : rule.kind === "lte"
+                        ? n <= Number(rule.value)
+                        : rule.kind === "eq" && n === Number(rule.value)
+                : false
   if (!hit) return undefined
   const st: Record<string, string> = {}
+  if (rule.mode === "bar" && num && !Number.isNaN(n)) {
+    const range = colNumericRange(name)
+    const pct = range
+      ? Math.max(0, Math.min(100, ((n - range[0]) / (range[1] - range[0] || 1)) * 100))
+      : 0
+    const bar = rule.barColor ?? rule.bg ?? "#93c5fd"
+    st.backgroundImage = `linear-gradient(90deg, ${bar} ${pct}%, transparent ${pct}%)`
+    st.backgroundColor = "transparent"
+    return st
+  }
+  if (rule.mode === "scale" && num && !Number.isNaN(n)) {
+    const range = colNumericRange(name)
+    if (range) {
+      const t = Math.max(0, Math.min(1, (n - range[0]) / (range[1] - range[0] || 1)))
+      const low = hexToRgb(rule.scaleLow ?? "#fca5a5")
+      const high = hexToRgb(rule.scaleHigh ?? "#86efac")
+      if (low && high) {
+        const lr = low[0] ?? 0
+        const lg = low[1] ?? 0
+        const lb = low[2] ?? 0
+        const hr = high[0] ?? 255
+        const hg = high[1] ?? 255
+        const hb = high[2] ?? 255
+        st.backgroundColor = `rgb(${Math.round(lr + (hr - lr) * t)}, ${Math.round(
+          lg + (hg - lg) * t,
+        )}, ${Math.round(lb + (hb - lb) * t)})`
+        return st
+      }
+    }
+  }
   if (rule.bg) st.backgroundColor = rule.bg
   if (rule.color) st.color = rule.color
   if (rule.bold) st.fontWeight = "700"
@@ -3315,18 +3518,54 @@ const condStyleOf = (r: number, c: number, name: string) => {
 // ════════ Validation de colonne (min / max / entier / pattern) ════════
 const valErrors = ref<Record<string, string>>({})
 const valKey = (r: number, name: string) => r + ":" + name
-const guardValidation = (col: QSpreadsheetColumn | undefined, value: any): string | null => {
-  if (!col?.validation) return null
-  const v = col.validation
-  if (value === null || value === undefined || value === "") return null // vide autorisé
-  if (v.integer && typeof value === "number" && !Number.isInteger(value))
-    return v.message ?? "Integer required"
-  if (typeof value === "number") {
-    if (v.min !== undefined && value < v.min) return v.message ?? "Value below minimum (" + v.min + ")"
-    if (v.max !== undefined && value > v.max) return v.message ?? "Value above maximum (" + v.max + ")"
+const guardValidation = async (
+  row: number,
+  col: QSpreadsheetColumn | undefined,
+  value: any,
+): Promise<string | null> => {
+  let ark: Promise<{ type: (s: string) => (v: unknown) => { message?: string }[] } | null> | null = null
+  const arkCheck = async (schema: string): Promise<string | null> => {
+    if (!ark)
+      ark = import("arktype")
+        .then((m) => m as any)
+        .catch(() => null)
+    const m = await ark
+    if (!m) return "ArkType unavailable"
+    const problems = m.type(schema)(value)
+    const p = Array.isArray(problems) ? problems[0] : undefined
+    return p?.message ?? null
   }
-  if (v.pattern && typeof value === "string" && !new RegExp(v.pattern).test(value))
-    return v.message ?? "Value does not match the required format"
+  const check = async (v: QSpreadsheetValidation | undefined): Promise<string | null> => {
+    if (!v) return null
+    const blank = value === null || value === undefined || value === ""
+    if (v.required && blank) return v.message ?? "Required"
+    if (blank) return null // champ vide autorisé (sauf required)
+    if (v.list && !v.list.some((x) => String(x) === String(value))) return v.message ?? "Not in the allowed list"
+    if (v.integer && typeof value === "number" && !Number.isInteger(value))
+      return v.message ?? "Integer required"
+    if (typeof value === "number") {
+      if (v.min !== undefined && value < v.min) return v.message ?? "Value below minimum (" + v.min + ")"
+      if (v.max !== undefined && value > v.max) return v.message ?? "Value above maximum (" + v.max + ")"
+    }
+    if (v.pattern && typeof value === "string" && !new RegExp(v.pattern).test(value))
+      return v.message ?? "Value does not match the required format"
+    if (v.schema) {
+      const e = await arkCheck(v.schema)
+      if (e) return v.message ?? e
+    }
+    return null
+  }
+  const colErr = await check(col?.validation)
+  if (colErr) return colErr
+  if (props.validators?.length && col) {
+    const ci = colIndex(col.name)
+    for (const rv of props.validators) {
+      if (row >= rv.r0 && row <= rv.r1 && ci >= rv.c0 && ci <= rv.c1) {
+        const e = await check(rv.validation)
+        if (e) return e
+      }
+    }
+  }
   return null
 }
 const clearValError = (r: number, name: string) => {
@@ -3338,8 +3577,8 @@ const clearValError = (r: number, name: string) => {
   }
 }
 const valErrorOf = (r: number, name: string) => valErrors.value[valKey(r, name)]
-const validateAndSet = (r: number, name: string, old: any, next: any): boolean => {
-  const err = guardValidation(colOf(name), next)
+const validateAndSet = async (r: number, name: string, old: any, next: any): Promise<boolean> => {
+  const err = await guardValidation(r, colOf(name), next)
   if (err) {
     valErrors.value = { ...valErrors.value, [valKey(r, name)]: err }
     return false
@@ -3449,6 +3688,74 @@ const fillFormatsDown = () => {
   cellFmt.value = nf
 }
 
+// ════════ Drag & drop : réordonner lignes / colonnes ════════
+const dragRow = ref<number | null>(null)
+const dragRowTarget = ref<number | null>(null)
+const dragCol = ref<number | null>(null)
+const dragColTarget = ref<number | null>(null)
+
+const reorderRowsBy = (from: number, to: number) => {
+  if (from === to || props.readonly || props.disable) return
+  pushHistory()
+  const next = [...state.value]
+  const item = next.splice(from, 1)[0] as Record<string, any>
+  next.splice(to, 0, item)
+  state.value = next
+  emit("update:rows", next)
+}
+const reorderColsBy = (from: number, to: number) => {
+  if (from === to || props.readonly || props.disable) return
+  const next = [...cols.value]
+  const item = next.splice(from, 1)[0] as QSpreadsheetColumn
+  next.splice(to, 0, item)
+  cols.value = next
+  emit("update:columns", next)
+}
+const rowDragStart = (ri: number, e: PointerEvent) => {
+  if (props.disable || props.readonly) return
+  e.preventDefault()
+  dragRow.value = ri
+  dragRowTarget.value = ri
+  window.addEventListener("pointermove", onRowDragMove)
+  window.addEventListener("pointerup", onRowDragEnd)
+}
+const onRowDragMove = (e: PointerEvent) => {
+  const el = document.elementFromPoint(e.clientX, e.clientY)
+  const th = el && el.closest ? (el.closest(".q-spreadsheet__rownum") as HTMLElement | null) : null
+  const idx = th ? Number(th.dataset.row) : NaN
+  if (!Number.isNaN(idx)) dragRowTarget.value = idx
+}
+const onRowDragEnd = () => {
+  window.removeEventListener("pointermove", onRowDragMove)
+  window.removeEventListener("pointerup", onRowDragEnd)
+  if (dragRow.value !== null && dragRowTarget.value !== null)
+    reorderRowsBy(dragRow.value, dragRowTarget.value)
+  dragRow.value = null
+  dragRowTarget.value = null
+}
+const colDragStart = (ci: number, e: PointerEvent) => {
+  if (props.disable || props.readonly) return
+  e.preventDefault()
+  dragCol.value = ci
+  dragColTarget.value = ci
+  window.addEventListener("pointermove", onColDragMove)
+  window.addEventListener("pointerup", onColDragEnd)
+}
+const onColDragMove = (e: PointerEvent) => {
+  const el = document.elementFromPoint(e.clientX, e.clientY)
+  const th = el && el.closest ? (el.closest(".q-spreadsheet__colhead") as HTMLElement | null) : null
+  const idx = th ? Number(th.dataset.colIndex) : NaN
+  if (!Number.isNaN(idx)) dragColTarget.value = idx
+}
+const onColDragEnd = () => {
+  window.removeEventListener("pointermove", onColDragMove)
+  window.removeEventListener("pointerup", onColDragEnd)
+  if (dragCol.value !== null && dragColTarget.value !== null)
+    reorderColsBy(dragCol.value, dragColTarget.value)
+  dragCol.value = null
+  dragColTarget.value = null
+}
+
 defineExpose({
   select,
   selectRow,
@@ -3491,7 +3798,9 @@ defineExpose({
   openFind,
   closeFind,
   importCsv,
+  importFile,
   copyFormulas,
+  pasteValues,
   pasteTransposed,
   toggleWrapSelection,
   mergeCells,
@@ -3711,7 +4020,25 @@ defineExpose({
         <option value="blank">{{ t('condBlank') }}</option>
         <option value="notblank">{{ t('condNotBlank') }}</option>
         <option value="formula">{{ t('condFormula') }}</option>
+        <option value="always">always</option>
       </select>
+      <select v-model="cfDraft.mode" class="q-spreadsheet__cf-kind" title="Style">
+        <option value="fill">fill</option>
+        <option value="bar">data bar</option>
+        <option value="scale">color scale</option>
+      </select>
+      <input
+        v-if="cfDraft.mode === 'bar'"
+        v-model="cfDraft.barColor"
+        type="color"
+        class="q-spreadsheet__cf-kind"
+        title="Bar color"
+        style="width: 34px; padding: 1px"
+      />
+      <template v-if="cfDraft.mode === 'scale'">
+        <input v-model="cfDraft.scaleLow" type="color" class="q-spreadsheet__cf-kind" title="Low color" style="width: 34px; padding: 1px" />
+        <input v-model="cfDraft.scaleHigh" type="color" class="q-spreadsheet__cf-kind" title="High color" style="width: 34px; padding: 1px" />
+      </template>
       <input
         v-model="cfDraft.value"
         class="q-spreadsheet__find-input"
@@ -3805,13 +4132,16 @@ defineExpose({
             <th
               v-for="(col, ci) in cols"
               :key="col.name"
+              :data-col-index="ci"
               class="q-spreadsheet__colhead"
               :class="[
                 col.headerClass,
                 { 'q-spreadsheet__colhead--sel': isActiveCol(ci) },
                 isFrozenCol(ci) && 'q-spreadsheet__colhead--frozen',
                 isColHiddenName(col.name) && 'q-spreadsheet__colhead--hide',
+                dragCol !== null && dragColTarget === ci && 'q-spreadsheet__colhead--drop',
               ]"
+              @pointerdown="colDragStart(ci, $event)"
               :style="[
                 { width: widthStyle(col), minWidth: minW(col), maxWidth: maxW(col) },
                 col.headerStyle,
@@ -3865,12 +4195,15 @@ defineExpose({
           >
             <th
               v-if="showRowNumbers"
+              :data-row="ri"
               class="q-spreadsheet__rownum"
               :class="[
                 { 'q-spreadsheet__rownum--sel': isActiveRow(ri) },
                 isFrozenRow(ri) && 'q-spreadsheet__rownum--frozen',
+                dragRow !== null && dragRowTarget === ri && 'q-spreadsheet__rownum--drop',
               ]"
               :style="rownumInline(ri)"
+              @pointerdown="rowDragStart(ri, $event)"
               @click="selectRow(ri, $event.shiftKey)"
               @contextmenu="onRowContext(ri, $event)"
             >
