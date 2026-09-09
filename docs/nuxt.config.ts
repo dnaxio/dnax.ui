@@ -6,5 +6,11 @@ export default defineNuxtConfig({
   ssr: true,
   css: ['@/assets/css/main.css'],
   devtools: { enabled: true },
-  modules: ['@nuxt/fonts', "@dnax/ui", "@nuxtjs/tailwindcss"]
+  modules: ['@nuxt/fonts', "@dnax/ui", "@nuxtjs/tailwindcss"],
+
+  vite: {
+    server: {
+      allowedHosts:['ui.dnax.io']
+    }
+  }
 })
