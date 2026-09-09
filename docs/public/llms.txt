@@ -1,6 +1,6 @@
 # dnax.ui
 
-> dnax.ui is a Vue 3 design system with a Quasar-style public API — `<q-btn flat dense no-caps>`, boolean modifier props, `v-model` conventions, kebab-case tags — built on shadcn-vue techniques (cva, `cn()`, tailwind-merge, CSS token theming, Iconify icons). This file indexes the documentation site so an LLM can navigate every component, plugin and guide. All pages are written in English.
+> dnax.ui is a Vue 3 design system with a Quasar-style public API — `<q-btn flat dense no-caps>`, boolean modifier props, `v-model` conventions, kebab-case tags — built on shadcn-vue techniques (cva, `cn()`, tailwind-merge, CSS token theming, Iconify icons). This file indexes the documentation site so an LLM can navigate every component, plugin, directive and guide. All pages are written in English.
 
 ## About the docs
 
@@ -15,140 +15,121 @@ The design system lives in `@dnax/ui` (npm package `@dnax/ui`, source in `packag
 
 ## Showcase
 
-- [Mobile Mockup](/mockup) — every component rendered inside an iOS phone frame (status bar, Dynamic Island, home indicator) for a real on-device feel, ready for Capacitor apps.
+- [Mobile Mockup](/mockup)
 
 ## Layouts
 
-- [Config Provider](/docs/components/config-provider) — the app root: theme (mode, colors, default component props) + programmatic providers ($q.dialog, $q.bottomSheet, $q.notify…) ; documents the canonical app shell (`<q-config-provider><q-app><q-header/><q-page><q-container/></q-page><q-footer/></q-app></q-config-provider>`) and the structure patterns of each family (dialog, bottom sheet, action sheet, sidebar, field pickers).
-- [Page Layout](/docs/components/page)
+- [Config Provider](/docs/components/config-provider) — the app root: theme (colors, mode, default component props, lang) + $q providers (dialog, notify, loading, bottom sheet, image preview).
+- [Page Layout](/docs/components/page) — QPage — the content area, with optional virtual scroll and automatic padding under fixed bars (q-header / q-footer).
 - [Header Layout](/docs/components/header)
 - [Footer Layout](/docs/components/footer)
-- [Sidebar Layout](/docs/components/sidebar)
+- [Sidebar Layout](/docs/components/sidebar) — QSidebar — a collapsible side navigation panel (shadcn Sidebar + QDrawer API).
 
 ## Styles
 
-- [Grid](/docs/components/grid) — responsive CSS grid container (QCol cells) + Vant-style cell mode (`:column-num` with QGridItem: icon + text, badge, dot, href, slots), both APIs documented on the same page
+- [Grid](/docs/components/grid)
 - [Col](/docs/components/col)
 - [Row](/docs/components/row)
 
 ## Components
 
-- [Accordion](/docs/components/accordion)
+- [Accordion](/docs/components/accordion) — QAccordion — collapsible sections (single or multiple open).
 - [Action Sheet](/docs/components/action-sheet)
-- [App](/docs/components/app)
+- [App](/docs/components/app) — QApp — the root app container: exposes <slot /> for the whole page shell.
 - [Autocomplete](/docs/components/autocomplete)
 - [Avatar](/docs/components/avatar)
 - [Back Header](/docs/components/back-header)
 - [Back Top](/docs/components/back-top)
 - [Badge](/docs/components/badge)
-- [Bar](/docs/components/bar)
-- [Board](/docs/components/board)
-- [Bottom Sheet](/docs/components/bottom-sheet)
-- [Bubble](/docs/components/bubble)
-- [Button](/docs/components/btn)
-- [Button Group](/docs/components/btn-group)
-- [Card](/docs/components/card)
-- [Carousel](/docs/components/carousel)
-- [Checkbox](/docs/components/checkbox)
-- [Chip](/docs/components/chip)
-- [Circular Progress](/docs/components/circular-progress)
+- [Bar](/docs/components/bar) — QBar — a thin window/app bar (toolbar role): window buttons, menus, status; dense & dark variants.
+- [Board](/docs/components/board) — QBoard — a Power BI-like dashboard: a background tile grid (columns × rows, optional labels) with QInteract inside for drag & resize of grid-unit tiles.
+- [Bottom Sheet](/docs/components/bottom-sheet) — QBottomSheet — a sheet sliding from the bottom for contextual actions.
+- [Bubble](/docs/components/bubble) — QBubble — chat message bubbles aligned to start/end.
+- [Button](/docs/components/btn) — QBtn — a button (native <button>/<a>) with Quasar API.
+- [Button Group](/docs/components/btn-group) — QBtnGroup — groups buttons into a single visual unit.
+- [Card](/docs/components/card) — QCard — a flexible content container.
+- [Carousel](/docs/components/carousel) — QCarousel — a responsive item carousel with scroll-snap (Embla).
+- [Checkbox](/docs/components/checkbox) — QCheckbox — a toggle with boolean / indeterminate / array model.
+- [Chip](/docs/components/chip) — QChip — compact tag/filter/selection element.
+- [Circular Progress](/docs/components/circular-progress) — QCircularProgress — an SVG ring progress with an optional centered value (size, color, toggleable).
 - [Collapse](/docs/components/collapse)
 - [Container](/docs/components/container)
 - [Count Down](/docs/components/count-down)
 - [Country Picker](/docs/components/country-picker)
-- [Data Grid](/docs/components/data-grid)
+- [Data Grid](/docs/components/data-grid) — QDataGrid — a spreadsheet-like data grid (MUI X style): keyboard selection, in-place editing and =formulas with A1 / range references.
 - [Date Picker](/docs/components/date-picker)
-- [Dialog](/docs/components/dialog)
-- [Editor.js](/docs/components/editor-js)
+- [Dialog](/docs/components/dialog) — QDialog — a modal overlay family (dialog, header, content, footer, trigger, provider).
+- [Editor.js](/docs/components/editor-js) — QEditorJs — a block editor (Editor.js): JSON v-model, paragraph/header/list/checklist/quote/code/delimiter tools, SSR-safe.
 - [Fab](/docs/components/fab)
-- [File Picker](/docs/components/file-picker)
+- [File Picker](/docs/components/file-picker) — QFilePicker — file selection (hidden input) with typed icon, image thumbnail, name + size and validation.
 - [Gallery](/docs/components/gallery)
 - [Icon](/docs/components/icon)
 - [Image](/docs/components/img)
-- [Image Picker](/docs/components/image-picker)
+- [Image Picker](/docs/components/image-picker) — QImagePicker — image selection via hidden file input with a grid preview (object URLs), tile removal and validation.
 - [Image Preview](/docs/components/image-preview)
-- [Image Preview Provider](/docs/components/image-preview-provider)
+- [Image Preview Provider](/docs/components/image-preview-provider) — QImagePreviewProvider — renders the programmatic $q.imagePreview stack (auto-mounted by QConfigProvider).
 - [Infinite Scroll](/docs/components/infinite-scroll)
 - [Inner Loading](/docs/components/inner-loading)
-- [Intersection](/docs/components/intersection)
-- [Input](/docs/components/input)
+- [Input](/docs/components/input) — QInput — a single-line text field (label, validation, icons, affixes).
 - [Input OTP](/docs/components/input-otp)
-- [Interact](/docs/components/interact)
 - [Input Password](/docs/components/input-password)
 - [Input Tag](/docs/components/input-tag)
+- [Interact](/docs/components/interact) — QInteract — a container of draggable & resizable widgets (x/y/w/h) for building dashboards; optional collision, gap, grid, selection.
+- [Intersection](/docs/components/intersection)
 - [Linear Progress](/docs/components/linear-progress)
-- [List](/docs/components/list)
+- [List](/docs/components/list) — QList / QItem / QItemSection — the list family (container, rows, sections).
 - [Loading](/docs/components/loading)
 - [Marquee](/docs/components/marquee)
-- [Message Scroller](/docs/components/message-scroller)
-- [Nav Menu](/docs/components/nav-menu)
+- [Message Scroller](/docs/components/message-scroller) — QMessageScroller — keeps a chat transcript pinned to the live edge.
+- [Nav Menu](/docs/components/nav-menu) — QNavMenu — a top navigation bar with dropdown menus (shadcn NavigationMenu).
 - [Pagination](/docs/components/pagination)
 - [Parallax](/docs/components/parallax)
 - [Pull To Refresh](/docs/components/pull-to-refresh)
-- [Radio](/docs/components/radio)
+- [Radio](/docs/components/radio) — QRadio — a radio option for single-choice groups.
 - [Rating](/docs/components/rating)
-- [Reorder](/docs/components/reorder)
+- [Reorder](/docs/components/reorder) — QReorder — a draggable list (mouse/touch/keyboard) to reorder items.
 - [Rolling Text](/docs/components/rolling-text)
 - [Safe Area](/docs/components/safe-area)
 - [Scroll Area](/docs/components/scroll-area)
-- [Select](/docs/components/select)
+- [Select](/docs/components/select) — QSelect — a dropdown for single/multiple values (inline, modal, sheet).
 - [Separator](/docs/components/separator)
 - [Skeleton](/docs/components/skeleton)
-- [Slider](/docs/components/slider)
-- [Space](/docs/components/space)
+- [Slider](/docs/components/slider) — QSlider — a draggable range input (pointer + keyboard).
+- [Space](/docs/components/space) — QSpace — fills the remaining space in a flex container (pushes elements to the sides).
 - [Spinner](/docs/components/spinner)
 - [Splitter](/docs/components/splitter)
-- [Spreadsheet](/docs/components/spreadsheet)
+- [Spreadsheet](/docs/components/spreadsheet) — QSpreadsheet — an Excel-like grid: inline editing, typed cells (string/number/integer/email/url/date/datetime/boolean/select), A1 formulas + fx bar, keyboard navigation, autofill, filters, freeze panes, merge/hide, conditional formatting, validation, drag&drop reorder, virtual scroll, multi-sheets, JSON/CSV export, i18n (en/fr).
 - [Sticky](/docs/components/sticky)
 - [Swipe Cell](/docs/components/swipe-cell)
-- [Swiper](/docs/components/swiper)
-- [Syntax](/docs/components/syntax)
+- [Swiper](/docs/components/swiper) — QSwiper — a full-featured carousel (swiper): slides-per-view, loop, navigation, autoplay, effects.
+- [Syntax](/docs/components/syntax) — QSyntax — code blocks with Shiki syntax highlighting (client-side), filename bar, copy button.
 - [Tab Panels](/docs/components/tab-panels)
-- [Table](/docs/components/table)
+- [Table](/docs/components/table) — QTable — tabular data with sorting, pagination, selection.
 - [Tabs](/docs/components/tabs)
 - [Text](/docs/components/text)
 - [Text Caption](/docs/components/text-caption)
-- [Tiptap](/docs/components/tiptap)
-- [Toolbar](/docs/components/toolbar)
+- [Tiptap](/docs/components/tiptap) — QTiptap — a rich text editor powered by Tiptap v3 (v-model HTML): full toolbar, text color, images by URL, align, font-size, task list, mentions, bubble menu, drag handle, tables, table of contents.
+- [Toolbar](/docs/components/toolbar) — QToolbar — a horizontal action bar for headers/footers.
 - [Tooltip](/docs/components/tooltip)
-- [Uploader](/docs/components/uploader)
-- [Video](/docs/components/video)
-- [Virtual Scroll](/docs/components/virtual-scroll)
+- [Uploader](/docs/components/uploader) — QUploader — a file upload zone (Vant-style): file list v-model, image thumbnails, progress and validation.
+- [Video](/docs/components/video) — QVideo — a full-featured video player (Video.js): mp4/webm/HLS/YouTube with controls and skins.
+- [Virtual Scroll](/docs/components/virtual-scroll) — QVirtualScroll — a windowed list renderer: only mounts the items near the visible area (with margins).
 
 ## Plugins API
 
-The imperative plugins are called through the `$q` object (available after installing the corresponding provider, typically mounted by `q-config-provider`). Each page documents the plugin methods, options and the declarative component equivalent when one exists.
-
-- [Dialog](/docs/plugins/dialog)
-- [Bottom Sheet](/docs/plugins/bottom-sheet)
-- [Notify](/docs/plugins/notify)
-- [Loading](/docs/plugins/loading)
-- [Image Preview](/docs/plugins/image-preview)
-- [Platform](/docs/plugins/platform)
-- [Web Storage](/docs/plugins/web-storage)
+- [Dialog](/docs/plugins/dialog) — $q.dialog: open a dialog imperatively from code (options, components, controller, useDialogPluginComponent).
+- [Bottom Sheet](/docs/plugins/bottom-sheet) — $q.bottomSheet: open a bottom sheet imperatively from code (options, controller).
+- [Notify](/docs/plugins/notify) — $q.notify: show toasts (position, type, timeout, actions).
+- [Loading](/docs/plugins/loading) — $q.loading: show/hide a fullscreen or scoped loading overlay.
+- [Image Preview](/docs/plugins/image-preview) — $q.imagePreview: open a fullscreen lightbox from code.
+- [Platform](/docs/plugins/platform) — $q.platform: detect OS/browser/device (is.desktop, is.ios, is.mobile, has.touch…).
+- [Web Storage](/docs/plugins/web-storage) — $q.localStorage / $q.sessionStorage: Quasar-compatible web storage (typed get/set, SSR-safe).
 
 ## Vue Directives
 
-- [V Close](/docs/directives/close)
-- [V Touch Pan](/docs/directives/touch-pan)
-- [V Touch Hold](/docs/directives/touch-hold)
-- [V Touch Swipe](/docs/directives/touch-swipe)
-- [V Touch Repeat](/docs/directives/touch-repeat)
-- [V Intersection](/docs/directives/intersection)
-
-## Key implementation notes for LLMs
-
-- **Dual identity**: public API is Quasar-flavored (`Q*` component names, kebab-case tags, boolean modifier props, `v-model`), implementation is shadcn-vue-style (cva variants, `cn()` from `lib/utils.ts`, CSS token variables, Iconify icons from `lib/icons.ts`).
-- **Form components** use `:model-value` + `@update:model-value`; visibility components (dialog, menu, sidebar, bottom-sheet) use a boolean `v-model` plus `@show`/`@hide` where relevant.
-- **Colors**: most components accept `color` / `text-color` with either design tokens (`primary`, `secondary`, `positive`, `negative`, `warning`, `info`) or any CSS color.
-- **Safe-area**: fullscreen components (headers, footers, bottom sheets, dialogs, FABs, sheets) apply iOS safe-area insets via `env(safe-area-inset-*)` — requires `viewport-fit=cover`.
-- **Dark mode**: driven by a `.dark` class on a parent (tokens in `styles/main.css`); components inherit `--foreground`, `--card`, `--muted`, `--border` etc.
-- **Icons**: Iconify names like `lucide:menu`; some components accept an `icon` prop.
-- **Back closes overlays**: the Nuxt module auto-installs an `overlayBack` plugin (`installOverlayBackHandler`) — on browser/Capacitor back navigation, the topmost open overlay (dialog, bottom sheet, action sheet, image preview, sidebar, select/date-picker/country-picker in sheet/modal/dialog mode) closes instead of navigating. Components register themselves via `useOverlayBack(open, close, label)` (`lib/overlayBack.ts`); disable with `dnaxUi: { overlayBack: false }`.
-- **Web storage** (`lib/storage.ts`): `$q.localStorage` / `$q.sessionStorage` keep the original value type (Date, RegExp, number, boolean, string, plain objects) via a prefixed encoding (`__q_*`) that is byte-compatible with Quasar's Web Storage plugin; SSR/blocked storage yields a no-op store. Direct imports `localStorage` / `sessionStorage` from `@dnax/ui`.
-- **v-close directive** (`lib/closeOverlay.ts`): registered globally by the Nuxt module (client mode) as `v-close` — on click closes the closest overlay that marked itself via `markOverlayClose` (`q-dialog`, `q-bottom-sheet` and their `$q` hosts); `v-close="false"` disables it. Equals Quasar `v-close-popup`.
-- **v-touch-pan directive** (`lib/touchPan.ts`): registered by the Nuxt module as `v-touch-pan` — Pointer Events based pan detection (touch by default, add `.mouse` for pointer), direction filters `.horizontal`/`.vertical`/`.up`/`.down`/`.left`/`.right`, `.prevent` blocks native scroll, `.stop`/`.capture`/`.passive`; handler receives Quasar-style `PanDetails` (evt, position, direction, delta, distance, duration, speed, isFirst/isFinal, isVertical/isHorizontal). Page `/docs/directives/touch-pan`.
-- **v-touch-hold directive** (`lib/touchHold.ts`): registered as `v-touch-hold` — long-press detection (600ms default, configurable via value: number | `'time:sensT:sensM'` | `{ time, sensitivity, mouseSensitivity }`), touch 5px / mouse 7px default sensitivity; `.mouse` includes pointer; the gesture is consumed on trigger (no click afterwards). Page `/docs/directives/touch-hold`.
-- **v-touch-swipe / v-touch-repeat** (`lib/touchSwipe.ts`, `lib/touchRepeat.ts`): registered as `touch-swipe` / `touch-repeat`. Swipe: fast flick released (≥ 50px within ≤ 300ms), axis filters `.horizontal/.vertical/.up/.down/.left/.right`, `.mouse`, thresholds `{ distance, duration }`, details (evt, direction, distance, duration, speed). Repeat: repeats the handler while pressed — first call after `delay` (600ms), then every `interval` (150ms); value number | `'delay:interval'` | `{ delay, interval }`, `.mouse`. Pages `/docs/directives/touch-swipe` & `/docs/directives/touch-repeat`.
-- **v-intersection directive** (`lib/intersection.ts`): registered as `v-intersection` — IntersectionObserver wrapper; value = handler | `{ handler, cfg }` (observer options) | `false` (off); `.once` stops observing after first entry; observers are pooled per identical cfg (cheap long lists). Page `/docs/directives/intersection`.
-- **Rich text editor** (`QTiptap`, page `/docs/components/tiptap`): wraps Tiptap v3 (`@tiptap/vue-3` + `@tiptap/starter-kit`, dependencies of `@dnax/ui`); `v-model` reads/writes HTML; the ProseMirror editor is created client-side in `onMounted` (SSR-safe) and destroyed on unmount. Built-in **toolbar** (`toolbar` prop) — undo/redo, headings, alignment, marks, text color (palette popover with “No color”), links & images (URL via `q-dialog`), bullet/ordered/**task lists** (`q-checkbox` NodeView), blockquote, code block — plus a **bubble menu** (`@tiptap/vue-3/menus`) on text selection and a **drag handle** (`@tiptap/extension-drag-handle-vue-3`, nested enabled) on block hover; `@mentions` via the `mentions` prop (`{ label, value }[]`, `@tiptap/extension-mention`), and a **table of contents** (`@tiptap/extension-table-of-contents`) re-emitted on every change through the `@update:toc` event (anchors: id, textContent, level, originalLevel, itemIndex, pos, isActive, isScrolledOver). Note `EditorContent` does not forward class/style attributes → the editor is wrapped in `.q-tiptap__editor`; external HTML is only pushed via `setContent(…, { emitUpdate: false })` when it really differs; teleported popups define their own `--q-tiptap-*` tokens.
+- [V Close](/docs/directives/close) — v-close: close the parent overlay (dialog / bottom sheet) on click.
+- [V Touch Pan](/docs/directives/touch-pan) — v-touch-pan: pan gesture (Pointer Events), direction filters, delta, distance, speed.
+- [V Touch Hold](/docs/directives/touch-hold) — v-touch-hold: press-and-hold gesture (duration, repeat, cancel on move).
+- [V Touch Swipe](/docs/directives/touch-swipe) — v-touch-swipe: swipe direction detection (left/right/up/down).
+- [V Touch Repeat](/docs/directives/touch-repeat) — v-touch-repeat: repeat a callback while held.
+- [V Intersection](/docs/directives/intersection) — v-intersection: observe element visibility (one-shot/always, callbacks).
