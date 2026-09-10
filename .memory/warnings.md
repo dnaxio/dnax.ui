@@ -250,3 +250,50 @@ se remplissent qu'à l'hydratation.
 asynchrone géré par le Suspense de Nuxt) puis `const comp = computed(() =>
 runtime[props.name] ?? null)`. Vérif : `dnax-api__empty` n'apparaît plus dans le
 HTML prérendu (hors CSS) et les `<td><code>modelValue</code>` sont présents.
+
+## `stretch` inopérant sous une racine `display: inline-flex` — 2026-09-10
+
+`filename: packages/ui/styles/main.css` (`.q-btn-actions`, `.q-btn-group`)
+
+**Symptôme** : `<q-btn-dropdown stretch>` (ou `<q-btn-group stretch>`) ne s'étire pas
+sur la largeur du conteneur ; il fallait ajouter `class="w-full"` côté consommateur
+(contournement relevé dans `platform/app/layouts/space.vue`).
+
+**Cause** : la racine `.q-btn-actions` / `.q-btn-group` est `display: inline-flex`
+→ « shrink-to-fit » : elle se réduit à la taille de son contenu. Le
+`.q-btn--stretch { width: 100% }` du QBtn interne ne fait donc 100 % que… de ce
+parent déjà réduit → aucun effet visuel (et le caret, poussé par `margin-left: auto`,
+n'avait aucun espace libre à absorber).
+
+**Règle générale** : quand un composant à racine `inline-flex` expose `stretch`, la
+**racine** doit passer à `width: 100%` — pas seulement l'enfant.
+
+**Correctif** : `.q-btn-actions--stretch { width: 100% }` (classe posée par
+`QBtnActions.vue` sur sa racine) + `.q-btn-group--stretch { width: 100% }`, même
+schéma que `.q-tabs--stretch` déjà en place pour `QTabs`.
+
+## Ripple : double onde clic + clavier sur les éléments activables — 2026-09-10
+
+`filename: packages/ui/lib/ripple.ts`
+
+**Symptôme** : avec un listener `click` **et** un listener `keyup` (modèle
+Quasar), appuyer sur Entrée ou Espace dans un `<button>` / `<a href>` produit
+**deux** ondes : le navigateur synthétise déjà un `click` d'activation clavier,
+puis `keyup` redéclenche l'onde. Quasar évite le doublon par le flag
+`qSkipRipple` posé par ses composants (QBtn…), ce que notre implémentation
+n'avait pas.
+
+**Correctif retenu** (auto-suffisant, sans coopération des composants) :
+
+- si l'hôte est activable nativement (`button, a[href],
+input[type=button|submit|reset]`), **aucun listener clavier** n'est posé —
+  c'est le `click` natif qui déclenche l'onde ;
+- un clic généré au clavier a `detail === 0` (pas de coordonnées fiables) →
+  l'onde est **forcée au centre** (`forceCenter`), comme Quasar sur ses key events.
+
+**Piège lié** : le conteneur `.q-ripple` est en `position: absolute` → il faut un
+bloc conteneur. Quasar impose au consommateur la classe `relative-position` ; ici
+la directive vérifie `getComputedStyle(el).position === "static"` et pose
+`position: relative` elle-même, en mémorisant la valeur inline d'origine pour la
+**restaurer au démontage** (ne pas oublier ce `prevPosition`, sinon on laisse un
+style inline résiduel sur l'élément).

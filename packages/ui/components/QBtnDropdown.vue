@@ -66,6 +66,7 @@ interface Props {
   round?: boolean
   square?: boolean
   noCaps?: boolean
+  /** Pleine largeur : la racine `.q-btn-actions` s'étend sur 100 % (le déclencheur suit) */
   stretch?: boolean
   loading?: boolean
   disable?: boolean

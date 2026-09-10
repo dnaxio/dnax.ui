@@ -5,7 +5,7 @@ import { ref } from "vue"
 
 defineProps<{
   /** Demo identifier to render */
-  demo: "row" | "menu" | "manage"
+  demo: "row" | "menu" | "manage" | "stretch"
 }>()
 
 // — row actions (icon-only trigger) —
@@ -101,6 +101,18 @@ const onManageAction = (value: unknown) => (lastManage.value = String(value))
       @select-action="onManageAction"
     />
     <p class="demo-meta">Selected: <code>{{ lastManage }}</code></p>
+  </div>
+
+  <div v-else-if="demo === 'stretch'" class="demo-col">
+    <q-btn-actions
+      label="Full width"
+      stretch
+      outline
+      no-caps
+      :actions="menuActions"
+      @select-action="onMenuAction"
+    />
+    <p class="demo-meta">Selected: <code>{{ lastMenu }}</code></p>
   </div>
 </template>
 

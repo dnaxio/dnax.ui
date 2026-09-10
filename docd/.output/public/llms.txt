@@ -111,6 +111,7 @@
 - [Web Storage](http://localhost:3000/raw/docs/plugins/web-storage.md): Type-preserving Web Storage with $q.localStorage and $q.sessionStorage — Quasar-compatible, SSR-safe get/set.
 - [v-close](http://localhost:3000/raw/docs/directives/close.md): Closes the closest overlay (dialog, bottom sheet…) from any element inside it — the Quasar v-close-popup equivalent.
 - [v-intersection](http://localhost:3000/raw/docs/directives/intersection.md): Calls a handler when an element enters or leaves the viewport, with shared observers and a one-shot mode.
+- [v-ripple](http://localhost:3000/raw/docs/directives/ripple.md): Adds a material ripple to any element — click point or center, custom color, keyboard trigger and an early mode.
 - [v-touch-hold](http://localhost:3000/raw/docs/directives/touch-hold.md): Detects a long press with touch and mouse, a configurable delay and a consumed gesture (no click on top).
 - [v-touch-pan](http://localhost:3000/raw/docs/directives/touch-pan.md): Detects the pan (drag) gesture with touch and mouse support, per-direction capture and live details.
 - [v-touch-repeat](http://localhost:3000/raw/docs/directives/touch-repeat.md): Repeats a handler while an element is pressed — ideal for steppers, counters and continuous scrolling.

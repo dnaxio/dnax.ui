@@ -86,7 +86,8 @@ export default defineNuxtPlugin((nuxtApp) => {
       })
     }
 
-    // Directive globale v-close : <q-btn v-close> ferme le dialog/sheet parent
+    // Directive globale v-close / v-ripple / v-touch-* / v-intersection :
+    // <q-btn v-close>, <div v-ripple.center>…
     // Plugin UNIVERSEL (pas "client") : sans enregistrement côté serveur, tout
     // rendu SSR/SSG d'une page utilisant une directive crash (Vue SSR lit
     // `dir.getSSRProps` sur une directive non résolue → `undefined`).
@@ -96,6 +97,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       getContents: () => `
 import { defineNuxtPlugin } from "#imports"
 import { vClose } from "@dnax/ui/runtime"
+import { vRipple } from "@dnax/ui/runtime"
 import { vTouchPan } from "@dnax/ui/runtime"
 import { vTouchHold } from "@dnax/ui/runtime"
 import { vTouchSwipe } from "@dnax/ui/runtime"
@@ -104,6 +106,7 @@ import { vIntersection } from "@dnax/ui/runtime"
 
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.directive("close", vClose)
+  nuxtApp.vueApp.directive("ripple", vRipple)
   nuxtApp.vueApp.directive("touch-pan", vTouchPan)
   nuxtApp.vueApp.directive("touch-hold", vTouchHold)
   nuxtApp.vueApp.directive("touch-swipe", vTouchSwipe)

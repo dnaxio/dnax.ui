@@ -197,13 +197,19 @@ an alias for `bottom-start`. `offset` sets the gap between the panel and the tri
   <q-btn-dropdown label="offset 16" outline no-caps :items="posItems" position="bottom-start" :offset="16" />
 </div>
 
-<q-btn-dropdown label="Full-width trigger" stretch outline no-caps :items="posItems" position="bottom-start" class="pos-stretch" />
+<div class="pos-full">
+  <q-btn-dropdown label="Full-width trigger" stretch outline no-caps :items="posItems" position="bottom-start" />
+</div>
 ```
 ::
 
 On a **full-width** trigger (`stretch` or a fixed width), the caret is pushed to the
 far right edge of the button instead of sitting next to the label — no matter how
 wide the trigger is.
+
+`stretch` makes the trigger fill its container: the root element widens to `100%`,
+so the inner `<q-btn>` really stretches. Nothing else is needed — no
+`class="w-full"` on the component.
 
 ## API
 

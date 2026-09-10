@@ -85,6 +85,7 @@ interface Props {
   round?: boolean
   square?: boolean
   noCaps?: boolean
+  /** Pleine largeur : la racine `.q-btn-actions` s'étend sur 100 % (le déclencheur suit) */
   stretch?: boolean
   loading?: boolean
   disable?: boolean
@@ -311,7 +312,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="rootEl" class="q-btn-actions" :class="dark && 'dark'" @keydown="onKeydown">
+  <div
+    ref="rootEl"
+    class="q-btn-actions"
+    :class="[dark && 'dark', stretch && 'q-btn-actions--stretch']"
+    @keydown="onKeydown"
+  >
     <QBtn
       class="q-btn-actions__trigger"
       :class="triggerClasses"

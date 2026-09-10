@@ -138,6 +138,46 @@ const onManageAction = (value) => (lastManage.value = String(value))
 ```
 ::
 
+## Stretch
+
+`stretch` widens the trigger to `100%` of its container — the root element itself
+grows, so the inner `<q-btn>` really stretches and the caret stays at the far right
+edge. Useful for full-width form actions or stacked menus.
+
+::prose-show-case
+<dnax-demo-btn-actions demo="stretch"></dnax-demo-btn-actions>
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const lastMenu = ref("—")
+
+const menuActions = [
+  { label: "Copy link", value: "copy-link", icon: "lucide:link" },
+  { label: "Duplicate", value: "duplicate", icon: "lucide:copy" },
+  { separator: true },
+  { label: "Archive", value: "archive", icon: "lucide:archive", color: "warning" },
+]
+
+const onMenuAction = (value) => (lastMenu.value = String(value))
+</script>
+
+<template>
+  <q-btn-actions
+    label="Full width"
+    stretch
+    outline
+    no-caps
+    :actions="menuActions"
+    @select-action="onMenuAction"
+  />
+</template>
+```
+::
+
 ## API
 
 <dnax-api name="QBtnActions"></dnax-api>

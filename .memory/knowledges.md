@@ -1699,3 +1699,30 @@ dans `docd/nuxt.config.ts` → `app/components/demos/DnaxDemoBtn.vue` s'utilise
 `1.getting-started`, `4.components`… ordonnent la sidebar et sont retirés de
 l'URL — identique à `ddocs/`. Les `.navigation.yml` de dossier sont copiés tels
 quels.
+
+## Ajouter une directive `v-*` à @dnax/ui — recette — 2026-09-10
+
+Quatre points à toucher (sinon la directive disparaît ou n'est pas enregistrée) :
+
+1. **Implémentation** — `packages/ui/lib/<nom>.ts`, export `v<Pascal>` (objet
+   `{ mounted, updated?, unmounted? }`). Style maison : closures par élément,
+   nettoyage stocké sur l'élément (`el.__qXxx`), `binding` typé localement
+   (`{ value?, arg?, modifiers? }`) plutôt que `DirectiveBinding` de Vue, garde
+   `typeof document/getComputedStyle === "undefined"` si besoin, commentaires FR
+   en tête (usage + modifiers).
+2. **Export** — ajouter au bloc `manualExports` de
+   `packages/ui/scripts/generate-exports.ts` (le fichier `index.ts` est
+   **entièrement régénéré** par `bun run generate` : tout export manuel absent de
+   ce script est écrasé), puis relancer `bun run generate`.
+3. **Enregistrement** — plugin UNIVERSEL `dnax-ui-directives.mjs` dans
+   `packages/ui/module.ts` : `import { vXxx } from "@dnax/ui/runtime"` +
+   `nuxtApp.vueApp.directive("kebab-case", vXxx)`. **Pas** de `mode: "client"` :
+   sans enregistrement serveur, tout rendu SSR/SSG d'une page utilisant la
+   directive crash (`dir.getSSRProps` sur directive non résolue). Une directive
+   sans `getSSRProps` rend `{}` en SSR (no-op) — c'est le comportement voulu.
+4. **Docs** — page `docd/content/docs/6.directives/<nom>.md` (frontmatter +
+   `## Setup` / `## Usage` / `## Live demo` avec `::prose-show-case` /
+   `## Value` / `## Modifiers` / `## How it works`) + composant de démo
+   `docd/app/components/demos/DnaxDemo<Nom>.vue` (un `defineProps<{ demo: ... }>()`
+   par page, styles scoped). Vérifier les collisions de nom avec une page
+   composant (cf. warnings).

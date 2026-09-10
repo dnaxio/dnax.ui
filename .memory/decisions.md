@@ -392,3 +392,61 @@ s'appuie sur Nuxt Content + UI Thing, cf. https://docd.uithing.com).
 Vérification : `cd docd && bun run generate` → **443 routes prérendues**, 0 `[500]`
 ni `[404]`, `llms.txt` + `llms-full.txt` générés, aucune balise `dnax-*`/`prose-*`
 non résolue dans le HTML, tables d'API présentes dès le prerender.
+
+## QBtnActions/QBtnDropdown/QBtnGroup : `stretch` = racine pleine largeur — 2026-09-10
+
+`filename: packages/ui/styles/main.css`, `packages/ui/components/QBtnActions.vue`
+
+**Convention** : `stretch` signifie « 100 % de la largeur du conteneur », à tous les
+niveaux de la famille bouton :
+
+- `QBtn` → `.q-btn--stretch { width: 100%; align-self: stretch }` (inchangé) ;
+- `QBtnActions` / `QBtnDropdown` → classe racine `q-btn-actions--stretch` posée par
+  QBtnActions quand `stretch` est vrai (QBtnDropdown ne fait que transmettre) →
+  `.q-btn-actions--stretch { width: 100% }` ;
+- `QBtnGroup` → `.q-btn-group--stretch { width: 100% }` (les boutons se partagent la
+  largeur via `flex: 1 1 auto`, règle déjà présente).
+
+Même schéma que `QTabs` (`.q-tabs--stretch { width: 100% }`). Conséquence : le
+contournement consommateur `class="w-full"` n'est plus nécessaire.
+
+Docs mises à jour (site `docd/`) : `btn-dropdown` (démo « Full-width trigger » dans un
+conteneur `.pos-full` + note), `btn-actions` (nouvelle section `## Stretch`),
+`btn-group` (`## Stretch` reformulé). Vérif : `cd docd && bun run generate` →
+`q-btn-actions--stretch` / `q-btn-group--stretch` + `q-btn--stretch` dans le HTML et
+règles `width:100%` dans le CSS ; `bun test packages/ui/lib` → 41/41.
+
+## v-ripple — directive onde « material ripple » — 2026-09-10
+
+`filename: packages/ui/lib/ripple.ts`, `packages/ui/module.ts`, `packages/ui/styles/main.css`
+
+Nouvelle directive globale **`v-ripple`**, parité Quasar
+(https://quasar.dev/vue-directives/material-ripple).
+
+- **API** : valeur `Boolean | Object` (`false` désactive), argument couleur
+  (`v-ripple:primary`), modifiers `.center` / `.early` / `.stop`, options
+  `{ early, stop, center, color, keyCodes }`. Défauts repris de Quasar sauf
+  `keyCodes` : `[13, 32]` (Entrée + Espace) au lieu de `13` seul.
+- **Couleur** : `colorValue()` de `lib/colors.ts` → token dnax.ui = `var(--token)`,
+  sinon couleur CSS passée telle quelle ; défaut = `currentColor` (donc la couleur
+  du label sur un QBtn plein).
+- **Géométrie** : diamètre = diagonale de l'hôte (`hypot(w, h)`), départ au point
+  d'interaction (ou centre), transform final centré → l'onde couvre toujours tout
+  l'élément (reprise de l'algo Quasar, animations CSS `.q-ripple__inner--enter` /
+  `--leave`).
+- **Hôte** : conteneur `.q-ripple` injecté (`position: absolute`, 100 %×100 %,
+  `overflow: hidden`, `border-radius: inherit`) → le consommateur n'a PAS besoin de
+  `overflow: hidden` ; en revanche si `position` calculée vaut `static`, la
+  directive pose `position: relative` et **restaure** la valeur inline au
+  démontage.
+- **Enregistrement** : export `vRipple` (+ types `RippleOptions`, `RippleValue`)
+  ajouté aux `manualExports` de `scripts/generate-exports.ts` (sinon perdu à la
+  prochaine régénération de `index.ts`) et au plugin UNIVERSEL
+  `dnax-ui-directives.mjs` de `module.ts` (`directive("ripple", vRipple)`).
+- **Docs** : `docd/content/docs/6.directives/ripple.md` + démo
+  `docd/app/components/demos/DnaxDemoRipple.vue` (4 démos : basic, position,
+  color, options). Cf. l'entrée `knowledges` « ajouter une directive ».
+- Vérif : `cd docd && bun run generate` → page
+  `/docs/directives/ripple` prérendue, 0 erreur ; le bundle expose
+  `vueApp.directive("ripple", Nu)` et la démo compile en
+  `resolveDirective("ripple")` + `withDirectives`.

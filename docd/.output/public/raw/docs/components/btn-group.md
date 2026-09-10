@@ -136,8 +136,8 @@ control look.
 
 ## Stretch
 
-`stretch` makes every button share the full width of the group — great for split
-actions.
+`stretch` widens the group to `100%` of its container and makes every button share
+that width — great for split actions.
 
 <prose-show-case>
 <div className="demo-col">

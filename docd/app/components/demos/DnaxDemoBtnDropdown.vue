@@ -159,15 +159,16 @@ const posItems = [
       <q-btn-dropdown label="offset 4 (default)" outline no-caps :items="posItems" position="bottom-start" />
       <q-btn-dropdown label="offset 16" outline no-caps :items="posItems" position="bottom-start" :offset="16" />
     </div>
-    <q-btn-dropdown
-      label="Full-width trigger"
-      stretch
-      outline
-      no-caps
-      :items="posItems"
-      position="bottom-start"
-      class="pos-stretch"
-    />
+    <div class="pos-full">
+      <q-btn-dropdown
+        label="Full-width trigger"
+        stretch
+        outline
+        no-caps
+        :items="posItems"
+        position="bottom-start"
+      />
+    </div>
   </div>
 </template>
 
@@ -199,8 +200,9 @@ const posItems = [
   align-items: center;
   gap: 14px;
 }
-/* Full-width trigger: the caret is pushed to the far right edge */
-.pos-stretch {
+/* Full-width trigger: the container sets the width, `stretch` makes the trigger
+   fill it (root becomes 100%, so the inner QBtn can stretch too) — no `w-full`. */
+.pos-full {
   width: 100%;
   max-width: 420px;
 }

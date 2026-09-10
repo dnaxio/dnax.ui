@@ -166,6 +166,8 @@ export {
 } from "./lib/overlayBack"
 export type { OverlayHandle } from "./lib/overlayBack"
 export { markOverlayClose, closeParentOverlay, vClose } from "./lib/closeOverlay"
+export { vRipple } from "./lib/ripple"
+export type { RippleOptions, RippleValue } from "./lib/ripple"
 export { vTouchPan } from "./lib/touchPan"
 export type { PanDetails, TouchPanHandler, PanDirection } from "./lib/touchPan"
 export { vTouchHold } from "./lib/touchHold"

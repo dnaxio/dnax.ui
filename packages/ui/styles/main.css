@@ -2440,6 +2440,15 @@ html.dark body {
   margin-left: -1px;
 }
 
+.q-btn-group--stretch {
+  /* stretch : la racine doit faire 100 % de large. Sinon `display: inline-flex`
+     réduit le groupe à la taille de son contenu et `flex: 1 1 auto` sur les
+     boutons (règle ci-dessous) n'a aucun effet. Même correctif que QTabs
+     (`.q-tabs--stretch`) — un simple `class="w-full"` côté consommateur
+     contournait le problème. */
+  width: 100%;
+}
+
 .q-btn-group--stretch > .q-btn {
   flex: 1 1 auto;
 }
@@ -2449,6 +2458,14 @@ html.dark body {
   position: relative;
   display: inline-flex;
   vertical-align: middle;
+}
+
+.q-btn-actions--stretch {
+  /* stretch : la racine doit elle-même faire 100 % de large, sinon son parent
+     `inline-flex` « shrink-to-fit » l'épouse au contenu et le `width: 100%` du
+     QBtn interne (`.q-btn--stretch`) n'a pas de référentiel → rien ne s'étire.
+     Même correctif que QTabs (`.q-tabs--stretch`). */
+  width: 100%;
 }
 
 .q-btn-actions__caret {
@@ -10766,4 +10783,47 @@ a.q-breadcrumbs__el:hover {
 }
 .q-board--dense .q-board__cell-label {
   font-size: 9px;
+}
+
+/* ===== v-ripple — onde « material ripple » =====
+   Conteneur injecté par la directive dans l'élément hôte (position absolute,
+   100 %×100 %, overflow hidden + border-radius: inherit → l'onde est clippée à
+   la forme de l'hôte, sans imposer `overflow: hidden` au consommateur).
+   La pastille utilise `currentColor` par défaut ; `v-ripple:primary` ou
+   `{ color }` posent la couleur en inline (tokens → var(--token)). */
+.q-ripple {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  contain: strict;
+  overflow: hidden;
+  border-radius: inherit;
+  color: inherit;
+  pointer-events: none;
+}
+
+.q-ripple__inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.q-ripple__inner--enter {
+  transition:
+    transform 0.225s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.q-ripple__inner--leave {
+  transition:
+    transform 0.225s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
