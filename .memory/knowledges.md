@@ -1,5 +1,26 @@
 # Connaissances & bonnes pratiques (tag: knowledges)
 
+## ddocs (Docus/MDC) — contrat de conversion et outillage — 2026-09-10
+
+Toute la doc vit désormais dans `ddocs/` (Docus = Nuxt Content + MDC). Avant de
+modifier ou d'ajouter une page, lire le contrat **`ddocs/CONVERSION.md`** (squelette
+de page, `::code-preview`, composant démo par page, pièges). Points clés :
+
+- Ajouter une page = un `.md` dans `ddocs/content/docs/<section>/` (préfixe numérique
+  = ordre du menu, retiré de l'URL). Pas de `h1` : le titre vient du frontmatter.
+- API : `:dnax-api{name="QXxx"}` (inline MDC). Démos live : `::dnax-demo` →
+  onglets **Preview / Code** (Preview par défaut), slot défaut live + `#code` =
+  snippet exact du source.
+- **Ne jamais auto-fermer une balise de composant en MDC** (parse5 l'ignore) :
+  inline `:component{…}` ou fermeture explicite. Fixer un lot :
+  `bun run fix:mdc` (dans `ddocs/`), puis `bun run validate`.
+- Les démos avec état vivent dans `ddocs/app/components/demos/DnaxDemo<Page>.vue`
+  (une par page, prop `demo`), styles de page en `<style scoped>`.
+- Après ajout/suppression de page : `bun run gen:llms` (met à jour
+  `ddocs/public/llms.txt`).
+- Vérifier : `bun run build` dans `ddocs/` — 0 erreur `[500] Server Error` et toutes
+  les routes prérendues attendues.
+
 ## Pages docs — ordre des blocs SFC : template en haut, script en bas — 2026-09-09
 
 Dans les pages docs (`docs/app/pages/docs/**/*.vue`), l'ordre des blocs SFC est :
@@ -1052,3 +1073,629 @@ manuscrites pour des docs riches. Template canonique :
 - Familles multi-composants = une section `.doc-section` par composant, chacune avec
   démo + `<h3 class="doc-h3">API</h3>` + `<docs-api>` (dialog : 5 sections ;
   bottom-sheet : 5 sections)
+
+## Lot ddocs : country-picker, data-grid, date-picker, dialog, editor-js, fab — 2026-09-10
+
+Complète l'entrée « Conversion docs → ddocs (Docus/MDC) » ci-après.
+
+- Frontmatter : `title` (= `h1.doc-title`), `description`, `navigation.icon`
+  (`i-lucide-*`), `seo.title` (`<title> (<QXxx>)`) + `seo.description`.
+- Page famille (dialog) : un `## <Part> — <sous-titre>` + un `<DnaxApi>` par
+  composant, en conservant les `### API` internes de la source (cf. `bottom-sheet.md`).
+- `ddocs/nuxt.config.ts` : `components: [{ path: "~/components", pathPrefix: false }]`
+  → les composants de `demos/` s'utilisent sans préfixe de dossier.
+- `editor-js.vue` = stub généré (`<DocsComponentPage>`) sans démo → page minimale
+  (intro + `## Example` statique + `## API`) ; ⚠ `QEditorJs` déclare la prop `data`
+  mais émet `update:modelValue` (pas de `v-model` direct possible sur `data`).
+
+## Conversion docs → ddocs (Docus/MDC) — 2026-09-10
+
+Contrat : `ddocs/CONVERSION.md` (autoritaire). Source `docs/app/pages/docs/components/<slug>.vue`
+→ cible `ddocs/content/docs/4.components/<slug>.md` (slug inchangé) ; démos avec état
+→ UN composant par page `ddocs/app/components/demos/DnaxDemo<Page>.vue` (prop `demo`).
+
+- `<docs-demo :code :script>` → `::code-preview` : slot par défaut = démo live,
+  `#code` = exactement `:code` (+ `:script` combinés en SFC complet si présent), en
+  ` ```vue `. `<q-syntax :code lang>` → bloc ` `<lang> ```.
+`<docs-api>`→`<DnaxApi name="QXxx" />`(export de`useComponent`, jamais d'import).
+- Démos **statiques** (aucun binding) → markup inliné dans le slot, en gardant les
+  wrappers `demo-row` / `demo-col` / `demo-stack` (globaux dans `app/assets/css/main.css`).
+- **Piège** : un `<style scoped>` de `DnaxDemo<Page>.vue` n'atteint **pas** le markup
+  rendu par MDC (hors du template du composant). Donc toute démo qui a besoin d'un CSS
+  spécifique à la page — même purement statique, ex. `.badge-host`, `.demo-bar`,
+  `.demo-stage` — doit être **rendue par le composant de démo** (avec son style scoped),
+  pas inlinée. Seules les démos n'utilisant que les helpers globaux restent inline.
+- Un `:label="42"` (binding sans état réel) reste un binding Vue → démo dans le composant.
+- Prose en **anglais** (traduire les pages FR, ex. `bar.vue`, `board.vue`, `breadcrumbs.vue`) ;
+  jamais de `{{ }}` / `:prop` / `@event` dans le MDC hors composant de démo ; mentions de
+  balises toujours en backticks (`` `<q-bar>` ``). Entités : `&lt;`→`<`, `&amp;`→`&`.
+- Vérif outillage : compter les fences `^```` (paires) et les lignes `^::`(ouvrantes`::xxx`= fermantes`::`).
+- MDC évalue `:prop="littéral"` via `evalInContext` (`@nuxtjs/mdc` : split(".") sur
+  le runtimeData puis `destr()`) → `:value="0.42"` / `:max="100"` donnent bien des
+  **nombres** (pas de warning de prop `Number`). Un binding littéral self-contained
+  est donc OK dans un slot MDC (ex. `q-circular-progress`), contrairement à
+  `:prop="uneVariable"`.
+- Lot converti (2026-09-10) : checkbox, chip, circular-progress (stub → page
+  minimale), collapse, container, count-down. `chip`/`collapse` : les démos sans
+  binding mais avec un CSS page (`.demo-collapse`, `.demo-surface`, `.demo-time`…)
+  ont aussi été routées par `DnaxDemo<Page>`.
+
+## Conversion docs → ddocs — lot boutons / chat / carousel — 2026-09-10
+
+Pages : `btn-actions`, `btn-dropdown`, `btn-group`, `bubble`, `card`, `carousel`.
+Complète l'entrée « Conversion docs → ddocs (Docus/MDC) » (mêmes règles).
+
+- Démos routées par `DnaxDemo<Page>.vue` (CSS page ⇒ composant, cf. entrée
+  précédente) : `DnaxDemoBtnActions` (row/menu/manage), `DnaxDemoBtnDropdown`
+  (menu/view/row/placement — inclut le déclencheur pleine largeur), `DnaxDemoBubble`
+  (chat/variants/reactions), `DnaxDemoCard` (basic/bordered/actions/glass/hover),
+  `DnaxDemoCarousel` (basic/loop/vertical).
+- **Seule page inline du lot** : `btn-group.md` — ses 4 démos n'utilisent que les
+  helpers globaux (`demo-row` / `demo-col`), donc markup inliné + `#code` exact.
+- Scoped CSS atteignant un composant enfant : utiliser `:deep()` (sinon le
+  sélecteur ne matche pas, l'élément n'étant pas dans le template du composant).
+  Ex. `.demo-chat :deep(.q-bubble__reactions button)`,
+  `.demo-carousel--vertical :deep(.q-carousel__viewport)`.
+- Une classe posée sur la racine d'un composant enfant (`.demo-card`,
+  `.demo-carousel`, `.demo-chat`) fonctionne en scoped : Vue pose le scope id du
+  parent sur la racine de l'enfant.
+- **Vérifié** sur `@nuxtjs/mdc` (parseur réel de Docus) : `<template #slot>` dans du
+  HTML brut inline EST reconnu (`props: { "#actions": "" }`, géré par
+  `getSlotName`) ; `<style>` dans le `.md` est conservé et rendu (`dangerousTags`
+  ne bloque que `script`/`base`). On ne s'en sert pas : le CSS va dans le composant
+  de démo (convention du projet, plus cohérente).
+- Rappel MDC : le texte des `<h3>` de démo passe par `prose-h3` (mapping
+  automatique des tags HTML vers les composants prose) → prévoir le CSS de démo
+  dans le composant pour reprendre la main sur la taille/poids.
+- Vérif outillage : script Node jetable qui (1) parse chaque `.md` avec
+  `parseMarkdown` de `@nuxtjs/mdc/runtime`, (2) compte les fences ` ``` ` (paires)
+  et les lignes `^::` (ouvrantes `::xxx` = fermantes `::`), (3) grep `{{ }}` /
+  `:prop=` / `@event=` hors fences.
+
+## Conversion docs → ddocs — lot accordion → back-header — 2026-09-10
+
+Pages : `accordion`, `action-sheet`, `app`, `autocomplete`, `avatar`, `back-header`.
+Complète l'entrée « Conversion docs → ddocs (Docus/MDC) » (mêmes règles).
+
+- ⚠️ **Nouveauté importante** : dans le **markup live** du `.md`, tout composant doit
+  être écrit **kebab-case + balise fermante explicite**
+  (`<dnax-demo-avatar demo="sizes"></dnax-demo-avatar>`, `<dnax-api name="QAvatar"></dnax-api>`,
+  `<q-app></q-app>`) : la syntaxe auto-fermante `<Dnax… />` fait perdre l'onglet Code du
+  `::code-preview` ou avale la suite de la page — cause racine et portée exactes dans
+  `.memory/warnings.md`. Les fences `#code` gardent l'auto-fermant exact de la source.
+- `accordion` = page **famille** (4 composants) : `## QAccordion — container`, puis
+  `## QAccordionItem — a section`, `## QAccordionTrigger — the button`,
+  `## QAccordionContent — the animated content`, chacune avec son `### API` +
+  `<dnax-api>` (cf. `bottom-sheet.md`). Les `q-syntax` → fences ` ```html ` exactes.
+- `app.vue` = stub `DocsComponentPage` (`title="App" export="QApp"`) → page minimale
+  (intro + `## Example` avec `<q-app></q-app>` + `## API`), même patron que `editor-js.md`.
+- `accordion` était **en français** (prose) : lead, titres de sections et `doc-note`
+  traduits ; les chaînes d'exemple **dans les snippets/démos** sont restées verbatim
+  (règle « `#code` = exactement `xCode` » ; même choix que les commentaires FR gardés
+  dans `breadcrumbs.md` / `dialog.md`).
+- Démos : `DnaxDemoAccordion` (single/multiple), `DnaxDemoActionSheet` (options/events),
+  `DnaxDemoAutocomplete` (basic/slot/icon/states/panel/swipe), `DnaxDemoAvatar`
+  (sizes/photos/colors/icons/shapes/fallback), `DnaxDemoBackHeader`
+  (basic/custom/noBack/styles/slot).
+- Démos statiques inlinées quand elles n'utilisent que des helpers **globaux** :
+  `back-header.md` « Actions » (seul cas du lot) ; les démos d'`avatar` qui ont un CSS
+  page (`.demo-row--avatars`) et le slot `#title` de back-header (`.demo-custom-title`)
+  sont routées par le composant (convention mémoire ci-dessus).
+- `avatar` : les URLs Unsplash (photo1/photo2) vivent dans `DnaxDemoAvatar.vue` ; les
+  fences répètent `scriptData` (photo1 + photo2) comme dans la source.
+- `#code` d'une démo avec `:script` = SFC complet (`<script setup lang="ts">` + le
+  `script` source, puis `<template>` + le `xCode` source) ; le `xCode` multi-ligne est
+  ré-indenté de 2 espaces dans `<template>` (comme `btn.md`).
+- `QActionSheet` : le label par défaut du bouton cancel est bien `"Annuler"`
+  (`packages/ui/components/QActionSheet.vue`) — gardé tel quel en prose (valeur
+  factuelle du composant, pas de la prose à traduire).
+
+## Conversion docs → ddocs — lot input → loading — 2026-09-10
+
+Pages : `input`, `interact`, `intersection`, `linear-progress`, `list`, `loading`.
+Complète l'entrée « Conversion docs → ddocs (Docus/MDC) » (mêmes règles).
+
+- ✅ **Syntaxe MDC inline adoptée pour tout composant sans enfant** (formes utilisées
+  par le dernier lot) : `:dnax-demo-input{demo="basic"}` et `:dnax-api{name="QInput"}`
+  (jamais `<DnaxApi … />`, ni PascalCase). Vérifié avec le **vrai parseur**
+  (`createMarkdownParser` de `@nuxtjs/mdc/runtime`) : sur une ligne seule, le nœud
+  `textComponent` est un **enfant direct de `root`** (pas emballé dans un
+  `<paragraph>`), donc pas de `<p><div>` invalide. La forme explicite
+  `<dnax-api name="QX"></dnax-api>` produit au contraire un nœud `raw` **dans un
+  `<p>`** (parse5) : c'est pour ça que l'inline est préféré. Dans une phrase,
+  `:q-btn{label="Hi"}` reste bien un enfant du paragraphe (rendu inline).
+- `#code` d'une démo avec `:script` = fence unique ` ```vue ` contenant
+  `<script setup lang="ts">` + le `script` source, puis `<template>` + le `xCode`
+  source ré-indenté de 2 espaces ; export du **contremplaire exact** de la source,
+  y compris ses incohérences (ex. `input` : le snippet `mask` fait
+  `v-model="date"` alors que `scriptMask` déclare `birthDate`).
+- `list.vue` = page **famille** : un `## <Part>` par composant (titres source
+  `## QList — container`, `## QItem — basic rows`, `## QItemSection — thumbnail`)
+  puis `## QList` / `## QItem` / `## QItemSection` + un `:dnax-api{…}` par partie.
+- `loading.vue` documente `QLoading` **et** `QLoadingProvider` (2 API) et est rangée
+  dans `4.components/` (pas dans les plugins) : `## q-loading — declarative, with
+v-model` + `### API`, puis `## q-loading-provider — the plugin overlay` + `### API`.
+- Démos routées par composant (CSS page ⇒ composant) : `DnaxDemoInput`
+  (basic/types/autogrow/variants/dense/clear/affixes/iconProps/mask/hint),
+  `DnaxDemoInteract` (dashboard), `DnaxDemoIntersection`
+  (basic/transitions/toggle/chat/cards), `DnaxDemoLinearProgress` (download),
+  `DnaxDemoList` (container/basic/clickable/thumbnail/alignment/states),
+  `DnaxDemoLoading` (basic/custom/boxed). `list` : même ses démos **statiques**
+  (`container`, `alignment`, `states`) passent par le composant car elles portent le
+  CSS page `.demo-list` / `.demo-item-title` / `.demo-thumb`.
+- `linear-progress` : les démos statiques sont **inlinées** (elles n'utilisent que
+  les helpers globaux `demo-col` / `demo-p` / `demo-meta` / `demo-label`) ; seules
+  les valeurs littérales `:value="0.25"` / `:min="0"` sont gardées telles quelles
+  (autorisé, cf. entrée « MDC évalue `:prop="littéral"` »). `.q-linear-progress`
+  a `width: 100%`, donc `align-items: flex-start` du `demo-col` global ne l'écrase
+  pas.
+- Piège CSS récurrent : le `.demo-col` **global** (`app/assets/css/main.css`) est
+  `display:flex; flex-direction:column; align-items:flex-start`, alors que les pages
+  historiques le définissaient en `flex: 1 1 220px` **sans** `display:flex`. Un
+  `.q-input` (flex item sans `width`) s'effondrerait donc dans un `demo-col` inline →
+  dans le composant de démo, override scopé
+  `.demo-col { flex: 1 1 220px; min-width: 0; align-items: stretch }`
+  (+ `.demo-field { width:100%; max-width:520px }` pour `input`).
+- `interact` était en partie FR (lead + fin de « Notes ») : prose traduite, snippets
+  et commentaires FR des fences gardés verbatim.
+
+## Conversion docs → ddocs — lot gallery / icon / image-preview (+ stubs pickers) — 2026-09-10
+
+Pages : `file-picker`, `gallery`, `icon`, `image-picker`, `image-preview-provider`,
+`image-preview`. Complète « Conversion docs → ddocs (Docus/MDC) » (mêmes règles).
+
+- **Stubs générés** (`file-picker`, `image-picker`, `image-preview-provider`) → page
+  minimale (intro lue dans le SFC `packages/ui/components/Q…vue` + `## Example`
+  statique + `## API`), patron `editor-js.md` / `app.md` : live en kebab-case +
+  balise fermante, `#code` = version auto-fermante du même exemple.
+- Démos stateful → UN composant par page : `DnaxDemoGallery`
+  (basic/multiple/labels/custom/viewer), `DnaxDemoImagePreview`
+  (basic/fade/zoom/programmatic), `DnaxDemoIcon` (spacing uniquement — page CSS
+  `.demo-inline`/`.demo-spin`).
+- `icon.md` : seules les démos Sizes/Colors/Custom CSS sizes sont inlinées (helpers
+  globaux uniquement) ; « Spacing & rotation » passe par `DnaxDemoIcon` (CSS page).
+  Le `q-syntax` CSS (`rotationCode`) → fence ` ```css ` autonome.
+- `image-preview.md` : reste dans `4.components/` (page du composant `QImagePreview`
+  **et** du plugin `$q.imagePreview`) ; section plugin `## Programmatic
+($q.imagePreview)` + `#code` en ` ```ts ` (pas de SFC) ; section finale
+  normalisée `## API`. Démo programmatique : `usePlugin` depuis
+  `@dnax/ui/runtime`, contrôleur `.open()`/`goTo()` (cf. `packages/ui/lib/q.ts`).
+- Piège MDC : attribut `accept` découpé en tableau puis rejoint par un **espace**
+  → une seule valeur dans le live (`accept="image/*"`), détails dans
+  `.memory/warnings.md`.
+- ⚠️ Incohérence source non corrigée (fidélité au contrat « `#code` = exactement
+  `X`/`Y` ») : dans `image-preview.vue`, `scriptFade` déclare `open`/`index` alors que
+  `usageFade`/`usageZoom` utilisent `openFade`/`indexFade`/`openZoom`/`indexZoom`.
+  Les fences reprennent la source telle quelle.
+
+## Conversion docs → ddocs — lot image → input-tag — 2026-09-10
+
+Pages : `img`, `infinite-scroll`, `inner-loading`, `input-otp`, `input-password`,
+`input-tag`. Complète l'entrée « Conversion docs → ddocs (Docus/MDC) » (mêmes règles).
+
+- Les 6 pages routent **toutes** leurs démos par `DnaxDemo<Page>.vue` : chacune a un
+  CSS page (`.demo-img`, `.demo-scroll`, `.demo-panel`, `.demo-field`, `.demo-value`,
+  `.demo-event`) que le `<style scoped>` du composant doit porter (cf. piège scoped).
+  Composants : `DnaxDemoImg` (basic/loading/placeholder/caption/error),
+  `DnaxDemoInfiniteScroll` (basic/animated/slot/silent), `DnaxDemoInnerLoading`
+  (basic/label/dark/icon), `DnaxDemoInputOtp` (basic/numeric/grouped/masked/states/
+  complete), `DnaxDemoInputPassword` (basic/variants/states/confirm),
+  `DnaxDemoInputTag` (basic/events/states).
+- `img` : les URLs Unsplash (`photo` pleine résolution, `thumb` basse résolution
+  w=40&q=40) vivent dans `DnaxDemoImg.vue` ; les fences `#code` répètent le `script`
+  correspondant (photo, photo+thumb, photo+loading…), comme dans la source.
+- `infinite-scroll` : le `xCode` de la démo « Basic » contenait **son propre**
+  `<script setup>` (doublon du `:script`). Le `#code` a été construit en SFC complet
+  comme pour `dialog.md` : `<script setup>` = `scriptData` (état réel : 20 items,
+  +10, max 60), `<template>` = le markup `q-infinite-scroll` de `xCode` (script
+  embarqué non dupliqué).
+- `inner-loading` : la source nommait `demo` le `reactive` d'état ; la prop du
+  composant de démo s'appelle aussi `demo` → renommé `state` en interne
+  (cf. `.memory/warnings.md`), les fences gardent `demo.xxx` (exact `xCode`).
+- Incohérences **de la source** conservées verbatim (règle « `#code` = exactement
+  `xCode` + `xScript` ») : `input-password` (`variantsCode`/`statesCode` utilisent
+  `v-model="password"` alors que `scriptDense` déclare `densePwd`) ; `input-tag`
+  (fences avec `tags`, démo live avec `emails`/`features`/`limited`).
+- `<kbd>Backspace</kbd>` / `<kbd>Enter</kbd>` → backticks (`` `Backspace` ``) ; le CSS
+  `kbd` de la source n'est pas repris.
+- Vérif outillage : `node scripts/fix-mdc-self-closing.mjs --check` → 0 fichier ;
+  parse `parseMarkdown` (`@nuxtjs/mdc/runtime`) : 5/4/4/6/4/3 `code-preview`, chacun
+  avec son `template v-slot:code`, dernier nœud = `dnax-api` (rien d'avalé).
+
+## Conversion docs → ddocs — lot radio → scroll-area — 2026-09-10
+
+Pages : `radio`, `rating`, `reorder`, `rolling-text`, `safe-area`, `scroll-area`.
+Complète l'entrée « Conversion docs → ddocs (Docus/MDC) » (mêmes règles).
+
+- Compose tous les éléments _childless_ en **syntaxe MDC inline**
+  (`:dnax-demo-radio{demo="group"}`, `:dnax-api{name="QRadio"}`) — forme
+  préférée par le contrat (`ddocs/CONVERSION.md`, § Self-closing tags), alternative
+  équivalente au kebab-case + balise fermante explicite des lots précédents. Vérifié
+  au parseur réel : `@nuxtjs/mdc/runtime` `parseMarkdown` produit un nœud `element`
+  `dnax-demo-radio` (props `demo`) **frère** du `<template v-slot:code>` du
+  `::code-preview` (le slot `#code` est normalisé en `v-slot:code` dans l'AST) —
+  l'onglet Code est donc bien conservé.
+- Les 6 pages ont toutes un CSS de démo spécifique (`demo-group`, `demo-rating`,
+  `demo-list`/`demo-track`, `demo-row`/`demo-col`/`demo-label`,
+  `demo-phone*`, `demo-log`/`demo-msg`) ⇒ **toutes les démos sont routées** par
+  `DnaxDemo<Page>.vue` (aucune démo inlinée dans ce lot).
+- ⚠ Collision de classes avec les helpers **globaux** de `ddocs/app/assets/css/main.css`
+  (absents de l'ancienne app `docs/`) : quand le CSS scoped de la page source
+  redéfinissait `.demo-row` / `.demo-label` **sans** déclarer une propriété globale
+  (`display`, `text-transform`…), la valeur globale s'appliquait en plus et changeait
+  le rendu. Correctif : figer la propriété dans le composant —
+  `scroll-area` → `.demo-row { display: block }`, `rolling-text` →
+  `.demo-label { font-size: inherit; font-weight: 400; text-transform: none;
+letter-spacing: normal; color: inherit }`. Garder les helpers globaux seulement
+  quand la page source s'appuyait déjà dessus.
+- `safe-area` : les insets réels valent 0 hors iOS, le mockup les simule via des
+  `:deep(.q-safe-area--*)` (repris du scoped source) ; `q-syntax :code lang="html"`
+  → fence ` ```html ` (meta viewport, filename `index.html` perdu, sans importance).
+- `reorder` : `lastEvent`/`onReorder` conservés dans le composant (fidélité à la
+  source), le commentaire FR de `usageHandle` reste **dans** la fence.
+- Vérif outillage : script jetable (supprimé) — parse des 6 `.md`, AST : nombre de
+  `code-preview` = nombre de `#code`, slot frère (pas englobé), `dnax-api` avec prop
+  `name`, fences paires, `::` équilibrés, aucun auto-fermant / `{{ }}` hors fence ;
+  puis `node ddocs/scripts/fix-mdc-self-closing.mjs --check` → 0 fichier.
+
+## Conversion docs → ddocs — lot tab-panels → tiptap — 2026-09-10
+
+Pages : `tab-panels`, `table`, `tabs`, `text-caption`, `text`, `tiptap`.
+Complète « Conversion docs → ddocs (Docus/MDC) » (mêmes règles).
+
+- Composants de démo (un par page) : `DnaxDemoTabPanels`
+  (basic/animations/lazy/rich), `DnaxDemoTable` (12 démos), `DnaxDemoTabs`
+  (basic/align/icons/counts/switch/animated/collapse/colors/route),
+  `DnaxDemoTextCaption` (basic/breathing/generate/highlight/positions),
+  `DnaxDemoText` (basic/lines/tag/transitions/generate/highlight/breathing),
+  `DnaxDemoTiptap` (model/context/toc/mentions/variants/readonly/padding/states).
+- **Toutes** les démos de ces 6 pages sont routées par le composant : soit un
+  binding non évaluable (`:rows="rows"`, `:text="LONG"`, `v-model`…), soit un CSS
+  page (`.demo-table-count`, `.demo-actions-cell`, `.demo-panels*`, `.demo-tabs-meta`,
+  `.demo-align-select`, `.demo-switch*`, `.demo-stage*`, `.demo-transitions*`,
+  `.demo-col` spécifique, `.demo-output*`, `.demo-toc__*`). Aucune démo inlinée.
+- Pages **famille** : `tab-panels` → `## QTabPanels — the animated panels` +
+  `### API` (`:dnax-api{name="QTabPanels"}`) puis `## QTabPanel — the panel` +
+  `### API`. `tabs` : `## QTabs — the tab bar` (démos + `### API`) puis `## QTab`
+  et `## QRouteTab` (la note « Route tab » et sa démo ont été déplacées sous
+  `## QRouteTab`) — la source ne documentait que `QTabs` (`useComponent`), les
+  deux autres parties viennent de `FAMILIES.Tabs` de `scripts/gen-menu.ts`.
+- `table` : page mono-composant → `## QTable — data table` puis `## API` ; le
+  tableau `QTableColumn` (rendu `v-for` dans la source) est converti en **table
+  Markdown statique** (le `<name>` de la description est mis en backticks pour
+  éviter le parsing HTML, les `|` de types sont échappés `\|`). Incohérence source
+  conservée verbatim : `usageHeaderStyle` ne montre qu'une table sans
+  `header-style` alors que la démo live en affiche une seconde (fond plein).
+- Fences avec CSS page : `demo-col` historique (`max-width: 420px` pour `text`,
+  `640px` pour `tiptap`) **figé dans le composant** avec `align-items: stretch`
+  (le `.demo-col` global met `align-items: flex-start`) ; `.demo-row` de
+  `text-caption` figé `align-items: stretch, gap: 16px`.
+- Vérif outillage : `ddocs/scripts/fix-mdc-self-closing.mjs --check` → 0 fichier ;
+  parse `@nuxtjs/mdc/runtime` (via `result.body`) : 4/12/9/5/7/8 `code-preview`,
+  chacun avec son `template v-slot:code` **frère** du composant de démo (aucune
+  imbrication), fences paires, `::` équilibrés, aucun `{{ }}`/`:prop`/`@event`
+  hors fence (masquer les spans de code inline avant le grep).
+- ⚠️ Le nœud retourné par `createMarkdownParser()` a sa racine dans `result.body`
+  (pas `result` directement) et `result` porte aussi `data`/`toc`.
+
+## Conversion docs → ddocs — lot select → spinner — 2026-09-10
+
+Pages : `select`, `separator`, `skeleton`, `slider`, `space`, `spinner`. Complète
+« Conversion docs → ddocs (Docus/MDC) » (mêmes règles).
+
+- Syntaxe **MDC inline** partout pour les composants sans enfant
+  (`:dnax-demo-select{demo="basic"}`, `:dnax-api{name="QSelect"}`) ; le seul
+  markup live inliné (démo statique n'utilisant que les helpers globaux) est la démo
+  « Horizontal » de `separator` — composants en kebab-case + balise fermante
+  explicite (`<q-separator spaced></q-separator>`), vérifié au parseur : enfants
+  directs du `code-preview`, `q-separator` frères des `<p>` (pas d'engloutissement).
+- Démos routées par `DnaxDemo<Page>.vue` (CSS page) : `DnaxDemoSelect`
+  (basic/customKeys/outlined/multiple/primitives), `DnaxDemoSeparator`
+  (vertical/dark), `DnaxDemoSkeleton` (shapes/types/card/anims/dark),
+  `DnaxDemoSlider` (basic/markers/colors/states/vertical), `DnaxDemoSpinner`
+  (basic/types/sizes/colors). Aucune démo de `skeleton` n'est inlinée : même
+  « Animations » (`.demo-row` page) diffère du helper global (gap 14 vs 10).
+- `space.vue` = stub généré (`DocsComponentPage title="Space" export="QSpace"`) →
+  page minimale (intro + `## Example` statique + `## API`) : `QSpace` n'a pas de CSS
+  propre, `.q-space { flex: 1 1 auto }` vit dans `packages/ui/styles/main.css`
+  (racine `aria-hidden`).
+- Sections finales `## QSkeleton API` / `## QSpinner API` **normalisées** en `## API`
+  (précédent `image-preview`).
+- Fidélité `#code` : fences statiques = exact `xCode` (y compris le CSS `.card`
+  incohérent de `usageCard` et le commentaire FR de `usageAnims`) ; fences avec
+  `:script` = SFC complet `<script setup lang="ts">` + `script` puis `<template>` +
+  `xCode` réindenté de 2 espaces.
+- Vérif outillage : script jetable (supprimé) — `parseMarkdown` de
+  `@nuxtjs/mdc/runtime` renvoie `{ body }` (et **non** l'arbre directement : lire
+  `result.body`), 5/3/5/5/1/4 `code-preview` = autant de `v-slot:code` frères,
+  `dnax-api` avec `name`, fences paires, `::` équilibrés ;
+  `node ddocs/scripts/fix-mdc-self-closing.mjs --check` → 0 fichier.
+
+## Conversion docs → ddocs — lot toolbar → virtual-scroll — 2026-09-10
+
+Pages : `toolbar`, `tooltip`, `uploader`, `video`, `virtual-scroll`. Complète
+« Conversion docs → ddocs (Docus/MDC) » (mêmes règles).
+
+- Syntaxe **MDC inline** pour les composants sans enfant
+  (`:dnax-demo-toolbar{demo="basic"}`, `:dnax-api{name="QToolbar"}`).
+- Les 5 pages routent **toutes** leurs démos par `DnaxDemo<Page>.vue` : chacune a un
+  CSS page (`.demo-toolbar`/`.demo-title`, `.demo-target`/`.demo-grid`,
+  `.demo-meta`/`.demo-badge`, `.demo-loading`/`.demo-meta`, `.demo-vs*`) que le
+  `<style scoped>` doit porter — même les démos statiques de `toolbar`.
+  Composants : `DnaxDemoToolbar` (basic/header/inset-shrink),
+  `DnaxDemoTooltip` (basic/anchors/side-align/delay/disable/controlled/types),
+  `DnaxDemoUploader` (basic/limit/placeholder/accept/details/disabled/slots),
+  `DnaxDemoVideo` (basic/pexels/ratio/autoplay/youtube/hls/placeholder/events),
+  `DnaxDemoVirtualScroll` (basic/mixed/tuning).
+- ⚠ Collision classe globale (cf. entrée « lot radio → scroll-area ») : le
+  `.demo-grid` **scoped** de `tooltip` est une grille CSS (`repeat(auto-fit,
+minmax(150px,1fr))`) alors que le helper global `main.css` est un `flex-wrap` →
+  redéfini dans le scoped du composant pour rester fidèle au rendu source.
+- `uploader` : URLs Unsplash (`IMG()` + `PRESET`) dans `DnaxDemoUploader.vue` ; les
+  fences `#code` gardent les placeholders `img-1.jpg…` de `scriptPreset`. Le slot
+  live `#file` rend `{ index }` (et non `{ item, index }`) pour éviter la variable
+  inutilisée — le `#code` reste exact (`{ item, index }`).
+- `video` : constantes (MP4/POSTER/HLS/YT/PEXELS) dans `DnaxDemoVideo.vue` ; les
+  émissions d'événements live sont des affectations fléchées parenthésées
+  (`@timeupdate="({ currentTime }) => (t = currentTime)"`) — comportement identique.
+- Fidélité `#code` (= exact `xCode` + `xScript`, cf. lots précédents) : fences avec
+  `:script` = SFC complet `<script setup lang="ts">` + `script` puis `<template>` +
+  `xCode` réindenté de 2 espaces ; fences sans script = `xCode` nu (pas de
+  `<template>`), ex. `virtual-scroll` « Tuning » et `video` « Placeholder ».
+  Incohérences **de la source conservées** : `video` passe `scriptBasic`
+  (`PEXELS_BASIC`) aux démos ratio/autoplay alors que leur `xCode` référence
+  `MP4`/`POSTER` (non déclarés), et `scriptHls` à la démo HLS qui utilise
+  `MP4`/`POSTER` ; `uploader` « File details »/« Disabled » passent `scriptPreset`
+  (qui déclare `PRESET`) alors que le `xCode` utilise `files`. Commentaires FR des
+  fences gardés verbatim (`tooltip`, `uploader`, `virtual-scroll`).
+- `q-syntax` → fence autonome ` ```html ` (`toolbar` header usage,
+  `virtual-scroll` « Inside QPage ») ; `q-syntax` `lang="html"` conservé.
+- Sections finales `## QTooltip API` / `## QUploader API` / `## QVideo API` /
+  `## QVirtualScroll` **normalisées** en `## API` (précédent `image-preview`).
+- Vérif outillage : script jetable (supprimé) — `parseMarkdown`
+  (`@nuxtjs/mdc/runtime`, lire `result.body` et `result.data` pour le frontmatter) :
+  3/7/7/8/3 `code-preview` = autant de `v-slot:code` frères du nœud démo, un
+  `dnax-api` par page avec prop `name`, aucun nœud avalé ; puis
+  `node ddocs/scripts/fix-mdc-self-closing.mjs --check` → 0 fichier.
+
+## Conversion docs → ddocs — lot splitter → syntax — 2026-09-10
+
+Pages : `splitter`, `spreadsheet`, `sticky`, `swipe-cell`, `swiper`, `syntax`.
+Complète « Conversion docs → ddocs (Docus/MDC) » (mêmes règles).
+
+- Syntaxe **MDC inline** pour les composants sans enfant
+  (`:dnax-demo-splitter{demo="basic"}`, `:dnax-api{name="QSplitter"}`).
+- Les 6 pages routent **toutes** leurs démos par `DnaxDemo<Page>.vue` (chacune a un
+  CSS page : `.demo-panel*`/`.demo-knob*`, `.demo-bar*`/`.demo-viewport`,
+  `.demo-list`/`.demo-cell`/`.demo-action*`, `.demo-slide*`/`.demo-thumbs`/
+  `.demo-swiper--*`, `.demo-tables*`, `.demo-tools`/`.demo-json`). Composants :
+  `DnaxDemoSplitter` (basic/horizontal/px/custom), `DnaxDemoSpreadsheet` (14 démos),
+  `DnaxDemoSticky` (basic/offset/bound/bottom/events), `DnaxDemoSwipeCell`
+  (basic/both/lock/before/events), `DnaxDemoSwiper` (14 démos), `DnaxDemoSyntax`
+  (basic/languages/themes).
+- `spreadsheet` (~1400 l., 14 `code-preview`) : les 3 tables de référence
+  (Syntax/Operators, Functions, Errors) et les 2 tables du « Data model » sont
+  hand-written dans la source → converties en **tables Markdown statiques**. La
+  table « Functions » utilisait des lignes `th colspan="3"` de groupe
+  (Aggregation / Logic / Math / Text / Dates / Conversion) → **éclatée en 6 tables**
+  précédées d'un label gras (Markdown ne gère pas `colspan`). Les cellules `type`
+  (`string | text | …`) et `align` (`left | center | right`) contenaient des `|` →
+  réécrites en listes séparées par des virgules / `/` dans des backticks (pas
+  d'échappement `\|`). Les `<pre class="demo-json">` → fences ` ```ts `.
+- `spreadsheet` — pré-réglages impératifs (filtre pré-appliqué IT, fonds de la
+  démo clic-droit) : l'`onMounted` de la source a été **conditionné par
+  `props.demo`** (`if (props.demo === 'filter') …`) car chaque `code-preview` monte
+  sa propre instance (les refs `filterDemo`/`opsDemo` n'existent que pour la démo
+  active) — comportement identique au « tout sur une page » d'origine.
+- ⚠️ `spreadsheet` démo « export » : le live source n'avait que les boutons (le
+  `ref=wbRef` venait de la démo « sheets » du dessus). En page MDC autonome ça
+  donnerait des boutons inactifs → le composant **rend sa propre grille**
+  `ref=wbRef` dans la démo export (la fence `usageExport` la contient déjà) — seule
+  déviation volontaire au markup live source.
+- `syntax` : la section « Default slot » de la source n'utilise **pas** `docs-demo`
+  mais un `q-syntax :code` nu → convertie en fence ` ```html ` autonome (comme la
+  règle `q-syntax`), donc `DnaxDemoSyntax` n'a que basic/languages/themes (pas de
+  démo « slot »).
+- `swiper` = page **famille** (`QSwiper` + `QSwiperSlide`) : sections finales
+  `## QSwiper — the carousel` + `:dnax-api{name="QSwiper"}` puis
+  `## QSwiperSlide — one slide` + `:dnax-api{name="QSwiperSlide"}`. Les 14 démos
+  partagent un composant unique (images Unsplash, `effectOptions`, `thumbs`/`master`).
+- `sticky` : `stuckBound`/`stuckBottom` étaient déclarés mais inutilisés dans la
+  source → supprimés du composant (le rendu est identique) ; `stuckOffset` conservé.
+- `swipe-cell` : le badge `<span class="demo-mobile-badge">📱 Mobile-ready ·
+Capacitor</span>` (pas un début de composant) a été **replié en prose** dans le
+  lead, avec la mention Capacitor.
+- Fidélité `#code` (= exact `xCode` + `xScript`) : SFC `<script setup lang="ts">` +
+  `script` puis `<template>` + `xCode` réindenté de 2 espaces ; `usageExport`
+  (spreadsheet) embarque déjà son `<template>` → fence = script puis `usageExport`
+  verbatim (pas de double `<template>`). Fences sans script = `xCode` nu.
+  Commentaires FR des fences gardés verbatim (`splitter` aucun, `swipe-cell`,
+  `spreadsheet` `usageSheets`/`usageFreeze`/`usageBig`…).
+- `llms.txt` : les 6 entrées (`/docs/components/splitter|spreadsheet|sticky|
+swipe-cell|swiper|syntax`) **existaient déjà** dans `docs/public/llms.txt`
+  (L103-108, ordre alphabétique) → aucune modification.
+- Vérif outillage : script jetable (supprimé) — `parseMarkdown`
+  (`@nuxtjs/mdc/runtime`, lire `result.body`) : 4/14/5/5/14/3 `code-preview` =
+  autant de `v-slot:code` frères du nœud démo, un `dnax-api` terminal par page,
+  fences paires, `::` équilibrés, aucun auto-fermant non-void / `{{ }}` / `:prop` /
+  `@event` hors fence (`<img />` inline toléré) ; puis
+  `node ddocs/scripts/fix-mdc-self-closing.mjs --check` → 0 fichier.
+
+## Conversion docs → ddocs — lot directives (v-close → v-intersection) — 2026-09-10
+
+Pages : `close`, `touch-pan`, `touch-hold`, `touch-swipe`, `touch-repeat`,
+`intersection` (source `docs/app/pages/docs/directives/*.vue` → cible
+`ddocs/content/docs/6.directives/*.md`). Complète l'entrée « Conversion docs →
+ddocs (Docus/MDC) » (mêmes règles).
+
+- Les 6 démos ont un CSS page-spécifique (`.pan-stage`/`.pan-ball`, `.hold-pad`,
+  `.swipe-pad`, `.repeat-pad`, `.ix-card`…, `.guide-row`/`.demo-body`) → toutes
+  routées par un `DnaxDemo<Page>.vue` (`DnaxDemoClose/TouchPan/TouchHold/
+TouchSwipe/TouchRepeat`) avec `<style scoped>`.
+- ⚠ `intersection` : `DnaxDemoIntersection.vue` est **déjà pris** par la page
+  composant `4.components/intersection.md` (`QIntersection`, démos basic/
+  transitions/toggle/chat/cards) → la démo directive utilise
+  `DnaxDemoIntersectionDirective.vue` (`:dnax-demo-intersection-directive{demo="basic"}`).
+- Directives globales du module `@dnax/ui` → utilisées telles quelles dans les
+  composants de démo (`v-close`, `v-touch-pan.horizontal.mouse.prevent`,
+  `v-touch-hold.mouse`, `v-touch-swipe`, `v-touch-repeat.mouse`,
+  `v-intersection`, `v-intersection.once`).
+- Tables `v-for` (valeur/modifiers/details) → tables Markdown statiques ; effets
+  FR traduits en anglais. `'up' | 'down' | …` dans une cellule → pipes échappés
+  `` `'up' \| 'down'` `` (obligatoire en GFM, même dans un code span).
+- Pas de section `## API` : ces pages documentent des directives, pas des
+  composants (aucun `docs-api` dans la source).
+- Prose FR → EN, mais **fences `q-syntax` gardées verbatim** (commentaires FR des
+  snippets) ; `q-syntax` → fence du langage seul (pas de `[filename]`, conforme
+  aux autres pages converties).
+- Fidélité `#code` : combiné script + template (`usageDemo` + `scriptDemo`), même
+  quand le script source omet des identifiants utilisés par le template
+  (`fastCount`, `speed`, `onceCount`) — repris tel quel, c'est le snippet source.
+- Vérif outillage : script jetable (supprimé) — `parseMarkdown`
+  (`@nuxtjs/mdc/runtime`, lire `result.body`) : 1 `code-preview`/page,
+  `v-slot:code` frère du nœud démo, fences paires, `::` équilibrés, aucun
+  auto-fermant non-void / `{{ }}` / `:prop` / `@event` hors fence ni prop tableau.
+
+## Conversion docs → ddocs — lot plugins `$q.*` (dialog → web-storage) — 2026-09-10
+
+Pages : `dialog`, `bottom-sheet`, `notify`, `loading`, `image-preview`, `platform`,
+`web-storage` (source `docs/app/pages/docs/plugins/*.vue` → cible
+`ddocs/content/docs/5.plugins/*.md`). Complète l'entrée « Conversion docs →
+ddocs (Docus/MDC) » (mêmes règles).
+
+- **Noms de démos en collision** : `DnaxDemoDialog`, `DnaxDemoBottomSheet`,
+  `DnaxDemoLoading`, `DnaxDemoImagePreview` sont déjà pris par les pages composants
+  `4.components/dialog|bottom-sheet|loading|image-preview.md` → suffixe `Plugin`
+  (`DnaxDemoDialogPlugin.vue` → `:dnax-demo-dialog-plugin{demo="live"}`, idem
+  BottomSheet/Loading/ImagePreview). Depuis `demos/`, `pathPrefix: false`
+  (`nuxt.config.ts`) = nom du fichier seul. Même précédent que
+  `DnaxDemoIntersectionDirective.vue`.
+- **Helpers portés** (copies, originaux `docs/app/components/*` intacts) :
+  `DemoConfirmDialog.vue`, `DemoScrollDialog.vue`, `DemoShareSheet.vue` →
+  `ddocs/app/components/demos/` (mêmes noms, importés en chemin relatif/`~/components/demos/…`).
+- **`q-syntax :script="…"` est un no-op** : `QSyntax` ne déclare pas de prop
+  `script` (`packages/ui/components/QSyntax.vue`) → l'ancienne doc n'affichait QUE
+  `code`. Donc, à la conversion, les fences de type `q-syntax` ne contiennent que
+  `code` (`bottom-sheet` Options, `platform` « In a template »). Le `script` n'est
+  inclus que pour les `docs-demo` → `::code-preview` (contrat SFC script+template),
+  ex. `platform` « Your device » (`usageTemplate` + `scriptTemplate`).
+- **`platform`** : `apiRows` (33 lignes) → table Markdown statique (Property/Type/
+  Meaning, 1ʳᵉ cellule `` `$q.platform.<path>` `` ; pipe interne échappé
+  `` `'cordova' \| 'capacitor'` ``). `deviceRows` + `flags` restés **live**
+  (`:dnax-demo-platform{demo="device"}`, valeurs de session) — ce sont des
+  détections, pas une table d'API. ⚠ La source passait `:code="usageTemplate"`
+  (onglets `q-tabs`) alors que la preview montrait le device : incohérence source
+  conservée telle quelle dans le `#code`.
+- **`web-storage`** : démo live `$q.localStorage` conservée ; n'écrit que sous
+  `ws:demo:` (jamais de `clear()` global), type via `typeof`/`instanceof Date`.
+  `apiRows` (11 lignes) → table Markdown statique.
+- **`dialog` / `bottom-sheet` / `notify` / `loading` / `image-preview`** : pas de
+  section `## API` (aucun `docs-api` dans la source) ; `::code-preview` seulement
+  pour les `docs-demo`, les « Live example » sans `:code` = composant posé seul.
+- **Fences** : `q-syntax` gardées **verbatim** (commentaires FR des snippets
+  conservés, ex. `rend automatiquement QDialogProvider…`) ; `\/script` des template
+  literals source réécrit en `</script>` réel (fence = texte, non parsé).
+- Vérif outillage : script jetable (supprimé) — `parseMarkdown` +
+  `scripts/fix-mdc-self-closing.mjs --check` (0 fichier à corriger) : `v-slot:code`
+  frère du nœud `:dnax-demo-…{}`, aucun `<x-y>` imbriqué dans `<x-y>`, tables
+  parsées. ⚠ Voir warnings « aucun `QConfigProvider` monté au niveau app » : les
+  démos `$q.*` ne s'afficheront qu'après montage du provider.
+
+## Conversion docs → ddocs — lot layouts / styles — 2026-09-10
+
+Pages (source `docs/app/pages/docs/components/*.vue` → cible
+`ddocs/content/docs/2.layouts|3.styles/*.md`) : `config-provider`, `page` (stub →
+page minimale), `header`, `footer`, `sidebar` (famille) ; `grid`, `col`, `row`.
+Complète « Conversion docs → ddocs (Docus/MDC) » (mêmes règles).
+
+- Titres de frontmatter pris sur `LAYOUTS`/`STYLES` de `scripts/gen-menu.ts` (le
+  `doc-title` des stubs diffère : `page.vue` affiche « Page » mais l'entrée menu
+  est « Page Layout ») : **Config Provider**, **Page Layout**, **Header Layout**,
+  **Footer Layout**, **Sidebar Layout** ; **Grid**, **Col**, **Row**. Fichiers
+  numérotés `2.layouts/1..5` et `3.styles/1..3` ; aucun `.navigation.yml` créé
+  (Docus dérive le titre du dossier — `2.essentials` en a un car son titre
+  diffère du dossier).
+- Syntaxe **MDC inline** (`:dnax-demo-header{demo="basic"}`,
+  `:dnax-api{name="QHeader"}`) pour tous les composants sans enfant.
+- Les 7 pages routent **toutes** leurs démos par `DnaxDemo<Page>.vue` (chacune a un
+  CSS page : `.demo-stage*`, `.demo-shell-*`, `.demo-radius`, `.demo-toolbar`,
+  `.demo-side-head`, `.demo-brand`, `.demo-layout`, `.demo-main`, `.demo-user`,
+  `.demo-cell*`). Composants : `DnaxDemoConfigProvider` (shell/theme),
+  `DnaxDemoHeader` (basic/translucent/glass/fixed), `DnaxDemoFooter`
+  (basic/elevated/translucent/glass/fixed), `DnaxDemoSidebar` (offcanvas/static),
+  `DnaxDemoGrid` (layout/responsive/colsResponsive/cells/six/square/horizontal/
+  custom), `DnaxDemoCol` (span/auto/offset/responsive/alignSelf), `DnaxDemoRow`
+  (basic/gap/responsive/responsiveMixed/align). Aucun nom en collision avec les
+  `DnaxDemo<Page>` existants.
+- ⚠ **Collision `.demo-grid`** (détail en `.memory/warnings.md`) : `grid`/`col`/
+  `row` passent `class="demo-grid"` sur leurs `q-grid`/`q-row` — inerte dans la
+  source (aucun `.demo-grid` dans l'app legacy) mais helper **global flex** dans
+  `ddocs/app/assets/css/main.css` → `.demo-grid` **scoped** dans les 3 composants
+  répliquant `.q-grid` (spécificité scoped > helper global).
+- `config-provider` : `appShellNote` (string FR rendue via `{{ }}`) est de la
+  **prose** → traduite en anglais ; les fences `q-syntax` et les `#code` gardent
+  les commentaires FR **verbatim** (convention lots splitter→syntax, directives,
+  plugins). `providerPattern` contenait `\/script` dans la template literal source
+  → réécrit `</script>` dans la fence (texte, non parsé).
+- `page` = stub généré (`DocsComponentPage title="Page Layout" export="QPage"`) →
+  page minimale sur le modèle de `app.md` : intro (d'après
+  `packages/ui/components/QPage.vue` + `lib/fixedLayout.ts` : padding-top =
+  barres fixed HAUT précédentes, padding-bottom = barres BAS suivantes, prop
+  `virtual` → `QVirtualScroll`) + `## Example` (`<q-page></q-page>` en live,
+  `#code` = `<q-page />`) + `## API`.
+- `grid` et `sidebar` = familles : `## <Part>` + `### API` +
+  `:dnax-api{name=…}` (`## QGrid`/`## QGridItem` ; les 8 parts de Sidebar avec
+  leurs `### API` internes repris tels quels). `grid.md` fait aussi 3 fixtures :
+  4 tableaux de spans (usageBasic), 2 responsive, et la fence ` ```css ` des
+  breakpoints (`q-syntax :code=\`:root {…}\`` inline dans la source).
+- `header`/`footer` : la note finale de la source (lien `/docs/components/toolbar`,
+  lien `/docs/components/grid`) est gardée avec ses liens **tels quels** ; la
+  section `## QHeader`/`## QFooter` devient `## API`.
+- Vérif outillage : scripts jetables (supprimés) — (1) `parseMarkdown`
+  (`@nuxtjs/mdc/runtime`) : 2/1/4/5/2/8/5/5 `code-preview`, **tous** avec
+  `v-slot:code` frère du nœud démo, `dnax-api` = 1/1/1/1/8/2/1/1, aucun `q-*` hors
+  `code-preview` (le `<q-page></q-page>` live de `page.md` est bien dans le slot
+  par défaut) ; (2) comparaison **verbatim** des 49 consts `:code`/`:script` des
+  sources (normalisées indentation + lignes vides) → toutes présentes dans les
+  `.md` ; (3) `node ddocs/scripts/fix-mdc-self-closing.mjs --check` → 0 fichier ;
+  (4) comptage `^::code-preview$` == `^::$` et fences paires.
+- `llms.txt` : `ddocs/` n'a pas de `docs/public/llms.txt` (l'index vit dans l'app
+  legacy `docs/`, hors périmètre de ce lot) → aucune modification.
+
+## Docd (layer `@baybreezy/docd`) — conventions de contenu — 2026-09-10
+
+`filename: docd/content/**/*.md`
+
+**MDC / prose** (noms de blocs vérifiés dans
+`docd/node_modules/@baybreezy/docd/app/components/content/prose/*.global.vue`) :
+
+- `::prose-show-case` = bloc **Preview / Code** (`tab = ref("preview")`, cf.
+  `ProseShowCase.global.vue`). Le snippet va dans le slot `#code`, exactement
+  comme `::dnax-demo` ; `ProseShowCaseProps` n'a qu'un prop `prose` (default
+  `false` → classe `not-prose` sur le wrapper, ce qu'on veut pour nos démos).
+- `::prose-callout{variant="…"}` : variantes `default | info | success |
+warning | error | tip | note | example` (+ `filled`, `title`, `description`,
+  `icon`, `url`). Remplace `::note` / `::tip` de Docus.
+- `::prose-card{icon title description to href}` : carte cliquable (NuxtLink),
+  slots `icon`/`title`/`default`/`footer`. Pas de `card-group` dans Docd → les
+  cartes s'empilent.
+- Autres blocs dispo : `prose-code-group`, `prose-code-tree`,
+  `prose-code-collapse`, `prose-steps`/`prose-step`, `prose-pm-x`,
+  `prose-pm-install`, `prose-pm-run`, `prose-icon-list`, `prose-tabs`,
+  `prose-field`/`prose-field-group`, `prose-collapsible`, `prose-mermaid`.
+- Le layer génère nativement `llms.txt` + `llms-full.txt` (nuxt-llms) et des
+  routes `/raw/**/*.md` — pas besoin du script `gen-llms.mjs` de `ddocs/`.
+
+**Frontmatter** : le schéma `page` de Nuxt Content v3 inclut déjà `title`,
+`description`, `navigation` **et `seo`** (cf. `pageStandardSchema` dans
+`@nuxt/content/dist/module.mjs`) → le `seo:` des pages `ddocs/` est conservé
+(pas de perte SEO). Icônes de navigation : convention Docd `lucide:x`.
+
+**Noms de composants** : `components: [{ path: "~/components", pathPrefix: false }]`
+dans `docd/nuxt.config.ts` → `app/components/demos/DnaxDemoBtn.vue` s'utilise
+`<dnax-demo-btn>` (et non `<demos-dnax-demo-btn>`), comme dans `ddocs/`.
+
+**Ordre / routing** : `content/docs/**` (préfixe `/docs`), les préfixes numériques
+`1.getting-started`, `4.components`… ordonnent la sidebar et sont retirés de
+l'URL — identique à `ddocs/`. Les `.navigation.yml` de dossier sont copiés tels
+quels.

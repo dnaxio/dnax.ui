@@ -1,0 +1,23 @@
+{
+  "name": "docd",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "clean": "rm -rf .data .nuxt .output dist node_modules && bun i",
+    "dev": "nuxt dev --host",
+    "generate": "nuxt generate",
+    "prepare": "nuxt prepare",
+    "preview": "nuxt preview"
+  },
+  "dependencies": {
+    "@baybreezy/docd": "latest",
+    "@dnax/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "nuxt": "^4.4.5",
+    "typescript": "^6.0.3",
+    "vue": "latest"
+  }
+}

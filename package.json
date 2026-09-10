@@ -5,6 +5,8 @@
   "private": true,
   "workspaces": [
     "docs/",
+    "ddocs/",
+    "docd/",
     "packages/*",
     "apps/*"
   ],

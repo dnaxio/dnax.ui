@@ -87,9 +87,12 @@ export default defineNuxtPlugin((nuxtApp) => {
     }
 
     // Directive globale v-close : <q-btn v-close> ferme le dialog/sheet parent
+    // Plugin UNIVERSEL (pas "client") : sans enregistrement côté serveur, tout
+    // rendu SSR/SSG d'une page utilisant une directive crash (Vue SSR lit
+    // `dir.getSSRProps` sur une directive non résolue → `undefined`).
+    // Les directives n'ont pas de getSSRProps : en SSR elles rendent `{}` (no-op).
     addPluginTemplate({
       filename: "dnax-ui-directives.mjs",
-      mode: "client",
       getContents: () => `
 import { defineNuxtPlugin } from "#imports"
 import { vClose } from "@dnax/ui/runtime"

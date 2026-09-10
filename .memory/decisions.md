@@ -1,5 +1,43 @@
 # Décisions d'architecture / d'API (tag: decisions)
 
+## docs → ddocs : migration de la doc vers Docus (Nuxt Content / MDC) — 2026-09-10
+
+L'app docs historique (`docs/`, pages Vue + démos live) est portée dans un site
+**Docus** : `ddocs/`, contenu Markdown MDC. Les 107 pages sont converties
+(84 composants, 5 layouts, 3 styles, 7 plugins, 6 directives, 2 guides) et le build
+prérend 109 routes sans erreur.
+
+- **Structure** : `ddocs/content/docs/{1.getting-started,2.layouts,3.styles,4.components,5.plugins,6.directives}`
+  (préfixes numériques = ordre du menu, retirés de l'URL → `/docs/components/<slug>`).
+- **API par composant** : composant `<DnaxApi name="QXxx" />` — Props depuis le
+  runtime (`useComponent`), Slots/Events/Methods/valeurs depuis une méta générée AU
+  BUILD par `ddocs/scripts/dnax-ui-meta.ts` (module Nuxt) → `#build/dnax-ui-meta.mjs`.
+  **Jamais de glob `?raw` eager sur les SFC** : inliner ~140 SFC dans un module casse
+  l'analyseur CJS de Rollup au prerender (`Expected ',', got 'undefined'`).
+- **Démos** : blocs `::dnax-demo` → **onglets Preview / Code, Preview actif par
+  défaut** (composant `app/components/DnaxDemo.vue`, tabs de la lib) ; slot défaut =
+  live, `#code` = snippet exact du source. Démos statiques inlinées ; démos avec état
+  regroupées dans UN composant par page `app/components/demos/DnaxDemo<Page>.vue`
+  (prop `demo`), styles de page en `<style scoped>` (jamais `main.css`).
+- **⚠ Piège MDC** : une balise auto-fermante `<q-btn … />` n'est PAS fermée (parse5)
+  → elle avale la suite (slot `#code`, contenu après `<DnaxApi/>`). Utiliser l'inline
+  `:dnax-api{name="…"}` ou fermer explicitement ; `scripts/fix-mdc-self-closing.mjs`
+  corrige un lot de façon idempotente.
+- **Providers `$q.*`** : Docus n'a pas de `<q-config-provider>` racine →
+  `app/plugins/dnax-providers.client.ts` monte dialog/bottom-sheet/notify/loading/
+  image-preview dans une app Vue DÉTACHÉE (hors QConfigProvider, pour ne pas combattre
+  le mode sombre de Docus).
+- **Fix bibliothèque** : `packages/ui/module.ts` enregistre désormais les directives
+  aussi côté serveur (plugin universel, plus `mode: "client"`) — sinon tout rendu
+  SSR/SSG d'une page utilisant `v-touch-*`/`v-intersection`/`v-close` crash
+  (`Cannot read properties of undefined (reading 'getSSRProps')`).
+- **Monorepo** : `ddocs/` ajouté aux workspaces racine (`@dnax/ui: workspace:*`) et
+  `tailwindcss@~3.4.17` ajouté aux devDeps de `docs/` — sans ce pin, le Tailwind v4
+  apporté par Docus est résolu par `@nuxtjs/tailwindcss` et le build `docs/` casse.
+- **Outillage** : `ddocs/scripts/validate-content.mjs` (contrôle des pages),
+  `fix-mdc-self-closing.mjs`, `gen-llms.mjs` → `ddocs/public/llms.txt`.
+  Contrat complet de conversion : `ddocs/CONVERSION.md`.
+
 ## QBtnActions/QBtnDropdown : position + offset du panneau — 2026-09-09
 
 Le popup peut s'ouvrir de chaque côté du déclencheur : prop `position`
@@ -284,3 +322,73 @@ class/style ne passent pas en multi-racines, il faut des props explicites).
 
 L'ancienne prop `icon` (gauche) renommée `iconLeft` + nouvelle prop `iconRight`
 (avant le chevron). Aucune utilisation externe de `icon` → renommage sans casse.
+
+## ddocs — titres des sections API — 2026-09-10
+
+Dans les pages MDC de `ddocs/content/docs/4.components/` :
+
+- Page **mono-composant** : la section finale est `## API` + `<DnaxApi name="QXxx" />`
+  (on normalise, même si la source historique titrait `## QXxx API`) — aligné sur
+  l'exemplaire canonique `btn.md`.
+- Page **famille** (plusieurs `docs-api`) : une section `## <Part>` par composant
+  (titre repris de la source) + `<DnaxApi name="…" />`, avec un sous-titre `### API`
+  quand la source en avait un sous chaque partie (bottom-sheet, breadcrumbs).
+
+Batch converti le 2026-09-10 : back-top, badge, bar, board, bottom-sheet, breadcrumbs
+(6 pages + composants de démo `DnaxDemoBackTop/Badge/Bar/Board/BottomSheet/Breadcrumbs.vue`).
+
+## ddocs — balises childless en syntaxe MDC inline — 2026-09-10
+
+Sur demande explicite, les composants sans enfant des pages MDC s'écrivent en
+**syntaxe MDC inline** (idiomatique, cf. CONVERSION.md) plutôt qu'en balise kebab
+explicite :
+
+- `:dnax-api{name="QMarquee"}` (jamais `<dnax-api … />`)
+- `:dnax-demo-marquee{demo="basic"}` (jamais `<dnax-demo-marquee … />`)
+
+Le balisage avec enfants/slots garde la balise kebab explicite
+(`<q-marquee …></q-marquee>`). Vérif : parseur `createMarkdownParser` de
+`@nuxtjs/mdc/runtime` — dans un `::code-preview`, le nœud `template v-slot:code`
+doit être **frère** du composant de démo.
+
+## ddocs — composant de démo pour démos sans état — 2026-09-10
+
+Un composant `DnaxDemo<Page>.vue` est créé même quand la démo n'a **pas d'état**
+lorsque (a) le markup live contient un **binding** non évaluable en MDC
+(`:text="NEWS"`, `:src="img1"`, `:height="300"`) ou (b) il faut des **styles
+scoped** page-spécifiques (`.demo-nav`, `.demo-scroller`, `.demo-parallax`…)
+impossibles à poser en Markdown sans éditer `app/assets/css/main.css`.
+
+Batch converti le 2026-09-10 : marquee, message-scroller, nav-menu, pagination,
+parallax, pull-to-refresh (6 pages + `DnaxDemoMarquee/MessageScroller/NavMenu/Pagination/Parallax/PullToRefresh.vue`).
+Cas particulier : dans `pull-to-refresh.vue`, `usageBasic` embarque déjà son
+`<script setup>` ; le `#code` MDC recompose l'SFC à partir de `scriptBasic` +
+template pour éviter un double bloc script.
+
+## docd — second site de doc, sur le layer Docd (UI Thing) — 2026-09-10
+
+Un **second site de documentation** rend le même contenu que `ddocs/` avec un
+autre thème : `docd/`, basé sur le layer Nuxt **Docd** (`@baybreezy/docd`,
+s'appuie sur Nuxt Content + UI Thing, cf. https://docd.uithing.com).
+
+- **Contenu généré** : `docd/content/docs/**` est produit depuis
+  `ddocs/content/**` par `docd/scripts/port-from-ddocs.mjs` (idempotent, repart
+  d'une arborescence propre). Seuls `docd/content/index.md` (landing
+  `::landing-hero`) et `docd/content/docs/index.md` (hub) sont écrits à la main.
+- **Réécritures** : `::dnax-demo` → `::prose-show-case` (bloc Preview/Code natif
+  de Docd, **Preview actif par défaut**), `::note` →
+  `::prose-callout{variant="note"}`, `i-lucide-x` → `lucide:x`, `2.essentials`
+  ignoré. Tout le reste (frontmatter, prose, `#code`, `<dnax-api>`,
+  `<dnax-demo-*>` explicites **et** inline `:dnax-api{}` / `:dnax-demo-*{}`) est
+  copié **tel quel**.
+- **API** : on réutilise nos `<DnaxApi>` / `<DnaxPropsTable>` (identiques à
+  `ddocs/`) alimentés par `scripts/dnax-ui-meta.ts` → le mécanisme natif
+  `componentApi` du layer Docd n'est **pas** utilisé (il exigerait des chemins de
+  composants sous `rootDir`).
+- **Monorepo** : `docd/` ajouté aux workspaces racine, `@dnax/ui: workspace:*`
+  (les sources `packages/ui` sont utilisées, pas le paquet npm publié).
+- **Contrat complet** : `docd/CONVERSION.md`.
+
+Vérification : `cd docd && bun run generate` → **443 routes prérendues**, 0 `[500]`
+ni `[404]`, `llms.txt` + `llms-full.txt` générés, aucune balise `dnax-*`/`prose-*`
+non résolue dans le HTML, tables d'API présentes dès le prerender.
