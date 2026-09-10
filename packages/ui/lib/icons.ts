@@ -14,6 +14,8 @@ export const icons = {
   chevronUp: "lucide:chevron-up",
   chevronsLeft: "lucide:chevrons-left",
   chevronsRight: "lucide:chevrons-right",
+  ellipsis: "lucide:ellipsis",
+  ellipsisVertical: "lucide:ellipsis-vertical",
   copy: "lucide:copy",
   eye: "lucide:eye",
   eyeOff: "lucide:eye-off",

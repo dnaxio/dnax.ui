@@ -195,11 +195,9 @@ onBeforeUnmount(() => {
         </button>
         <ChevronDown class="q-select__arrow" :class="{ 'q-select__arrow--rotated': open }" aria-hidden="true" />
       </div>
-      <div v-if="error" class="q-field__bottom">
-        <div class="q-field__error">{{ errorMessage }}</div>
-      </div>
-      <div v-else-if="hint" class="q-field__bottom">
-        <div class="q-field__hint">{{ hint }}</div>
+      <div class="q-field__bottom">
+        <div v-if="error" class="q-field__error">{{ errorMessage }}</div>
+        <div v-else-if="hint" class="q-field__hint">{{ hint }}</div>
       </div>
 
       <Teleport to="body">

@@ -18,6 +18,7 @@ const FAMILIES: Record<string, string[]> = {
     "QBottomSheetProvider",
   ],
   Bubble: ["QBubble", "QBubbleContent", "QBubbleGroup", "QBubbleReactions"],
+  Breadcrumbs: ["QBreadcrumbs", "QBreadcrumbsEl"],
   Card: ["QCard", "QCardContent", "QCardActions"],
   Carousel: ["QCarousel", "QCarouselContent", "QCarouselItem", "QCarouselNav"],
   Dialog: [
@@ -99,8 +100,11 @@ const CUSTOM_PAGES = new Set([
   "loading",
   "loading-provider",
   "bottom-sheet",
+  "breadcrumbs",
   "btn",
   "bubble",
+  "btn-actions",
+  "btn-dropdown",
   "card",
   "carousel",
   "checkbox",
@@ -156,7 +160,8 @@ const GUIDES = [
 const SHOWCASE = [{ title: "Mobile Mockup", link: "/mockup" }];
 
 // Composants internes (ponts de rendu) non documentés comme pages —
-// leur API est le plugin correspondant (voir Plugins API).
+// leur API est le plugin correspondant (voir Plugins API). Les fichiers
+// préfixés « _ » (privés) sont aussi ignorés du menu et des pages.
 const EXCLUDED = new Set(["QNotifyProvider", "QNotifyToast"]);
 
 // Composants Layout : regroupés sous « Layouts > Page » dans le menu
@@ -249,7 +254,7 @@ const kebab = (name: string) =>
     .toLowerCase();
 
 const files = readdirSync("packages/ui/components")
-  .filter((f) => f.endsWith(".vue"))
+  .filter((f) => f.endsWith(".vue") && !f.startsWith("_"))
   .map((f) => f.replace(/\.vue$/, ""))
   .filter((f) => !EXCLUDED.has(f))
   .sort();

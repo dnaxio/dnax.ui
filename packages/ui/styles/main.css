@@ -306,11 +306,21 @@ html.dark body {
 .dark .q-select__popup,
 .dark .q-autocomplete__popup,
 .dark .q-nav-menu__panel,
+.dark .q-btn-actions__panel,
 .dark .q-dialog__content,
 .dark .q-loading__box,
 .dark .q-file-picker__row {
   background-color: var(--card);
   color: var(--foreground);
+}
+
+.dark .q-btn-actions__item:hover,
+.dark .q-btn-actions__item:focus-visible {
+  background-color: rgb(255 255 255 / 0.08);
+}
+
+.dark .q-btn-actions__separator {
+  background-color: rgb(255 255 255 / 0.14);
 }
 
 .dark .q-table {
@@ -2434,6 +2444,115 @@ html.dark body {
   flex: 1 1 auto;
 }
 
+/* ===== QBtnActions ===== */
+.q-btn-actions {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.q-btn-actions__caret {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  /* Caret toujours à l'extrémité DROITE du bouton : quand le bouton est plus
+     large que son contenu (stretch / largeur fixe type 400px), la marge auto
+     absorbe l'espace libre et colle le chevron au bord — sans toucher aux
+     boutons à taille naturelle (aucun espace libre → aucun effet). */
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.q-btn-actions__caret--open {
+  transform: rotate(180deg);
+}
+
+.q-btn-actions__panel {
+  position: fixed;
+  z-index: 3000;
+  padding: 4px;
+  background-color: #fff;
+  border: 1px solid rgb(0 0 0 / 0.12);
+  border-radius: var(--q-radius, 6px);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.15);
+}
+
+.q-btn-actions__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+
+.q-btn-actions__item:hover,
+.q-btn-actions__item:focus-visible {
+  background-color: rgb(0 0 0 / 0.06);
+  outline: none;
+}
+
+.q-btn-actions__item--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.q-btn-actions__item-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.q-btn-actions__item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.q-btn-actions__item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-btn-actions__item-desc {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.q-btn-actions__separator {
+  height: 1px;
+  margin: 4px 6px;
+  background-color: rgb(0 0 0 / 0.1);
+}
+
+.q-popup-enter-active {
+  animation: q-popup-fade-in 0.12s ease;
+}
+
+.q-popup-leave-active {
+  animation: q-popup-fade-in 0.1s ease reverse;
+}
+
+@keyframes q-popup-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* ===== QImg ===== */
 .q-img {
   position: relative;
@@ -3838,6 +3957,117 @@ html.dark body {
 .q-splitter--horizontal .q-splitter__handle {
   width: 28px;
   height: 2px;
+}
+
+/* ===== QBreadcrumbs ===== */
+.q-breadcrumbs {
+  --q-breadcrumbs-gutter: 8px;
+  --q-breadcrumbs-color: rgb(0 0 0 / 0.6);
+  --q-breadcrumbs-sep-color: rgb(0 0 0 / 0.42);
+  --q-breadcrumbs-active-color: var(--primary);
+
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--foreground);
+}
+
+.dark .q-breadcrumbs {
+  --q-breadcrumbs-color: rgb(255 255 255 / 0.66);
+  --q-breadcrumbs-sep-color: rgb(255 255 255 / 0.42);
+}
+
+.q-breadcrumbs__list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--q-breadcrumbs-gutter);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.q-breadcrumbs--center .q-breadcrumbs__list {
+  justify-content: center;
+}
+
+.q-breadcrumbs--right .q-breadcrumbs__list {
+  justify-content: flex-end;
+}
+
+.q-breadcrumbs__item {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  color: var(--q-breadcrumbs-color);
+  transition: color 0.15s ease;
+}
+
+.q-breadcrumbs__item--last {
+  color: var(--q-breadcrumbs-active-color);
+  font-weight: 600;
+}
+
+.q-breadcrumbs__el {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: inherit;
+  text-decoration: none;
+  cursor: default;
+  transition: color 0.15s ease;
+}
+
+.q-breadcrumbs__el svg {
+  width: 1.15em;
+  height: 1.15em;
+  flex-shrink: 0;
+}
+
+.q-breadcrumbs__el-icon {
+  display: inline-flex;
+}
+
+a.q-breadcrumbs__el {
+  cursor: pointer;
+}
+
+a.q-breadcrumbs__el:hover {
+  color: var(--q-breadcrumbs-active-color);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.q-breadcrumbs__el:focus-visible {
+  outline: 2px solid var(--q-breadcrumbs-active-color);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.q-breadcrumbs__el--disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.q-breadcrumbs__separator {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--q-breadcrumbs-sep-color);
+  user-select: none;
+}
+
+.q-breadcrumbs__separator svg {
+  width: 1em;
+  height: 1em;
+}
+
+.q-breadcrumbs--dense {
+  font-size: 12.5px;
+}
+
+.q-breadcrumbs--dense .q-breadcrumbs__el {
+  gap: 4px;
 }
 
 /* ===== QSeparator ===== */

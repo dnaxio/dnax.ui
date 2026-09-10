@@ -1,5 +1,145 @@
 # Décisions d'architecture / d'API (tag: decisions)
 
+## QBtnActions/QBtnDropdown : position + offset du panneau — 2026-09-09
+
+Le popup peut s'ouvrir de chaque côté du déclencheur : prop `position`
+(`DropdownPosition`, type exporté de QBtnActions.vue) + prop `offset` (distance
+panneau ↔ déclencheur en px, défaut 4). Ajoutées au MOTEUR partagé QBtnActions,
+pas seulement à QBtnDropdown (le wrapper ne fait que les transmettre).
+
+- Valeurs : `bottom-{start,end}` (défaut effectif `bottom-end`), `top-{start,end}`,
+  `left/right-{start,end}` (start = haut, end = bas) et les variantes centrées sans
+  suffixe (`bottom`, `top`, `left`, `right` — centre sur l'axe croisé). Le suffixe
+  s'applique TOUJOURS sur l'axe perpendiculaire au côté.
+- `align` conservé en alias de compat : `"left"` = bottom-start, `"right"` =
+  bottom-end. `position` prioritaire quand les deux sont fournis. Aucun changement
+  du défaut ni des usages existants (démo table etc.).
+- Algorithme d'ancrage « point + translate % » : top/left = point d'ancrage du
+  panneau (fixed) ; décalage par `translate(tx, ty)` en 0 / -50% / -100% de la
+  taille du panneau → alignement bord-à-bord ou centrage SANS mesurer le panneau
+  (voir knowledges). Pas de flip/contrainte viewport : placement manuel assumé.
+- Caret du déclencheur : `margin-left: auto` sur `.q-btn-actions__caret`
+  (styles/main.css) → sur un déclencheur plus large que son contenu (stretch ou
+  largeur fixe), la flèche se colle au bord DROIT du bouton au lieu de rester à
+  côté du label ; sans espace libre (bouton à taille naturelle), aucun effet.
+- Docs : section « Popup placement & offset » ajoutée à btn-dropdown.vue ; notes
+  btn-actions.vue + entrées llms.txt (Button Actions / Button Dropdown) à jour.
+
+## QBreadcrumbs + QBreadcrumbsEl : famille fil d'ariane — 2026-09-09
+
+Nouveaux composants `QBreadcrumbs` (conteneur, QBreadcrumbs.vue) + `QBreadcrumbsEl`
+(miette) — API Quasar, rendu shadcn-vue (`nav > ol > li`, `aria-current="page"` sur
+la page courante). Docs : page custom `breadcrumbs.vue` (CUSTOM_PAGES) + entrée menu
+régénérée + llms.txt à jour.
+
+- Conteneur : insère **automatiquement** un séparateur entre les miettes du slot par
+  défaut et colore la DERNIÈRE (page courante) avec `active-color` (primary) + poids
+  600 — l'utilisateur n'écrit jamais de séparateur (contrairement à shadcn). Props :
+  `separator` (texte `"/"` par défaut, ou icône Iconify — détection par préfixe
+  `prefixe:` ex. `lucide:chevron-right` ; `separator=""` désactive), `separator-color`,
+  `color` (miettes non courantes), `gutter` (`"8px"`), `align` (left/center/right),
+  `dense`. Pas de prop `dark` : les gris passent par les tokens (vars CSS + `.dark`).
+- Miette `QBreadcrumbsEl` : `label`/`icon` (Iconify) + slot défaut qui remplace le
+  label ; `to` (lien routeur push/replace, routeur optionnel → dégrade en `<span>`),
+  `href`/`target` (`_blank` → `rel="noopener"` auto), `disable`. Pas de `exact`
+  (aucun état actif par route : la page courante = dernière miette).
+- **Intercaler les séparateurs entre les vnodes du slot est impossible en template
+  pur.** `defineRender` (macro Vue 3.4+) écartée : non typée par vtsls (Cannot find
+  name 'defineRender'). Solution retenue : helper interne
+  `components/internal/RenderNodes.vue` — petite fonction de rendu qui re-affiche des
+  vnodes bruts passés en prop ; les `rows()` (crumb + isLast) sont calculées dans le
+  template (1 appel de slot par rendu, pas de computed sur les slots).
+- CSS BEM dans `styles/main.css` (bloc inséré avant QSeparator) : vars
+  `--q-breadcrumbs-{gutter,color,sep-color,active-color}`, `.dark` re-déclare les deux
+  gris. Pas de safe-area (élément non plaqué aux bords).
+- Événement `change` sur le conteneur : délégation de clic DOM sur le `<nav>` (le
+  clic remonte du lien QBreadcrumbsEl, l'émission Vue ne bulle pas) — émis quand une
+  miette qui n'est PAS la dernière (page courante) est cliquée. Payload
+  `(index, event)` (0-based, calculé sur les `.q-breadcrumbs__item` du `<ol>`).
+- Générateurs : exports (`generate-exports.ts`) ET menu (`gen-menu.ts`) ignorent
+  désormais les fichiers préfixés « \_ » (privés, ex. `_QBtnActionsLegacy.vue`) → non
+  exportés / non listés dans le menu / pas de page générée.
+
+## QBtnDropdown : items à icônes gauche + droite — 2026-09-09
+
+Nouveau composant `QBtnDropdown` (QBtnDropdown.vue) : déclencheur QBtn + caret,
+menu data-driven — API Quasar « QBtnDropdown ».
+
+- Prop `items: DropdownItem[]` ({ label, value?, leftIcon?, rightIcon?, color?,
+  description?, separator?, disable?, onClick? }) — chaque item porte une icône
+  GAUCHE (`leftIcon`) et/ou DROITE (`rightIcon` : check, chevron, lien externe…).
+- Événement `select` émis au clic (payload = `value`, sinon l'item).
+- Implémentation = wrapper fin de QBtnActions (moteur partagé : teleport fixed,
+  clavier, séparateurs) : mapping `leftIcon/rightIcon` → `icon/iconRight` et
+  `select` → re-émission. Zéro duplication de logique/CSS.
+- Mapping des deux API : QBtnActions (`actions`, `icon`/`iconRight`,
+  `select-action`) = menu d'actions ; QBtnDropdown (`items`,
+  `leftIcon`/`rightIcon`, `select`) = dropdown générique Quasar.
+- Docs : page `btn-dropdown.vue` custom (slug dans CUSTOM_PAGES) + llms.txt.
+
+## QBtnActions : bouton-dropdown piloté par données — 2026-09-09
+
+Nouveau composant `QBtnActions` (QBtnActions.vue) : un déclencheur QBtn + menu
+intégré, piloté par une prop `actions: BtnAction[]` ({ label, value?, icon?,
+iconRight?, color?, description?, separator?, disable?, onClick? }) — équivalent
+data-driven d'un QBtnDropdown Quasar (pas de QMenu/QList à composer).
+
+- Déclencheur : API QBtn (flat/dense/round/color/size…) transmise ; icône seule si
+  pas de label (défaut « … » lucide:ellipsis) ; flèche caret uniquement avec un
+  label (masquable par `noCaret`).
+- Événement `select-action` émis au clic (payload = `value` de l'action, ou
+  l'action si pas de value) — le `onClick` de l'action s'exécute avant.
+- `align` (right par défaut, pour les menus de fin de rangée/table), `menuWidth`,
+  `separator` au-dessus de l'action, `color` (ex. "negative" pour Supprimer).
+- Panneau TÉLÉPORTÉ dans <body> en `position: fixed` (z-index 3000) avec position
+  recalculée à l'ouverture/resize/scroll → visible depuis une cellule sticky de
+  table ou un container overflow (jamais clippé par un contexte d'empilement).
+  Alignement via translateX(-100%) pour `align="right"` ; animation = fade seul
+  (pas de conflit transform avec le translate).
+- Comportement : fermeture clic extérieur/Échap ; clavier Arrow/Home/End dans le
+  menu ; panel claire CSS `.dark .q-btn-actions__panel` ; ne s'ouvre pas si
+  `actions` vide ou disable/loading.
+- `separator` : soit posé sur l'action (trait au-dessus du bouton), soit en entrée
+  seule `{ separator: true }` → trait seul SANS bouton (isSeparatorOnly) — jamais
+  de bouton vide entre le trait et l'action suivante.
+- Docs : page `btn-actions.vue` auto-générée (gen-menu) + entrée llms.txt.
+
+## QSidebarMenuButton : props to / exact (activation route automatique) — 2026-09-09
+
+`QSidebarMenuButton` accepte désormais `to` (RouteLocationRaw), `exact` et `replace`
+(pattern QRouteTab) :
+
+- Avec `to` : rend un `<a href>` (href résolu par le routeur), navigue au clic
+  (`router.push`, `replace` si demandé) et **l'état actif suit la route** — la
+  classe `q-sidebar__menu-button--active` (texte/icône couleur primaire) s'applique
+  seule. `exact` : match path + hash ; sinon préfixe de segment (même logique que
+  QRouteTab).
+- Sans `to` : comportement historique conservé (`active` manuel + `href` natif ou
+  bouton). `active` est ignoré quand `to` est fourni.
+- Router optionnel : `useRouter`/`useRoute` en try/catch → sans router installé,
+  `to` dégrade en bouton qui émet `@click` (le parent navigue). `@click` est
+  toujours émis après la navigation (ne pas rappeler un goTo quand on passe `to`).
+- Usage : `<q-sidebar-menu-button :to="item.to" :exact="item.exact" label icon />`
+  — inutile de calculer `:active` + `@click` manuels.
+
+## Champs (input/select) : `.q-field__bottom` toujours réservé — 2026-09-09
+
+Convention de la famille « field » : le bloc `.q-field__bottom` (min-height 20px,
+main.css) est TOUJOURS rendu, avec error/hint conditionnels à l'intérieur — jamais
+`v-if` sur le bloc lui-même.
+
+- Même empreinte verticale pour tous les champs (40px contrôle + 20px réserve)
+  → un q-input et un q-select sans hint/error ont des hauteurs identiques et leurs
+  fonds s'alignent dans une même rangée ; pas de saut de layout quand une erreur
+  ou un hint apparaît.
+- C'est aussi le défaut Quasar (d'où la prop d'opt-out `hide-bottom-space`) et le
+  comportement majoritaire de la lib.
+- Corrigé sur QSelect, QAutocomplete, QDatePicker (rendaient le bloc seulement si
+  error/hint) pour les aligner sur QInput, QInputOtp, QInputTag, QFilePicker,
+  QImagePicker.
+- Opt-out compact éventuel (à faire si demandé) : prop Quasar-compatible
+  `hide-bottom-space` sur les composants de la famille.
+
 ## QDialog : transitions sheet-up / sheet-down — 2026-09-05
 
 Deux nouvelles valeurs pour la prop `transition` de `QDialog` : `sheet-up` et

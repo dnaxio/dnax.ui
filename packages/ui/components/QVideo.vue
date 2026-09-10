@@ -8,7 +8,11 @@
 // Events : @ready (media element), @play, @pause, @ended, @timeupdate, @loadedmetadata, @volumechange.
 // Méthodes exposées : play / pause / togglePlay / seek / getCurrentTime / getDuration / setVolume / setMuted / isPlaying.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
-import "@videojs/html/video/skin.css"
+// Importé en texte brut + injecté côté client : passé dans le pipeline CSS normal, ce
+// fichier tiers (build Tailwind de @videojs/html) contient du `@layer`/`@scope` natif qui
+// casse le build des apps consommatrices en Tailwind v3 (PostCSS exige le `@tailwind`
+// correspondant). L'injection runtime l'exclut de PostCSS sans perdre les styles globaux.
+import skinCss from "@videojs/html/video/skin.css?raw"
 
 interface Props {
   /** URL de la vidéo (mp4, webm, ogg, HLS .m3u8, YouTube…) */
@@ -125,7 +129,19 @@ const onPlaceholderClick = () => {
   play()
 }
 
+let skinInjected = false
+const injectSkin = () => {
+  if (skinInjected || typeof document === "undefined") return
+  skinInjected = true
+  if (document.getElementById("q-video-skin")) return
+  const style = document.createElement("style")
+  style.id = "q-video-skin"
+  style.textContent = skinCss
+  document.head.appendChild(style)
+}
+
 onMounted(async () => {
+  injectSkin()
   // Charge le framework HTML (custom elements) — uniquement côté client
   await Promise.all([
     import("@videojs/html/video/player" as string),

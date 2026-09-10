@@ -588,13 +588,11 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
       <slot name="append" />
     </div>
 
-    <div v-if="error" class="q-field__bottom">
-      <div class="q-field__error">
+    <div class="q-field__bottom">
+      <div v-if="error" class="q-field__error">
         <slot name="error">{{ errorMessage }}</slot>
       </div>
-    </div>
-    <div v-else-if="hint || $slots.hint" class="q-field__bottom">
-      <div class="q-field__hint">
+      <div v-else-if="hint || $slots.hint" class="q-field__hint">
         <slot name="hint">{{ hint }}</slot>
       </div>
     </div>

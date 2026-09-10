@@ -1,5 +1,53 @@
 # Connaissances & bonnes pratiques (tag: knowledges)
 
+## Pages docs — ordre des blocs SFC : template en haut, script en bas — 2026-09-09
+
+Dans les pages docs (`docs/app/pages/docs/**/*.vue`), l'ordre des blocs SFC est :
+`<template>` en haut, `<script setup lang="ts">` ensuite, `<style scoped>` en bas.
+L'ordre des blocs n'a aucune incidence sur la compilation, mais la lecture suit le
+rendu : la structure visible d'abord, la logique ensuite, les styles enfin.
+
+- À appliquer aux pages nouvelles et modifiées (ex. `btn-actions.vue` réordonné).
+- Les pages existantes encore en script d'abord sont migrées au fil des éditions.
+- Portée : pages DOCS uniquement — les composants de `packages/ui/components/`
+  gardent leur convention actuelle (logique/script en tête, template ensuite).
+
+## Positionner un panneau fixe autour d'un déclencheur : point d'ancrage + translate % — 2026-09-09
+
+Pour ouvrir un popup téléporté en `position: fixed` de chaque côté d'un bouton
+(QBtnActions/QBtnDropdown, placement `position`), pas besoin de mesurer le panneau :
+
+- Choisir un POINT D'ANCRAGE sur le déclencheur (top/left fixed), éloigné du bord
+  principal par `offset` ;
+- aligner le panneau via `transform: translate(tx, ty)` où chaque axe vaut `0`
+  (bord start), `-100%` (bord end — les % portent sur la taille du panneau) ou
+  `-50%` (centre).
+- Ex. bottom-end : `top = rect.bottom + offset`, `left = rect.right`,
+  `translate(-100%, 0)` ; top centré : `top = rect.top - offset`, `left = midX`,
+  `translate(-50%, -100%)`.
+- Compatible avec une transition d'ouverture qui n'anime QUE l'opacity (fade) —
+  jamais de conflit de transform ; centrer/fixer sans layout shift.
+
+## Réafficher les vnodes d'un slot en template : helper RenderNodes — 2026-09-09
+
+Intercaler des éléments entre les vnodes d'un slot (ex. séparateurs d'un
+QBreadcrumbs entre chaque `q-breadcrumbs-el`) est impossible en `<template>` pur :
+Vue ne permet pas de rendre une vnode brute avec `<component :is>` ni de boucler le
+résultat de `useSlots().default()` en la ré-enveloppant.
+
+- `defineRender` (macro Vue ≥ 3.4, rendu par fonction dans `<script setup>`) :
+  **non typée dans ce toolchain** — vtsls remonte « Cannot find name 'defineRender' »
+  même sans import (diagnostic bloquant). Écartée.
+- Solution validée (QBreadcrumbs) : helper interne `components/internal/RenderNodes.vue`
+  (non auto-importé, non exporté) dont la fonction de rendu re-affiche des vnodes
+  bruts passés en prop `nodes` (`type: [Object, Array] as PropType<VNode | VNode[]>`).
+- Appelant : calculer les rangées (crumb + isLast) dans une **fonction appelée par le
+  template** (`v-for="row in rows()"`) — PAS dans un `computed` : les slots ne sont
+  pas réactifs, un computed ne se recalculerait pas quand le parent re-route du contenu.
+  Une seule invocation de `slots.default()` par rendu.
+- Filtrer `vnode.type` contre `Comment`/`Text` importés de "vue" pour ignorer les
+  commentaires (v-if) et nœuds texte blancs du slot.
+
 ## QBoard — dashboard tuiles (Power BI-like) — 2026-09-07
 
 `packages/ui/components/QBoard.vue` : `<q-board v-model:items="tiles" :columns="12">`

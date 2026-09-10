@@ -44,8 +44,11 @@ The design system lives in `@dnax/ui` (npm package `@dnax/ui`, source in `packag
 - [Bar](/docs/components/bar) — QBar — a thin window/app bar (toolbar role): window buttons, menus, status; dense & dark variants.
 - [Board](/docs/components/board) — QBoard — a Power BI-like dashboard: a background tile grid (columns × rows, optional labels) with QInteract inside for drag & resize of grid-unit tiles.
 - [Bottom Sheet](/docs/components/bottom-sheet) — QBottomSheet — a sheet sliding from the bottom for contextual actions.
+- [Breadcrumbs](/docs/components/breadcrumbs) — QBreadcrumbs / QBreadcrumbsEl — breadcrumb trail with automatic separators (text or Iconify icon), router/native links, active-color on the current (last) crumb. Emits `change` (index of the clicked crumb) when a non-current crumb is clicked.
 - [Bubble](/docs/components/bubble) — QBubble — chat message bubbles aligned to start/end.
 - [Button](/docs/components/btn) — QBtn — a button (native <button>/<a>) with Quasar API.
+- [Button Actions](/docs/components/btn-actions) — QBtnActions — a dropdown button (QBtn + menu) driven by an `actions` array ({ label, value, icon, color, description, onClick }): emits `select-action` on click, behaves like a QBtnDropdown with the actions embedded. The teleported panel opens around the trigger with configurable `position` and `offset`.
+- [Button Dropdown](/docs/components/btn-dropdown) — QBtnDropdown — a dropdown button (QBtn + caret) with `items` whose entries can carry a **left icon** and a **right icon** (`leftIcon`/`rightIcon`), plus color/description/separator: emits `select` on click. Panel placement around the trigger is set with `position` (bottom/top/left/right + start/end) and `offset`.
 - [Button Group](/docs/components/btn-group) — QBtnGroup — groups buttons into a single visual unit.
 - [Card](/docs/components/card) — QCard — a flexible content container.
 - [Carousel](/docs/components/carousel) — QCarousel — a responsive item carousel with scroll-snap (Embla).

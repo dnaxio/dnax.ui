@@ -14,6 +14,13 @@ defineProps<{
 }>()
 
 const tab = ref<"preview" | "code">("preview")
+const state = ref<{ ok: boolean }>({ ok: false })
+
+onMounted(() => {
+  setTimeout(() => {
+    state.value.ok = true
+  },100)
+})
 </script>
 
 <template>
@@ -36,7 +43,7 @@ const tab = ref<"preview" | "code">("preview")
 
     <q-tab-panels v-model="tab" animated class="demo-block__panels">
       <q-tab-panel name="preview">
-        <div class="demo-block__preview">
+        <div v-if="state.ok" class="demo-block__preview">
             <slot />
         </div>
       </q-tab-panel>

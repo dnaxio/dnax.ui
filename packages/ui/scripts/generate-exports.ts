@@ -14,7 +14,7 @@ const toPascalCase = (name: string) =>
     .join("")
 
 const files = (await readdir(componentsDir))
-  .filter((file) => file.endsWith(".vue"))
+  .filter((file) => file.endsWith(".vue") && !file.startsWith("_"))
   .sort()
 
 const exports = files
