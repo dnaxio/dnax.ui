@@ -18,6 +18,7 @@
     "typescript": "^7"
   },
   "dependencies": {
+    "@nuxt/kit": "^4.5.2",
     "shiki": "^4.4.3"
   }
 }

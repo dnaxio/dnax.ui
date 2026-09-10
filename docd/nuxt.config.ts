@@ -17,4 +17,9 @@ export default defineNuxtConfig({
         "Dnax UI — 100+ Vue 3 components with a Quasar-style API, plugins, directives and guides.",
     },
   },
+  vite: {
+    server: {
+      allowedHosts: ["localhost", "127.0.0.1","ui.dnax.io"]
+    }
+  }
 });
