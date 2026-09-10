@@ -1,0 +1,122 @@
+# Dnax UI
+
+> Dnax UI — a Vue 3 design system with a Quasar-style public API, built with shadcn-vue techniques.
+
+## Documentation Sets
+
+- [Dnax UI](http://localhost:3000/llms-full.txt): Dnax UI — 100+ Vue 3 components with a Quasar-style API, plugins, directives and guides.
+
+## Docs
+
+- [Installation](http://localhost:3000/raw/docs/getting-started/installation.md): Add @dnax/ui to your project and render your first component.
+- [Setup](http://localhost:3000/raw/docs/getting-started/setup.md): First component, theming, CSS tokens and icons in five minutes.
+- [Config Provider](http://localhost:3000/raw/docs/layouts/config-provider.md): The app root — theme tokens (colors, mode, default component props) and the programmatic $q providers, mounted once for the whole subtree.
+- [Page Layout](http://localhost:3000/raw/docs/layouts/page.md): The page content zone — automatic offsets for the surrounding fixed bars, plus optional virtual scrolling.
+- [Header Layout](http://localhost:3000/raw/docs/layouts/header.md): A top bar for titles and actions — in-flow or fixed, with frosted or glass backgrounds and built-in safe-area insets.
+- [Footer Layout](http://localhost:3000/raw/docs/layouts/footer.md): A bottom bar for actions and secondary navigation — in-flow or fixed, with frosted or glass backgrounds and built-in safe-area insets.
+- [Sidebar Layout](http://localhost:3000/raw/docs/layouts/sidebar.md): A collapsible side panel for app navigation — offcanvas drawer or static panel, with header, content, footer and menu parts.
+- [Grid](http://localhost:3000/raw/docs/styles/grid.md): A responsive 12-column layout grid plus a Vant-style cell grid — icon + text cells with badges, links and slots.
+- [Col](http://localhost:3000/raw/docs/styles/col.md): The grid cell — span and offset, each with responsive variants, inside a QGrid or QRow.
+- [Row](http://localhost:3000/raw/docs/styles/row.md): A semantic alias of QGrid — the same 12-column system, reading better when the container is a row in your mental model.
+- [Accordion](http://localhost:3000/raw/docs/components/accordion.md): Collapsible sections — a container, items, triggers and animated content, with one or several sections open at once.
+- [Action Sheet](http://localhost:3000/raw/docs/components/action-sheet.md): An iOS-style sheet that presents a list of options on top of the current screen, with select and cancel events.
+- [App](http://localhost:3000/raw/docs/components/app.md): The root layout wrapper — a `.q-app` container that scopes pages, fixed bars and their offsets.
+- [Autocomplete](http://localhost:3000/raw/docs/components/autocomplete.md): A text field with a filtered suggestion list — inline dropdown, centered modal or bottom sheet, with client-side or server-side filtering.
+- [Avatar](http://localhost:3000/raw/docs/components/avatar.md): A circular image with an automatic fallback to initials, an Iconify icon or a custom slot.
+- [Back Header](http://localhost:3000/raw/docs/components/back-header.md): A navigation bar for detail screens — back button, title and trailing actions, with the iOS safe-area top inset.
+- [Back Top](http://localhost:3000/raw/docs/components/back-top.md): A sticky floating button that appears after scrolling past an offset and smooth-scrolls back to the top.
+- [Badge](http://localhost:3000/raw/docs/components/badge.md): Badges are small labels for counts, states and notifications, with floating, outline and transparent variants.
+- [Bar](http://localhost:3000/raw/docs/components/bar.md): A thin bar for the top of a window or app — window controls, menus and status, with the Quasar API.
+- [Board](http://localhost:3000/raw/docs/components/board.md): Power BI-style dashboards — tiles laid out on a background grid, with drag & resize handled by QInteract.
+- [Bottom Sheet](http://localhost:3000/raw/docs/components/bottom-sheet.md): A panel that slides up from the bottom edge — the mobile pattern for contextual actions and quick settings.
+- [Breadcrumbs](http://localhost:3000/raw/docs/components/breadcrumbs.md): Show the current page's position in the hierarchy, with automatic separators between crumbs.
+- [Button](http://localhost:3000/raw/docs/components/btn.md): Buttons trigger actions — variants, colors, icons, sizes, loading and disabled states.
+- [Button Actions](http://localhost:3000/raw/docs/components/btn-actions.md): A dropdown button driven by an actions array — generated trigger and menu items.
+- [Button Dropdown](http://localhost:3000/raw/docs/components/btn-dropdown.md): A QBtn with a caret that drops down a menu of items, on any side of the trigger.
+- [Button Group](http://localhost:3000/raw/docs/components/btn-group.md): Fuse several buttons into one visual unit — fused borders, radius on the outer corners only.
+- [Bubble](http://localhost:3000/raw/docs/components/bubble.md): Chat bubbles with content, groups and anchored reactions — seven variants.
+- [Card](http://localhost:3000/raw/docs/components/card.md): Flexible content containers — bordered, elevated, glassmorphism and hover variants.
+- [Carousel](http://localhost:3000/raw/docs/components/carousel.md): A scroll-snap carousel built on Embla — content, slides and nav buttons.
+- [Checkbox](http://localhost:3000/raw/docs/components/checkbox.md): A toggle control with boolean, indeterminate and array models — keyboard-accessible, with per-state icons and any color token.
+- [Chip](http://localhost:3000/raw/docs/components/chip.md): Compact elements for tags, filters and selections — icons, removable close button, outline, square and dense variants.
+- [Circular Progress](http://localhost:3000/raw/docs/components/circular-progress.md): A circular progress ring — determinate, reverse or indeterminate, with an optional centered value.
+- [Collapse](http://localhost:3000/raw/docs/components/collapse.md): A clickable header that smoothly expands or collapses its content, controlled or uncontrolled, with icons and a custom header slot.
+- [Container](http://localhost:3000/raw/docs/components/container.md): A centered max-width wrapper with configurable padding or fluid mode, plus decorative grid, star, wave, aurora and image backgrounds.
+- [Count Down](http://localhost:3000/raw/docs/components/count-down.md): A countdown timer from a duration or to a target date, with formatting tokens, an end event, controls and a raw-data slot.
+- [Country Picker](http://localhost:3000/raw/docs/components/country-picker.md): A ready-made country selector with flags, dialing codes and English/French search.
+- [Data Grid](http://localhost:3000/raw/docs/components/data-grid.md): A spreadsheet-like grid with keyboard selection, in-place editing and formula columns.
+- [Date Picker](http://localhost:3000/raw/docs/components/date-picker.md): A date selector with inline, sheet, modal and fullscreen dialog modes, plus min/max and disabled-date restrictions.
+- [Dialog](http://localhost:3000/raw/docs/components/dialog.md): A modal overlay family — dialog, header, content, footer, trigger and programmatic provider.
+- [Editor.js](http://localhost:3000/raw/docs/components/editor-js.md): A block editor built on Editor.js, storing documents as JSON blocks.
+- [Fab](http://localhost:3000/raw/docs/components/fab.md): A floating action button that expands a stack of actions, fixed to the screen edge with safe-areas.
+- [File Picker](http://localhost:3000/raw/docs/components/file-picker.md): A file selection field with image thumbnails, typed file icons, size/count validation and hint/error slots.
+- [Gallery](http://localhost:3000/raw/docs/components/gallery.md): A responsive image grid with single or multiple selection, labels, a max-selected limit, hover zoom and a viewer mode.
+- [Icon](http://localhost:3000/raw/docs/components/icon.md): Render any Iconify icon by name with size tokens, theme colors and inline spacing.
+- [Image Picker](http://localhost:3000/raw/docs/components/image-picker.md): An image selection field with a thumbnail grid, per-tile removal, size/count validation and hint/error slots.
+- [Image Preview](http://localhost:3000/raw/docs/components/image-preview.md): A fullscreen image viewer with fade/up/zoom transitions, swipe navigation, a counter and dismiss events.
+- [Image Preview Provider](http://localhost:3000/raw/docs/components/image-preview-provider.md): Renders the stack of programmatic fullscreen image viewers opened through the $q.imagePreview plugin.
+- [Image](http://localhost:3000/raw/docs/components/img.md): A responsive image container — aspect ratio, object-fit, loading spinner, blur-up placeholder and error slot.
+- [Infinite Scroll](http://localhost:3000/raw/docs/components/infinite-scroll.md): Loads more content automatically when you approach the bottom of a page or of a scrollable container.
+- [Inner Loading](http://localhost:3000/raw/docs/components/inner-loading.md): An overlay spinner shown inside a container while it loads — label, size, color, dark overlay and custom icon.
+- [Input](http://localhost:3000/raw/docs/components/input.md): A single-line text field with a label above, validation states, icons and affixes.
+- [Input OTP](http://localhost:3000/raw/docs/components/input-otp.md): A one-time-password field — one box per character, numeric or masked, grouped and with a complete event.
+- [Input Password](http://localhost:3000/raw/docs/components/input-password.md): A password field with a built-in show/hide toggle, wrapping q-input with the same props and slots.
+- [Input Tag](http://localhost:3000/raw/docs/components/input-tag.md): A text field that collects tags as chips — Enter to add, × to remove, editing and pasting built in.
+- [Interact](http://localhost:3000/raw/docs/components/interact.md): A container of draggable, resizable widgets with grid snapping and Power BI-style dashboard layout helpers.
+- [Intersection](http://localhost:3000/raw/docs/components/intersection.md): Reveals its content when it scrolls into view — transitions, re-toggle, events and an `active` slot.
+- [Linear Progress](http://localhost:3000/raw/docs/components/linear-progress.md): A linear progress bar — determinate, striped, reversed or indeterminate, with a configurable range and thickness.
+- [List](http://localhost:3000/raw/docs/components/list.md): The list family — a container, rows (clickable, dense, disabled) and sections (avatar, thumbnail, side).
+- [Loading](http://localhost:3000/raw/docs/components/loading.md): The fullscreen loading overlay — a declarative component driven by v-model, plus the provider that renders the $q.loading plugin state.
+- [Marquee](http://localhost:3000/raw/docs/components/marquee.md): An infinite scrolling band — a text prop or a rich slot, direction, duration, gap and pause-on-hover.
+- [Message Scroller](http://localhost:3000/raw/docs/components/message-scroller.md): A chat transcript pinned to the live edge — auto-scroll, turn anchoring, preserved reading position and jump controls.
+- [Nav Menu](http://localhost:3000/raw/docs/components/nav-menu.md): A top navigation bar with hover/click dropdown menus, icons, custom triggers and accessible keyboard navigation.
+- [Pagination](http://localhost:3000/raw/docs/components/pagination.md): Page navigation with v-model, boundary and direction links, a collapsible window, sizes and color variants.
+- [Parallax](http://localhost:3000/raw/docs/components/parallax.md): A background image that scrolls slower than the page, with a speed factor, content overlay and scroll-container tracking.
+- [Pull To Refresh](http://localhost:3000/raw/docs/components/pull-to-refresh.md): Pull down from the top of a scrollable container to refresh, with custom colors, thresholds, indicators and a controlled v-model.
+- [Radio](http://localhost:3000/raw/docs/components/radio.md): Radio options for single-choice groups — colors, label layout, dense and disabled/readonly states.
+- [Rating](http://localhost:3000/raw/docs/components/rating.md): A star rating bound with v-model — custom max, Iconify icons, sizes, colors and readonly/disabled states.
+- [Reorder](http://localhost:3000/raw/docs/components/reorder.md): A draggable list — reorder with the mouse, touch or keyboard, with custom item slots.
+- [Rolling Text](http://localhost:3000/raw/docs/components/rolling-text.md): Slot-machine style counters that roll each digit on a vertical wheel from a start number to a target.
+- [Safe Area](http://localhost:3000/raw/docs/components/safe-area.md): The iOS safe-area insets (notch, home indicator) applied as padding on the requested sides.
+- [Scroll Area](http://localhost:3000/raw/docs/components/scroll-area.md): A scrollable region with a custom, draggable scrollbar thumb.
+- [Select](http://localhost:3000/raw/docs/components/select.md): A dropdown selector for single or multiple values — inline, modal, sheet and dialog modes, fuzzy search, chips and primitive options.
+- [Separator](http://localhost:3000/raw/docs/components/separator.md): A thin divider used to visually group content — horizontal and vertical, with spaced, inset and dark modifiers.
+- [Skeleton](http://localhost:3000/raw/docs/components/skeleton.md): Loading placeholders that mimic the final layout — text, rect and circle shapes, whole component silhouettes and seven animations.
+- [Slider](http://localhost:3000/raw/docs/components/slider.md): A draggable range input with pointer and keyboard support — steps, markers, colors and a vertical orientation.
+- [Space](http://localhost:3000/raw/docs/components/space.md): A flex spacer that fills the remaining space and pushes surrounding elements apart.
+- [Spinner](http://localhost:3000/raw/docs/components/spinner.md): Loading indicators as crisp SVGs — thirteen types, any size and color, plus a thickness for the ring variants.
+- [Splitter](http://localhost:3000/raw/docs/components/splitter.md): Two resizable panels around a draggable separator — pointer and keyboard accessible.
+- [Spreadsheet](http://localhost:3000/raw/docs/components/spreadsheet.md): An Excel-like editable grid — typed cells, A1 formulas, filters, freeze panes, multi-sheet workbooks and CSV/JSON export.
+- [Sticky](http://localhost:3000/raw/docs/components/sticky.md): Pins content to the top or bottom of the viewport while scrolling, optionally bounded to a container.
+- [Swipe Cell](http://localhost:3000/raw/docs/components/swipe-cell.md): A list cell that reveals left/right actions when swiped — events, lock-on-open and before-close.
+- [Swiper](http://localhost:3000/raw/docs/components/swiper.md): A full-featured carousel — slides-per-view, loop, navigation, autoplay, effects, thumbs, virtual and more.
+- [Syntax](http://localhost:3000/raw/docs/components/syntax.md): Code blocks with Shiki syntax highlighting, a filename bar and a copy button.
+- [Tab Panels](http://localhost:3000/raw/docs/components/tab-panels.md): Animated panels driven by a shared v-model — transitions, animations, swipe and lazy rendering.
+- [Table](http://localhost:3000/raw/docs/components/table.md): Tabular data with client-side sorting, pagination and row selection — virtual scroll, pinned columns and cell slots.
+- [Tabs](http://localhost:3000/raw/docs/components/tabs.md): A horizontal tab bar with a sliding indicator — align, icons, counts, animated transitions, collapse and route tabs.
+- [Text](http://localhost:3000/raw/docs/components/text.md): A paragraph element with multi-line truncation and animated transitions — generate, highlight and breathing effects.
+- [Text Caption](http://localhost:3000/raw/docs/components/text-caption.md): A caption overlaid on an image — title and subtitle anchored to any edge, with gradient and text animations.
+- [Tiptap](http://localhost:3000/raw/docs/components/tiptap.md): A full-featured rich text editor (Tiptap v3) with a built-in toolbar, bubble menu, drag handle, table of contents and mentions.
+- [Toolbar](http://localhost:3000/raw/docs/components/toolbar.md): A horizontal action bar for page headers and footers — title, spacer and actions.
+- [Tooltip](http://localhost:3000/raw/docs/components/tooltip.md): A small label shown on hover or keyboard focus, with sides, alignment, an arrow, delays and a controlled mode.
+- [Uploader](http://localhost:3000/raw/docs/components/uploader.md): A file upload zone with thumbnails, a fullscreen preview, count/size limits, filters and custom slots.
+- [Video](http://localhost:3000/raw/docs/components/video.md): A Video.js-powered player for mp4, webm, HLS and YouTube — poster, ratio, placeholder and playback events.
+- [Virtual Scroll](http://localhost:3000/raw/docs/components/virtual-scroll.md): A windowed list renderer that mounts only the visible items — scroll through hundreds of thousands of rows.
+- [Bottom Sheet](http://localhost:3000/raw/docs/plugins/bottom-sheet.md): Open a bottom-anchored panel imperatively from code with $q.bottomSheet, with height, rounded, translucent and transition options.
+- [Dialog](http://localhost:3000/raw/docs/plugins/dialog.md): Open a component-based modal dialog imperatively from code with $q.dialog, a chainable controller and OK / Cancel / Dismiss events.
+- [Image Preview](http://localhost:3000/raw/docs/plugins/image-preview.md): Open the fullscreen image viewer imperatively from code with $q.imagePreview and its goTo controller.
+- [Loading](http://localhost:3000/raw/docs/plugins/loading.md): Show a counted fullscreen loading overlay imperatively from code with $q.loading.
+- [Notify](http://localhost:3000/raw/docs/plugins/notify.md): Show toast notifications imperatively from code with $q.notify — position, type, timeout and action buttons.
+- [Platform](http://localhost:3000/raw/docs/plugins/platform.md): Detect the platform the code runs on with $q.platform — a static, SSR-safe Quasar Platform API grouped under is / has / within.
+- [Web Storage](http://localhost:3000/raw/docs/plugins/web-storage.md): Type-preserving Web Storage with $q.localStorage and $q.sessionStorage — Quasar-compatible, SSR-safe get/set.
+- [v-close](http://localhost:3000/raw/docs/directives/close.md): Closes the closest overlay (dialog, bottom sheet…) from any element inside it — the Quasar v-close-popup equivalent.
+- [v-intersection](http://localhost:3000/raw/docs/directives/intersection.md): Calls a handler when an element enters or leaves the viewport, with shared observers and a one-shot mode.
+- [v-touch-hold](http://localhost:3000/raw/docs/directives/touch-hold.md): Detects a long press with touch and mouse, a configurable delay and a consumed gesture (no click on top).
+- [v-touch-pan](http://localhost:3000/raw/docs/directives/touch-pan.md): Detects the pan (drag) gesture with touch and mouse support, per-direction capture and live details.
+- [v-touch-repeat](http://localhost:3000/raw/docs/directives/touch-repeat.md): Repeats a handler while an element is pressed — ideal for steppers, counters and continuous scrolling.
+- [v-touch-swipe](http://localhost:3000/raw/docs/directives/touch-swipe.md): Detects a fast released slide (swipe) with touch and mouse, filtered by direction and configurable thresholds.
+- [Welcome to Dnax UI docs](http://localhost:3000/raw/docs.md): Everything you need to build with Dnax UI — components, plugins, directives and guides.
+
+## Landing
+
+- [Dnax UI](http://localhost:3000/raw/index.md): A Vue 3 design system with a Quasar-style public API, built with shadcn-vue techniques — cva, cn, Reka UI, CSS tokens and Iconify icons.

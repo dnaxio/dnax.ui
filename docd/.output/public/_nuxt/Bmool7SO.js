@@ -1,0 +1,1 @@
+import{S as e}from"./TaW9hdCO.js";import{r as t,t as n}from"./Devfx_DI.js";import{t as r}from"./CCzeWbja.js";var i=class extends t(n(`video`,r)){},a=class extends i{static{this.tagName=`hlsjs-video`}};e(a);export{a as HlsJsVideoElement};

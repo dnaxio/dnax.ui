@@ -1,0 +1,1 @@
+.demo-grid[data-v-b4699141]{grid-template-columns:repeat(4,1fr);gap:10px;max-width:560px;margin:0 auto;display:grid}.demo-thumb[data-v-b4699141]{aspect-ratio:4/3;-o-object-fit:cover;object-fit:cover;cursor:pointer;border-radius:10px;width:100%;transition:transform .15s,box-shadow .15s}.demo-thumb[data-v-b4699141]:hover{transform:scale(1.03);box-shadow:0 8px 20px #0003}

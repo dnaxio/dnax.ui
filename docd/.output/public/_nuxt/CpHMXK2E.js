@@ -1,0 +1,1 @@
+import{b as e,mt as t,xt as n}from"./CrzdsfCC.js";import{t as r}from"./BDNMzG2s.js";var i={},a={"data-slot":`prose-em`};function o(r,i){return t(),e(`em`,a,[n(r.$slots,`default`)])}var s=Object.assign(r(i,[[`render`,o]]),{__name:`ProseEm`});export{s as default};

@@ -1,0 +1,1 @@
+import{b as e,et as t,k as n,mt as r,xt as i}from"./CrzdsfCC.js";var a=Object.assign(n({__name:`QToolbar`,props:{inset:{type:Boolean,default:!1},shrink:{type:Boolean,default:!1}},setup(n){let a=n;return(n,o)=>(r(),e(`div`,t({class:[`q-toolbar`,{"q-toolbar--inset":a.inset,"q-toolbar--shrink":a.shrink}]},n.$attrs),[i(n.$slots,`default`)],16))}}),{__name:`QToolbar`});export{a as t};

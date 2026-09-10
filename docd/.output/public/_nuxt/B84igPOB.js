@@ -1,0 +1,1 @@
+import{b as e,mt as t,xt as n}from"./CrzdsfCC.js";import{t as r}from"./BDNMzG2s.js";var i={},a={"data-slot":`prose-tbody`};function o(r,i){return t(),e(`tbody`,a,[n(r.$slots,`default`)])}var s=Object.assign(r(i,[[`render`,o]]),{__name:`ProseTbody`});export{s as default};

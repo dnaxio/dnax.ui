@@ -1,0 +1,261 @@
+# Grid
+
+> A responsive 12-column layout grid plus a Vant-style cell grid — icon + text cells with badges, links and slots.
+
+Two grids in one family: a responsive **<q-grid>** with **<q-col>** spans
+(12-track layout, configurable breakpoints), and a **Vant-style cell grid** —
+`:column-num` switches the container to equal cells filled by **<q-grid-item>**
+(icon + text, badges, links). See also the [QCol](/docs/styles/col) page for the
+layout cell and [QRow](/docs/styles/row) for the semantic alias.
+
+## Layout grid
+
+Spans that add up to 12 fill a row; `gap` accepts any CSS value.
+
+<prose-show-case>
+<dnax-demo-grid demo="layout">
+
+
+
+</dnax-demo-grid>
+
+<template v-slot:code="">
+
+```vue
+<q-grid :cols="12" gap="16px">
+  <q-col :span="12"><div class="cell">12</div></q-col>
+  <q-col :span="6"><div class="cell">6</div></q-col>
+  <q-col :span="6"><div class="cell">6</div></q-col>
+  <q-col :span="4"><div class="cell">4</div></q-col>
+  <q-col :span="4"><div class="cell">4</div></q-col>
+  <q-col :span="4"><div class="cell">4</div></q-col>
+</q-grid>
+```
+
+</template>
+</prose-show-case>
+
+### Responsive
+
+Mobile-first: the base `span` applies on small screens, and `-sm / -md / -lg / -xl`
+variants override at each breakpoint. Resize the window to see the layout adapt.
+
+<prose-show-case>
+<dnax-demo-grid demo="responsive">
+
+
+
+</dnax-demo-grid>
+
+<template v-slot:code="">
+
+```vue
+<q-grid :cols="12" gap="12px">
+  <!-- mobile : empilé (12) ; md : 8 + 4 ; lg : 6 + 6 -->
+  <q-col :span="12" :span-md="8" :span-lg="6"><div class="cell">Main</div></q-col>
+  <q-col :span="12" :span-md="4" :span-lg="6"><div class="cell">Side</div></q-col>
+
+  <!-- 6 cartes : 2 par ligne mobile, 3 à md, 6 à lg -->
+  <q-col v-for="i in 6" :key="i" :span="6" :span-md="4" :span-lg="2">
+    <div class="cell">Card {{ i }}</div>
+  </q-col>
+</q-grid>
+```
+
+</template>
+</prose-show-case>
+
+### Responsive column count
+
+Spans per breakpoint on each `q-col` — the classic `span / span-md / span-lg`
+pattern (pure CSS `@media`, no JS):
+
+<prose-show-case>
+<dnax-demo-grid demo="colsResponsive">
+
+
+
+</dnax-demo-grid>
+
+<template v-slot:code="">
+
+```vue
+<q-grid :cols="12" gap="12px">
+  <q-col v-for="i in 6" :key="i" :span="12" :span-md="6" :span-lg="4">
+    <div class="cell">Item {{ i }}</div>
+  </q-col>
+</q-grid>
+<!-- 6 items : 1 par ligne mobile (12), 2 à md (6), 3 à lg (4) -->
+```
+
+</template>
+</prose-show-case>
+
+### Configurable breakpoints
+
+The breakpoints are CSS variables with defaults — override them anywhere (your CSS,
+`:root`, a scoped scope) to change the whole grid:
+
+```css
+:root {
+  --q-grid-bp-sm: 640px;
+  --q-grid-bp-md: 1024px;
+  --q-grid-bp-lg: 1366px;
+  --q-grid-bp-xl: 1920px;
+}
+```
+
+## Cell grid (Vant-style)
+
+Passing `column-num` switches QGrid to the **cell mode**: the `gutter`, `border`,
+`square`, `center` and `clickable` options are applied to the **<q-grid-item>**
+children — icon + text, numeric `badge` or notification `dot`, optional `href` link.
+
+<prose-show-case>
+<dnax-demo-grid demo="cells">
+
+
+
+</dnax-demo-grid>
+
+<template v-slot:code="">
+
+```vue
+<q-grid :column-num="4" gutter="8" border clickable>
+  <q-grid-item icon="lucide:image" text="Photos" badge="3" />
+  <q-grid-item icon="lucide:video" text="Videos" />
+  <q-grid-item icon="lucide:music" text="Music" dot />
+  <q-grid-item icon="lucide:settings" text="Settings" />
+</q-grid>
+```
+
+</template>
+</prose-show-case>
+
+### Partial last row
+
+The grid wraps automatically — a **last partial row** is fine: with 6 items on 4
+columns, the second row keeps only 2 cells and the borders still close the frame.
+
+<prose-show-case>
+<dnax-demo-grid demo="six">
+
+
+
+</dnax-demo-grid>
+
+<template v-slot:code="">
+
+```vue
+<q-grid :column-num="4" gutter="8" border clickable>
+  <q-grid-item icon="lucide:image" text="Photos" />
+  <q-grid-item icon="lucide:video" text="Videos" />
+  <q-grid-item icon="lucide:music" text="Music" />
+  <q-grid-item icon="lucide:map" text="Maps" />
+  <q-grid-item icon="lucide:book" text="Books" />
+  <q-grid-item icon="lucide:settings" text="Settings" />
+</q-grid>
+```
+
+</template>
+</prose-show-case>
+
+### Square cells
+
+`square` forces a 1:1 aspect ratio per cell — a classic icon launcher look.
+
+<prose-show-case>
+<dnax-demo-grid demo="square">
+
+
+
+</dnax-demo-grid>
+
+<template v-slot:code="">
+
+```vue
+<q-grid :column-num="3" gutter="10" square border clickable>
+  <q-grid-item icon="lucide:camera" text="Camera" />
+  <q-grid-item icon="lucide:map" text="Maps" />
+  <q-grid-item icon="lucide:book" text="Books" badge="12" />
+</q-grid>
+```
+
+</template>
+</prose-show-case>
+
+### Horizontal items
+
+`direction="horizontal"` puts the icon beside the text instead of above it;
+`reverse` swaps icon/text order.
+
+<prose-show-case>
+<dnax-demo-grid demo="horizontal">
+
+
+
+</dnax-demo-grid>
+
+<template v-slot:code="">
+
+```vue
+<q-grid :column-num="2" gutter="10" border clickable direction="horizontal">
+  <q-grid-item icon="lucide:phone" text="Call" />
+  <q-grid-item icon="lucide:mail" text="Email" />
+</q-grid>
+```
+
+</template>
+</prose-show-case>
+
+### Links, colors & slots
+
+`href` renders the cell as a link, `icon-color` overrides the grid-wide color,
+`disable` greys it out, and the `#icon` / `#default` slots replace icon and text.
+
+<prose-show-case>
+<dnax-demo-grid demo="custom">
+
+
+
+</dnax-demo-grid>
+
+<template v-slot:code="">
+
+```vue
+<q-grid :column-num="4" gutter="8" border clickable>
+  <q-grid-item href="/docs" icon="lucide:book-open" text="Docs" />
+  <q-grid-item
+    icon="lucide:heart"
+    text="Favorites"
+    icon-color="#e91e63"
+    badge="99+"
+  />
+  <q-grid-item disable icon="lucide:lock" text="Locked" />
+  <q-grid-item>
+    <template #icon>
+      <q-spinner size="24px" color="primary" />
+    </template>
+    <template #default>Loading</template>
+  </q-grid-item>
+</q-grid>
+```
+
+</template>
+</prose-show-case>
+
+## QGrid
+
+<dnax-api name="QGrid">
+
+
+
+</dnax-api>
+
+## QGridItem
+
+<dnax-api name="QGridItem">
+
+
+
+</dnax-api>

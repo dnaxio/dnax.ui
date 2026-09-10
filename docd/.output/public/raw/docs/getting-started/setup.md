@@ -1,0 +1,122 @@
+# Setup
+
+> First component, theming, CSS tokens and icons in five minutes.
+
+The essentials in five minutes: your first component, theming, tokens and icons.
+
+## First component
+
+Boolean props act as modifiers — their presence enables the behavior.
+
+```vue [App.vue]
+<template>
+  <q-btn
+    flat
+    dense
+    rounded
+    no-caps
+    color="primary"
+    icon="lucide:download"
+    label="Export"
+  />
+</template>
+```
+
+<prose-show-case>
+<q-btn flat="" dense="" rounded="" no-caps="" color="primary" icon="lucide:download" label="Export">
+
+
+
+</q-btn>
+
+<template v-slot:code="">
+
+```vue
+<template>
+  <q-btn
+    flat
+    dense
+    rounded
+    no-caps
+    color="primary"
+    icon="lucide:download"
+    label="Export"
+  />
+</template>
+```
+
+</template>
+</prose-show-case>
+
+## Theming
+
+Wrap your app with `<q-config-provider>` to override colors and per-component
+default props. Nested providers merge (closest wins).
+
+```vue [app.vue]
+<q-config-provider
+  :theme="{
+    mode: 'dark', // light | dark | system (défaut : system)
+    colors: { primary: '#7c3aed' },
+    componentProps: { QBtn: { radius: 'md' } },
+  }"
+>
+  <!-- votre app -->
+</q-config-provider>
+
+<!-- Raccourci : mode seul -->
+<q-config-provider theme="system" />
+```
+
+See the [Config Provider](/docs/layouts/config-provider) page for the full theme
+object.
+
+## CSS tokens
+
+Every color becomes a CSS variable (`--primary`, `--primary-foreground`, …), plus
+radius tokens (`--q-radius`, `--q-radius-md`…).
+
+```css [styles.css]
+/* vos styles peuvent utiliser les tokens */
+.card {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: var(--q-radius-md);
+}
+```
+
+## Icons
+
+All icons go through [Iconify](https://iconify.design): pass an icon name like
+`lucide:star` — no icon font, SVG on demand.
+
+```vue [App.vue]
+<q-btn icon="lucide:download" label="Export" />
+<q-icon name="lucide:star" color="warning" size="lg" />
+```
+
+<prose-show-case>
+<div className="demo-row">
+<q-btn icon="lucide:download" label="Export">
+
+
+
+</q-btn>
+
+
+  <q-icon name="lucide:star" color="warning" size="lg">
+
+
+
+</q-icon>
+</div>
+
+<template v-slot:code="">
+
+```vue
+<q-btn icon="lucide:download" label="Export" />
+<q-icon name="lucide:star" color="warning" size="lg" />
+```
+
+</template>
+</prose-show-case>

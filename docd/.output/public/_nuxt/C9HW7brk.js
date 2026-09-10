@@ -1,0 +1,1 @@
+import{r as e}from"./B0Z9INg1.js";import{b as t,et as n,k as r,mt as i,xt as a}from"./CrzdsfCC.js";var o=r({__name:`QSpace`,setup(e){return(e,r)=>(i(),t(`div`,n({class:`q-space`,"aria-hidden":`true`},e.$attrs),[a(e.$slots,`default`)],16))}}),s=e({default:()=>c}),c=Object.assign(o,{__name:`QSpace`});export{s as n,c as t};

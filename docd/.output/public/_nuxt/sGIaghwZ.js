@@ -1,0 +1,1 @@
+var e={ON_DEMAND:`on-demand`,LIVE:`live`,UNKNOWN:`unknown`};export{e as t};

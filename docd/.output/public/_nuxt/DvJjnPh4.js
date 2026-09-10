@@ -1,0 +1,1 @@
+import{r as e}from"./B0Z9INg1.js";import{b as t,mt as n,xt as r}from"./CrzdsfCC.js";import{t as i}from"./BDNMzG2s.js";var a=e({default:()=>l}),o={},s={class:`q-app`};function c(e,i){return n(),t(`div`,s,[r(e.$slots,`default`)])}var l=Object.assign(i(o,[[`render`,c]]),{__name:`QApp`});export{a as n,l as t};

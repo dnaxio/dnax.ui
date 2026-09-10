@@ -1,0 +1,1 @@
+import{On as e,Qn as t,b as n,k as r,mt as i,xt as a}from"./CrzdsfCC.js";import{t as o}from"./CuTN9f0Y.js";var s=Object.assign(r({__name:`ProseThead.global`,setup(r){let{isDashed:s}=o();return(r,o)=>(i(),n(`thead`,{"data-slot":`prose-thead`,class:t([e(s)?`border-dashed`:``])},[a(r.$slots,`default`)],2))}}),{__name:`ProseThead`});export{s as default};

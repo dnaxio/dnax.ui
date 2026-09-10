@@ -1,0 +1,1 @@
+import{er as e,k as t,mt as n,qt as r,v as i,xt as a,z as o}from"./CrzdsfCC.js";import{t as s}from"./D5KhanSC.js";var c=Object.assign(t({__name:`QRow`,props:{cols:{},gap:{},rowGap:{},columnGap:{},colsSm:{},colsMd:{},colsLg:{},colsXl:{},align:{}},setup(t){return(t,c)=>(n(),i(s,e(o(t.$props)),{default:r(()=>[a(t.$slots,`default`)]),_:3},16))}}),{__name:`QRow`});export{c as t};

@@ -1,0 +1,1 @@
+function e(e,t){e&&(e.__qClose=t)}function t(e){let t=e;for(;t;){let e=t;if(typeof e.__qClose==`function`)return e;t=t.parentElement}return null}function n(e){t(e)?.__qClose?.()}var r={mounted(e,t){let r=()=>{t.value!==!1&&n(e)};e.addEventListener(`click`,r),e.__qVClose=r},unmounted(e){let t=e.__qVClose;t&&e.removeEventListener(`click`,t)}};export{e as n,r,n as t};

@@ -1,0 +1,294 @@
+# Sidebar Layout
+
+> A collapsible side panel for app navigation — offcanvas drawer or static panel, with header, content, footer and menu parts.
+
+A collapsible side panel for application navigation, modeled on shadcn-vue's
+Sidebar with a QDrawer-style API. The family is made of eight components:
+**<q-sidebar>** (the panel), the three layout zones **<q-sidebar-header>**,
+**<q-sidebar-content>** and **<q-sidebar-footer>**, the navigation pieces
+**<q-sidebar-menu>**, **<q-sidebar-menu-item>**, **<q-sidebar-menu-button>**,
+and the toggle button **<q-sidebar-trigger>**.
+
+## QSidebar — the panel
+
+Drives the state via `v-model` (offcanvas mode) or stays visible in the layout with
+`show-if-above` + `breakpoint` (static mode). `sticky` keeps the static panel pinned
+while the page scrolls; `width` and `height` size the panel. `side` places it on the
+left (default) or right edge, and the panel provides the toggle context to child
+**<q-sidebar-trigger>** components. In offcanvas mode you can also **swipe the
+panel outward** to close it (mobile gesture), past half the width threshold.
+
+### Offcanvas
+
+<prose-show-case>
+<dnax-demo-sidebar demo="offcanvas">
+
+
+
+</dnax-demo-sidebar>
+
+<template v-slot:code="">
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const open = ref(false)
+</script>
+
+<template>
+  <div class="demo-toolbar">
+    <q-btn color="primary" icon="lucide:menu" label="Open sidebar" @click="open = true" />
+  </div>
+
+  <q-sidebar v-model="open" width="280px" bordered elevated>
+    <q-sidebar-header class="demo-side-head">
+      <q-icon name="lucide:box" color="primary" size="22px" />
+      <b class="demo-brand">Dnax UI</b>
+      <q-space />
+      <q-sidebar-trigger label="Close sidebar">
+        <q-icon name="lucide:x" />
+      </q-sidebar-trigger>
+    </q-sidebar-header>
+
+    <q-sidebar-content>
+      <q-sidebar-menu>
+        <q-sidebar-menu-item>
+          <q-sidebar-menu-button label="Dashboard" icon="lucide:layout-dashboard" active />
+        </q-sidebar-menu-item>
+        <q-sidebar-menu-item>
+          <q-sidebar-menu-button label="Projects" icon="lucide:folder-kanban" badge="3" />
+        </q-sidebar-menu-item>
+        <q-sidebar-menu-item>
+          <q-sidebar-menu-button label="Analytics" icon="lucide:chart-line" />
+        </q-sidebar-menu-item>
+        <q-sidebar-menu-item>
+          <q-sidebar-menu-button label="Settings" icon="lucide:settings" />
+        </q-sidebar-menu-item>
+      </q-sidebar-menu>
+    </q-sidebar-content>
+
+    <q-sidebar-footer>
+      <q-sidebar-menu-button label="Log out" icon="lucide:log-out" />
+    </q-sidebar-footer>
+  </q-sidebar>
+</template>
+```
+
+</template>
+</prose-show-case>
+
+### Static & sticky
+
+<prose-show-case>
+<dnax-demo-sidebar demo="static">
+
+
+
+</dnax-demo-sidebar>
+
+<template v-slot:code="">
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const openStatic = ref(false)
+</script>
+
+<template>
+  <div class="demo-layout">
+    <q-sidebar show-if-above sticky height="70vh" width="240px" bordered v-model="openStatic">
+      <q-sidebar-header class="demo-side-head">
+        <q-icon name="lucide:box" color="primary" size="22px" />
+        <b class="demo-brand">Dnax UI</b>
+      </q-sidebar-header>
+
+      <q-sidebar-content>
+        <q-sidebar-menu>
+          <q-sidebar-menu-item>
+            <q-sidebar-menu-button label="Dashboard" icon="lucide:layout-dashboard" active />
+          </q-sidebar-menu-item>
+          <q-sidebar-menu-item>
+            <q-sidebar-menu-button label="Projects" icon="lucide:folder-kanban" badge="3" />
+          </q-sidebar-menu-item>
+          <q-sidebar-menu-item>
+            <q-sidebar-menu-button label="Settings" icon="lucide:settings" />
+          </q-sidebar-menu-item>
+        </q-sidebar-menu>
+      </q-sidebar-content>
+
+      <q-sidebar-footer>
+        <div class="demo-user">
+          <q-icon name="lucide:user-round" />
+          <span>Ada Lovelace</span>
+        </div>
+      </q-sidebar-footer>
+    </q-sidebar>
+
+    <div class="demo-main">
+      <h4>Page content</h4>
+      <p class="demo-p">
+        On wide screens the panel is part of the layout; below the
+        breakpoint it collapses into an offcanvas drawer.
+      </p>
+    </div>
+  </div>
+</template>
+```
+
+</template>
+</prose-show-case>
+
+### API
+
+<dnax-api name="QSidebar">
+
+
+
+</dnax-api>
+
+## QSidebarHeader — top zone
+
+The top area of the panel, typically holding the logo or the brand. Renders a `div`
+with a bottom border — pass a class to arrange its content (flex row, spacing…).
+
+```html
+<q-sidebar-header>
+  <q-icon name="lucide:box" color="primary" size="22px" />
+  <b>Dnax UI</b>
+</q-sidebar-header>
+```
+
+### API
+
+<dnax-api name="QSidebarHeader">
+
+
+
+</dnax-api>
+
+## QSidebarContent — scrollable middle
+
+The central zone of the panel: it grows to fill the remaining height and scrolls
+its content when it overflows (thin scrollbar). Put the `q-sidebar-menu` here.
+
+```html
+<q-sidebar-content>
+  <q-sidebar-menu>
+    <q-sidebar-menu-item>…</q-sidebar-menu-item>
+  </q-sidebar-menu>
+</q-sidebar-content>
+```
+
+### API
+
+<dnax-api name="QSidebarContent">
+
+
+
+</dnax-api>
+
+## QSidebarFooter — bottom zone
+
+The bottom area of the panel, separated by a top border — ideal for the user card,
+the logout button or version information.
+
+```html
+<q-sidebar-footer>
+  <q-sidebar-menu-button label="Log out" icon="lucide:log-out" />
+</q-sidebar-footer>
+```
+
+### API
+
+<dnax-api name="QSidebarFooter">
+
+
+
+</dnax-api>
+
+## QSidebarMenu — the navigation list
+
+A `<ul>` wrapper for the navigation items; each child should be a
+**<q-sidebar-menu-item>** containing a **<q-sidebar-menu-button>**.
+
+```html
+<q-sidebar-menu>
+  <q-sidebar-menu-item>
+    <q-sidebar-menu-button label="Dashboard" icon="lucide:layout-dashboard" active />
+  </q-sidebar-menu-item>
+  <q-sidebar-menu-item>
+    <q-sidebar-menu-button label="Projects" icon="lucide:folder-kanban" badge="3" />
+  </q-sidebar-menu-item>
+</q-sidebar-menu>
+```
+
+### API
+
+<dnax-api name="QSidebarMenu">
+
+
+
+</dnax-api>
+
+## QSidebarMenuButton — the entry
+
+Renders a `<button>`, or a native `<a>` when `href` is set. Accepts an Iconify
+`icon`, an `active` state (filled with the primary color), a right-aligned `badge`
+and a `disable` flag. Without a label, the default slot is rendered instead.
+
+```html
+<q-sidebar-menu-button label="Dashboard" icon="lucide:layout-dashboard" active />
+<q-sidebar-menu-button label="Projects" icon="lucide:folder-kanban" badge="3" />
+<q-sidebar-menu-button label="Settings" icon="lucide:settings" href="/settings" />
+```
+
+### API
+
+<dnax-api name="QSidebarMenuButton">
+
+
+
+</dnax-api>
+
+## QSidebarMenuItem — the list wrapper
+
+A `<li>` wrapper that structures the menu; the button is placed inside it.
+
+```html
+<q-sidebar-menu-item>
+  <q-sidebar-menu-button label="Dashboard" icon="lucide:layout-dashboard" />
+</q-sidebar-menu-item>
+```
+
+### API
+
+<dnax-api name="QSidebarMenuItem">
+
+
+
+</dnax-api>
+
+## QSidebarTrigger — the toggle button
+
+A small icon button that toggles the enclosing sidebar. It must be placed inside
+the `q-sidebar` subtree (it reads the context via `inject`); override the default
+hamburger icon with the default slot.
+
+```html
+<q-sidebar-trigger label="Toggle sidebar" />
+
+<!-- or with custom content (e.g. a close icon) -->
+<q-sidebar-trigger label="Close sidebar">
+  <q-icon name="lucide:x" />
+</q-sidebar-trigger>
+```
+
+### API
+
+<dnax-api name="QSidebarTrigger">
+
+
+
+</dnax-api>

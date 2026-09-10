@@ -1,0 +1,1 @@
+import{g as e}from"./CR9RFHCD.js";import{c as t,f as n}from"./BiL5zvhx.js";import{o as r}from"#entry";var i=t(async t=>{let i,a,o=([i,a]=e(()=>r(`docs`).path(t.path).first()),i=await i,a(),i);n(o?.layout||`docs`)},1);export{i as default};
