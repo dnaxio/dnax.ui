@@ -414,6 +414,29 @@ Vérif : `cd docd && bun run generate` → 0 erreur ; colonne `Rating` rendue da
 tableur ; `diagnostics` sur `QSpreadsheet.vue` → 0 erreur / 0 warning ; `bun test
 packages/ui/lib` → 41/41.
 
+### Cause racine trouvée ensuite : `v-model` sur `input[type="number"]` — 2026-09-10
+
+Second rapport : `TypeError: draft.value.trim is not a function`, cette fois à
+l'édition d'une cellule **numérique**. Le vrai coupable était l'éditeur :
+`editorInputType` renvoyait `"number"` pour `number`/`integer`, et **`v-model` sur un
+`input[type=number]` caste la valeur en `Number`** (directive `vModelText` de Vue).
+D'où : `draft` = number → `editingIsFormula` (`draft.value.trim()`),
+`draftLines` (`draft.value.split()`), `positionEditor` (`draft.value.length`),
+`selectOptions`, `acceptFx` (`replaceTail`) explosaient ou donnaient `NaN`.
+
+- **Correctif racine** : `editorInputType` ne renvoie plus jamais `"number"`
+  (number/integer → `"text"`) ; le clavier numérique mobile passe par
+  `:inputmode="editorInputMode"` (`decimal` / `numeric`). Bénéfice au passage : on
+  peut enfin **taper une formule `=` dans une cellule numérique** (un input number
+  refuse `=`, `-` isolé, etc.), ce que la doc promettait déjà. `editorStep` et
+  `:step` supprimés (spinner natif, ignoré en `type="text"`).
+- **Défense** : `String(draft.value ?? "")` aux 5 points de lecture ci-dessus.
+
+**Règle générale (à retenir)** : ne jamais mettre `v-model` sur un
+`input[type="number"]` (ou `range`) quand le modèle est censé être une string — Vue
+caste en `Number`. Préférer `type="text"` + `inputmode`, ou un handler `:value` +
+`@input` manuel.
+
 ## Menu téléporté qui s'affiche DERRIÈRE un overlay (z-index) — 2026-09-10
 
 `filename: packages/ui/styles/main.css`

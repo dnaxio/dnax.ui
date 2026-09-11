@@ -400,12 +400,18 @@ const newRowKey = (): string => {
   return `row-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-/** Injecte `_key` (mutatif) sur les lignes qui n'en ont pas encore */
+/**
+ * Injecte `_key` (mutatif) uniquement sur les lignes qui n'en ont pas.
+ * Une clé DÉJÀ PRÉSENTE est toujours conservée, quelle que soit sa valeur
+ * (string, nombre, uuid ou non) : l'injection ne s'applique qu'à
+ * `undefined` / `null` / chaîne vide. Aucune réécriture, aucun dédoublonnage.
+ */
 const ensureRowKeys = (rows: Record<string, any>[] | undefined) => {
   if (!Array.isArray(rows)) return
   for (const row of rows) {
     if (!row || typeof row !== "object") continue
-    if (typeof row[ROW_KEY] !== "string" || !row[ROW_KEY]) row[ROW_KEY] = newRowKey()
+    const current = row[ROW_KEY]
+    if (current === undefined || current === null || current === "") row[ROW_KEY] = newRowKey()
   }
 }
 
@@ -687,22 +693,19 @@ const editingIsFormula = computed(() => {
   if (!editing.value) return false
   const col = colOf(editing.value.column)
   if (!col || col.type === "boolean" || col.type === "select") return false
-  return draft.value.trim().startsWith("=")
+  return String(draft.value ?? "").trim().startsWith("=")
 })
 const editingIsSelect = computed(() => {
   const col = editing.value ? colOf(editing.value.column) : undefined
   return col?.type === "select"
 })
 const draftLines = computed(() =>
-  Math.min(5, Math.max(1, draft.value.split("\n").length)),
+  Math.min(5, Math.max(1, String(draft.value ?? "").split("\n").length)),
 )
 
 const editorInputType = computed(() => {
   const col = editing.value ? colOf(editing.value.column) : undefined
   switch (col?.type) {
-    case "number":
-    case "integer":
-      return "number"
     case "email":
       return "email"
     case "url":
@@ -712,15 +715,20 @@ const editorInputType = computed(() => {
     case "datetime":
       return "datetime-local"
     default:
+      // PAS de `type="number"` pour number/integer : (1) le navigateur refuse
+      // `=` (formule) ou un "-" isolé dans un input number, (2) `v-model` sur
+      // input[type=number] **caste la valeur en Number** → le brouillon n'était
+      // plus une string et tous les `.trim()` / `.split()` dessus explosaient.
+      // Le clavier numérique mobile est assuré par `inputmode` (`editorInputMode`).
       return "text"
   }
 })
 
-/** step natif : "any" (décimales) pour number, "1" pour integer */
-const editorStep = computed(() => {
+/** Équivalent mobile de `type="number"` : clavier décimal / numérique sans cast */
+const editorInputMode = computed(() => {
   const col = editing.value ? colOf(editing.value.column) : undefined
-  if (col?.type === "number") return "any"
-  if (col?.type === "integer") return "1"
+  if (col?.type === "number") return "decimal"
+  if (col?.type === "integer") return "numeric"
   return undefined
 })
 
@@ -757,7 +765,7 @@ const positionEditor = () => {
   // Une formule élargit l'éditeur (monospace ≈ 7.6px/car), sans dépasser le bord droit
   const maxW = sc.width - (tr.left - sc.left) - 4
   const ideal = editingIsFormula.value
-    ? Math.min(480, Math.max(220, draft.value.length * 7.6 + 30))
+    ? Math.min(480, Math.max(220, String(draft.value ?? "").length * 7.6 + 30))
     : tr.width
   const width = Math.min(maxW, Math.max(tr.width, ideal))
   editorStyle.value = {
@@ -1499,7 +1507,7 @@ const selectOptions = computed<QSpreadsheetCellOption[]>(() => {
   if (!editing.value) return []
   const col = colOf(editing.value.column)
   if (col?.type !== "select") return []
-  const q = draft.value.trim().toLowerCase()
+  const q = String(draft.value ?? "").trim().toLowerCase()
   return (col.options ?? []).filter(
     (o) => !q || String(o.label ?? o.value ?? "").toLowerCase().includes(q),
   )
@@ -1689,8 +1697,8 @@ const acceptFx = () => {
   const f = fxSuggestions.value[fxActive.value]
   if (!f) return
   const replaceTail = (s: string) => s.replace(/[A-Za-z]+$/, f.name + "(")
-  if (editing.value) draft.value = replaceTail(draft.value)
-  else fxDraft.value = replaceTail(fxDraft.value)
+  if (editing.value) draft.value = replaceTail(String(draft.value ?? ""))
+  else fxDraft.value = replaceTail(String(fxDraft.value ?? ""))
   fxActive.value = 0
   nextTick(() => {
     const el = editing.value
@@ -4377,7 +4385,7 @@ defineExpose({
           v-model="draft"
           class="q-spreadsheet__editor-input"
           :type="editorInputType"
-          :step="editorStep"
+          :inputmode="editorInputMode"
           :placeholder="editingCol.type === 'select' ? 'Type to filter…' : ''"
           @keydown="onEditKeydown"
           @blur="commitEdit"

@@ -2400,7 +2400,11 @@ après un tri (`rows.find((r) => r._key === key)`), la journaliser ou la réconc
 avec un back-end.
 - **Survit à l'aller-retour** `toJSON()` → `loadDocument()` (les clés exportées sont
 réutilisées telles quelles) et aux annuler/refaire.
-- **Jamais écrasée** : si vous fournissez déjà un `_key`, il est conservé.
+- **Jamais écrasée** : si une ligne a déjà un `_key`, il est conservé **tel quel** —
+quelle que soit sa valeur (uuid, identifiant métier, nombre). L'injection ne
+concerne que l'absence de clé (`undefined` / `null` / `""`), et il n'y a **aucun
+dédoublonnage** : si vous fournissez vos propres clés, c'est à vous d'en garantir
+l'unicité.
 - **Hors export** : le CSV et le presse-papiers n'itèrent que sur les colonnes
 déclarées, donc `_key` n'y apparaît jamais.
 

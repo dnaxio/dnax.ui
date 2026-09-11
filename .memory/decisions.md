@@ -713,8 +713,9 @@ passent par des copies `{ ...row }`), snapshots undo/redo et aller-retour
 
 - **`ROW_KEY = "_key"`** + `newRowKey()` (`globalThis.crypto.randomUUID()` si
   disponible — https/localhost — sinon repli `row-<base36>-<random>` pour le SSR ou
-  un http non sécurisé) + `ensureRowKeys(rows)` (mutatif, ne **remplace jamais** une
-  clé existante).
+  un http non sécurisé) + `ensureRowKeys(rows)` (mutatif : injecte `_key` uniquement
+  si elle est absente — `undefined` / `null` / `""` — et **conserve toute valeur déjà
+  présente**, même un nombre ou un identifiant métier ; aucun dédoublonnage).
 - **Points d'entrée couverts** : watcher de `props.rows` (avant la copie interne →
   parent ET état partagent les mêmes clés, sans emit supplémentaire),
   `loadSheetIntoEngine` (donc `sheets` + `loadDocument`), `importCsv`, et
