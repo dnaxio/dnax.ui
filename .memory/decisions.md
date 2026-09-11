@@ -737,3 +737,41 @@ passent par des copies `{ ...row }`), snapshots undo/redo et aller-retour
   prérendu (seuls le `buildId` de Nuxt et l'exemple de la doc contiennent un uuid) ;
   `diagnostics` sur `QSpreadsheet.vue` → 0 erreur / 0 warning ; `bun test
 packages/ui/lib` → 41/41.
+
+## QSpreadsheet : badge « + » sur les icônes d'ajout de ligne / colonne — 2026-09-10
+
+`filename: packages/ui/components/QSpreadsheet.vue`, `packages/ui/styles/main.css`
+
+**Retour** : `lucide:rows-3` seul (bouton « Add row » de la toolbar) n'est pas
+parlant — il se lit comme « des lignes existantes », pas comme « ajouter une
+ligne ».
+
+**Choix** : garder les glyphes `rows-3` / `columns-3` (ils donnent l'**axe**) et
+ajouter un **badge `plus`** en bas à droite (il donne l'**action**) — plutôt que de
+changer d'icône, car les candidats Lucide sont trompeurs :
+
+- `table-rows-split` / `table-columns-split` = icônes Lucide de **scission** d'une
+  ligne/colonne (action d'éditeur) → sémantique fausse ;
+- `between-horizontal-end` / `between-vertical-end` = famille « espacement » (deux
+  blocs + un écart + flèche d'espacement) → se lit comme un réglage de marge ;
+- `list-plus` = « ajouter un item de liste » (pas de pendant vertical) ;
+- `grid-2x2-plus` = ajout générique (ne distingue pas ligne / colonne) ;
+- `arrow-down-to-line` / `arrow-right-to-line` = « insérer une ligne en dessous /
+  à droite » (fidèle au comportement `addRow()` / `addColumn()` qui ajoutent en
+  fin) mais ne dit pas _quoi_ on ajoute.
+
+**Implémentation** : un second `<Icon :icon="icons.plus"
+class="q-spreadsheet__tool-badge">` dans les deux boutons ;
+`.q-spreadsheet__tool { position: relative }` et
+`.q-spreadsheet__tool .q-spreadsheet__tool-badge { position: absolute; right/bottom:
+1px; font-size: 11px; padding: 1px; border-radius: 50%; background:
+var(--q-spreadsheet-bg, #fff); color: var(--primary); box-shadow: 0 0 0 1px
+var(--q-spreadsheet-border) }`. ⚠️ La règle doit venir **après**
+`.q-spreadsheet__tool .iconify { font-size: 17px }` (même spécificité `0,2,0` →
+l'ordre dans le fichier tranche). `background: var(--q-spreadsheet-bg)` couvre le
+clair (`#fff`) et le sombre (`var(--card)`, redéfini par `.q-spreadsheet--dark` et
+`.dark .q-spreadsheet`).
+
+Vérif : `bun run generate` → 0 erreur ; 2 `<svg>` par bouton d'ajout (glyphe +
+badge) et 26 badges sur la page démo ; CSS du bundle relu. Les boutons de
+SUPPRESSION (`minus` / `x`) n'ont pas été touchés (hors demande).
