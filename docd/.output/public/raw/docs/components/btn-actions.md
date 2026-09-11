@@ -101,8 +101,8 @@ const onMenuAction = (value) => (lastMenu.value = String(value))
 
 Each action accepts a `color` token (e.g. `positive` / `negative`), a `description`
 subtitle, a `separator` divider above it, and can be `disable`d. `menu-width`,
-`align="left"` (alias of `position="bottom-start"`), `position` and `offset` tune
-the panel.
+`fit`, `content-class` / `content-style` (thème du panneau téléporté), `align="left"`
+(alias of `position="bottom-start"`), `position` and `offset` tune the panel.
 
 <prose-show-case>
 <dnax-demo-btn-actions demo="manage">
@@ -154,7 +154,8 @@ const onManageAction = (value) => (lastManage.value = String(value))
 
 `stretch` widens the trigger to `100%` of its container — the root element itself
 grows, so the inner `<q-btn>` really stretches and the caret stays at the far right
-edge. Useful for full-width form actions or stacked menus.
+edge. Useful for full-width form actions or stacked menus. The panel follows
+(`fit` is on by default: the panel is at least as wide as the trigger).
 
 <prose-show-case>
 <dnax-demo-btn-actions demo="stretch">

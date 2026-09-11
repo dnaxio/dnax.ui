@@ -29,6 +29,7 @@ export interface DropdownItem {
 
 <script setup lang="ts">
 import { computed } from "vue"
+import type { StyleValue } from "vue"
 import QBtnActions, { type DropdownPosition } from "./QBtnActions.vue"
 import type { RadiusProp } from "../lib/useComponentProps"
 
@@ -52,8 +53,21 @@ interface Props {
   position?: DropdownPosition
   /** Distance entre le panneau et le déclencheur, en px (défaut : 4) */
   offset?: number
-  /** Largeur minimale du menu (ex. "220px") */
+  /** Largeur minimale du menu (ex. "220px") — sert aussi de plancher quand `fit` est actif */
   menuWidth?: string
+  /**
+   * Le panneau fait AU MOINS la largeur du déclencheur (défaut : true).
+   * Sémantique Quasar `QMenu.fit` : c'est un plancher, pas une largeur exacte —
+   * un item plus large (libellé long) élargit encore le panneau.
+   */
+  fit?: boolean
+  /** Classes attribuées au panneau du menu (téléporté dans `<body>`) */
+  contentClass?: string
+  /**
+   * Style(s) attribués au panneau du menu — string, objet ou tableau (comme la
+   * prop `style` de Vue). PRIORITAIRE sur le style calculé (placement, min-width).
+   */
+  contentStyle?: StyleValue
   // — API déclencheur (transmise à QBtn) —
   color?: string
   textColor?: string
@@ -114,6 +128,9 @@ const onSelectAction = (value: any) => emit("select", value)
     :position="position"
     :offset="offset"
     :menu-width="menuWidth"
+    :fit="fit"
+    :content-class="contentClass"
+    :content-style="contentStyle"
     :color="color"
     :text-color="textColor"
     :size="size"

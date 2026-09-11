@@ -44,11 +44,13 @@ export type DropdownPosition =
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue"
+import type { StyleValue } from "vue"
 import { Icon } from "@iconify/vue"
 import { colorValue } from "../lib/colors"
 import { icons } from "../lib/icons"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
+import { cn } from "../lib/utils"
 import QBtn from "./QBtn.vue"
 
 interface Props {
@@ -71,8 +73,23 @@ interface Props {
   position?: DropdownPosition
   /** Distance entre le panneau et le déclencheur, en px (défaut : 4) */
   offset?: number
-  /** Largeur minimale du menu (ex. "200px") */
+  /** Largeur minimale du menu (ex. "200px") — sert aussi de plancher quand `fit` est actif */
   menuWidth?: string
+  /**
+   * Le panneau fait AU MOINS la largeur du déclencheur (défaut : true).
+   * Sémantique Quasar `QMenu.fit` : c'est un plancher, pas une largeur exacte —
+   * un item plus large (libellé long) élargit encore le panneau.
+   */
+  fit?: boolean
+  /** Classes attribuées au panneau téléporté (en plus de `q-btn-actions__panel`) */
+  contentClass?: string
+  /**
+   * Style(s) attribués au panneau téléporté — string, objet ou tableau (comme la
+   * prop `style` de Vue).
+   * PRIORITAIRE sur le style calculé (placement, min-width) : c'est la trappe de
+   * sortie pour forcer une largeur exacte ou une couleur de fond.
+   */
+  contentStyle?: StyleValue
   // — API déclencheur (transmise à QBtn) —
   color?: string
   textColor?: string
@@ -99,6 +116,9 @@ const props = withDefaults(defineProps<Props>(), {
   align: "right",
   offset: 4,
   menuWidth: "180px",
+  fit: true,
+  contentClass: "",
+  contentStyle: "",
   size: "md",
   color: "primary",
   flat: false,
@@ -124,6 +144,8 @@ const rootEl = ref<HTMLElement | null>(null)
 const panelEl = ref<HTMLElement | null>(null)
 /** Position fixed du panneau (téléporté dans <body>) */
 const panelPos = ref({ top: 0, left: 0, transform: "" })
+/** Largeur mesurée du déclencheur — plancher du panneau quand `fit` est actif */
+const triggerWidth = ref(0)
 
 const canOpen = computed(() => !props.disable && !props.loading && props.actions.length > 0)
 
@@ -141,13 +163,26 @@ const triggerClasses = computed(() => [
 const effectiveRadius = useRadius("QBtnActions", () => props.radius)
 const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
 
+// `fit` : min-width = max(menu-width, largeur du déclencheur). `max()` est calculé
+// par le CSS → `menu-width` peut rester une longueur quelconque ("16rem", "40%").
+const panelMinWidth = computed(() => {
+  const base = props.menuWidth
+  if (!props.fit || !triggerWidth.value) return base
+  const fitted = `${Math.round(triggerWidth.value)}px`
+  return base ? `max(${base}, ${fitted})` : fitted
+})
+
 const panelStyle = computed<Record<string, string>>(() => ({
   top: `${panelPos.value.top}px`,
   left: `${panelPos.value.left}px`,
   transform: panelPos.value.transform,
-  minWidth: props.menuWidth,
+  minWidth: panelMinWidth.value,
   ...(roundedStyle.value ?? {}),
 }))
+
+// Le panneau est téléporté dans <body> : `content-class` / `content-style` sont
+// donc la seule façon de le styler depuis le composant consommateur.
+const panelClasses = computed(() => cn("q-btn-actions__panel", props.contentClass))
 
 // `position` explicite, sinon alias `align` (compat) → bottom-start / bottom-end
 const placement = computed<DropdownPosition>(
@@ -162,6 +197,7 @@ const placePanel = () => {
   const el = rootEl.value
   if (!el || typeof document === "undefined") return
   const rect = el.getBoundingClientRect()
+  triggerWidth.value = rect.width
   const [main, alt] = placement.value.split("-") as ["bottom" | "top" | "left" | "right", "start" | "end" | undefined]
   const off = props.offset
   const midX = (rect.left + rect.right) / 2
@@ -355,10 +391,10 @@ onBeforeUnmount(() => {
         <div
           v-if="open"
           ref="panelEl"
-          class="q-btn-actions__panel"
+          :class="panelClasses"
           role="menu"
           :aria-label="label ?? 'Actions'"
-          :style="panelStyle"
+          :style="[panelStyle, contentStyle]"
           @keydown="onKeydown"
         >
           <template v-for="row in menuRows" :key="row.key">

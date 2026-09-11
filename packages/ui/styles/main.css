@@ -264,6 +264,25 @@ html.dark body {
   color: rgb(255 255 255 / 0.65);
 }
 
+/* Icônes de champ en dark : icône gauche + chevrons (select, autocomplete) +
+   loupe de recherche des listes déroulantes. Ces icônes ont une couleur NOIRE
+   codée en dur (`rgb(0 0 0 / …)` sur `.q-field__icon`, `.q-select__arrow`,
+   `.q-autocomplete__arrow`, `.q-select__search-icon`) : sans cette surcharge
+   elles restaient noires sur fond sombre → illisibles. */
+.dark .q-field__icon,
+.dark .q-select__arrow,
+.dark .q-autocomplete__arrow,
+.dark .q-select__search-icon,
+.dark .q-autocomplete__search-icon {
+  color: var(--foreground);
+}
+
+/* État vide des listes déroulantes en dark (texte noir codé en dur) */
+.dark .q-select__empty,
+.dark .q-autocomplete__empty {
+  color: rgb(255 255 255 / 0.65);
+}
+
 .dark .q-input .q-field__native::placeholder,
 .dark .q-input-tag__native::placeholder,
 .dark .q-input-otp__box::placeholder,
@@ -4709,7 +4728,7 @@ a.q-breadcrumbs__el:hover {
 
 .q-select__popup {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 8px);
   left: 0;
   right: 0;
   z-index: 1000;
@@ -4721,6 +4740,24 @@ a.q-breadcrumbs__el:hover {
   border-radius: 4px;
   box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
   animation: q-popup-in 0.12s ease;
+}
+
+/* Bascule au-dessus du champ (pas assez de place en dessous) : l'animation
+   vient d'en bas. `top`/`bottom`/`max-height` sont posés en inline par le script
+   (`positionPopup()`), selon l'espace visible. */
+.q-select__popup--up {
+  animation-name: q-popup-in-up;
+}
+
+@keyframes q-popup-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* — champ de recherche séparé (useSearch), affiché avant la liste — */
@@ -7673,6 +7710,65 @@ a.q-breadcrumbs__el:hover {
   width: 36px;
   text-align: center;
 }
+
+/* ─── Réordonnancement des lignes (glisser depuis la gouttière) ─── */
+.q-table__table .q-table__reorder-col {
+  width: 28px;
+  padding: 0 2px;
+  text-align: center;
+}
+.q-table__drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: rgb(0 0 0 / 0.35);
+  cursor: grab;
+  user-select: none;
+  touch-action: none; /* le glissement ne doit pas partir en scroll tactile */
+}
+.q-table__drag-handle:hover {
+  color: var(--primary);
+  background: rgb(0 0 0 / 0.06);
+}
+.q-table__drag-handle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.q-table__drag-handle:active {
+  cursor: grabbing;
+}
+.q-table__drag-handle svg {
+  width: 14px;
+  height: 14px;
+}
+.q-table__row--dragging {
+  opacity: 0.45;
+}
+/* Ligne d'insertion : au-dessus ou en dessous de la ligne survolée */
+.q-table__row--drop-before > th,
+.q-table__row--drop-before > td {
+  box-shadow: inset 0 2px 0 0 var(--primary);
+}
+.q-table__row--drop-after > th,
+.q-table__row--drop-after > td {
+  box-shadow: inset 0 -2px 0 0 var(--primary);
+}
+.dark .q-table__drag-handle {
+  color: rgb(255 255 255 / 0.4);
+}
+.dark .q-table__drag-handle:hover {
+  background: rgb(255 255 255 / 0.08);
+}
+.q-table--dark .q-table__drag-handle {
+  color: rgb(255 255 255 / 0.4);
+}
+.q-table--dark .q-table__drag-handle:hover {
+  background: rgb(255 255 255 / 0.08);
+}
 .q-table--dark { --q-table-pinned-bg: #1d1d1d; }
 
 /* ===== QInfiniteScroll ===== */
@@ -9578,12 +9674,22 @@ a.q-breadcrumbs__el:hover {
   outline: none;
 }
 .q-spreadsheet__table {
+  /* PAS de `min-width: 100%` : avec `table-layout: fixed`, un tableau étiré au-delà
+     de la somme de ses colonnes RÉPARTIT l'espace libre sur toutes les colonnes
+     (proportionnellement) — la gouttière des numéros de ligne (34px) gonflait donc
+     jusqu'à ~70px sur une grille étroite, et les largeurs configurées de colonnes
+     étaient ignorées. Ici le tableau fait exactement la somme des colonnes ;
+     l'espace restant à droite reste vide (comportement tableur). */
   width: max-content;
-  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
   font-size: 13px;
+}
+
+/* Grille sans aucune colonne : un seul message → il doit occuper toute la largeur */
+.q-spreadsheet__table--empty {
+  min-width: 100%;
 }
 
 /* ─── En-têtes ─── */

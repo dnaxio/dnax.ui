@@ -4118,7 +4118,12 @@ defineExpose({
       @scroll="onViewportScroll"
       @contextmenu.prevent
     >
-      <table class="q-spreadsheet__table" cellspacing="0" :style="zoomTableStyle">
+      <table
+        class="q-spreadsheet__table"
+        :class="{ 'q-spreadsheet__table--empty': cols.length === 0 }"
+        cellspacing="0"
+        :style="zoomTableStyle"
+      >
         <thead v-if="showColumnHeaders">
           <tr class="q-spreadsheet__head-row">
             <th

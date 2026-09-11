@@ -627,6 +627,63 @@ const selected = ref([])
 ```
 ::
 
+### Reorderable rows
+
+`reorderable-rows` adds a drag gutter on the left: grab the handle and drop the row
+where you want it — a line shows the insertion point. The reorder **acts on the
+data**: the component emits `update:rows` (bind it with `v-model:rows`) plus a
+`row-reorder` event `{ rows, row, from, to }`.
+
+- Works with the mouse and on touch (the handle has `touch-action: none`, so the
+gesture doesn't turn into a scroll). The drop side is the half of the hovered row
+(before / after).
+- Keyboard: focus the handle and press **Alt + ↑ / ↓** to move the row one step.
+- Sorting and pagination don't get in the way: the move is applied to the source
+  `rows` array **by object identity**, so the row simply becomes a neighbour of the
+  hovered row (the array order is what changes, not the view order).
+- The exposed `reorderRows(from, to)` method reorders by **source** indices — handy
+  for “move up / move down” buttons.
+
+::prose-show-case
+:dnax-demo-table{demo="reorder"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const columns = [
+  { name: "name", label: "Name", field: "name", sortable: true },
+  { name: "role", label: "Role", field: "role" },
+  { name: "email", label: "Email", field: "email", align: "right" },
+  { name: "status", label: "Status", field: "status" },
+]
+
+const rows = ref([
+  { id: 1, name: "Ada Lovelace", role: "Engineer", email: "ada@dnax.dev", status: "Active" },
+  { id: 2, name: "Grace Hopper", role: "Architect", email: "grace@dnax.dev", status: "Active" },
+  { id: 3, name: "Alan Turing", role: "Researcher", email: "alan@dnax.dev", status: "Inactive" },
+])
+</script>
+
+<template>
+  <q-table
+    v-model:rows="rows"
+    :columns="columns"
+    row-key="id"
+    reorderable-rows
+    dense
+    flat
+    bordered
+    @row-reorder="({ from, to }) => console.log(`row ${from} → ${to}`)"
+  />
+
+  <p>Order: <code>{{ rows.map((r) => r.id).join(" · ") }}</code></p>
+</template>
+```
+::
+
 ## API
 
 :dnax-api{name="QTable"}

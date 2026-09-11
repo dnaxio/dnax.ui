@@ -297,3 +297,81 @@ la directive vérifie `getComputedStyle(el).position === "static"` et pose
 `position: relative` elle-même, en mémorisant la valeur inline d'origine pour la
 **restaurer au démontage** (ne pas oublier ce `prevPosition`, sinon on laisse un
 style inline résiduel sur l'élément).
+
+## Icônes/couleurs de texte noires codées en dur sans surcharge dark — 2026-09-10
+
+`filename: packages/ui/styles/main.css`
+
+**Symptôme** : en mode dark, des icônes et des textes restent **noirs** (donc
+quasi invisibles) — ex. remonté sur le chevron de `q-select`.
+
+**Cause** : la feuille pose la couleur de base en dur (`color: rgb(0 0 0 / 0.5)`…)
+sur le sélecteur du composant, et le bloc `.dark` (en haut du fichier) ne couvre
+pas ce sélecteur. La couleur explicite gagne sur le `color` hérité de
+`.dark .q-field__control` / `.dark .q-select__popup` → l'élément reste noir.
+
+**Règle** : toute déclaration `color: rgb(0 0 0 / …)` doit avoir son pendant en
+dark ; soit `var(--foreground)` (icônes fonctionnelles : chevrons, loupe, icône
+de champ), soit `rgb(255 255 255 / 0.65)` (texte secondaire, aligné sur
+`.dark .q-field__hint`).
+
+**Correctif de ce lot** : groupe d'icônes `.dark .q-field__icon,
+.dark .q-select__arrow, .dark .q-autocomplete__arrow, .dark .q-select__search-icon,
+.dark .q-autocomplete__search-icon { color: var(--foreground) }` + groupes d'états
+vides `.dark .q-select__empty, .dark .q-autocomplete__empty`.
+
+**Méthode d'audit** (à relancer après tout ajout de styles) — repérer les règles
+avec une couleur de texte noire dont aucune classe n'apparaît dans un sélecteur
+`.dark` :
+
+```py
+# python3, depuis la racine : extrait les sélecteurs non couverts par .dark
+import re
+src = open('packages/ui/styles/main.css').read()
+rules   = re.findall(r'([^{}]+)\{([^{}]*)\}', src)
+dark    = ' '.join(s for s, _ in re.findall(r'(\.dark[^{}]*)\{([^{}]*)\}', src))
+for sel, body in rules:
+    if re.search(r'(^|;)\s*color\s*:\s*rgb\(\s*0\s+0\s+0', body) and not sel.strip().startswith('.dark'):
+        cls = re.findall(r'\.([a-zA-Z0-9_-]+)', sel)
+        if cls and not any(c in dark for c in cls): print(sel.strip())
+```
+
+**Candidats restants au 2026-09-10** (non corrigés, hors périmètre du lot — à
+vérifier au cas par cas, certains vivent peut-être sur une surface claire) :
+`.q-field__prefix`, `.q-field__suffix`, `.q-field__counter`,
+`.q-image-picker__add-label`, `.q-file-picker__preview`, `.q-file-picker__size`,
+`.q-file-picker__add-label`, `.q-table__no-data`,
+`.q-autocomplete__search-input::placeholder`, `.q-bottom-sheet__description`,
+`.q-action-sheet__title`, `.q-date-picker__field-icon`, `.q-date-calendar__weekday`,
+`.q-dialog__description`, `.q-bubble--muted .q-bubble__content`,
+`.q-infinite-scroll__loading`, `.q-input-otp__separator`.
+
+## `table-layout: fixed` + `min-width: 100%` → toutes les colonnes gonflent — 2026-09-10
+
+`filename: packages/ui/styles/main.css` (`.q-spreadsheet__table`)
+
+**Symptôme** : dans `QSpreadsheet`, la gouttière des numéros de ligne (34px)
+envahissait l'espacement — jusqu'à ~70px sur une grille à 2 colonnes — et les
+largeurs de colonnes configurées étaient ignorées.
+
+**Cause** : `.q-spreadsheet__table { table-layout: fixed; width: max-content;
+min-width: 100% }`. Quand la somme des colonnes est **inférieure** à la largeur du
+conteneur, `min-width: 100%` étire le tableau et le navigateur **répartit l'espace
+libre sur toutes les colonnes** (proportionnellement à leurs largeurs). La gouttière
+(la plus étroite) doublait donc de largeur, comme toutes les autres colonnes.
+
+**Règle générale** : avec `table-layout: fixed`, une largeur de colonne n'est
+respectée **exactement** que si le tableau n'est pas étiré au-delà de la somme des
+colonnes. Pour garder des largeurs exactes ET remplir le conteneur, il faut une
+**colonne de remplissage** (cellule sans largeur qui absorbe le rab) — sinon c'est
+l'étirement qui gagne.
+
+**Correctif appliqué** : `min-width: 100%` retiré du tableau (les largeurs
+deviennent exactes, l'espace à droite reste vide, façon tableur) + classe
+`q-spreadsheet__table--empty` (rendue quand `cols.length === 0`) qui rétablit
+`min-width: 100%` : dans ce cas il n'y a **qu'une** cellule de message, c'est elle
+qui prend toute la largeur.
+
+**Alternative écartée** (à proposer si on veut que la grille remplisse malgré tout
+le conteneur) : ajouter une `<th>`/`<td>` de remplissage à chaque ligne — ça marche
+mais touche le thead, chaque ligne du tbody et les `<td :colspan>` des états vides.

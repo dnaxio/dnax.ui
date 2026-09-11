@@ -18,6 +18,7 @@ defineProps<{
     | "scroll"
     | "noFixedHeader"
     | "virtualSelection"
+    | "reorder"
 }>()
 
 // — Columns / rows —
@@ -54,6 +55,9 @@ const bigRows = Array.from({ length: 1000 }, (_, i) => ({
 // — Selection / pagination state —
 const selected = ref<any[]>([])
 const virtualSelected = ref<any[]>([])
+
+// — Réordonnancement : tableau `rows` PROPRE à la démo (les autres démos gardent l'ordre de `rows`)
+const reorderRows = ref([...rows.value])
 
 const pagination = ref({
   sortBy: null as string | null,
@@ -277,6 +281,22 @@ const pinnedBigColumns = ref([
       bordered
     />
     <p class="demo-p demo-table-count">{{ virtualSelected.length }} row(s) selected.</p>
+  </div>
+
+  <div v-else-if="demo === 'reorder'" class="demo-stack">
+    <q-table
+      v-model:rows="reorderRows"
+      :columns="columns"
+      row-key="id"
+      reorderable-rows
+      dense
+      flat
+      bordered
+    />
+    <p class="demo-p demo-table-count">
+      Drag the handle (or Alt + ↑/↓) — order:
+      <code>{{ reorderRows.map((r) => r.id).join(" · ") }}</code>
+    </p>
   </div>
 </template>
 

@@ -229,6 +229,73 @@ wide the trigger is.
 so the inner `<q-btn>` really stretches. Nothing else is needed — no
 `class="w-full"` on the component.
 
+## Panel width — `fit`
+
+The panel is **at least as wide as its trigger** — Quasar's `QMenu.fit` behaviour,
+on by **default** (`fit: true`). A full-width trigger therefore gets a full-width
+panel, aligned with the button edges:
+
+<prose-show-case>
+<dnax-demo-btn-dropdown demo="fit">
+
+
+
+</dnax-demo-btn-dropdown>
+
+<template v-slot:code="">
+
+```vue
+<div class="fit-col">
+  <q-btn-dropdown label="fit (default)" stretch outline no-caps :items="posItems" position="bottom-start" />
+  <q-btn-dropdown label="fit = false" :fit="false" stretch outline no-caps :items="posItems" position="bottom-start" />
+</div>
+```
+
+</template>
+</prose-show-case>
+
+`fit` is a **floor, not an exact width**: the panel is sized
+`max(menu-width, trigger width)`. `menu-width` (default `220px`) stays the minimum
+for small triggers, and a long item label can still widen the panel. Pass
+`:fit="false"` to fall back to `menu-width` alone.
+
+## Panel classes & styles
+
+The panel is teleported to `<body>`, so `content-class` and `content-style` are the
+escape hatch to restyle it. Both are applied **after** the computed style (placement,
+`min-width`), so they override it — the way to force an exact width, a background or
+a radius:
+
+<prose-show-case>
+<dnax-demo-btn-dropdown demo="content">
+
+
+
+</dnax-demo-btn-dropdown>
+
+<template v-slot:code="">
+
+```vue
+<!-- min-width forcée : le panneau s'aligne plus large que menu-width -->
+<q-btn-dropdown flat round dense :items="posItems" content-style="min-width: 300px" />
+
+<!-- apparence du panneau (rayon, ombre) sur l'élément téléporté -->
+<q-btn-dropdown
+  label="Rounded panel"
+  outline
+  no-caps
+  :items="posItems"
+  content-style="border-radius: 16px; box-shadow: 0 16px 40px rgb(0 0 0 / 0.2)"
+/>
+```
+
+</template>
+</prose-show-case>
+
+`content-class` does the same with a class name. Use it from a **global**
+stylesheet: the panel is rendered by the shared panel engine, outside the scope of
+the component that declares the dropdown, so its scoped styles do not apply.
+
 ## API
 
 <dnax-api name="QBtnDropdown">

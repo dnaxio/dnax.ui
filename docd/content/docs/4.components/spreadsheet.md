@@ -585,6 +585,12 @@ the row height; `Merge cells` merges the selection (top-left value is shown),
 skips them) — “Show all hidden” and the list of hidden columns live in the
 menu. Drag a **row number** or a **column header** to reorder.
 
+**Widths** — the row-number gutter is a fixed **34px** (sized for integers), and
+column widths (`columns[].width`, `default-col-width`, or dragging the edge of a
+column header) are respected **exactly**: the grid is only as wide as its columns,
+so a narrow sheet no longer stretches to fill the frame — the leftover area on the
+right stays empty, like a spreadsheet.
+
 **Conditional formatting** (highlighter icon in the toolbar): rule on the
 selection or a **whole column** (“Column” checkbox), with conditions
 `greater than / ≥ / < / ≤ / equal / contains / blank / not blank / formula (A1) / always`.

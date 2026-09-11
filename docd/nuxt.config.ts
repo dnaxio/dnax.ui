@@ -1,4 +1,7 @@
 export default defineNuxtConfig({
+  devServer: {
+    port:3009
+  },
   extends: ["@baybreezy/docd"],
   // Le module @dnax/ui auto-importe les composants Q* + les styles globaux ;
   // le module local génère les métadonnées d'API (#build/dnax-ui-meta.mjs).

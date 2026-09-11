@@ -1,6 +1,26 @@
 <script lang="ts">
 // QSelect — options spécifiques par mode d'ouverture.
 // sheetOptions / modalOptions / inlineOptions : style, classes, hauteur, arrondi, placeholder de recherche.
+
+/**
+ * Placement du popup `inline` (même vocabulaire que `DropdownPosition` de QBtnActions) :
+ *
+ * - `"auto"` — suit la place disponible : sous le champ, bascule au-dessus s'il n'y
+ *   a pas la place. Le popup fait la largeur du champ.
+ * - `"top"` / `"bottom"` — force le côté (pas de bascule). Le popup fait la largeur
+ *   du champ.
+ * - suffixe `"-start"` / `"-end"` — ancre le popup sur le bord GAUCHE / DROIT du
+ *   champ ; il prend alors sa largeur naturelle (ou `inline-options.width`), donc il
+ *   peut être plus étroit ou plus large que le champ.
+ *
+ * Les placements latéraux de `DropdownPosition` (`left`, `right`) ne sont pas repris :
+ * un popup de sélection s'ouvre toujours au-dessus ou au-dessous de son champ.
+ */
+export type SelectPopupPosition =
+  | "auto"
+  | "bottom" | "bottom-start" | "bottom-end"
+  | "top" | "top-start" | "top-end"
+
 export interface QSelectModeOptions {
   /** Largeur du panneau/popup (remplace width) */
   width?: string
@@ -10,6 +30,10 @@ export interface QSelectModeOptions {
   class?: string
   /** Hauteur de la liste scrollable (remplace height) */
   height?: string
+  /** Écart champ ↔ popup (mode inline) — remplace la prop `offset` */
+  offset?: number
+  /** Placement du popup (mode inline) — remplace la prop `position` */
+  position?: SelectPopupPosition
   /** Arrondi du panneau (remplace rounded) */
   rounded?: boolean | string | { tl?: string | number; tr?: string | number; br?: string | number; bl?: string | number }
   /** Placeholder du champ de recherche pour ce mode */
@@ -95,6 +119,18 @@ interface Props {
   height?: string
   /** Arrondi du panneau : true (défaut du mode) | false (carré) | valeur CSS | objet { tl, tr, br, bl } */
   rounded?: boolean | string | { tl?: string | number; tr?: string | number; br?: string | number; bl?: string | number }
+  /**
+   * Écart entre le champ et le popup inline, en px (défaut : 8).
+   * Réduit automatiquement (jusqu'à 0) si la place manque sous/au-dessus du champ.
+   * Surchargeable par mode : `inline-options="{ offset: 8 }"`.
+   */
+  offset?: number
+  /**
+   * Placement du popup inline — voir `SelectPopupPosition`. Défaut : `"auto"`
+   * (bascule automatique selon la place disponible).
+   * Surchargeable par mode : `inline-options="{ position: 'top' }"`.
+   */
+  position?: SelectPopupPosition
   /** Options spécifiques au mode sheet (style, class, height, rounded, width, searchPlaceholder) */
   sheetOptions?: QSelectModeOptions
   /** Options spécifiques au mode modal */
@@ -125,6 +161,8 @@ const props = withDefaults(defineProps<Props>(), {
   loading: false,
   noOptionsLabel: "No options to display",
   mode: "inline",
+  offset: 8,
+  position: "auto",
 })
 
 const emit = defineEmits<{
@@ -169,6 +207,104 @@ const modeOptions = computed<QSelectModeOptions | undefined>(() => {
   if (props.mode === "inline") return props.inlineOptions
   return undefined
 })
+
+// — Popup inline : direction, écart et hauteur max calculés selon l'espace visible —
+// Ouvre vers le bas ; s'il n'y a pas la place (POPUP_MIN_SPACE) et qu'au-dessus il y
+// a davantage de place, il bascule au-dessus du champ. L'écart avec le champ
+// (`offset`, 8px par défaut) se réduit quand la place manque (jusqu'à 0) et la
+// hauteur max est bornée à l'espace disponible : le popup ne dépasse jamais le bord
+// de la fenêtre.
+/** Espace vertical visé pour la liste : en dessous, on cherche de la place ailleurs */
+const POPUP_MIN_SPACE = 96
+/** Plafond historique de la liste scrollable */
+const POPUP_MAX_HEIGHT = 240
+/** Marge conservée avec les bords de la fenêtre */
+const VIEWPORT_MARGIN = 8
+
+const popupDirection = ref<"down" | "up">("down")
+const popupMaxHeight = ref(POPUP_MAX_HEIGHT)
+/** Décalages en px par rapport à la RACINE (bloc conteneur du popup) — null avant mesure */
+const popupTop = ref<number | null>(null)
+const popupBottom = ref<number | null>(null)
+
+/** Écart champ ↔ popup : `inline-options.offset` prioritaire sur la prop `offset` */
+const popupOffset = computed(() => modeOptions.value?.offset ?? props.offset)
+
+/** Placement demandé : `inline-options.position` prioritaire sur la prop `position` */
+const popupPlacement = computed<SelectPopupPosition>(
+  () => modeOptions.value?.position ?? props.position,
+)
+
+const positionPopup = () => {
+  const el = rootEl.value
+  if (!el || typeof window === "undefined") return
+  const rect = el.getBoundingClientRect()
+
+  // Ancre = bas du CHAMP, pas bas de la racine : `.q-field__bottom` réserve
+  // ~24px (min-height 20px + padding-top 4px) même quand il est vide, ce qui
+  // éloignait le popup du champ. Quand un hint / une erreur est affiché, on
+  // garde le bas de la racine pour ne pas recouvrir le texte.
+  const control = el.querySelector<HTMLElement>(".q-field__control")
+  const hasBottomText = !!el.querySelector(".q-field__hint, .q-field__error")
+  const anchor = (!hasBottomText && control ? control : el).getBoundingClientRect()
+
+  const below = window.innerHeight - anchor.bottom - VIEWPORT_MARGIN
+  const above = anchor.top - VIEWPORT_MARGIN
+
+  // `auto` : sous le champ, bascule au-dessus s'il n'y a pas la place (et qu'il y en
+  // a plus au-dessus). `top` / `bottom` forcent le côté, sans bascule.
+  const placement = popupPlacement.value
+  const down =
+    placement === "auto"
+      ? below >= POPUP_MIN_SPACE || below >= above
+      : !placement.startsWith("top")
+  const available = Math.max(down ? below : above, 0)
+
+  // Écart réduit quand la place manque, pour laisser le maximum à la liste
+  const gap = Math.max(0, Math.min(popupOffset.value, available - POPUP_MIN_SPACE))
+
+  popupDirection.value = down ? "down" : "up"
+  popupMaxHeight.value = Math.max(0, Math.min(POPUP_MAX_HEIGHT, available - gap))
+  popupTop.value = Math.round(anchor.bottom - rect.top + gap)
+  popupBottom.value = Math.round(rect.bottom - anchor.top + gap)
+}
+
+const popupStyle = computed<Record<string, string>>(() => {
+  const up = popupDirection.value === "up"
+  const fallback = `calc(100% + ${popupOffset.value}px)`
+  const style: Record<string, string> = {
+    top: up ? "auto" : popupTop.value === null ? fallback : `${popupTop.value}px`,
+    bottom: up ? (popupBottom.value === null ? fallback : `${popupBottom.value}px`) : "auto",
+    maxHeight: `${Math.round(popupMaxHeight.value)}px`,
+  }
+
+  // Ancre horizontale : par défaut le popup couvre la largeur du champ. Les suffixes
+  // `-start` / `-end` (ou un `inline-options.width` explicite) l'ancrent sur un bord —
+  // l'effet est visible dès que le popup n'a pas la largeur du champ.
+  const placement = popupPlacement.value
+  const width = modeOptions.value?.width
+  const anchored = placement !== "auto" && placement.includes("-")
+  if (anchored || width) {
+    const alignEnd = placement.endsWith("-end")
+    style.left = alignEnd ? "auto" : "0"
+    style.right = alignEnd ? "0" : "auto"
+    style.width = width ?? "100%"
+  } else {
+    style.left = "0"
+    style.right = "0"
+  }
+
+  return style
+})
+
+// Le champ peut bouger (scroll) ou la fenêtre changer de taille : on recalcule
+const onPopupViewportChange = () => {
+  if (open.value && props.mode === "inline") positionPopup()
+}
+
+// Un changement de `position` / `offset` (prop ou options de mode) pendant que le
+// popup est ouvert doit le replacer tout de suite (ex. sélecteur de placement).
+watch([popupPlacement, popupOffset], onPopupViewportChange)
 
 // — Options normalisées : les primitives (string/number) deviennent { value, label } —
 const isObjectOption = (o: any): boolean => o !== null && typeof o === "object"
@@ -446,10 +582,22 @@ const onDocKeydown = (e: KeyboardEvent) => {
   if (e.key === "Escape" && open.value && props.mode !== "inline") closePopup()
 }
 
-// Verrouille le scroll du body quand un panneau modal est ouvert
+// Verrouille le scroll du body quand un panneau modal est ouvert ;
+// en mode inline, (re)calcule la direction/écart/hauteur du popup à l'ouverture
+// et suit les changements de viewport tant qu'il est ouvert.
 watch(open, (v) => {
   if (typeof document !== "undefined" && props.mode !== "inline") {
     document.body.style.overflow = v ? "hidden" : ""
+  }
+
+  if (typeof window === "undefined") return
+  if (v && props.mode === "inline") {
+    positionPopup()
+    window.addEventListener("resize", onPopupViewportChange)
+    window.addEventListener("scroll", onPopupViewportChange, true)
+  } else {
+    window.removeEventListener("resize", onPopupViewportChange)
+    window.removeEventListener("scroll", onPopupViewportChange, true)
   }
 })
 
@@ -464,6 +612,10 @@ onBeforeUnmount(() => {
     document.removeEventListener("mousedown", onDocMousedown)
     document.removeEventListener("keydown", onDocKeydown)
     document.body.style.overflow = ""
+  }
+  if (typeof window !== "undefined") {
+    window.removeEventListener("resize", onPopupViewportChange)
+    window.removeEventListener("scroll", onPopupViewportChange, true)
   }
 })
 
@@ -602,8 +754,8 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
       v-if="open && mode === 'inline'"
       ref="popupRef"
       class="q-select__popup"
-      :class="inlineOptions?.class"
-      :style="inlineOptions?.style"
+      :class="[inlineOptions?.class, popupDirection === 'up' && 'q-select__popup--up']"
+      :style="[popupStyle, inlineOptions?.style]"
       role="listbox"
       @mousedown.prevent
     >

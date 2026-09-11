@@ -450,3 +450,254 @@ Nouvelle directive globale **`v-ripple`**, parité Quasar
   `/docs/directives/ripple` prérendue, 0 erreur ; le bundle expose
   `vueApp.directive("ripple", Nu)` et la démo compile en
   `resolveDirective("ripple")` + `withDirectives`.
+
+## QBtnActions/QBtnDropdown : prop `fit` (panneau ≥ largeur du déclencheur) — 2026-09-10
+
+`filename: packages/ui/components/QBtnActions.vue` (+ `QBtnDropdown.vue`)
+
+Le panneau pouvait être plus étroit que son déclencheur (cas d'un bouton
+`stretch` / pleine largeur). Nouvelle prop **`fit`**, nom repris de Quasar
+`QMenu.fit` (« Allows the menu to match **at least** the full width of its
+target ») : le nom `popup` (suggéré) a été écarté — il dit ce qu'est l'élément
+(tout est « popup » ici) et non ce qu'il fait, alors que `fit` complète le
+vocabulaire Quasar déjà utilisé (`position`, `offset`, `menu-width`, `align`).
+
+- **Défaut `true`** (demandé) — divergence assumée avec Quasar (défaut `false`) :
+  un menu plus étroit que son bouton est visuellement cassé.
+- **Sémantique = plancher, pas largeur exacte** : `min-width: max(menu-width,
+largeurMesuréeDuDéclencheur)`. Le `max()` est calculé **par le CSS** (pas de
+  parsing de `menu-width`, qui peut rester `"16rem"` / `"40%"`) ; un item plus
+  large peut donc encore élargir le panneau (pas de troncature de libellé).
+  Pour une largeur strictement égale il faudrait un mode dédié (`fit="exact"`)
+  qui poserait aussi un `max-width` — non retenu par défaut.
+- **Mesure** : `triggerWidth` est rafraîchi dans `placePanel()` (donc à
+  l'ouverture ET sur resize/scroll via le tracking `position: fixed` déjà en
+  place) ; `fit: false` restaure l'ancien comportement (`menu-width` seul).
+- Docs : `btn-dropdown.md` → nouvelle section « Panel width — `fit` » + démo
+  `demo="fit"` (deux déclencheurs `stretch` côte à côte, `fit` par défaut vs
+  `:fit="false"`) ; `btn-actions.md` → mention dans la section `## Stretch` et
+  dans la liste des options du panneau.
+- Vérif : `cd docd && bun run generate` → 0 erreur ; `fit` présent dans la table
+  d'API ; logique compilée relue (`minWidth = menuWidth ? max(menuWidth,
+Npx) : Npx`). L'effet visuel (panneau ouvert) n'est pas vérifiable au
+  prerender — la démo est le contrôle.
+
+## QBtnActions/QBtnDropdown : `content-class` / `content-style` — 2026-09-10
+
+`filename: packages/ui/components/QBtnActions.vue` (+ `QBtnDropdown.vue`)
+
+Le panneau du menu est **téléporté dans `<body>`** et rendu par le moteur partagé
+`QBtnActions` : impossible de le cibler depuis le composant consommateur (ni par
+`class` — qui va sur le déclencheur — ni par les styles scoped, car l'élément porte
+le scope id du moteur, pas celui de l'appelant). D'où deux props reprises de Quasar
+`QBtnDropdown` (desc : « Class/Style definitions to be attributed to the menu ») :
+
+- `contentClass?: string` (défaut `""`) — fusionnée avec `cn("q-btn-actions__panel",
+props.contentClass)` (`cn` = clsx + tailwind-merge : une classe Tailwind du
+  consommateur prime sur celle du moteur) ;
+- `contentStyle?: StyleValue` (défaut `""`) — appliquée **APRÈS** le style calculé :
+  `:style="[panelStyle, contentStyle]"` → elle peut donc surcharger `top`/`left`/
+  `transform`/`min-width`, ce qui est la façon de forcer une **largeur exacte**
+  (`content-style="min-width: 420px; max-width: 420px"`) sans ajouter un mode
+  `fit="exact"`.
+
+Conventions reprises de `QDialog.vue` (`contentClass` string + `contentStyle:
+StyleValue`, `import type { StyleValue } from "vue"`). Les deux props sont
+transmises par `QBtnDropdown` (déclarées, donc pas de fall-through d'attribut).
+Docs : `btn-dropdown.md` → section « Panel classes & styles » + démo
+`demo="content"` ; `btn-actions.md` → mention dans la liste des options du panneau.
+Vérif : compile relue (`class: normalizeClass(panelClasses.value)`, `style:
+normalizeStyle([panelStyle.value, contentStyle])`), `contentClass`/`contentStyle`
+présents dans les tables d'API, 6 démos sur la page dropdown, `bun test
+packages/ui/lib` → 41/41.
+
+## QSelect mode inline : direction (haut/bas), écart adaptatif et hauteur bornée — 2026-09-10
+
+`filename: packages/ui/components/QSelect.vue` (+ `styles/main.css`)
+
+En mode `inline`, le popup était **toujours** sous le champ (`position: absolute;
+top: calc(100% + 4px)`, `max-height: 240px` figés en CSS) → il pouvait dépasser le
+bord bas de la fenêtre sur un champ en bas de page. Désormais le placement est
+calculé à l'ouverture (**et** sur `resize` / `scroll` tant qu'il est ouvert) :
+
+- **Direction** : sous le champ si l'espace bas ≥ `POPUP_MIN_SPACE` (96px) **ou**
+  s'il est plus grand qu'au-dessus ; sinon bascule au-dessus (`popupDirection`).
+- **Écart adaptatif** : `gap = clamp(0, offset, available - POPUP_MIN_SPACE)` (la
+  constante `POPUP_GAP (4)` a depuis été remplacée par la prop `offset`, passée de
+  4 à **8** par défaut — voir plus bas)
+  → l'écart se réduit (jusqu'à 0) quand la place manque, au profit de la liste.
+- **Hauteur** : `max-height = clamp(0, available - gap, POPUP_MAX_HEIGHT (240))`.
+  Le plafond historique de 240px est conservé, mais l'espace réellement disponible
+  prime → jamais de débordement, la liste scrolle à l'intérieur.
+- **Animation** : `--up` (classe `q-select__popup--up`) rejoue `q-popup-in-up`
+  (entrée depuis le bas) au lieu de `q-popup-in`.
+- **Seam** : `inlineOptions.style` est appliqué **après** le style calculé
+  (`:style="[popupStyle, inlineOptions?.style]"`) → le consommateur peut épingler
+  librement (`maxHeight`, `top`/`bottom`) sans nouveau prop.
+
+**Alternative écartée** : mesurer la hauteur réelle du popup après rendu puis
+flipper. Plus « juste » mais impose un double rendu (le popup est monté avec une
+animation d'entrée) → saut visuel. Le seuil déterministe (96px) est prévisible et
+sans flash ; la mesure du contenu n'est pas nécessaire puisque `max-height` est de
+toute façon borné à la place disponible.
+
+Docs : `select.md` → section « Inline popup placement » (tableau des cas + exemple
+`inline-options.style`). Vérif : `cd docd && bun run generate` → 0 erreur ; CSS
+`.q-select__popup--up` + `@keyframes q-popup-in-up` dans le bundle ; logique
+compilée relue (`below >= 96 || below >= above`, `gap = max(0, min(4, available -
+96))`, `maxHeight = max(0, min(240, available - gap))`).
+
+**Correctif suivant (même jour) — popup « trop loin du champ »** : le décalage ne
+venait PAS du gap (4px) mais de **l'ancre**. Le popup était ancré au bas de la
+**racine** `.q-select` (`top: calc(100% + 4px)`), or `.q-field__bottom` est
+**toujours rendu** et réserve ~24px même vide (`min-height: 20px` +
+`padding: 4px 12px 0`) → distance réelle ≈ 28px. Réduire le gap n'aurait rien
+réglé (26px). Correctif : l'ancre est le **`.q-field__control`** quand aucun
+hint/erreur n'est affiché, sinon la racine (pour ne pas recouvrir le texte) :
+`anchor = (!el.querySelector(".q-field__hint, .q-field__error") && control ?
+control : el).getBoundingClientRect()`. La position est alors posée en **px
+relatifs à la racine** (`popupTop = anchor.bottom - rect.top + gap`,
+`popupBottom = rect.bottom - anchor.top + gap`) au lieu de `calc(100% + gap)` ;
+`popupTop`/`popupBottom` sont `null` avant mesure → repli sur `calc(100% + 4px)`.
+Gap conservé à 4px (standard) : la distance passe de ~28px à 4px.
+
+Reste à faire (non demandé) : `QAutocomplete` a le même popup inline
+(`.q-autocomplete__popup`, même `q-popup-in`) et n'a pas encore ce traitement —
+il a donc le même décalage de ~28px.
+
+## QSelect : les 3 modes (inline / modal / sheet) documentés et démoés — 2026-09-10
+
+`filename: docd/content/docs/4.components/select.md`, `docd/app/components/demos/DnaxDemoSelect.vue`
+
+`QSelect` supportait déjà `mode="inline" | "modal" | "sheet" | "dialog"` **côté
+composant**, mais sa page de doc ne **démontrait** aucun mode (contrairement à
+`autocomplete.md` qui a une section « Sheet & modal modes » + démo `panel`).
+
+- Démo `demo="panel"` ajoutée à `DnaxDemoSelect.vue` : un `q-select` (options
+  primitives `['inline','modal','sheet']`, outlined, dense) sert de sélecteur de
+  mode, puis un `q-select` « Country » avec `emit-value`, `use-search`,
+  `:sheet-options="{ width: '100%', searchPlaceholder: … }"` et
+  `:modal-options="{ height: '360px' }"` ; styles scoped `.demo-select-panel`
+  (`min-height: 320px`, comme la démo autocomplete, pour que le popup inline ne
+  soit pas coupé).
+- Section `## Modes — inline, modal, sheet` dans `select.md` (avant « Inline
+  popup placement ») : prose (rôle du panneau, titre = `label` du champ, fermeture
+  backdrop / × / Esc / retour navigateur, `dialog` = plein écran) + `#code`
+  complet. `dialog` est cité en prose mais pas dans le sélecteur de la démo (évite
+  un plein écran dans l'aperçu).
+- À noter : `QSelectModeOptions` n'a **pas** de `title` (contrairement à
+  `QAutocompleteModeOptions`) — le titre du panneau vient du `label` du champ.
+- Vérif : `cd docd && bun run generate` → 0 erreur ; DOM relu : 6 démos sur la
+  page (5 `demo-field` + 1 `demo-select-panel`), sélecteur de mode affichant
+  « inline », `q-field__bottom` rendu, `<teleport>` en place.
+
+## QSelect : `offset` + `position` (géométrie du popup inline) — 2026-09-10
+
+`filename: packages/ui/components/QSelect.vue`
+
+L'écart entre le champ et le popup inline était la constante `POPUP_GAP = 4`
+(non configurable). Nom repris de notre propre famille `QBtnActions` /
+`QBtnDropdown` (`offset`, en px) plutôt que de Quasar : `QSelect.json` n'expose
+**aucun** prop d'offset (seul `menu-shrink` existe côté menu).
+
+- Prop **`offset?: number`** (défaut **`8`**, ramené de `4` le même jour sur demande)
+  - **`QSelectModeOptions.offset`** pour la
+    surcharge par mode (`inline-options="{ offset: 8 }"`), via
+    `popupOffset = computed(() => modeOptions?.offset ?? props.offset)`.
+- La constante `POPUP_GAP` est **supprimée** (une seule source de vérité : le
+  défaut de la prop) ; `popupOffset` sert au calcul du gap, au `popupTop`/
+  `popupBottom` et au repli CSS (`calc(100% + Npx)`).
+- L'écart reste un **point de départ** : il est borné par
+  `clamp(0, offset, available - 96)`, donc il se réduit près d'un bord de fenêtre.
+  `0` colle le popup au champ.
+- **Doc corrigée** : l'exemple de `select.md` qui épinglait la position via
+  `inline-options.style: { top: 'calc(100% + 2px)' }` était devenu **faux** depuis
+  le passage à une position calculée en **px** (il réintroduisait l'ancre sur la
+  racine, donc les ~28px). Remplacé par `offset` + note « le style passe après le
+  style calculé, mais la position est en px : utilisez `offset` ».
+- Démo `demo="offset"` ajoutée à `DnaxDemoSelect.vue` (3 champs : `offset 0`,
+  `offset 8 (default)`, `offset 16`) + sous-section `### Offset` dans `select.md`.
+  Le défaut de `offset` (8px) est aussi celui du repli CSS
+  `.q-select__popup { top: calc(100% + 8px) }` — garder les deux alignés.
+- Vérif : `cd docd && bun run generate` → 0 erreur ; 7 démos sur la page ;
+  `offset` présent dans la table d'API ; logique compilée relue
+  (`popupOffset = modeOptions?.offset ?? props.offset`) ; `diagnostics` sur
+  `QSelect.vue` → 0 erreur / 0 warning ; `bun test packages/ui/lib` → 41/41.
+
+### `position` — direction forcée (vocabulaire `DropdownPosition`) — 2026-09-10
+
+Ajout de **`position?: SelectPopupPosition`** (défaut `"auto"`) +
+**`QSelectModeOptions.position`** (`inline-options="{ position: 'top' }"`), résolu
+par `popupPlacement = modeOptions?.position ?? props.position`. Type exporté depuis
+le bloc `<script lang="ts">` de `QSelect.vue` :
+
+```ts
+export type SelectPopupPosition =
+  | "auto"
+  | "bottom"
+  | "bottom-start"
+  | "bottom-end"
+  | "top"
+  | "top-start"
+  | "top-end";
+```
+
+- Même vocabulaire que `DropdownPosition` (QBtnActions) **moins les placements
+  latéraux** (`left`/`right`/`left-end`…) : un popup de sélection s'ouvre toujours
+  au-dessus ou au-dessous de son champ.
+- `auto` = comportement précédent (bascule selon la place). `top`/`bottom`
+  **forcent** le côté : `down = !placement.startsWith("top")`, donc **pas de
+  bascule** ; si la place manque, c'est le `max-height` qui se réduit (la liste
+  scrolle) — un côté forcé ne se retourne jamais.
+- Suffixes `-start` / `-end` = **ancre horizontale**. Le popup garde par défaut la
+  largeur du champ (`width: 100%`), donc `-start`/`-end` sont alors sans effet
+  visible ; ils deviennent utiles dès qu'on donne une largeur au popup
+  (`inline-options.width`, jusqu'ici **ignoré** pour le mode inline — corrigé au
+  passage) : `left: 0` (start) ou `right: 0` (end).
+- Un `watch([popupPlacement, popupOffset], onPopupViewportChange)` repositionne le
+  popup immédiatement si la valeur change pendant qu'il est ouvert.
+- Docs : `select.md` → sous-section `### Direction` (tableau des valeurs + démo
+  `demo="direction"` avec sélecteur de placement et `inline-options.width: '240px'`
+  pour rendre l'ancrage visible).
+- Vérif : `cd docd && bun run generate` → 0 erreur ; 8 démos sur la page
+  (`demo-field` ×5, `demo-select-panel` ×2, `demo-select-offset` ×1) ; `position`
+  dans la table d'API ; logique compilée relue (`placement === "auto" ? (below >=
+96 || below >= above) : !placement.startsWith("top")`).
+
+## QTable : réordonnancement des lignes (`reorderableRows`) — 2026-09-10
+
+`filename: packages/ui/components/QTable.vue` (+ `styles/main.css`)
+
+Nouvelle prop **`reorderableRows`** : une gouttière (28px) apparaît à gauche, avec une
+poignée à glisser. Le déplacement **agit sur `rows`** → émet `update:rows`
+(compatible `v-model:rows`, convention déjà utilisée par `QSpreadsheet`) **et**
+`row-reorder` (`{ rows, row, from, to }`, indices **source**).
+
+- **Identité d'objet, pas de clé** : `sourceIndexOf(row) = props.rows.indexOf(row)`.
+  `sortedRows` (`[...rows].sort`) et `pagedRows` (`slice`) conservent les mêmes
+  références → le déplacement marche sans `rowKey` unique, sous tri, avec
+  pagination et en virtual scroll. La cible est la ligne survolée : insertion
+  **avant** ou **après** selon la moitié haute/basse (`dropTargetAt`).
+- **Drag & drop** : `pointerdown` sur la poignée → `elementFromPoint` +
+  `closest("tr[data-qrow]")` (les `<tr>` portent `:data-qrow="index visible"`).
+  Indicateurs : `.q-table__row--dragging` (source) et `--drop-before` /
+  `--drop-after` (ligne d'insertion en `box-shadow: inset`). `touch-action: none`
+  sur la poignée pour que le geste ne devienne pas un scroll tactile.
+- **Clavier** : `@keydown.alt.up` / `.alt.down` sur la poignée → `nudgeRow(±1)`
+  (le handle est un `<button>` avec `title` + `aria-label`).
+- **Colonne épinglée** : la gouttière est posée AVANT la colonne de sélection, donc
+  `pinnedLeftOffset = gutterW + (selection ? 36 : 0)`, la colonne de sélection
+  reçoit `selectionPinnedStyle` (`left: gutterW`) et `colspan` inclut la gouttière.
+- **API exposée** : `reorderRows(from, to)` (indices source) via `defineExpose` —
+  pour des boutons « monter / descendre ».
+- **Fix attenant** : le `<thead>` n'avait pas de `<th>` pour `selection="single"` →
+  en-tête décalé d'une colonne ; ajouté (même classes + `selectionPinnedStyle`).
+- Docs : `table.md` → section `### Reorderable rows` + démo `demo="reorder"`
+  (`DnaxDemoTable.vue`, tableau `rows` PROPRE à la démo pour ne pas perturber les
+  autres variantes) ; `reorderableRows` + `update:rows` / `row-reorder` visibles
+  dans les tables d'API.
+- Vérif : `cd docd && bun run generate` → 0 erreur ; DOM relu (en-tête : `th`
+  gouttière puis colonnes ; lignes : `tr[data-qrow]` + `td` poignée + cellules) ;
+  handlers compilés relus (`withKeys(withModifiers(fn, ["alt","prevent","stop"]),
+["up"|"down"])`) ; `diagnostics` sur `QTable.vue` → 0 erreur / 0 warning ;
+  `bun test packages/ui/lib` → 41/41.

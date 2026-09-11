@@ -3098,8 +3098,8 @@ const onMenuAction = (value) => (lastMenu.value = String(value))
 
 Each action accepts a `color` token (e.g. `positive` / `negative`), a `description`
 subtitle, a `separator` divider above it, and can be `disable`d. `menu-width`,
-`align="left"` (alias of `position="bottom-start"`), `position` and `offset` tune
-the panel.
+`fit`, `content-class` / `content-style` (thème du panneau téléporté), `align="left"`
+(alias of `position="bottom-start"`), `position` and `offset` tune the panel.
 
 ::prose-show-case
 :dnax-demo-btn-actions{demo="manage"}
@@ -3144,7 +3144,8 @@ const onManageAction = (value) => (lastManage.value = String(value))
 
 `stretch` widens the trigger to `100%` of its container — the root element itself
 grows, so the inner `<q-btn>` really stretches and the caret stays at the far right
-edge. Useful for full-width form actions or stacked menus.
+edge. Useful for full-width form actions or stacked menus. The panel follows
+(`fit` is on by default: the panel is at least as wide as the trigger).
 
 ::prose-show-case
 :dnax-demo-btn-actions{demo="stretch"}
@@ -3384,6 +3385,59 @@ wide the trigger is.
 `stretch` makes the trigger fill its container: the root element widens to `100%`,
 so the inner `<q-btn>` really stretches. Nothing else is needed — no
 `class="w-full"` on the component.
+
+## Panel width — `fit`
+
+The panel is **at least as wide as its trigger** — Quasar's `QMenu.fit` behaviour,
+on by **default** (`fit: true`). A full-width trigger therefore gets a full-width
+panel, aligned with the button edges:
+
+::prose-show-case
+:dnax-demo-btn-dropdown{demo="fit"}
+
+#code
+```vue
+<div class="fit-col">
+  <q-btn-dropdown label="fit (default)" stretch outline no-caps :items="posItems" position="bottom-start" />
+  <q-btn-dropdown label="fit = false" :fit="false" stretch outline no-caps :items="posItems" position="bottom-start" />
+</div>
+```
+::
+
+`fit` is a **floor, not an exact width**: the panel is sized
+`max(menu-width, trigger width)`. `menu-width` (default `220px`) stays the minimum
+for small triggers, and a long item label can still widen the panel. Pass
+`:fit="false"` to fall back to `menu-width` alone.
+
+## Panel classes & styles
+
+The panel is teleported to `<body>`, so `content-class` and `content-style` are the
+escape hatch to restyle it. Both are applied **after** the computed style (placement,
+`min-width`), so they override it — the way to force an exact width, a background or
+a radius:
+
+::prose-show-case
+:dnax-demo-btn-dropdown{demo="content"}
+
+#code
+```vue
+<!-- min-width forcée : le panneau s'aligne plus large que menu-width -->
+<q-btn-dropdown flat round dense :items="posItems" content-style="min-width: 300px" />
+
+<!-- apparence du panneau (rayon, ombre) sur l'élément téléporté -->
+<q-btn-dropdown
+  label="Rounded panel"
+  outline
+  no-caps
+  :items="posItems"
+  content-style="border-radius: 16px; box-shadow: 0 16px 40px rgb(0 0 0 / 0.2)"
+/>
+```
+::
+
+`content-class` does the same with a class name. Use it from a **global**
+stylesheet: the panel is rendered by the shared panel engine, outside the scope of
+the component that declares the dropdown, so its scoped styles do not apply.
 
 ## API
 
@@ -10051,6 +10105,157 @@ const level = ref(0)
 ```
 ::
 
+## Modes — inline, modal, sheet
+
+`mode&#x60; picks the panel that hosts the options: &#x2A;*`inline`*&#x2A; (default dropdown),
+&#x2A;*`modal`*&#x2A; (centered box) or &#x2A;*`sheet`*&#x2A; (bottom sheet, iOS safe-area built in) —
+plus &#x2A;*`dialog`** for a full-screen panel. The panel shows a title (the field
+`label`), its own search field when `use-search` is on, and closes on backdrop /
+× / Esc / browser back.
+
+Per-mode tuning goes in `inline-options` / `modal-options` / `sheet-options`
+(`width`, `height`, `rounded`, `offset`, `position`, `search-placeholder`, `style`,
+`class`) — they override the direct props, e.g. `sheet-options="{ width: '100%' }"`
+for a full-width sheet.
+
+::prose-show-case
+:dnax-demo-select{demo="panel"}
+
+#code
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const mode = ref("inline")
+const country = ref(null)
+</script>
+
+<template>
+  <q-select v-model="mode" :options="['inline', 'modal', 'sheet']" label="mode" outlined dense />
+
+  <q-select
+    v-model="country"
+    :options="countries"
+    option-label="name"
+    option-value="id"
+    label="Country"
+    emit-value
+    :mode="mode"
+    use-search
+    outlined
+    clearable
+    :sheet-options="{ width: '100%', searchPlaceholder: 'Search countries…' }"
+    :modal-options="{ height: '360px' }"
+  />
+  <!-- mode : inline (dropdown) | modal (boîte centrée) | sheet (bottom sheet) | dialog (plein écran) -->
+</template>
+```
+::
+
+## Inline popup placement
+
+In `inline` mode the popup is placed **automatically** (`position="auto"`, the
+default) against the viewport. The position is recomputed when it opens, then on
+every resize/scroll while it stays open:
+
+| Situation                              | Behaviour                                                                                                                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Enough room below (≥ `96px`)           | Opens **below** the field, gap `offset` (default `8px`) measured from the **control** bottom.                                                                           |
+| Not enough room below, more room above | Flips **above** the field (the entry animation comes from the bottom, via `q-select__popup--up`).                                                                       |
+| The roomier side is still tight        | The gap shrinks down to `0px` so the list keeps the space.                                                                                                              |
+| Any case                               | `max-height` is capped to the room actually available (never more than the historical `240px`), so the popup never overflows the window edge — the list scrolls inside. |
+
+The anchor is the **field control**, not the field root: `.q-field__bottom` reserves a
+\~24px band for the hint/error line even when it is empty, which used to push the
+popup far from the field. As soon as a `hint` or an `error` is shown, the popup is
+placed below that text instead (the anchor becomes the field root).
+
+### Offset
+
+`offset` (in px, default `8`) sets the gap between the field and the popup, and
+`inline-options.offset` overrides it:
+
+::prose-show-case
+:dnax-demo-select{demo="offset"}
+
+#code
+```vue
+<q-select v-model="a" :options="colors" label="offset 0" emit-value />
+<q-select v-model="b" :options="colors" label="offset 8 (default)" emit-value />
+<q-select v-model="c" :options="colors" label="offset 16" :offset="16" emit-value />
+```
+::
+
+The value is only a **starting** gap: on the chosen side it is clamped to
+`clamp(0, offset, available - 96px)`, so it shrinks when the field sits close to a
+window edge. `0` sticks the popup to the field.
+
+If you need to escape the automatic placement entirely, `inline-options.style` is
+applied **after** the computed style and wins — but the position is expressed in
+`px` relative to the field, so prefer `offset` for the gap:
+
+```html
+<!-- hauteur libre (le style passe après le style calculé) -->
+<q-select v-model="v" :options="opts" :inline-options="{ offset: 0, style: { maxHeight: '420px' } }" />
+```
+
+### Direction
+
+`position` forces the side instead of following the available room. It reuses the
+dropdown vocabulary (`DropdownPosition` from `QBtnActions`), minus the lateral
+placements — a select popup always opens above or below its field:
+
+| Value                        | Effect                                                      |
+| ---------------------------- | ----------------------------------------------------------- |
+| `auto&#x60; &#x2A;(default)* | Below when there is room (≥ `96px`), flips above otherwise. |
+| `bottom` / `top`             | Always below / above — no flip.                             |
+| `bottom-start` / `top-start` | Same, anchored on the field's **left** edge.                |
+| `bottom-end` / `top-end`     | Same, anchored on the field's **right** edge.               |
+
+With no custom width the popup spans the field, so `-start` and `-end` look
+identical to `bottom` / `top`; they become visible as soon as the popup has its own
+width (`inline-options="{ width: '240px' }"`):
+
+::prose-show-case
+:dnax-demo-select{demo="direction"}
+
+#code
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const position = ref("auto")
+const country = ref(null)
+</script>
+
+<template>
+  <q-select
+    v-model="position"
+    :options="['auto', 'bottom', 'top', 'bottom-start', 'bottom-end', 'top-start', 'top-end']"
+    label="position"
+    outlined
+    dense
+  />
+
+  <q-select
+    v-model="country"
+    :options="countries"
+    option-label="name"
+    option-value="id"
+    label="Country"
+    emit-value
+    :position="position"
+    :inline-options="{ width: '240px' }"
+    outlined
+  />
+</template>
+```
+::
+
+Like `offset`, `position` can be overridden per mode:
+`inline-options="{ position: 'top' }"`. A forced side never flips — the popup just
+shrinks its `max-height` to the room available on that side.
+
 ## API
 
 :dnax-api{name="QSelect"}
@@ -11199,6 +11404,12 @@ the row height; `Merge cells` merges the selection (top-left value is shown),
 `Unmerge` splits it back; `Hide rows / columns` hides (keyboard navigation
 skips them) — “Show all hidden” and the list of hidden columns live in the
 menu. Drag a **row number** or a **column header** to reorder.
+
+**Widths** — the row-number gutter is a fixed **34px** (sized for integers), and
+column widths (`columns[].width`, `default-col-width`, or dragging the edge of a
+column header) are respected **exactly**: the grid is only as wide as its columns,
+so a narrow sheet no longer stretches to fill the frame — the leftover area on the
+right stays empty, like a spreadsheet.
 
 **Conditional formatting** (highlighter icon in the toolbar): rule on the
 selection or a **whole column** (“Column” checkbox), with conditions
@@ -13104,6 +13315,62 @@ const selected = ref([])
     bordered
   />
   <p class="demo-p demo-table-count">{{ selected.length }} row(s) selected.</p>
+</template>
+```
+::
+
+### Reorderable rows
+
+`reorderable-rows` adds a drag gutter on the left: grab the handle and drop the row
+where you want it — a line shows the insertion point. The reorder **acts on the
+data**: the component emits `update:rows` (bind it with `v-model:rows`) plus a
+`row-reorder` event `{ rows, row, from, to }`.
+
+- Works with the mouse and on touch (the handle has `touch-action: none`, so the
+  gesture doesn't turn into a scroll). The drop side is the half of the hovered row
+  (before / after).
+- Keyboard: focus the handle and press &#x2A;*Alt + ↑ / ↓** to move the row one step.
+- Sorting and pagination don't get in the way: the move is applied to the source
+  `rows` array **by object identity**, so the row simply becomes a neighbour of the
+  hovered row (the array order is what changes, not the view order).
+- The exposed `reorderRows(from, to)` method reorders by **source** indices — handy
+  for “move up / move down” buttons.
+
+::prose-show-case
+:dnax-demo-table{demo="reorder"}
+
+#code
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const columns = [
+  { name: "name", label: "Name", field: "name", sortable: true },
+  { name: "role", label: "Role", field: "role" },
+  { name: "email", label: "Email", field: "email", align: "right" },
+  { name: "status", label: "Status", field: "status" },
+]
+
+const rows = ref([
+  { id: 1, name: "Ada Lovelace", role: "Engineer", email: "ada@dnax.dev", status: "Active" },
+  { id: 2, name: "Grace Hopper", role: "Architect", email: "grace@dnax.dev", status: "Active" },
+  { id: 3, name: "Alan Turing", role: "Researcher", email: "alan@dnax.dev", status: "Inactive" },
+])
+</script>
+
+<template>
+  <q-table
+    v-model:rows="rows"
+    :columns="columns"
+    row-key="id"
+    reorderable-rows
+    dense
+    flat
+    bordered
+    @row-reorder="({ from, to }) => console.log(`row ${from} → ${to}`)"
+  />
+
+  <p>Order: <code>{{ rows.map((r) => r.id).join(" · ") }}</code></p>
 </template>
 ```
 ::

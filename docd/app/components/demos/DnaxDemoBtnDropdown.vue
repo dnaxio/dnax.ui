@@ -5,7 +5,7 @@ import { computed, ref } from "vue"
 
 defineProps<{
   /** Demo identifier to render */
-  demo: "menu" | "view" | "row" | "placement"
+  demo: "menu" | "view" | "row" | "placement" | "fit" | "content"
 }>()
 
 // — user menu (left icons + separator) —
@@ -170,6 +170,41 @@ const posItems = [
       />
     </div>
   </div>
+
+  <div v-else-if="demo === 'fit'" class="demo-col-pos">
+    <div class="fit-col">
+      <q-btn-dropdown
+        label="fit (default)"
+        stretch
+        outline
+        no-caps
+        :items="posItems"
+        position="bottom-start"
+      />
+      <q-btn-dropdown
+        label="fit = false"
+        :fit="false"
+        stretch
+        outline
+        no-caps
+        :items="posItems"
+        position="bottom-start"
+      />
+    </div>
+  </div>
+
+  <div v-else-if="demo === 'content'" class="demo-col-pos">
+    <div class="content-row">
+      <q-btn-dropdown flat round dense :items="posItems" content-style="min-width: 300px" />
+      <q-btn-dropdown
+        label="Rounded panel"
+        outline
+        no-caps
+        :items="posItems"
+        content-style="border-radius: 16px; box-shadow: 0 16px 40px rgb(0 0 0 / 0.2)"
+      />
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -205,6 +240,23 @@ const posItems = [
 .pos-full {
   width: 100%;
   max-width: 420px;
+}
+
+/* `fit` demo: two triggers wider than the panel's `menu-width` (220px) */
+.fit-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 420px;
+}
+
+/* `content-class` / `content-style` demo */
+.content-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
 }
 
 /* Scrollable mini-table with a sticky actions column (demo 3) */

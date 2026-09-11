@@ -49,6 +49,12 @@ interface Props {
   selected?: any[]
   /** Type de sélection */
   selection?: "none" | "single" | "multiple"
+  /**
+   * Réordonnancement des lignes au glisser-déposer : une gouttière apparaît à gauche
+   * (poignée à tirer, ou Alt + ↑/↓ au clavier). Chaque déplacement **agit sur
+   * `rows`** : émet `update:rows` (donc compatible `v-model:rows`) + `row-reorder`.
+   */
+  reorderableRows?: boolean
   /** Hauteur réduite */
   dense?: boolean
   /** Sans ombre */
@@ -91,6 +97,7 @@ const props = withDefaults(defineProps<Props>(), {
   pagination: null,
   selected: undefined,
   selection: "none",
+  reorderableRows: false,
   dense: false,
   flat: false,
   bordered: false,
@@ -115,6 +122,8 @@ const emit = defineEmits<{
   "update:pagination": [value: QTablePagination]
   "update:selected": [value: any[]]
   "update:sorting": [value: { column: string; descending: boolean }]
+  "update:rows": [value: any[]]
+  "row-reorder": [payload: { rows: any[]; row: any; from: number; to: number }]
   request: [payload: { pagination: QTablePagination; getCellValue: (col: QTableColumn, row: any) => any }]
   "row-click": [event: MouseEvent, row: any, index: number]
 }>()
@@ -269,15 +278,135 @@ const onRowClick = (e: MouseEvent, row: any, index: number) => {
   emit("row-click", e, row, index)
 }
 
+// ════════ Réordonnancement des lignes (glisser depuis la gouttière) ════════
+/** Largeur de la gouttière de glissement (px) */
+const REORDER_W = 28
+
+const reorderEnabled = computed(() => !!props.reorderableRows)
+/** Gouttière affichée (0 = pas de colonne) */
+const gutterW = computed(() => (reorderEnabled.value ? REORDER_W : 0))
+
+/** Ligne en cours de glissement + position de dépôt (index VISIBLE) */
+const draggingRow = ref<any>(null)
+const dropAt = ref<{ index: number; after: boolean } | null>(null)
+
+/**
+ * Index d'une ligne dans `props.rows`. L'identité d'objet suffit : le tri
+ * (`[...rows].sort`) et la pagination (`slice`) conservent les mêmes références,
+ * et ça marche même sans `rowKey` unique.
+ */
+const sourceIndexOf = (row: any) => props.rows.indexOf(row)
+
+/** Déplace `from` juste avant/après `target` dans `rows` et émet le nouvel ordre */
+const moveRowInSource = (from: any, target: any, after: boolean) => {
+  const fi = sourceIndexOf(from)
+  const ti = sourceIndexOf(target)
+  if (fi === -1 || ti === -1 || fi === ti) return
+
+  const next = [...props.rows]
+  const [moved] = next.splice(fi, 1)
+  let to = after ? ti + 1 : ti
+  if (fi < to) to -= 1
+  next.splice(to, 0, moved)
+
+  emit("update:rows", next)
+  emit("row-reorder", { rows: next, row: moved, from: fi, to })
+}
+
+/** Ligne visée par un point de l'écran + insertion avant/après selon la moitié survolée */
+const dropTargetAt = (x: number, y: number) => {
+  const el = typeof document !== "undefined" ? document.elementFromPoint(x, y) : null
+  const tr = (el?.closest?.("tr[data-qrow]") ?? null) as HTMLElement | null
+  if (!tr) return null
+  const index = Number(tr.dataset.qrow)
+  if (!Number.isInteger(index) || !pagedRows.value[index]) return null
+  const rect = tr.getBoundingClientRect()
+  return { index, after: y > rect.top + rect.height / 2 }
+}
+
+const onReorderPointerDown = (e: PointerEvent, row: any) => {
+  if (!reorderEnabled.value || e.button !== 0) return
+  e.preventDefault() // pas de sélection de texte pendant le glissement
+  e.stopPropagation()
+  draggingRow.value = row
+  dropAt.value = null
+
+  const onMove = (ev: PointerEvent) => {
+    dropAt.value = dropTargetAt(ev.clientX, ev.clientY)
+  }
+  const onUp = () => {
+    window.removeEventListener("pointermove", onMove)
+    window.removeEventListener("pointerup", onUp)
+    window.removeEventListener("pointercancel", onUp)
+    const target = dropAt.value
+    const targetRow = target ? pagedRows.value[target.index] : null
+    if (target && targetRow) moveRowInSource(row, targetRow, target.after)
+    draggingRow.value = null
+    dropAt.value = null
+  }
+
+  window.addEventListener("pointermove", onMove)
+  window.addEventListener("pointerup", onUp)
+  window.addEventListener("pointercancel", onUp)
+}
+
+/** Déplacement clavier (Alt + ↑/↓) depuis la poignée */
+const nudgeRow = (visibleIndex: number, delta: number) => {
+  const row = pagedRows.value[visibleIndex]
+  const target = pagedRows.value[visibleIndex + delta]
+  if (!row || !target) return
+  moveRowInSource(row, target, delta > 0)
+}
+
+/** Classes d'une ligne selon le glissement en cours (source + cible) */
+const reorderRowClass = (visibleIndex: number) => [
+  draggingRow.value !== null && draggingRow.value === pagedRows.value[visibleIndex]
+    ? "q-table__row--dragging"
+    : "",
+  dropAt.value?.index === visibleIndex
+    ? dropAt.value.after
+      ? "q-table__row--drop-after"
+      : "q-table__row--drop-before"
+    : "",
+]
+
+defineExpose({
+  /**
+   * Déplace une ligne de `rows` (indices dans la source) — émet `update:rows` et
+   * `row-reorder`. Utilisable depuis un bouton « monter / descendre » :
+   * `tableRef.value?.reorderRows(2, 0)`.
+   */
+  reorderRows: (from: number, to: number) => {
+    const len = props.rows.length
+    if (from === to || from < 0 || to < 0 || from >= len || to >= len) return
+    const next = [...props.rows]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    emit("update:rows", next)
+    emit("row-reorder", { rows: next, row: moved, from, to })
+  },
+})
+
 // — Rendu —
 const alignClass = (col: QTableColumn) =>
   col.align && col.align !== "left" ? `q-table__cell--align-${col.align}` : ""
 
 // Une colonne épinglee à gauche → la colonne de sélection s'épingle aussi (offset 0)
 const hasPinnedLeft = computed(() => props.columns.some((c) => c.pinned === "left"))
-const pinnedLeftOffset = computed(() => (props.selection !== "none" ? 36 : 0))
+const pinnedLeftOffset = computed(
+  () => gutterW.value + (props.selection !== "none" ? 36 : 0),
+)
+/** La colonne de sélection suit la gouttière de glissement quand elle est épinglée */
+const selectionPinnedStyle = computed(() =>
+  hasPinnedLeft.value && gutterW.value ? { left: `${gutterW.value}px` } : null,
+)
 
-const colspan = computed(() => props.columns.length + (props.selection !== "none" ? 1 : 0))
+const colspan = computed(
+  () =>
+    props.columns.length +
+    (props.selection !== "none" ? 1 : 0) +
+    (gutterW.value ? 1 : 0),
+)
 
 const rangeLabel = computed(() => {
   const total = sortedRows.value.length
@@ -365,9 +494,16 @@ const virtual = computed(() => {
           <slot name="header">
             <tr>
               <th
+                v-if="reorderEnabled"
+                class="q-table__reorder-col"
+                :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+                aria-hidden="true"
+              ></th>
+              <th
                 v-if="selection === 'multiple'"
                 class="q-table__selection-col"
                 :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+                :style="selectionPinnedStyle"
               >
                 <q-checkbox
                   :model-value="allSelected ? true : someSelected ? 'mixed' : false"
@@ -377,6 +513,13 @@ const virtual = computed(() => {
                   @update:model-value="toggleAll"
                 />
               </th>
+              <th
+                v-else-if="selection === 'single'"
+                class="q-table__selection-col"
+                :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+                :style="selectionPinnedStyle"
+                aria-hidden="true"
+              ></th>
               <th
                 v-for="col in columns"
                 :key="colName(col)"
@@ -417,12 +560,33 @@ const virtual = computed(() => {
           <tr
             v-for="(row, vi) in virtual.rows"
             :key="String(getRowKey(row, virtual.start + vi))"
+            :data-qrow="virtual.start + vi"
+            :class="reorderRowClass(virtual.start + vi)"
             @click="(e: MouseEvent) => onRowClick(e, row, virtual.start + vi)"
           >
+            <td
+              v-if="reorderEnabled"
+              class="q-table__reorder-col"
+              :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+              @click.stop
+            >
+              <button
+                type="button"
+                class="q-table__drag-handle"
+                title="Drag to reorder (Alt + ↑/↓)"
+                :aria-label="'Reorder row ' + (virtual.start + vi + 1)"
+                @pointerdown="onReorderPointerDown($event, row)"
+                @keydown.alt.up.prevent.stop="nudgeRow(virtual.start + vi, -1)"
+                @keydown.alt.down.prevent.stop="nudgeRow(virtual.start + vi, 1)"
+              >
+                <Icon :icon="icons.gripVertical" aria-hidden="true" />
+              </button>
+            </td>
             <td
               v-if="selection === 'multiple'"
               class="q-table__selection-col"
               :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+              :style="selectionPinnedStyle"
               @click.stop
             >
               <q-checkbox
@@ -436,6 +600,7 @@ const virtual = computed(() => {
               v-else-if="selection === 'single'"
               class="q-table__selection-col"
               :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+              :style="selectionPinnedStyle"
               @click.stop
             >
               <q-radio
@@ -476,12 +641,33 @@ const virtual = computed(() => {
         <tr
           v-for="(row, rIdx) in pagedRows"
           :key="String(getRowKey(row, rIdx))"
+          :data-qrow="rIdx"
+          :class="reorderRowClass(rIdx)"
           @click="(e: MouseEvent) => onRowClick(e, row, rIdx)"
         >
+          <td
+            v-if="reorderEnabled"
+            class="q-table__reorder-col"
+            :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+            @click.stop
+          >
+            <button
+              type="button"
+              class="q-table__drag-handle"
+              title="Drag to reorder (Alt + ↑/↓)"
+              :aria-label="'Reorder row ' + (rIdx + 1)"
+              @pointerdown="onReorderPointerDown($event, row)"
+              @keydown.alt.up.prevent.stop="nudgeRow(rIdx, -1)"
+              @keydown.alt.down.prevent.stop="nudgeRow(rIdx, 1)"
+            >
+              <Icon :icon="icons.gripVertical" aria-hidden="true" />
+            </button>
+          </td>
           <td
             v-if="selection === 'multiple'"
             class="q-table__selection-col"
             :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+            :style="selectionPinnedStyle"
             @click.stop
           >
             <q-checkbox
@@ -495,6 +681,7 @@ const virtual = computed(() => {
             v-else-if="selection === 'single'"
             class="q-table__selection-col"
             :class="{ 'q-table__cell--pinned-left': hasPinnedLeft }"
+            :style="selectionPinnedStyle"
             @click.stop
           >
             <q-radio
