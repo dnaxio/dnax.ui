@@ -29,6 +29,23 @@ body {
   --q-radius-lg: 16px;
 }
 
+/* ===== Échelle des z-index =====
+   Règle : un menu superposé ne doit JAMAIS passer sous un overlay. Les menus
+   téléportés dans <body> sont donc au-dessus de la couche modale.
+     1000        popups en flux (`position: absolute` dans leur champ : select,
+                 autocomplete, nav-menu…) → pas concernés par les overlays
+     1999/2000   sidebar offcanvas + backdrop
+     3000        overlays modaux : dialog, bottom sheet, action sheet,
+                 date-picker, country-picker, select sheet
+     3200        menus téléportés dans <body> : panneau QBtnActions, menu
+                 contextuel / filtre / suggestions du tableur → --q-z-menu
+     4000        palettes tiptap · 7000 loading global · 9999 tooltip ·
+                 10000 image preview
+   Surchargez --q-z-menu si votre application a un overlay plus haut que 3200. */
+:root {
+  --q-z-menu: 3200;
+}
+
 /* ===== Safe-area insets (encoche & barre d'accueil) =====
    constant() : iOS 11.0–11.2 ; env() : iOS 11.2+ et navigateurs modernes.
    Sur desktop (Windows, macOS) les insets valent 0 (pas d'encoche). */
@@ -2505,7 +2522,7 @@ html.dark body {
 
 .q-btn-actions__panel {
   position: fixed;
-  z-index: 3000;
+  z-index: var(--q-z-menu, 3200);
   padding: 4px;
   background-color: #fff;
   border: 1px solid rgb(0 0 0 / 0.12);
@@ -9638,6 +9655,7 @@ a.q-breadcrumbs__el:hover {
   border-left: 1px solid var(--q-spreadsheet-border);
 }
 .q-spreadsheet__tool {
+  position: relative; /* support du badge « + » des boutons d'ajout */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -9661,6 +9679,22 @@ a.q-breadcrumbs__el:hover {
 }
 .q-spreadsheet__tool .iconify {
   font-size: 17px;
+}
+
+/* Badge « + » des boutons d'ajout de ligne / colonne : le glyphe de fond dit
+   l'axe (rows / columns), le + dit l'action d'ajout — sans lui, l'icône seule se
+   lit comme « des lignes existantes », pas comme « ajouter une ligne ».
+   (Après `.iconify` à spécificité égale → c'est cette taille qui gagne.) */
+.q-spreadsheet__tool .q-spreadsheet__tool-badge {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  padding: 1px;
+  border-radius: 50%;
+  font-size: 11px;
+  background: var(--q-spreadsheet-bg, #fff);
+  color: var(--primary, #1976d2);
+  box-shadow: 0 0 0 1px var(--q-spreadsheet-border);
 }
 .q-spreadsheet--dense .q-spreadsheet__tool {
   width: 24px;
@@ -10123,7 +10157,8 @@ a.q-breadcrumbs__el:hover {
 /* ─── Menu contextuel / popup filtre (téléportés body) ─── */
 .q-spreadsheet__ctx,
 .q-spreadsheet__fpop {
-  z-index: 1300;
+  /* téléportés : au-dessus des overlays modaux (cf. échelle des z-index) */
+  z-index: var(--q-z-menu, 3200);
   min-width: 214px;
   max-width: 300px;
   padding: 5px;
@@ -10387,7 +10422,7 @@ a.q-breadcrumbs__el:hover {
 }
 .q-spreadsheet__fnsug--fx {
   position: fixed;
-  z-index: 1320;
+  z-index: calc(var(--q-z-menu, 3200) + 30);
   border: 1px solid var(--border, rgb(0 0 0 / 0.12));
   border-radius: 8px;
   box-shadow: 0 10px 26px rgb(0 0 0 / 0.16);

@@ -375,3 +375,84 @@ qui prend toute la largeur.
 **Alternative écartée** (à proposer si on veut que la grille remplisse malgré tout
 le conteneur) : ajouter une `<th>`/`<td>` de remplissage à chaque ligne — ça marche
 mais touche le thead, chaque ligne du tbody et les `<td :colspan>` des états vides.
+
+## QSpreadsheet : `.trim()` sur une valeur non-string (`label` d'option) — 2026-09-10
+
+`filename: packages/ui/components/QSpreadsheet.vue`
+
+**Symptôme** : `Uncaught (in promise) TypeError: s.trim is not a function`, signalé à
+la ligne du watch de `fxQuery` (barre de formule).
+
+**Cause** : `draft` (brouillon de l'éditeur de cellule) était alimenté par
+`opt?.label` d'une colonne `select` : `QSpreadsheetCellOption.label` est typé
+`string`, mais **rien n'empêche un consommateur de passer un nombre** (cas très
+courant : `options: [{ value: 1, label: 1 }, …]` pour une note / un niveau).
+`fxSource = editing ? draft : fxDraft` → `s.trim()` sur un `number` → throw. Le
+même piège existait dans les autres appels de méthodes de chaîne :
+`selectOptions` (`draft.trim().toLowerCase()` + `o.label.toLowerCase()`),
+`coerceValue` (`text.trim()`), `filterValueItems` (`a.label.localeCompare`),
+`sortByColumn` (`(opt?.label ?? …).toLowerCase()`), `findTextOf` → `findScan`
+(`.toLowerCase()`), `cellTitle` / `copySelection` (types menteurs).
+
+**Règle générale** : toute valeur issue de `state`/`columns[].options` doit être
+`String()`-coercée **avant** une méthode de chaîne (`trim`, `toLowerCase`,
+`localeCompare`, `includes`, `startsWith`) — les types TS ne protègent pas du JS.
+
+**Correctif** : coercition **à la source** (`draft.value = String(initial ??
+opt?.label ?? "")`, `pickOption`, `fxSource = String((editing ? draft : fxDraft) ??
+"")`) **et** aux points de lecture de label (`sortByColumn`, `selectOptions`,
+`filterValueItems`, `findTextOf`, `cellTitle`, `copySelection`) ; `coerceValue` prend
+désormais `text: unknown` et normalise une fois (`const raw = String(text ?? "")`).
+Le fix sur `fxSource` suffit à lui seul à rendre l'erreur signalée impossible.
+
+**Garde-fou de démo** : colonne `rating` (`type: "select"`, `options` à labels
+**numériques** `{ value: 1, label: 1 }…`) ajoutée à la démo « Cell types » de
+`DnaxDemoSpreadsheet.vue` → permet de rejouer le cas à la main (éditer une cellule
+Rating) dans `/docs/components/spreadsheet`.
+
+Vérif : `cd docd && bun run generate` → 0 erreur ; colonne `Rating` rendue dans le
+tableur ; `diagnostics` sur `QSpreadsheet.vue` → 0 erreur / 0 warning ; `bun test
+packages/ui/lib` → 41/41.
+
+## Menu téléporté qui s'affiche DERRIÈRE un overlay (z-index) — 2026-09-10
+
+`filename: packages/ui/styles/main.css`
+
+**Symptôme** : `<q-spreadsheet>` placé dans un `<q-dialog>` → clic droit sur une
+colonne, le menu contextuel apparaît **derrière** le dialog.
+
+**Cause** : les menus du tableur sont **téléportés dans `<body>`**
+(`position: fixed`) avec `z-index: 1300`, alors que l'overlay modal est à `3000`
+(`.q-dialog__overlay`, `.q-bottom-sheet__overlay`, `.q-select__overlay`,
+`.q-action-sheet__overlay`, pickers…). Téléportés tous les deux dans `<body>`, seul
+le z-index tranche → le menu passe dessous.
+
+**Règle** : un **menu** téléporté (non modal) doit toujours être AU-DESSUS de la
+couche overlay. Les popups **en flux** (`position: absolute` dans leur champ :
+select, autocomplete, nav-menu) ne sont pas concernés : ils vivent dans le contexte
+empilement de leur parent (donc dans le dialog si le champ y est).
+
+**Échelle des z-index désormais documentée dans `main.css` (`:root`)** :
+`1000` popups en flux · `1999/2000` sidebar offcanvas + backdrop · `3000` overlays
+modaux (dialog, bottom sheet, action sheet, pickers) · **`3200` menus téléportés
+(`--q-z-menu`)** · `4000` palettes tiptap · `7000` loading global · `9999` tooltip ·
+`10000` image preview. Ne pas inventer une valeur hors échelle : mettre à jour le
+commentaire d'échelle avec la nouvelle couche.
+
+**Correctif** : `--q-z-menu: 3200` + commentaire d'échelle, appliqué à
+`.q-btn-actions__panel` (était `3000` : égalité fragile avec le dialog, l'ordre DOM
+tranchait), `.q-spreadsheet__ctx` / `.q-spreadsheet__fpop` (étaient `1300`) et
+`.q-spreadsheet__fnsug--fx` (était `1320` → `calc(var(--q-z-menu) + 30)`).
+
+**Écarté** : un empilement incrémental (à la popper) — inutile ici : les overlays
+d'un même niveau peuvent partager `3000`, le dernier monté passe devant (comportement
+standard reka-ui/radix).
+
+Docs : note dans `spreadsheet.md` (menu contextuel + filtre + suggestions) et
+`btn-dropdown.md` (panneau téléporté) ; surcharge possible
+`:root { --q-z-menu: 3600 }` si une app a un overlay plus haut.
+
+Vérif : CSS du bundle relu (`--q-z-menu:3200`, `z-index:var(--q-z-menu,3200)` sur
+`.q-spreadsheet__ctx,.q-spreadsheet__fpop` et `.q-btn-actions__panel`,
+`calc(var(--q-z-menu,3200) + 30)` sur `.q-spreadsheet__fnsug--fx`) ; `bun run
+generate` → 0 erreur.

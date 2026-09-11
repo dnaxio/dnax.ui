@@ -55,6 +55,9 @@ const rows = ref([
     bordered
     @cell-change="log = …"
   />
+
+  <!-- une clé `_key` est injectée sur chaque ligne : -->
+  <p>key: {{ rows[0]?._key }}</p>
 </template>
 ```
 
@@ -1532,6 +1535,12 @@ delete the selected rows or columns, sort, toggle **bold** / **italic**, pick a
 formatting is stored on the sheet (not in the row data) and joins the undo
 history.
 
+The context menu, the column filter popup and the formula suggestions are
+**teleported into <body>**, so they also work when the grid sits in a
+`<q-dialog>` or a sheet: they use the `--q-z-menu` layer (`3200`), above the modal
+overlays (`3000`). If your app has an overlay higher than that, raise the variable
+once (`:root { --q-z-menu: 3600 }`).
+
 Select one or two cells and drag the **small square** at the bottom-right
 corner of the selection to **fill** in any direction (up / down / left / right):
 two numeric or date seeds create a series (1, 2, 3… / day steps) toward the
@@ -2372,6 +2381,28 @@ const rows = [
   { firstName: "Grace", age: 85, email: "grace@dnax.dev", hired: "1945-01-01", dept: "finance", total: null },
 ]
 ```
+
+#### Row key — `_key`
+
+Next to your column keys, the component maintains **one internal key per row**: it
+injects `_key` (a uuid) on every row that does not have one — for `rows`, for every
+`sheets[].rows` and for `loadDocument()`. New rows (toolbar `+`, paste, CSV import)
+get one on creation.
+
+```ts
+// ce que reçoit le parent via `v-model:rows` :
+{ _key: "6f1b1f3e-9d1c-4a6e-b0a3-2c9f4f1d8b77", firstName: "Ada", age: 36, total: "=B1*C1" }
+```
+
+- **Identité stable** : le tri, le filtre, la réorganisation et les éditions passent
+par des copies `{ ...row }` → `_key` suit la ligne. Pratique pour la retrouver
+après un tri (`rows.find((r) => r._key === key)`), la journaliser ou la réconcilier
+avec un back-end.
+- **Survit à l'aller-retour** `toJSON()` → `loadDocument()` (les clés exportées sont
+réutilisées telles quelles) et aux annuler/refaire.
+- **Jamais écrasée** : si vous fournissez déjà un `_key`, il est conservé.
+- **Hors export** : le CSV et le presse-papiers n'itèrent que sur les colonnes
+déclarées, donc `_key` n'y apparaît jamais.
 
 ### Columns — the schema
 

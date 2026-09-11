@@ -105,6 +105,21 @@ const typesColumns = [
     type: "integer" as const,
     width: 90,
   },
+  {
+    // Labels NUMÉRIQUES : le brouillon d'édition doit rester une string
+    // (sinon `.trim()` casse — cf. correctif `draft` / `fxSource` dans QSpreadsheet).
+    name: "rating",
+    label: "Rating",
+    type: "select" as const,
+    width: 100,
+    options: [
+      { value: 1, label: 1 },
+      { value: 2, label: 2 },
+      { value: 3, label: 3 },
+      { value: 4, label: 4 },
+      { value: 5, label: 5 },
+    ],
+  },
   { name: "inStock", label: "In stock", type: "boolean" as const, width: 90 },
   {
     name: "email",
@@ -140,11 +155,11 @@ const typesColumns = [
 ]
 
 const typesRows = ref([
-  { product: "Chai", category: "tea", price: 18, stock: 39, inStock: true, email: "hello@dnax.dev", website: "https://dnax.dev", bestBefore: "2026-12-31", lastCheck: "2026-09-07T09:30" },
-  { product: "Chang", category: "beer", price: 19, stock: 17, inStock: true, email: "beer@dnax.dev", website: "https://example.com", bestBefore: "2026-09-30", lastCheck: "2026-09-06T14:05" },
-  { product: "Aniseed Syrup", category: "condiment", price: 10, stock: 13, inStock: false, email: "sales@dnax.dev", website: "https://example.org", bestBefore: "2027-06-30", lastCheck: "2026-09-01T08:45" },
-  { product: "Ikura", category: "seafood", price: 31, stock: 0, inStock: false, email: "fish@dnax.dev", website: "https://example.net", bestBefore: "2026-11-15", lastCheck: "2026-08-28T16:20" },
-  { product: "Mishi Kobe Niku", category: "seafood", price: 97, stock: 29, inStock: true, email: "mishi@dnax.dev", website: "https://dnax.dev/blog", bestBefore: "2026-08-20", lastCheck: "2026-08-20T11:10" },
+  { product: "Chai", category: "tea", price: 18, stock: 39, rating: 4, inStock: true, email: "hello@dnax.dev", website: "https://dnax.dev", bestBefore: "2026-12-31", lastCheck: "2026-09-07T09:30" },
+  { product: "Chang", category: "beer", price: 19, stock: 17, rating: 3, inStock: true, email: "beer@dnax.dev", website: "https://example.com", bestBefore: "2026-09-30", lastCheck: "2026-09-06T14:05" },
+  { product: "Aniseed Syrup", category: "condiment", price: 10, stock: 13, rating: 5, inStock: false, email: "sales@dnax.dev", website: "https://example.org", bestBefore: "2027-06-30", lastCheck: "2026-09-01T08:45" },
+  { product: "Ikura", category: "seafood", price: 31, stock: 0, rating: 2, inStock: false, email: "fish@dnax.dev", website: "https://example.net", bestBefore: "2026-11-15", lastCheck: "2026-08-28T16:20" },
+  { product: "Mishi Kobe Niku", category: "seafood", price: 97, stock: 29, rating: 5, inStock: true, email: "mishi@dnax.dev", website: "https://dnax.dev/blog", bestBefore: "2026-08-20", lastCheck: "2026-08-20T11:10" },
 ])
 
 // — A1 formulas demo —
@@ -373,6 +388,13 @@ onMounted(() => {
       @cell-change="onInlineChange"
     />
     <p class="demo-p demo-log">Last change: {{ inlineLog || "— double-click Ada's first name" }}</p>
+    <!-- `ClientOnly` : les `_key` sont générés à l'exécution (uuid) → éviter un
+         écart de texte entre le HTML prérendu et l'hydratation. -->
+    <ClientOnly>
+      <p class="demo-p demo-log">
+        Injected row key: <code>{{ inlineRows[0]?._key ?? "—" }}</code>
+      </p>
+    </ClientOnly>
   </div>
 
   <q-spreadsheet

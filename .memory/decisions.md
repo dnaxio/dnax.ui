@@ -701,3 +701,39 @@ poignée à glisser. Le déplacement **agit sur `rows`** → émet `update:rows`
   handlers compilés relus (`withKeys(withModifiers(fn, ["alt","prevent","stop"]),
 ["up"|"down"])`) ; `diagnostics` sur `QTable.vue` → 0 erreur / 0 warning ;
   `bun test packages/ui/lib` → 41/41.
+
+## QSpreadsheet : clé de ligne `_key` injectée automatiquement — 2026-09-10
+
+`filename: packages/ui/components/QSpreadsheet.vue`
+
+Chaque ligne reçoit une propriété **`_key`** (uuid) si elle n'en a pas : identité
+stable à travers tri, filtre, réorganisation, édition (toutes ces opérations
+passent par des copies `{ ...row }`), snapshots undo/redo et aller-retour
+`toJSON()` → `loadDocument()` (les clés exportées sont réutilisées telles quelles).
+
+- **`ROW_KEY = "_key"`** + `newRowKey()` (`globalThis.crypto.randomUUID()` si
+  disponible — https/localhost — sinon repli `row-<base36>-<random>` pour le SSR ou
+  un http non sécurisé) + `ensureRowKeys(rows)` (mutatif, ne **remplace jamais** une
+  clé existante).
+- **Points d'entrée couverts** : watcher de `props.rows` (avant la copie interne →
+  parent ET état partagent les mêmes clés, sans emit supplémentaire),
+  `loadSheetIntoEngine` (donc `sheets` + `loadDocument`), `importCsv`, et
+  `blankRow()` (donc `addRow` / `insertRowAt` / nouvelle feuille via la toolbar).
+  Les autres `state.value = …` sont dérivés de lignes déjà clées (spread/copie).
+- **Hors export** : CSV (`getCsv`) et presse-papiers (`copySelection`/`pasteValues`)
+  n'itèrent que sur les colonnes déclarées → `_key` n'y apparaît jamais ; en
+  revanche `buildDocument` sérialise les lignes telles quelles, donc `_key` est dans
+  le JSON exporté (voulu : identité stable après rechargement).
+- **SSR/hydratation** : l'injection tourne aussi côté serveur → clefs différentes
+  entre SSR et client. Sans impact sur le rendu du tableur, mais si le consommateur
+  **affiche** une `_key`, il doit l'entourer d'un `<ClientOnly>` (fait dans la démo
+  `inline` de `DnaxDemoSpreadsheet.vue`) sous peine d'écart d'hydratation.
+- Docs : `spreadsheet.md` → sous-section `#### Row key — _key` dans « Rows — how
+  values are stored » + ligne « Injected row key » dans la démo `inline` (sous
+  `ClientOnly`).
+- Vérif : `cd docd && bun run generate` → 0 erreur ; logique compilée relue
+  (`lr="_key"`, `ur()` → `randomUUID` sinon repli, `dr(e)` → injecte si absent,
+  `watch(props.rows)` → `dr(e)` puis copie) ; aucun `_key` injecté dans le HTML
+  prérendu (seuls le `buildId` de Nuxt et l'exemple de la doc contiennent un uuid) ;
+  `diagnostics` sur `QSpreadsheet.vue` → 0 erreur / 0 warning ; `bun test
+packages/ui/lib` → 41/41.

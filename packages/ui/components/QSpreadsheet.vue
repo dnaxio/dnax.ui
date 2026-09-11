@@ -383,12 +383,43 @@ const emit = defineEmits<{
   "structure-change": [payload: { rows: Record<string, any>[]; columns: QSpreadsheetColumn[]; reason: string }]
 }>()
 
+// ─── Clés de ligne (`_key`) ───
+/**
+ * Propriété injectée automatiquement sur chaque ligne : une clé stable (uuid) qui
+ * sert d'identité (suivre une ligne après un tri, `:key` côté parent, diff…).
+ * Elle résiste aux copies internes (`{ ...row }`), aux snapshots undo/redo et à
+ * `toJSON()` / `loadDocument()`. Le CSV et le presse-papiers ne l'exportent pas
+ * (ils n'itèrent que sur les colonnes déclarées).
+ */
+const ROW_KEY = "_key"
+
+/** uuid v4 si le contexte le permet, sinon repli horodaté (SSR, http non sécurisé…) */
+const newRowKey = (): string => {
+  const c = typeof globalThis !== "undefined" ? (globalThis.crypto as Crypto | undefined) : undefined
+  if (typeof c?.randomUUID === "function") return c.randomUUID()
+  return `row-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+/** Injecte `_key` (mutatif) sur les lignes qui n'en ont pas encore */
+const ensureRowKeys = (rows: Record<string, any>[] | undefined) => {
+  if (!Array.isArray(rows)) return
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue
+    if (typeof row[ROW_KEY] !== "string" || !row[ROW_KEY]) row[ROW_KEY] = newRowKey()
+  }
+}
+
 // ─── Données internes (copie éditable des rows) ───
 const state = ref<Record<string, any>[]>([])
 watch(
   () => props.rows,
   (v) => {
-    if (v && v !== state.value) state.value = v.map((r) => ({ ...r }))
+    if (v && v !== state.value) {
+      // Les clés sont injectées sur les objets reçus PUIS recopiées : parent et
+      // état interne partagent les mêmes `_key`.
+      ensureRowKeys(v)
+      state.value = v.map((r) => ({ ...r }))
+    }
   },
   { immediate: true },
 )
@@ -609,7 +640,9 @@ const cellTitle = (row: number, column: string): string | undefined => {
   if (isFormulaRaw(v)) return String(v)
   if (col?.type === "select") {
     const opt = col.options?.find((o) => o.value === v)
-    return opt?.label ?? (v === null || v === undefined ? undefined : String(v))
+    // `label` peut être un nombre → `:title` attend une string
+    if (opt?.label !== undefined) return String(opt.label)
+    return v === null || v === undefined ? undefined : String(v)
   }
   return undefined
 }
@@ -698,11 +731,13 @@ const startEdit = (row: number, column: string, initial?: string) => {
   const raw = state.value[row]?.[column]
   if (col?.type === "select") {
     const opt = col.options?.find((o) => o.value === raw)
-    draft.value = initial ?? opt?.label ?? ""
+    // `label` peut être un nombre (options numériques) : `draft` alimente un
+    // <input>/<textarea> et sert à `.trim()` / `.toLowerCase()` → toujours une string.
+    draft.value = String(initial ?? opt?.label ?? "")
   } else {
     let rawStr = String(raw ?? "")
     if (rawStr.startsWith("'")) rawStr = rawStr.slice(1)
-    draft.value = initial ?? rawStr
+    draft.value = String(initial ?? rawStr)
   }
   editing.value = { row, column }
   emit("cell-edit-start", { row, column })
@@ -755,30 +790,32 @@ const cancelEdit = () => {
   nextTick(() => focusCell(cell.row, cell.column))
 }
 
-const coerceValue = (col: QSpreadsheetColumn | undefined, text: string, old: any) => {
-  const t = text.trim()
+const coerceValue = (col: QSpreadsheetColumn | undefined, text: unknown, old: any) => {
+  // `text` peut arriver brut (nombre, booléen…) : on normalise une fois pour toutes
+  const raw = String(text ?? "")
+  const t = raw.trim()
   if (t === "") return null
   // Formule A1 : conservée brute dans la cellule (booléen/select exclus)
   if (t.startsWith("=")) {
     if (col?.type === "boolean" || col?.type === "select") return old
-    return text
+    return raw
   }
   if (col?.type === "number") {
-    const n = Number(text)
+    const n = Number(raw)
     return Number.isNaN(n) ? old : n
   }
   if (col?.type === "integer") {
-    const n = Number(text)
+    const n = Number(raw)
     return Number.isNaN(n) ? old : Math.trunc(n)
   }
   if (col?.type === "boolean") {
-    return text === "true" ? true : text === "false" ? false : old
+    return raw === "true" ? true : raw === "false" ? false : old
   }
   if (col?.type === "select") {
-    const opt = col.options?.find((o) => o.label === text || String(o.value) === text)
+    const opt = col.options?.find((o) => String(o.label ?? "") === raw || String(o.value) === raw)
     return opt ? opt.value : old
   }
-  return text
+  return raw
 }
 
 const commitEdit = async () => {
@@ -970,7 +1007,8 @@ const redo = () => {
 
 // ─── Lignes & colonnes ───
 const blankRow = (): Record<string, any> => {
-  const row: Record<string, any> = {}
+  // `_key` posée dès la création : la ligne est identifiable sans attendre un emit
+  const row: Record<string, any> = { [ROW_KEY]: newRowKey() }
   for (const col of cols.value) row[col.name] = col.type === "boolean" ? false : ""
   return row
 }
@@ -1073,7 +1111,8 @@ const sortByColumn = (column?: string, desc = false) => {
     if (col?.type === "boolean") return ev ? 1 : 0
     if (col?.type === "select") {
       const opt = col.options?.find((o) => o.value === raw)
-      return (opt?.label ?? String(ev)).toLowerCase()
+      // `label` peut être numérique → toString avant comparaison
+      return String(opt?.label ?? ev ?? "").toLowerCase()
     }
     return String(ev).toLowerCase()
   }
@@ -1108,11 +1147,7 @@ const copySelection = async () => {
       let text: string
       if (col?.type === "select") {
         const opt = col.options?.find((o) => o.value === raw)
-        text = opt
-          ? opt.label
-          : raw === null || raw === undefined || raw === ""
-            ? ""
-            : String(raw)
+        text = opt ? String(opt.label ?? "") : raw === null || raw === undefined ? "" : String(raw)
       } else {
         // Formules : copie la valeur AFFICHÉE (évaluée), comme Excel
         text = cellText(r, name)
@@ -1466,7 +1501,7 @@ const selectOptions = computed<QSpreadsheetCellOption[]>(() => {
   if (col?.type !== "select") return []
   const q = draft.value.trim().toLowerCase()
   return (col.options ?? []).filter(
-    (o) => !q || (o.label ?? String(o.value)).toLowerCase().includes(q),
+    (o) => !q || String(o.label ?? o.value ?? "").toLowerCase().includes(q),
   )
 })
 watch(selectOptions, () => {
@@ -1475,7 +1510,7 @@ watch(selectOptions, () => {
   }
 })
 const pickOption = (opt: QSpreadsheetCellOption) => {
-  draft.value = opt.label
+  draft.value = String(opt.label ?? "")
   commitEdit()
 }
 
@@ -1611,7 +1646,9 @@ const FORMULA_FNS: { name: string; sig: string }[] = [
   { name: "DAY", sig: "date" },
   { name: "EDATE", sig: "date, months" },
 ]
-const fxSource = computed(() => (editing.value ? draft.value : fxDraft.value))
+// La source alimente des méthodes de chaîne (`.trim()`, `.startsWith()`) :
+// la valeur brute d'une cellule peut être un nombre / booléen → on coerce.
+const fxSource = computed(() => String((editing.value ? draft.value : fxDraft.value) ?? ""))
 const fxQuery = computed(() => {
   const s = fxSource.value
   if (!s.trim().startsWith("=")) return ""
@@ -2084,7 +2121,8 @@ const filterValueItems = (name: string): FilterValueItem[] => {
     if (info.blank) label = t("blanks")
     else if (col?.type === "select") {
       const opt = col.options?.find((o) => o.value === info.raw)
-      label = opt?.label ?? String(info.raw)
+      // `label` peut être numérique → normalisé (label.localeCompare plus bas)
+      label = opt?.label === undefined ? String(info.raw) : String(opt.label)
     } else label = String(info.raw)
     return { key, blank: info.blank, label, count: info.count, active: allowed ? allowed.includes(key) : true }
   })
@@ -2720,6 +2758,7 @@ const loadSheetIntoEngine = (idx: number) => {
     sheetMeta.value = { ...sheetMeta.value, [key]: ext }
   }
   cols.value = ext.cols.map((c) => ({ ...c, type: c.type ?? "text", options: c.options ?? [] }))
+  ensureRowKeys(s.rows)
   state.value = (s.rows ?? []).map((r) => ({ ...r }))
   cellFmt.value = { ...ext.formats }
   rowHeights.value = { ...ext.rowHeights }
@@ -2986,9 +3025,11 @@ const findTextOf = (r: number, ci: number): string => {
   const col = cols.value[ci]
   const raw = state.value[r]?.[col?.name ?? ""]
   if (!col) return ""
-  if (col.type === "select") {
+  if (col?.type === "select") {
     const opt = col.options?.find((o) => o.value === raw)
-    return opt?.label ?? (raw === null || raw === undefined ? "" : String(raw))
+    // `label` peut être un nombre : findScan fait `.toLowerCase()` sur le retour
+    if (opt?.label !== undefined) return String(opt.label)
+    return raw === null || raw === undefined ? "" : String(raw)
   }
   return raw === null || raw === undefined ? "" : String(raw)
 }
@@ -3123,7 +3164,7 @@ const importCsv = (text: string, opts: { delimiter?: string; headers?: boolean }
     data = rows
   }
   const rowObjs = data.map((row) => {
-    const obj: Record<string, any> = {}
+    const obj: Record<string, any> = { [ROW_KEY]: newRowKey() }
     colsArr.forEach((c, ci) => {
       obj[c.name] = ci < row.length && row[ci]!.trim() !== "" ? row[ci]! : null
     })
@@ -3895,12 +3936,14 @@ defineExpose({
       <span class="q-spreadsheet__tb-group">
         <button class="q-spreadsheet__tool" type="button" :disabled="readonly || disable" title="Add row" aria-label="Add row" @click="addRow()">
           <Icon :icon="icons.rows3" aria-hidden="true" />
+          <Icon :icon="icons.plus" class="q-spreadsheet__tool-badge" aria-hidden="true" />
         </button>
         <button class="q-spreadsheet__tool" type="button" :disabled="readonly || disable || !selRect" title="Remove selected row(s)" aria-label="Remove rows" @click="removeSelectedRows">
           <Icon :icon="icons.minus" aria-hidden="true" />
         </button>
         <button class="q-spreadsheet__tool" type="button" :disabled="readonly || disable" title="Add column" aria-label="Add column" @click="addColumn()">
           <Icon :icon="icons.columns3" aria-hidden="true" />
+          <Icon :icon="icons.plus" class="q-spreadsheet__tool-badge" aria-hidden="true" />
         </button>
         <button class="q-spreadsheet__tool" type="button" :disabled="readonly || disable || !selRect" title="Remove selected column(s)" aria-label="Remove columns" @click="removeSelectedColumns">
           <Icon :icon="icons.x" aria-hidden="true" />

@@ -237,10 +237,11 @@ for small triggers, and a long item label can still widen the panel. Pass
 
 ## Panel classes & styles
 
-The panel is teleported to `<body>`, so `content-class` and `content-style` are the
-escape hatch to restyle it. Both are applied **after** the computed style (placement,
-`min-width`), so they override it — the way to force an exact width, a background or
-a radius:
+The panel is teleported to `<body>`, so it also works when the dropdown sits in a
+`<q-dialog>` or a sheet — it uses the `--q-z-menu` layer (`3200`), above the modal
+overlays (`3000`). `content-class` and `content-style` are the escape hatch to
+restyle it. Both are applied **after** the computed style (placement, `min-width`),
+so they override it — the way to force an exact width, a background or a radius:
 
 ::prose-show-case
 <dnax-demo-btn-dropdown demo="content"></dnax-demo-btn-dropdown>
