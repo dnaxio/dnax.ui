@@ -65,7 +65,8 @@ const inlineColumns = [
   { name: "lastName", label: "Last name", width: 140, editable: true },
   { name: "age", label: "Age", type: "integer" as const, width: 90, editable: true },
 ]
-const inlineRows = ref([
+// `any[]` : les lignes reçoivent une `_key` injectée par le composant (cf. `_key`)
+const inlineRows = ref<any[]>([
   { firstName: "Ada", lastName: "Lovelace", age: 36 },
   { firstName: "Grace", lastName: "Hopper", age: 85 },
   { firstName: "Alan", lastName: "Turing", age: 41 },

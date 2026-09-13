@@ -437,6 +437,35 @@ D'où : `draft` = number → `editingIsFormula` (`draft.value.trim()`),
 caste en `Number`. Préférer `type="text"` + `inputmode`, ou un handler `:value` +
 `@input` manuel.
 
+## Popup qui ne se ferme pas au clic extérieur (`stopPropagation` parent) — 2026-09-10
+
+`filename: packages/ui/components/QSelect.vue` (+ QAutocomplete, QDatePicker,
+QCountryPicker, QBtnActions, QNavMenu, QFab, QSwipeCell, QSpreadsheet, QTiptap)
+
+**Symptôme** : `q-select`, `q-autocomplete`, `q-date-picker` (inline),
+`q-btn-actions` / `q-btn-dropdown`… ne se ferment pas quand on clique ailleurs dans
+la page — en pratique surtout **dans un `<q-dialog>`**.
+
+**Cause** : tous ces composants écoutaient déjà `document.addEventListener("mousedown",
+…)` mais en **phase de bulle**. Or `QDialog` pose `@mousedown.stop` sur son contenu
+(`.q-dialog__content`, cf. `QDialog.vue`) — idem `QDataGrid` — donc tout `mousedown`
+déclenché _à l'intérieur_ du dialog est stoppé avant d'atteindre `document` : le
+handler extérieur ne tourne jamais.
+
+**Règle** : un listener « clic extérieur → fermer » se pose en **phase de capture**
+(`addEventListener(type, fn, true)`) — la capture descend de `window` vers la cible
+AVANT les `stopPropagation` de la bulle. ⚠️ Mettre le **même `true` au
+`removeEventListener`**, sinon fuite de listener.
+
+**Correctif** : `, true` sur add/remove pour QBtnActions, QSelect, QAutocomplete,
+QDatePicker, QCountryPicker, QNavMenu, QFab, QSwipeCell, QSpreadsheet (window +
+`pointerdown`) et QTiptap (palette). Les listeners **clavier** (Échap) restent en
+bulle : aucun parent ne stoppe le `keydown`.
+
+Vérif : `bun run generate` → 0 erreur ; `diagnostics` projet → 0 erreur / 0 warning
+(le linter avait aussi révélé 2 erreurs de types, corrigées : cf. décision
+« `QSpreadsheetCellOption.label` accepte les nombres » et démo `inlineRows: any[]`).
+
 ## Menu téléporté qui s'affiche DERRIÈRE un overlay (z-index) — 2026-09-10
 
 `filename: packages/ui/styles/main.css`

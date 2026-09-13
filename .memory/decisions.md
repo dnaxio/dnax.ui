@@ -776,3 +776,49 @@ clair (`#fff`) et le sombre (`var(--card)`, redéfini par `.q-spreadsheet--dark`
 Vérif : `bun run generate` → 0 erreur ; 2 `<svg>` par bouton d'ajout (glyphe +
 badge) et 26 badges sur la page démo ; CSS du bundle relu. Les boutons de
 SUPPRESSION (`minus` / `x`) n'ont pas été touchés (hors demande).
+
+## Fermeture au clic extérieur : listeners en phase de CAPTURE — 2026-09-10
+
+`filename: packages/ui/components/{QBtnActions,QSelect,QAutocomplete,QDatePicker,QCountryPicker,QNavMenu,QFab,QSwipeCell,QSpreadsheet,QTiptap}.vue`
+
+Demande : « si on clique outside le popup ou le bouton ça doit fermer » pour
+`q-btn-actions` / `q-btn-dropdown`, `q-select`, `q-autocomplete`, `q-date-picker`
+(inline). Ces composants avaient **déjà** le listener `document.addEventListener(
+"mousedown", …)` : le problème était ailleurs (cf. warnings « Popup qui ne se ferme
+pas au clic extérieur » → `@mousedown.stop` sur `.q-dialog__content`).
+
+Décision : **tous les listeners « extérieur → fermer » passent en phase de capture**
+(3ᵉ argument `true`, add ET remove) : la capture descend de `window` vers la cible
+avant les `stopPropagation` de la bulle, donc la fermeture fonctionne aussi dans un
+`<q-dialog>`, un `QDataGrid`, un éditeur, etc. Les listeners clavier restent en bulle.
+
+Ops concernés (de nature identique, traités en un lot) : `QBtnActions` (→
+`QBtnDropdown`), `QSelect`, `QAutocomplete`, `QDatePicker`, `QCountryPicker`,
+`QNavMenu`, `QFab`, `QSwipeCell`, `QSpreadsheet` (menu contextuel / filtre /
+suggestions) et `QTiptap` (palette de couleurs).
+
+Vérif : `bun run generate` → 0 erreur ; `diagnostics` projet → 0 erreur /
+0 warning ; `bun test packages/ui/lib` → 41/41. Le comportement (fermeture) se
+vérifie à la souris, pas au prerender.
+
+## `QSpreadsheetCellOption.label` accepte les nombres — 2026-09-10
+
+`filename: packages/ui/components/QSpreadsheet.vue`
+
+Le type déclarait `label: string` alors que le runtime doit accepter un nombre :
+`options: [{ value: 1, label: 1 }]` (note, niveau, priorité…) est un usage courant,
+et c'est exactement ce qui a produit les deux crashes `.trim()` / `toLowerCase()`
+(cf. warnings). Le linter l'a confirmé : la démo `rating` (labels numériques),
+ajoutée comme garde-fou, remontait « Type 'number' is not assignable to type
+'string' ».
+
+**Décision** : élargir à `label: string | number` (API publique) et normaliser côté
+composant — **toutes** les lectures de `opt.label` passent par `String(...)`
+(`cellTitle`, `cellContent` via `cellText`, `badgeOf`, `copySelection`, `findTextOf`,
+`filterValueItems`, `sortByColumn`, `selectOptions`, `coerceValue`, `pickOption`,
+`startEdit`). L'alternative (interdire les labels numériques et forcer
+`String(o.value)`) a été écartée : elle aurait cassé des usages légitimes et
+contraint le consommateur à normaliser lui-même.
+
+Vérif : `diagnostics` → 0 erreur / 0 warning ; colonne `Rating` rendue dans la démo ;
+`bun run generate` → 0 erreur.

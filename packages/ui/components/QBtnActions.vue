@@ -339,10 +339,12 @@ const menuRows = computed<MenuRow[]>(() => {
 })
 
 onMounted(() => {
-  if (typeof document !== "undefined") document.addEventListener("mousedown", onDocMousedown)
+  // Phase de CAPTURE : sinon un `@mousedown.stop` parent (contenu de QDialog,
+  // QDataGrid…) bloque l'événement avant `document` → popup jamais fermé.
+  if (typeof document !== "undefined") document.addEventListener("mousedown", onDocMousedown, true)
 })
 onBeforeUnmount(() => {
-  if (typeof document !== "undefined") document.removeEventListener("mousedown", onDocMousedown)
+  if (typeof document !== "undefined") document.removeEventListener("mousedown", onDocMousedown, true)
   disableTracking()
 })
 </script>

@@ -20,8 +20,12 @@ export type QSpreadsheetCellType =
 export interface QSpreadsheetCellOption {
   /** Valeur stockée dans la cellule */
   value: any
-  /** Libellé affiché */
-  label: string
+  /**
+   * Libellé affiché. Les nombres sont acceptés (`{ value: 1, label: 1 }` pour une
+   * note, un niveau…) : le composant les normalise en string partout où il fait des
+   * opérations de chaîne (recherche, filtre, tri, éditeur).
+   */
+  label: string | number
   /** Couleur du badge (token ou hex, ex. "positive", "#22c55e") */
   color?: string
 }
@@ -2639,7 +2643,9 @@ const onFilterSearch = (e: Event) => {
 
 onMounted(() => {
   window.addEventListener("pointerup", onPointerUpGlobal)
-  window.addEventListener("pointerdown", onDocPointerDown)
+  // Phase de CAPTURE : un `@pointerdown.stop` parent bloque sinon l'événement
+  // avant `window` → menu contextuel / filtre jamais fermé au clic extérieur.
+  window.addEventListener("pointerdown", onDocPointerDown, true)
   window.addEventListener("resize", onResize)
   nextTick(() => {
     updateViewportMetrics()
@@ -2648,7 +2654,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   window.removeEventListener("pointerup", onPointerUpGlobal)
-  window.removeEventListener("pointerdown", onDocPointerDown)
+  window.removeEventListener("pointerdown", onDocPointerDown, true)
   window.removeEventListener("resize", onResize)
   endResize()
   endRowResize()

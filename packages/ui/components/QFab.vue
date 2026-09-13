@@ -56,12 +56,14 @@ const onDocPointerDown = (e: PointerEvent) => {
 }
 onMounted(() => {
   if (typeof document !== "undefined") {
-    document.addEventListener("pointerdown", onDocPointerDown)
+    // Phase de CAPTURE : un `@pointerdown.stop` parent bloque sinon l'événement
+    // avant `document` → actions du FAB jamais repliées au clic extérieur.
+    document.addEventListener("pointerdown", onDocPointerDown, true)
   }
 })
 onBeforeUnmount(() => {
   if (typeof document !== "undefined") {
-    document.removeEventListener("pointerdown", onDocPointerDown)
+    document.removeEventListener("pointerdown", onDocPointerDown, true)
   }
 })
 

@@ -393,10 +393,13 @@ const onDocMousedown = (e: MouseEvent) => {
 }
 
 onMounted(() => {
-  if (typeof document !== "undefined") document.addEventListener("mousedown", onDocMousedown)
+  // Phase de CAPTURE (3e arg = true) : un `@mousedown.stop` plus haut dans l'arbre
+  // (contenu de QDialog / QDataGrid…) empêcherait sinon l'événement d'atteindre
+  // `document` et le popup ne se fermerait jamais au clic extérieur.
+  if (typeof document !== "undefined") document.addEventListener("mousedown", onDocMousedown, true)
 })
 onBeforeUnmount(() => {
-  if (typeof document !== "undefined") document.removeEventListener("mousedown", onDocMousedown)
+  if (typeof document !== "undefined") document.removeEventListener("mousedown", onDocMousedown, true)
   window.clearTimeout(swipeCloseTimer)
 })
 

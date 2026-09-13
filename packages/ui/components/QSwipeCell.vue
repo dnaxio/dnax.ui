@@ -150,12 +150,12 @@ const onDocPointerDown = (e: PointerEvent) => {
 }
 
 watch(opened, (v) => {
-  if (v) document.addEventListener("pointerdown", onDocPointerDown)
-  else document.removeEventListener("pointerdown", onDocPointerDown)
+  if (v) document.addEventListener("pointerdown", onDocPointerDown, true)
+  else document.removeEventListener("pointerdown", onDocPointerDown, true)
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener("pointerdown", onDocPointerDown)
+  document.removeEventListener("pointerdown", onDocPointerDown, true)
   if (wrapperEl.value) wrapperEl.value.style.removeProperty("transition")
 })
 </script>

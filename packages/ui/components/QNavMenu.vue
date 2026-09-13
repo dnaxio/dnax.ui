@@ -61,10 +61,12 @@ const onKeydown = (e: KeyboardEvent) => {
 }
 
 onMounted(() => {
-  if (typeof document !== "undefined") document.addEventListener("mousedown", onDocMousedown)
+  // Phase de CAPTURE : un `@mousedown.stop` parent (contenu de QDialog…) bloque
+  // sinon l'événement avant `document` → menu jamais fermé au clic extérieur.
+  if (typeof document !== "undefined") document.addEventListener("mousedown", onDocMousedown, true)
 })
 onBeforeUnmount(() => {
-  if (typeof document !== "undefined") document.removeEventListener("mousedown", onDocMousedown)
+  if (typeof document !== "undefined") document.removeEventListener("mousedown", onDocMousedown, true)
 })
 </script>
 

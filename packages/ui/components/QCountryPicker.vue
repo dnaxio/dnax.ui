@@ -210,13 +210,15 @@ watch(open, (v) => {
 
 onMounted(() => {
   if (typeof document !== "undefined") {
-    document.addEventListener("mousedown", onDocMousedown)
+    // Phase de CAPTURE : un `@mousedown.stop` parent (contenu de QDialog…) bloque
+    // sinon l'événement avant `document` → panneau jamais fermé au clic extérieur.
+    document.addEventListener("mousedown", onDocMousedown, true)
     document.addEventListener("keydown", onDocKeydown)
   }
 })
 onBeforeUnmount(() => {
   if (typeof document !== "undefined") {
-    document.removeEventListener("mousedown", onDocMousedown)
+    document.removeEventListener("mousedown", onDocMousedown, true)
     document.removeEventListener("keydown", onDocKeydown)
     document.body.style.overflow = ""
   }

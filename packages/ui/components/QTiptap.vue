@@ -293,12 +293,14 @@ watch(colorOpen, (open) => {
     if (e.key === "Escape") colorOpen.value = false
   }
   const close = () => { colorOpen.value = false }
-  document.addEventListener("mousedown", onDown)
+  // Phase de CAPTURE : un `@mousedown.stop` parent bloque sinon l'événement avant
+  // `document` → palette de couleurs jamais fermée au clic extérieur.
+  document.addEventListener("mousedown", onDown, true)
   document.addEventListener("keydown", onKey)
   window.addEventListener("blur", close)
   window.addEventListener("resize", close)
   return () => {
-    document.removeEventListener("mousedown", onDown)
+    document.removeEventListener("mousedown", onDown, true)
     document.removeEventListener("keydown", onKey)
     window.removeEventListener("blur", close)
     window.removeEventListener("resize", close)
