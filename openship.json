@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openship.io/openship.schema.json",
+  "packageManager": "bun",
+  "monorepo": {
+    "apps": [
+      {
+        "name": "docd",
+        "installCommand": "bun i",
+        "startCommand": "PORT=5555 bun dev"
+      }
+    ]
+  }
+}
