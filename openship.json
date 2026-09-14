@@ -6,7 +6,8 @@
       {
         "name": "docd",
         "installCommand": "bun i",
-        "startCommand": "PORT=5555 bun dev"
+        "startCommand": "PORT=5555 bun dev",
+        "rootDirectory": "docd"
       }
     ]
   }
