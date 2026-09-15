@@ -8809,6 +8809,14 @@ focus, `Escape` closes.
     </q-nav-menu-content>
   </q-nav-menu-trigger>
 
+  <!-- Sous-menu : un `trigger` porte le groupe, le `content` liste les entrées -->
+  <q-nav-menu-trigger name="charts" label="Charts" icon="lucide:chart-line">
+    <q-nav-menu-content>
+      <q-nav-menu-item label="Line" />
+      <q-nav-menu-item label="Bar" />
+    </q-nav-menu-content>
+  </q-nav-menu-trigger>
+
   <q-nav-menu-trigger name="resources" label="Resources" icon="lucide:book-open">
     <q-nav-menu-content>
       <q-nav-menu-item label="Documentation" />
@@ -15199,6 +15207,724 @@ automatic offset under fixed bars (`q-header` / `q-footer`).
 ## API
 
 :dnax-api{name="QVirtualScroll"}
+
+
+# Line
+
+**`<q-chart>`*&#x2A; takes a &#x2A;*`marks`** array of plain objects: `{ type, data, x, y }`. A
+mark is one layer of the chart — nothing to import, it is just data:
+
+::prose-show-case
+:dnax-demo-chart{demo="line"}
+
+#code
+```vue
+<script setup lang="ts">
+const monthly = [
+  { month: "Jan", revenue: 42, cost: 28 },
+  { month: "Feb", revenue: 51, cost: 31 },
+  { month: "Mar", revenue: 47, cost: 30 },
+  { month: "Apr", revenue: 63, cost: 35 },
+]
+</script>
+
+<template>
+  <q-chart
+    title="Revenue vs cost"
+    :height="260"
+    :marks="[
+      { type: 'line', data: monthly, x: 'month', y: 'revenue', stroke: 'primary', name: 'Revenue' },
+      { type: 'line', data: monthly, x: 'month', y: 'cost', stroke: 'chart-2', name: 'Cost' },
+      { type: 'dot', data: monthly, x: 'month', y: 'revenue', fill: 'primary', r: 3 },
+    ]"
+  />
+</template>
+```
+::
+
+Three marks on the same data give the “line + dots” look. `name` feeds the legend and
+`stroke` / `fill` take a **token** or any CSS color — token values are read from the host
+theme, so the chart follows it (light/dark included).
+
+### Series colors
+
+| Token                                                        | Meaning                                                                                                                                                                                                                    |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chart-1` … `chart-6`                                        | The **series palette** — used automatically by marks without an explicit color (and by the `z` channel). Comes from the host's `--chart-N` when it defines them.                                                           |
+| `primary`, `info`, `positive`, `warning`, `negative`, `dark` | Follow the host theme (`--primary`…).                                                                                                                                                                                      |
+| `secondary`, `accent`                                        | dnax.ui's Material colors (teal / violet). **Deliberately not** read from the host: in shadcn-style themes `--secondary` / `--accent` are *surfaces* (≈ the background), so a series painted with them would be invisible. |
+| anything else                                                | Any CSS color (`#2563eb`, `oklch(…)`, `rgb(…)`).                                                                                                                                                                           |
+
+### Marks
+
+| `type` | Rendering                                                                                        |
+| ------ | ------------------------------------------------------------------------------------------------ |
+| `line` | Line through the points                                                                          |
+| `area` | Line with a filled surface underneath                                                            |
+| `bar`  | Bars                                                                                             |
+| `dot`  | Points (`r` sets the radius — a channel gives a bubble chart)                                    |
+| `text` | Labels at `x` / `y` (`text` is the content) — see [Text](http://localhost:3000/docs/charts/text) |
+| `rule` | Reference line (`{ type: 'rule', y: [0] }`)                                                      |
+
+Every mark takes its own `data` (an array of rows, or of plain values). Set
+`orientation: 'horizontal'` on a mark to flip the axes — categories then run along
+the Y axis; all series marks of a chart must share the same orientation.
+
+### Channels
+
+A channel accepts three forms:
+
+```ts
+{ x: "month" }                  // field name, resolved per row
+{ x: ["Jan", "Feb"] }           // explicit values (or a constant if a single one)
+{ x: (d, i) => d.month }        // accessor function
+```
+
+Available channels: `x`, `y`, `fill`, `stroke`, `strokeWidth`,
+`opacity`, `r`, `title` (per-point tooltip), `text`, `fontSize`, `dx`, `dy&#x60;, &#x2A;*`z`** (one
+series — and one legend entry — per value) and `stack`. Axes and formatting go through the
+props `x`, `y`, `title`, `height`, `colors`, `legend`, `tooltip`, and `options` merges raw
+ECharts options last (escape hatch).
+
+## Line options
+
+A &#x2A;*`line`** mark takes the options below (a mark is a plain object — nothing to import).
+Other marks are listed on the [Charts](http://localhost:3000/docs/charts) overview.
+
+:dnax-mark-api{mark="line"}
+
+
+# Bar
+
+**`<q-chart>`** with `{ type: 'bar' }&#x60; marks. The &#x2A;*`z`** channel splits the rows into
+one series per value (each with a legend entry) and `stack` piles them up — no need to
+reshape the data:
+
+::prose-show-case
+:dnax-demo-chart{demo="bar"}
+
+#code
+```vue
+<script setup lang="ts">
+const months = ["Jan", "Feb", "Mar", "Apr"]
+const sales = months.flatMap((month, i) => [
+  { month, channel: "Online", value: 20 + ((i * 7) % 23) },
+  { month, channel: "Store", value: 12 + ((i * 5) % 17) },
+])
+</script>
+
+<template>
+  <q-chart
+    title="Sales per channel"
+    :height="260"
+    :marks="[{ type: 'bar', data: sales, x: 'month', y: 'value', z: 'channel', stack: true }]"
+  />
+</template>
+```
+::
+
+Without `stack`, the same mark renders **grouped** bars. With no explicit color, each
+series takes the next entry of the `--chart-N` palette (see
+[Line](http://localhost:3000/docs/charts/line)). For **horizontal** bars, keep the channels as they are and
+add `orientation: 'horizontal'`:
+
+```vue
+<q-chart :marks="[{ type: 'bar', data: sales, x: 'month', y: 'value', orientation: 'horizontal' }]" />
+```
+
+Marks, channels and the axis/format props are listed on the
+[Line](http://localhost:3000/docs/charts/line) page — both pages use the same `q-chart`.
+
+## Bar options
+
+A &#x2A;*`bar`** mark takes the options below (a mark is a plain object — nothing to import).
+Other marks are listed on the [Charts](http://localhost:3000/docs/charts) overview.
+
+:dnax-mark-api{mark="bar"}
+
+
+# Rule
+
+**`{ type: 'rule' }`** draws a **reference line**: a target, a threshold, a zero baseline.
+It is not a series — nothing is added to the legend — and it is painted over the other
+marks, so it reads as an annotation rather than as data:
+
+::prose-show-case
+:dnax-demo-chart{demo="rule"}
+
+#code
+```vue
+<script setup lang="ts">
+const monthly = [
+  { month: "Jan", revenue: 42 },
+  { month: "Feb", revenue: 51 },
+  { month: "Mar", revenue: 47 },
+  { month: "Apr", revenue: 63 },
+]
+</script>
+
+<template>
+  <q-chart
+    title="Sales vs target"
+    :height="260"
+    :marks="[
+      { type: 'bar', data: monthly, x: 'month', y: 'revenue', fill: 'chart-1', name: 'Revenue' },
+      { type: 'rule', y: [50], stroke: 'chart-5' },
+      { type: 'rule', x: ['Apr'], stroke: 'negative', strokeWidth: 2 },
+    ]"
+  />
+</template>
+```
+::
+
+### Horizontal — the default
+
+Values sit on the **Y axis**, so this is the plain “target line”:
+
+```ts
+{ type: 'rule', y: 50 }              // a single line
+{ type: 'rule', y: [0, 25, 50] }     // one line per value
+{ type: 'rule', data: [0, 25, 50] }  // same, values in `data`
+```
+
+### Vertical
+
+Give `x` instead of `y` — a value on a value axis, or a **category name** on a category
+axis (it lands on that category):
+
+```ts
+{ type: 'rule', x: [0] }
+{ type: 'rule', x: ['Apr'] }
+```
+
+### Styling
+
+| Key           | Effect                                                                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stroke`      | Line colour — a token (`chart-5`, `negative`, `primary`…) or any CSS color. Defaults to the grid colour (`--border`). `fill` is accepted as a fallback. |
+| `strokeWidth` | Line width.                                                                                                                                             |
+| ignored       | `name`, `title`, `text`, `r`, `opacity`, `z`, `stack` — a rule is a single line, not a series.                                                          |
+
+The line is **dashed** by default, which is what makes it read as a reference rather than
+as another series. A chart made only of rules works too — no series needed.
+
+Marks, channels and the axis/format props are listed on the
+[Line](http://localhost:3000/docs/charts/line) page — every page uses the same `q-chart`.
+
+## Rule options
+
+A &#x2A;*`rule`** mark takes the options below — it is a `markLine` under the hood, so it only
+carries position values and a stroke. Other marks are listed on the [Charts](http://localhost:3000/docs/charts)
+overview.
+
+:dnax-mark-api{mark="rule"}
+
+
+# Dot
+
+**`{ type: 'dot' }`** draws **one point per row**: that is a scatter plot, and with `r`
+as a channel it becomes a **bubble chart**. Both axes are *value* axes (there is no
+category), the tooltip is per point, and dots can carry an outline:
+
+::prose-show-case
+:dnax-demo-chart{demo="dot"}
+
+#code
+```vue
+<script setup lang="ts">
+const campaigns = [
+  { campaign: "Outlet", spend: 8, revenue: 19, orders: 5 },
+  { campaign: "Spring", spend: 12, revenue: 30, orders: 8 },
+  { campaign: "Autumn", spend: 17, revenue: 41, orders: 11 },
+  { campaign: "Summer", spend: 21, revenue: 48, orders: 14 },
+  { campaign: "Winter", spend: 29, revenue: 62, orders: 19 },
+]
+</script>
+
+<template>
+  <q-chart
+    title="Revenue vs ad spend"
+    :height="260"
+    :x="{ label: 'Ad spend (k€)' }"
+    :y="{ label: 'Revenue (k€)' }"
+    :marks="[
+      {
+        type: 'dot',
+        data: campaigns,
+        x: 'spend',
+        y: 'revenue',
+        r: 'orders',
+        fill: 'chart-1',
+        stroke: '#fff',
+        strokeWidth: 2,
+        title: 'campaign',
+      },
+    ]"
+  />
+</template>
+```
+::
+
+### Radius — bubbles
+
+`r` is the radius: a number gives uniform dots, a **channel** gives one size per point
+(a bubble chart). The point diameter is `r * 2 + 2` pixels.
+
+```ts
+{ type: 'dot', data: rows, x: 'spend', y: 'revenue', r: 4 }          // uniform
+{ type: 'dot', data: rows, x: 'spend', y: 'revenue', r: 'orders' }   // bubbles
+{ type: 'dot', data: rows, x: 'spend', y: 'revenue', r: (d) => d.orders ** 0.5 }
+```
+
+### Colour and outline
+
+| Key                      | Effect                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `fill`                   | Fills the dots.                                                                                                                                        |
+| `stroke` + `strokeWidth` | Draws an **outline** around them — the usual trick to keep overlapping dots readable. Used when `fill` is given too; a lone `stroke` colours the dots. |
+| `opacity`                | Applies to the whole dot.                                                                                                                              |
+
+### Shape
+
+`symbol` picks the ECharts symbol: `circle` (default), `rect`, `roundRect`, `triangle`,
+`diamond`, `pin`, `arrow`, `none`… It applies to the whole mark.
+
+### Tooltips
+
+With `title`, hovering a dot shows that value instead of the coordinates — give it a
+field name, explicit values or an accessor. A chart made **only** of dots (or labels) is
+hovered point by point; as soon as a `line` or a `bar` shares the chart, the tooltip
+switches to the whole axis, as on the [Line](http://localhost:3000/docs/charts/line) page.
+
+Marks, channels and the axis/format props are listed on the
+[Line](http://localhost:3000/docs/charts/line) page — every page uses the same `q-chart`.
+
+## Dot options
+
+A &#x2A;*`dot`** mark takes the options below (a mark is a plain object — nothing to import).
+Other marks are listed on the [Charts](http://localhost:3000/docs/charts) overview.
+
+:dnax-mark-api{mark="dot"}
+
+
+# Image
+
+**`{ type: 'image' }`** draws an &#x2A;*image centered on `x` and `y`**: the same idea as a dot
+mark, but each point is a picture — portraits, flags, logos, maps. `src` is required and
+the default size is 16×16 pixels:
+
+::prose-show-case
+:dnax-demo-chart{demo="image"}
+
+#code
+```vue
+<script setup lang="ts">
+// One Unsplash id per person; imgix returns a 200×200 square centred on the face.
+const photo = (id: string) =>
+  `https://images.unsplash.com/${id}?q=80&w=200&h=200&fit=crop&crop=faces&auto=format`
+
+const team = [
+  { name: "Amina", experience: 3, score: 4.6, src: photo("photo-1502323777036-f29e3972d82f") },
+  { name: "Bastien", experience: 6, score: 4.2, src: photo("photo-1611590027211-b954fd027b51") },
+  { name: "Chloé", experience: 2, score: 4.8, src: photo("photo-1753381449444-9fe1d1cf5b5b") },
+  {
+    name: "Dan",
+    experience: 9,
+    score: 3.9,
+    src: "https://plus.unsplash.com/premium_photo-1714340726276-5f6897ddc3ca?q=80&w=200&h=200&fit=crop&crop=faces&auto=format",
+  },
+  { name: "Elif", experience: 5, score: 4.4, src: photo("photo-1568579569464-f87941549e29") },
+]
+</script>
+
+<template>
+  <q-chart
+    title="Team"
+    :height="260"
+    :x="{ label: 'Experience (years)', min: 0 }"
+    :y="{ label: 'Review score', min: 3 }"
+    :marks="[
+      { type: 'image', data: team, x: 'experience', y: 'score', src: 'src', r: 22, title: 'name' },
+    ]"
+  />
+</template>
+```
+::
+
+### `src`
+
+`src` is the image of each point. A string starting with `.`, `/` or a protocol is taken
+as a **constant** (`src: 'https://…'` or `src: '/logo.svg'`); anything else is read as a
+**channel**, i.e. a field of each row:
+
+```ts
+{ type: 'image', data: team, x: 'experience', y: 'score', src: 'src' }   // one photo per row
+{ type: 'image', data: rows, x: 'x', y: 'y', src: '/logo.svg' }          // the same logo for all
+```
+
+Any URL the browser can load works — `https://…`, a relative path, an object URL, a
+`data:` URI.
+
+### Size
+
+| Key                | Effect                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `width` / `height` | Image size in pixels — constant or channel. Give only one and the other follows it. |
+| `r`                | Shorthand for a **square** of `2r × 2r` pixels.                                     |
+| `rotate`           | Rotation in degrees, clockwise.                                                     |
+
+The aspect ratio is preserved: the image is fitted inside the box rather than stretched,
+so **serve a square crop** when the box is square (Unsplash/imgix: `&w=200&h=200&fit=crop`),
+otherwise the picture is letterboxed. A size of `0` (or less) hides the image. Unlike
+[Plot](https://observablehq.com/plot/marks/image){rel="&#x22;nofollow&#x22;"}, `r` does **not** clip the image to a
+circle — ECharts cannot clip a symbol to a shape — so use a round source image if you
+want round markers.
+
+Images are loaded **asynchronously**: on the first paint the boxes can be empty for a few
+frames. They are drawn in input order — sort the data if overlapping images must be
+layered a certain way.
+
+Marks, channels and the axis/format props are listed on the
+[Line](http://localhost:3000/docs/charts/line) page — every page uses the same `q-chart`.
+
+## Image options
+
+An &#x2A;*`image`** mark takes the options below (a mark is a plain object — nothing to
+import). Other marks are listed on the [Charts](http://localhost:3000/docs/charts) overview.
+
+:dnax-mark-api{mark="image"}
+
+
+# Text
+
+**`{ type: 'text' }`** draws **one label per row** at `x` and `y`. It is mostly used to
+label another mark — the value on top of a bar, a year along a line — because direct
+labelling reads faster than an axis or a tooltip:
+
+::prose-show-case
+:dnax-demo-chart{demo="text"}
+
+#code
+```vue
+<script setup lang="ts">
+const monthly = [
+  { month: "Jan", revenue: 42, cost: 28 },
+  { month: "Feb", revenue: 51, cost: 31 },
+  { month: "Mar", revenue: 47, cost: 30 },
+  { month: "Apr", revenue: 63, cost: 35 },
+  { month: "May", revenue: 72, cost: 38 },
+  { month: "Jun", revenue: 68, cost: 41 },
+]
+</script>
+
+<template>
+  <q-chart
+    title="Revenue, labeled"
+    :height="260"
+    :marks="[
+      { type: 'bar', data: monthly, x: 'month', y: 'revenue', fill: 'chart-1', name: 'Revenue' },
+      {
+        type: 'text',
+        data: monthly,
+        x: 'month',
+        y: 'revenue',
+        text: (d) => `${d.revenue}`,
+        lineAnchor: 'bottom',
+        dy: -6,
+        fill: 'primary',
+        fontWeight: 'bold',
+      },
+      { type: 'rule', y: [50], stroke: 'chart-5' },
+    ]"
+  />
+</template>
+```
+::
+
+The mark itself is invisible: the label is drawn on a **1 px transparent anchor** placed at
+`x` / `y`, so nothing else appears on the chart. `lineAnchor: 'bottom'` lifts the text above
+the point and `dy: -6` adds a few pixels of air above the bar.
+
+### Position
+
+`x` and `y` are the same channels as everywhere else. By default the text is **centred on
+the point** — `textAnchor: 'middle'` and `lineAnchor: 'middle'`, the Plot default. Both
+anchors are *constants* (they apply to the whole mark), while `dx` / `dy` shift the label in
+pixels and can vary per row:
+
+| Anchor                           | Where the point sits on the text            | Typical use              |
+| -------------------------------- | ------------------------------------------- | ------------------------ |
+| `textAnchor: 'start'`            | Left edge (text extends to the right)       | Left-aligned annotation  |
+| `textAnchor: 'middle'` (default) | Centre                                      | Label centred on a bar   |
+| `textAnchor: 'end'`              | Right edge (text extends to the left)       | Right-aligned annotation |
+| `lineAnchor: 'top'`              | Top edge (text hangs **below** the point)   | Label inside a bar       |
+| `lineAnchor: 'middle'` (default) | Centre                                      | Centred label            |
+| `lineAnchor: 'bottom'`           | Bottom edge (text sits **above** the point) | Value on top of a bar    |
+
+```ts
+{ type: 'text', data: rows, x: 'month', y: 'revenue', text: 'revenue' }                       // centred
+{ type: 'text', data: rows, x: 'month', y: 'revenue', text: 'revenue', lineAnchor: 'bottom', dy: -6 }
+{ type: 'text', data: rows, x: 'month', y: 'revenue', text: 'month', textAnchor: 'end', dx: -8 }
+```
+
+With &#x2A;*neither `x` nor `y`**, the data is a list of pairs `[[x₀, y₀], [x₁, y₁], …]` (Plot's
+shorthand), and the default label is the row index:
+
+```ts
+{ type: 'text', data: [[0, 4], [1, 7], [2, 5]], text: (d) => `${d[1]} %` }
+```
+
+### Content
+
+| `text`                        | Result                                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------------------- |
+| a field name                  | That field of each row                                                                 |
+| explicit values / an accessor | One label per row (`(d, i) => …`)                                                      |
+| omitted                       | The row itself for primitive data (`[42, 51]`), its **index** for objects — as in Plot |
+| a string with `\n`            | Several lines (ECharts renders the line breaks)                                        |
+| a per-row channel             | `fill`, `fontSize`, `rotate`… see below                                                |
+
+### Font
+
+| Key          | Effect                                                                                                                                  |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `fontSize`   | Size in pixels — **11 by default**, constant or channel                                                                                 |
+| `fontWeight` | `bold`, `600`…                                                                                                                          |
+| `fontFamily` | Font name (the host font by default)                                                                                                    |
+| `fontStyle`  | `italic`, `oblique`                                                                                                                     |
+| `lineHeight` | Line height in pixels, once the text has several lines                                                                                  |
+| `rotate`     | Degrees, **clockwise** (unlike `label.rotate` in ECharts, which turns the other way — the sign is flipped for you), constant or channel |
+
+### Wrapping and truncating
+
+`lineWidth` is a width in **ems** (as in Plot): beyond it the text wraps. ECharts measures
+text approximately, exactly like Plot's own heuristic, so hard-wrap with `\n` when the
+result matters. `textOverflow` truncates lines that are too long:
+
+| `textOverflow`              | Result                            |
+| --------------------------- | --------------------------------- |
+| *(omitted)*                 | Overflowing characters are kept   |
+| `ellipsis` / `ellipsis-end` | End replaced with an ellipsis (…) |
+| `clip` / `clip-end`         | Cut at the end, no ellipsis       |
+
+Plot's `-start` / `-middle` variants have no ECharts equivalent and fall back to the end.
+
+### Colour and halo
+
+| Key                               | Effect                                                                                                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fill`                            | Colours the **text**.                                                                                                                                    |
+| `stroke` alone                    | Also colours the text (like a `dot`), with no halo.                                                                                                      |
+| `fill` + `stroke` + `strokeWidth` | Draws a **halo** around the text — the usual trick to keep labels readable over bars or a busy background. `strokeWidth` is 3 px by default, as in Plot. |
+| `opacity`                         | Applies to the label.                                                                                                                                    |
+
+```ts
+{ type: 'text', data: rows, x: 'month', y: 'revenue', text: 'revenue', fill: 'primary' }
+{ type: 'text', data: rows, x: 'month', y: 'revenue', text: 'revenue', fill: '#fff', stroke: '#1d1d1d' }  // halo
+```
+
+### Tooltips
+
+With `title`, hovering a label shows that value instead of the coordinates — give it a field
+name, explicit values or an accessor. A chart made **only** of labels (or dots) is hovered
+label by label; as soon as a `line` or a `bar` shares the chart, the tooltip switches to the
+whole axis, as on the [Line](http://localhost:3000/docs/charts/line) page.
+
+### Not covered
+
+The label is placed by the **data**; Plot's `frameAnchor` (text pinned to a corner of the
+plot frame, with no `x` / `y`) has no equivalent — use the `options` prop and a `graphic`
+element for that. `monospace`, the soft-hyphen line breaking and `paintOrder: 'fill'` are
+not exposed either.
+
+Marks, channels and the axis/format props are listed on the
+[Line](http://localhost:3000/docs/charts/line) page — every page uses the same `q-chart`.
+
+## Text options
+
+A &#x2A;*`text`** mark takes the options below (a mark is a plain object — nothing to import).
+Other marks are listed on the [Charts](http://localhost:3000/docs/charts) overview.
+
+:dnax-mark-api{mark="text"}
+
+
+# Charts
+
+**`<q-chart>`** draws a chart from a list of **marks**. A mark is a plain object —
+`{ type: 'line', data, x, y }` — so a chart is *data*, not a component tree: nothing to
+import, nothing to nest. The marks are translated to [Apache ECharts](https://echarts.apache.org){rel="&#x22;nofollow&#x22;"}
+options and painted on a canvas (ECharts is loaded on the client only, so nothing heavy
+runs during server rendering).
+
+::prose-show-case
+:dnax-demo-chart{demo="overview"}
+
+#code
+```vue
+<script setup lang="ts">
+const monthly = [
+  { month: "Jan", revenue: 42, cost: 28 },
+  { month: "Feb", revenue: 51, cost: 31 },
+  { month: "Mar", revenue: 47, cost: 30 },
+  { month: "Apr", revenue: 63, cost: 35 },
+]
+</script>
+
+<template>
+  <q-chart
+    title="Overview"
+    :height="260"
+    :marks="[
+      { type: 'bar', data: monthly, x: 'month', y: 'cost', fill: 'chart-3', name: 'Cost' },
+      { type: 'line', data: monthly, x: 'month', y: 'revenue', stroke: 'primary', name: 'Revenue' },
+      { type: 'rule', y: [50], stroke: 'chart-5' },
+    ]"
+  />
+</template>
+```
+::
+
+Three marks, three layers: bars for the cost, a line for the revenue and a reference rule
+at 50. Every mark brings its own `data`, so they can come from different sources.
+
+## Marks
+
+| `type`  | Draws                      | Notable keys                                                                      |
+| ------- | -------------------------- | --------------------------------------------------------------------------------- |
+| `line`  | Line through the points    | `stroke`, `strokeWidth`                                                           |
+| `area`  | Line with a filled surface | `stroke`, `fill`                                                                  |
+| `bar`   | Bars                       | `fill`, `stack`, `orientation`                                                    |
+| `dot`   | Points                     | `fill`, `r` (radius → bubbles), `symbol` (shape)                                  |
+| `text`  | Labels                     | `text` (the label), `textAnchor`/`lineAnchor`, `dx`/`dy`, `fill`, `stroke` (halo) |
+| `image` | One image per row          | `src` (required), `width`/`height`/`r`, `rotate`                                  |
+| `rule`  | Reference line             | `y: [50]` (horizontal) or `x: [0]` (vertical)                                     |
+
+Shared keys: `data` (rows, or plain values), `x` / `y` (the data mapping), `name&#x60; (legend
+entry), &#x2A;*`z`** (one series — and one legend entry — per value), `fill` / `stroke`
+(a series color), `opacity`, `title` (per-point tooltip), `orientation`. Text marks add
+their own keys — `text`, `textAnchor`, `lineAnchor`, `dx` / `dy`, `fontSize`… — listed on
+the [Text](http://localhost:3000/docs/charts/text) page.
+
+### Channels
+
+A channel accepts three forms:
+
+```ts
+{ x: "month" }                  // field name, resolved per row
+{ x: ["Jan", "Feb"] }           // explicit values (or a constant if a single one)
+{ x: (d, i) => d.month }        // accessor function
+```
+
+Colors: the `--chart-1…6` palette by default, `primary` and friends to follow the host
+theme, or any CSS color. See [Line](http://localhost:3000/docs/charts/line) for the full table.
+
+## Props
+
+| Prop      | Type              | Default       | Description                                                                            |
+| --------- | ----------------- | ------------- | -------------------------------------------------------------------------------------- |
+| `marks`   | `QChartMark[]`    | `[]`          | The layers of the chart.                                                               |
+| `x` / `y` | `QChartAxis`      | —             | **Axis** config: `type` (`band`/`linear`/`time`/`log`), `label`, `min`, `max`, `grid`. |
+| `height`  | `number | string` | `280`         | Container height (a number is read as pixels, otherwise a CSS value).                  |
+| `title`   | `string`          | —             | Chart title.                                                                           |
+| `colors`  | `string[]`        | `--chart-1…6` | Series palette, for marks without an explicit color.                                   |
+| `legend`  | `boolean`         | auto          | Forced on/off; by default as soon as a series is named.                                |
+| `tooltip` | `boolean`         | `true`        | Hover tooltip (a blurred glass card, styled from the theme tokens).                    |
+| `options` | `object`          | —             | Raw ECharts options, merged **last** (escape hatch).                                   |
+
+::prose-callout{variant="note"}
+The props `x`, `y` and `title` configure the **chart** (its axes and heading). Inside a
+mark, the same names are **channels**: `x` / `y` are the data mapping and `title` is the
+per-point tooltip. They never collide — a mark is just an object.
+::
+
+### Events and methods
+
+`@ready` receives the ECharts instance, also available as `chart` on the component ref
+(`refresh()` forces a re-render — useful after a hidden container becomes visible).
+
+## The `options` escape hatch
+
+Everything the marks do not cover goes through the `options` prop, which is merged **after**
+the generated option (so it wins). Zoom, toolbox, `visualMap`, `dataset`, `aria`… all pass
+that way:
+
+```vue
+<q-chart
+  :marks="[/* … */]"
+  :options="{ dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 0 }] }"
+/>
+```
+
+::prose-callout{variant="warning"}
+An ECharts feature whose module is not in the bundle is silently ignored: `dataZoom` needs
+`DataZoomComponent`, `aria` needs `AriaComponent`, … Those modules are registered in
+`QChart.vue` (`echarts.use([...])`) — see the `echarts` skill for the mapping.
+::
+
+## API
+
+The options of each mark are listed on its own page — [Line](http://localhost:3000/docs/charts/line),
+[Bar](http://localhost:3000/docs/charts/bar), [Rule](http://localhost:3000/docs/charts/rule), [Dot](http://localhost:3000/docs/charts/dot),
+[Image](http://localhost:3000/docs/charts/image), [Text](http://localhost:3000/docs/charts/text). The component every mark goes
+through, and its props, events and methods:
+
+:dnax-api{name="QChart"}
+
+## Chart types
+
+::prose-card
+---
+icon: lucide:chart-line
+title: Line
+to: http://localhost:3000/docs/charts/line
+---
+Lines, areas, dots and reference rules — marks, channels and the series palette.
+::
+
+::prose-card
+---
+icon: lucide:chart-column
+title: Bar
+to: http://localhost:3000/docs/charts/bar
+---
+Bars, grouped and stacked series through the `z` channel, horizontal orientation.
+::
+
+::prose-card
+---
+icon: lucide:minus
+title: Rule
+to: http://localhost:3000/docs/charts/rule
+---
+Reference lines: a target, a threshold, a baseline — horizontal or vertical.
+::
+
+::prose-card
+---
+icon: lucide:chart-scatter
+title: Dot
+to: http://localhost:3000/docs/charts/dot
+---
+Scatter plots and bubble charts — one point per row, sized by `r`.
+::
+
+::prose-card
+---
+icon: lucide:image
+title: Image
+to: http://localhost:3000/docs/charts/image
+---
+One image per row — portraits, flags or logos instead of dots.
+::
+
+::prose-card
+---
+icon: lucide:type
+title: Text
+to: http://localhost:3000/docs/charts/text
+---
+Labels at `x` and `y` — values on top of bars, annotations, per-point fonts.
+::
 
 
 # Bottom Sheet

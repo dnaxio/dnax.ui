@@ -33,6 +33,7 @@ export { default as QCarousel } from "./components/QCarousel.vue"
 export { default as QCarouselContent } from "./components/QCarouselContent.vue"
 export { default as QCarouselItem } from "./components/QCarouselItem.vue"
 export { default as QCarouselNav } from "./components/QCarouselNav.vue"
+export { default as QChart } from "./components/QChart.vue"
 export { default as QCheckbox } from "./components/QCheckbox.vue"
 export { default as QChip } from "./components/QChip.vue"
 export { default as QCircularProgress } from "./components/QCircularProgress.vue"
@@ -168,6 +169,16 @@ export type { OverlayHandle } from "./lib/overlayBack"
 export { markOverlayClose, closeParentOverlay, vClose } from "./lib/closeOverlay"
 export { vRipple } from "./lib/ripple"
 export type { RippleOptions, RippleValue } from "./lib/ripple"
+export { chartToECharts, channelValue, textValue } from "./lib/chart"
+export type {
+  QChartAxis,
+  QChartChannel,
+  QChartConfig,
+  QChartLegend,
+  QChartMark,
+  QChartMarkType,
+  QChartOrientation,
+} from "./lib/chart"
 export { vTouchPan } from "./lib/touchPan"
 export type { PanDetails, TouchPanHandler, PanDirection } from "./lib/touchPan"
 export { vTouchHold } from "./lib/touchHold"

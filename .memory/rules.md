@@ -44,3 +44,17 @@ padding-top: env(safe-area-inset-top);            /* iOS 11.2+ */
   `docs/app/pages/docs/components/*.vue` (familles groupées : Accordion, Dialog, Sidebar…)
 - Relancer après avoir ajouté/modifié un composant ; les pages custom (ex. `accordion.vue`)
   sont préservées
+
+## Documentation des graphiques (`docd/`, section Charts)
+
+- **Chaque marque de graphique documente ses propres options** : page
+  `/docs/charts/<marque>` = titre `## <Mark> options` + `:dnax-mark-api{mark="bar"}`.
+  L'API de `<q-chart>` (props/events/methods) ne figure **que** sur
+  `5.charts/index.md` — pas de rappel en bas des pages de marque (consigne utilisateur).
+- Les options affichées viennent de **`packages/ui/lib/chart.ts`** : `MARK_OPTIONS` (clés
+  acceptées par la marque) + le **JSDoc de `QChartMark`** (type, description, valeurs).
+  → ajouter une option = la déclarer dans l'interface **avec son JSDoc** ; l'exposer à la
+  marque = l'ajouter à `MARK_OPTIONS`. Aucune table manuelle en markdown.
+- Toute couleur donnée à ECharts doit être dans une forme que **zrender** relit : les couleurs
+  relues sur le thème passent par `lib/color.ts` (peinture + lecture de pixel), jamais par
+  `ctx.fillStyle` seul (`warnings.md`).

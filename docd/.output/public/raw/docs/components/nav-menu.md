@@ -35,6 +35,14 @@ focus, `Escape` closes.
     </q-nav-menu-content>
   </q-nav-menu-trigger>
 
+  <!-- Sous-menu : un `trigger` porte le groupe, le `content` liste les entrées -->
+  <q-nav-menu-trigger name="charts" label="Charts" icon="lucide:chart-line">
+    <q-nav-menu-content>
+      <q-nav-menu-item label="Line" />
+      <q-nav-menu-item label="Bar" />
+    </q-nav-menu-content>
+  </q-nav-menu-trigger>
+
   <q-nav-menu-trigger name="resources" label="Resources" icon="lucide:book-open">
     <q-nav-menu-content>
       <q-nav-menu-item label="Documentation" />

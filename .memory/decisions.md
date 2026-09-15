@@ -822,3 +822,432 @@ contraint le consommateur à normaliser lui-même.
 
 Vérif : `diagnostics` → 0 erreur / 0 warning ; colonne `Rating` rendue dans la démo ;
 `bun run generate` → 0 erreur.
+
+## Démo Nav Menu : sous-menu « Charts » (Line / Bar) — 2026-09-10
+
+`filename: docd/app/components/demos/DnaxDemoNavMenu.vue`, `docd/content/docs/4.components/nav-menu.md`
+
+Demande : « un menu Charts avec un sous-menu Line, Bar ». Le seul pattern du repo qui
+fait **menu + sous-menu** est `q-nav-menu` : `<q-nav-menu-trigger>` = le groupe (avec
+`name` unique, `label`, `icon`), `<q-nav-menu-content>` = le panneau déroulant,
+`<q-nav-menu-item>` = une entrée (`label`, `icon`, `active`). Ajouté à la démo
+`dropdowns` (trigger `name="charts"`, `icon="lucide:chart-line"`, items `Line` et
+`Bar`, entre `Products` et `Resources`) + au `#code` de la page avec un commentaire
+expliquant le mapping trigger/content.
+
+Alternative écartée : un groupe « Charts » dans la **sidebar** (`q-sidebar-menu`) —
+`QSidebarMenuItem` est un simple `<li>` et les démos sidebar sont plates : il n'y a
+pas de sous-menu natif (il faudrait une primitive repliable type `q-collapse`).
+
+Vérif : `bun run generate` → 0 erreur ; DOM relu (trigger `Charts` avec son icône +
+`content` contenant `Line` puis `Bar`) ; `#code` présent dans `_payload.json` ;
+`bun test packages/ui/lib` → 41/41.
+
+**Correction (même jour)** : la demande portait sur la **doc**, pas la démo — « je ne
+vois le menu Charts, ça doit venir components ». Section `Charts` créée **dans
+Components** :
+
+- `docd/content/docs/4.components/charts/.navigation.yml` (`title: Charts`,
+  `icon: lucide:chart-line`) → le groupe apparaît dans la barre latérale **entre
+  Carousel et Checkbox** (tri alphabétique du dossier, comme les pages) ;
+- `index.md` (page du groupe, route `/docs/components/charts`) + `1.line.md` +
+  `2.bar.md` (préfixes numériques → ordre Line puis Bar ; routes
+  `/docs/components/charts/{line,bar}`). Pages **minimales** (« Documentation coming
+  soon ») : aucun composant de chart créé (consigne explicite : « crée juste le menu
+  et laisse comme ça »).
+- L'ajout à la démo nav-menu est conservé (inoffensif) — à retirer si besoin.
+
+> **Suivi (2026-09-14)** : cette section imbriquée a été **promue en section de
+> premier niveau** (`5.charts/`, routes `/docs/charts/*`) — voir l'entrée
+> « Doc : « Charts » promu en section de premier niveau » plus bas.
+
+## QChart : graphique ECharts piloté par des marks « Observable Plot » — 2026-09-14
+
+`filename: packages/ui/components/QChart.vue`, `packages/ui/lib/plot.ts`
+
+Demande : « utilise echart pour faire q-chart avec props marks=[] qui suit les mêmes
+API qu'Observable Plot ».
+
+- **`lib/plot.ts`** : fabriques `barY/barX/lineY/lineX/areaY/areaX/dot/ruleY/ruleX/text`
+  - namespace `Plot` (`Plot.barY(data, { x, y })`, comme Plot) et `plotToECharts()` qui
+    traduit les marks en option ECharts. Canaux : `x/y/x1/x2/y1/y2/fill/stroke/
+strokeWidth/opacity/r/title/text/name/z/stack`. Les 3 formes de Plot sont gérées
+    (nom de champ, valeurs explicites, fonction d'accès) **plus** l'identité pour les
+    données primitives (`Plot.ruleY([0])`). Une chaîne de `fill`/`stroke` est une
+    couleur si elle en a l'air, sinon un nom de champ.
+- **`QChart.vue`** : props `marks`, `x`, `y`, `height`, `title`, `colors`, `legend`,
+  `tooltip` + `options` (fusion ECharts brute en dernier). ECharts est chargé
+  **dynamiquement** dans `onMounted` (`echarts/core` + charts/components/renderers,
+  `use()` une seule fois) → **rien d'ECharts en SSR** ; le conteneur (hauteur +
+  `aria-label`) sort dès le prerender, le canvas arrive à l'hydratation. Tokens CSS
+  relus via `getComputedStyle` à chaque rendu + `MutationObserver` sur
+  `<html class|data-theme>` → le mode sombre suit ; `ResizeObserver` pour le
+  responsive ; instance exposée (`defineExpose({ chart, refresh })`).
+- **Choix** : `z` = une série + une entrée de légende par valeur (plutôt qu'un `name`
+  par série) ; orientation imposée par la première marque (`barX`/`lineX`/`areaX`
+  inversent les axes) ; `stack` → `stack: "total"` ; paires `[catégorie, valeur]`
+  (inversées si horizontal) → compatibles axe catégorie **et** axe valeur.
+- **ECharts plutôt que Highcharts** : `highcharts-vue` traîne en orphelin dans
+  `packages/ui/node_modules` (absent de `package.json` et de `bun.lock`) et Highcharts
+  est sous licence CC BY-NC (payant en usage commercial) ; `echarts@^6.1.0` est déclaré
+  et sous Apache-2.0.
+- Docs : `charts/line` + `charts/bar` remplis (démo `DnaxDemoChart`, `#code`, `## API`).
+- Vérif : traducteur testé hors navigateur (`bun .tmp-plot-check.ts`) — line+dot+ruleY :
+  séries `line/scatter` + `markLine [{yAxis: 0}]`, axe `category` `["Jan","Feb"]`,
+  données `[["Jan",42]]` ; `z` + `stack` : 2 séries empilées `boundaryGap: true`,
+  `yMin: 0` ; `barX` : axes inversés (`xAxis: value`, `yAxis: category`) et données
+  `[[20,"Jan"]]`. Build docd 0 erreur, `q-chart` + `aria-label` dans le prerender,
+  ECharts bundlé en chunks, `diagnostics` 0 erreur, `bun test packages/ui/lib` 41/41.
+
+> **Suivi (même jour)** : l'API `Plot.*` décrite ci-dessus a été **remplacée** par des
+> marks littéraux `{ type: 'line', … }` — voir l'entrée « QChart : marks = objets
+> littéraux » plus bas.
+
+## Doc : « Charts » promu en section de premier niveau (2026-09-14)
+
+tag: `decisions` — `namespace: dnax.ui` — `worktree: /Volumes/D/PKG/dnax.ui` —
+`filename: docd/content/docs/5.charts/`
+
+Demande : « C'est mieux de sortir charts du menu Components et créer un menu spécial
+Charts avec ses sous-items Line, Bar, comme pour Styles. »
+
+- Le menu de docd est **piloté par la structure des dossiers** (pas de config de
+  navigation) : un dossier de premier niveau sous `docd/content/docs/` = une section
+  dans la barre latérale ; le préfixe numérique `N.` donne l'**ordre** et est **retiré
+  de la route** ; `.navigation.yml` (`title`, `icon`) fournit titre + icône.
+- Move : `4.components/charts/` → **`5.charts/`** (garde son `.navigation.yml`
+  `title: Charts` / `icon: lucide:chart-line` et son `index.md`), puis renumérotation
+  `5.plugins` → `6.plugins` et `6.directives` → `7.directives` (sans impact sur les
+  routes, le préfixe étant ignoré).
+- Routes : `/docs/charts`, `/docs/charts/line`, `/docs/charts/bar` (les anciennes
+  `/docs/components/charts/*` disparaissent). Liens internes mis à jour dans
+  `5.charts/index.md` et `5.charts/2.bar.md`.
+- Ordre final de la barre latérale : Getting Started, Layouts, Styles, **Components,
+  Charts**, Plugins, Directives.
+- Vérif : `bun run generate` → EXIT 0, **459 routes prerendues**, 0 `[404]`/`[500]` ;
+  routes `charts{,/line,/bar}` présentes et anciennes absentes du log ; HTML de
+  `/docs/charts` relu → entrée `Charts` (icône `chart-line`) entre `Components` et
+  `Plugins`.
+
+## QChart : marks = objets littéraux `{ type, … }` (fin de l'API Plot) — 2026-09-14
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/lib/chart.ts`
+
+Demande : « je veux pas de plot dans marks. On doit avoir par exemple `[{type:'line'}]`
+et les autres éléments. »
+
+- **Une marque est un objet littéral plat** : `{ type, data, x, y, fill, … }`. Fini
+  les fabriques `Plot.lineY(data, { … })` et le namespace `Plot` (supprimés, avec
+  `barY/barX/lineY/lineX/areaY/areaX/dot/ruleY/ruleX/text`). Rien à importer pour
+  écrire un graphique.
+- **`lib/plot.ts` → `lib/chart.ts`** (renommage) : `plotToECharts` →`chartToECharts`,
+  types `PlotMark/PlotAxis/PlotChannel/PlotChartConfig` → `QChartMark/QChartAxis/
+QChartChannel/QChartConfig` (+ `QChartMarkType`, `QChartOrientation`, `COLOR_TOKENS`).
+- **Types de marques** : `line`, `area`, `bar`, `dot`, `text`, `rule` (l'orientation
+  n'est plus dans le nom du type). `orientation: 'horizontal'` inverse les axes ; les
+  canaux gardent le **même sens** (`x` = abscisse/catégorie, `y` = mesure) — c'était
+  l'inverse avant (`barX` attendait la mesure en `x`), d'où un axe catégorie perdu en
+  horizontal. `{ type: 'rule', y: [0] }` = repère horizontal, `{ y: … }` absent →
+  repère vertical sur `x`.
+- **Couleurs** : `COLOR_TOKENS` = `primary secondary accent info positive warning
+negative dark`. `QChart` relit ces 8 tokens sur l'élément (`getComputedStyle`) et
+  les passe à `chartToECharts({ tokens })` → `stroke: 'primary'` donne la couleur du
+  **thème hôte** (avant, la chaîne `'primary'` partait telle quelle dans ECharts,
+  qui ne sait pas la résoudre : les couleurs des séries étaient perdues). Repli
+  `TOKEN_FALLBACKS` si l'hôte ne définit pas le token.
+- **Canal couleur** : ordre de résolution désormais **token → champ de données →
+  couleur littérale** (avant : « ressemble à une couleur » → traité comme un nom de
+  champ, donc `stroke: 'primary'` renvoyait `undefined` sur des lignes objets).
+  Un champ de données donne une couleur **par point**.
+- **Vérif** : `chartToECharts` exercé hors navigateur (line+dot+rule, `z`+`stack`,
+  horizontal, repli de tokens, couleurs par point, primitives, `text`, `area`) →
+  options conformes ; `bun test packages/ui/lib` 41/41 ; build docd EXIT 0.
+
+## QChart : style de l'info-bulle « carte de verre » — 2026-09-14
+
+tag: `decisions` — `filename: packages/ui/lib/chart.ts`
+
+Demande : appliquer un style d'info-bulle translucide (`backgroundColor: rgba(255,
+255,255,.7)`, `textStyle #333`, bordure `rgba(0,0,0,.1)`, `border-radius: 3px`,
+`backdrop-filter: blur(10px)`, ombre `0 4px 20px rgba(0,0,0,.1)`, `padding: 8px 12px`).
+
+- Le _style_ est repris tel quel via `tooltipStyle(theme)` : `borderWidth: 1`, les
+  `extraCssText` (blur + `-webkit-` + radius + shadow + padding), et les couleurs
+  fournies en **repli** (`#333`, `rgba(0,0,0,.1)`).
+- **Couleurs rendues dépendantes du thème** : fond
+  `color-mix(in srgb, var(--card, #ffffff) 70%, transparent)` — `var()` est résolu au
+  calcul sur le nœud DOM de la bulle (ECharts écrit la chaîne telle quelle dans
+  `style.backgroundColor`), donc le mode sombre suit sans parsing de `oklch()` en JS ;
+  bordure = `theme.grid` (`--border`), texte = `theme.text` (`--foreground`).
+- **`trigger: 'axis'` conservé** (le snippet proposait `'item'`) : avec plusieurs
+  séries / `z`, l'axe montre toutes les séries d'une catégorie. Passer à `'item'` =
+  une ligne (`trigger`), ou surcharge complète via la prop `options`.
+- Vérif : options générées relues hors navigateur (avec/sans thème, `tooltip: false`)
+  ; `bun test packages/ui/lib` 41/41 ; build docd EXIT 0, 0 `[404]`/`[500]`.
+
+## Skill `echarts` — référence ECharts pour les agents — 2026-09-14
+
+tag: `decisions` — `filename: .agents/skills/echarts/SKILL.md`
+
+Demande : « écris-moi le skill de echarts » (https://echarts.apache.org/en/index.html).
+
+- Fichier de 370 lignes (frontmatter `name` + `description` riches, puis 8 sections) :
+  1. le **contrat dnax.ui** (fichiers, API de `<q-chart>`, marks littéraux, 6 règles d'or) ;
+  2. l'**import tree-shaké** (`echarts/core` + `use([...])` **avant** `init()`) avec ce qui
+     est déjà enregistré et un tableau « besoin → import à ajouter » ;
+  3. la table **marque → série ECharts** produite par `chartToECharts` ;
+  4. le cycle de vie (`init`/`setOption`/`resize`/`dispose`/`setTheme`) ;
+  5. sept **recettes** (nouvelle marque, famille hors axes, option ponctuelle, événement,
+     export image, aria, SVG) ;
+  6. dix **pièges** ; 7. la **méthode de vérification** ; 8. les **ressources**.
+- Choix : documenter l'**API réelle du projet** (marks littéraux, tokens, `notMerge`,
+  MutationObserver de thème) plutôt qu'un tutoriel ECharts générique, et renvoyer vers
+  l'**index Markdown officiel `https://echarts.apache.org/en/llms.txt`**
+  (`llms-documents/option-parts/option.series-bar.md`, `api-parts/api.echartsInstance.md`…)
+  — bien plus court et fiable que le site HTML pour un agent.
+- Les faits d'API cités viennent de la doc officielle relue (handbook import/SSR/aria/
+  canvas-vs-svg/dataset/event/chart-size, guide de migration v5→v6, `api.echarts.md`,
+  `api.echartsInstance.md`) : `init(dom, theme?, opts?)`, `use()` avant `init()`,
+  `setOption(option, { notMerge, replaceMerge, lazyUpdate, silent })`, `setTheme()` (v6),
+  `getDataURL({ type: 'png'|'jpg'|'svg', pixelRatio, backgroundColor })`, `on(evt, query, h)`,
+  `dispatchAction`, `getZr()`, `AriaComponent` + `aria.show`, `renderToSVGString()`
+  (SSR, `ssr: true` + `renderer: 'svg'` + taille obligatoire).
+- Point de vigilance v6 consigné : **thème par défaut changé** et **légende par défaut
+  en bas** → notre traducteur fixe `legend.top/left`, à ne pas retirer.
+- `.agents/` est **gitignoré** (`.gitignore`) : le skill reste local, non versionné.
+- Reste : `name: echarts-skill` alors que les autres skills ont `name` = nom du dossier
+  (`danxui`, `quasar`, `shadcnvue`) — harmonisable en `echarts`.
+- Vérif : frontmatter parsé avec `yaml` (cf. avertissement `: ` → YAML invalide) ;
+  `grep -c '^```'` pair (blocs de code tous fermés) ; 8 sections.
+
+## QChart : palette de séries en tokens `--chart-N` — 2026-09-14
+
+tag: `decisions` — `filename: packages/ui/lib/chart.ts`, `packages/ui/styles/main.css`
+
+Bug remonté : « en dark et light, quand je survole un chart line, on ne voit plus la
+line » (cf. l'avertissement « un token de SURFACE n'est pas une couleur de série »).
+
+- **La palette** (`DEFAULT_COLORS`, utilisée par les marks sans couleur et par le canal
+  `z`) n'est plus `primary/secondary/accent/info/positive/warning` mais
+  **`chart-1 … chart-6`** : convention `--chart-N` de shadcn, définie par les thèmes de
+  `docd` **et** désormais par dnax (`styles/main.css`, `@layer dnax-tokens`, valeurs de
+  la palette Material). Un hôte qui définit `--chart-N` pilote donc les séries ; sinon
+  les valeurs Material servent de repli (`TOKEN_FALLBACKS`).
+- **`COLOR_TOKENS`** (tokens relus par `QChart`) = `primary`, `info`, `positive`,
+  `warning`, `negative`, `dark`, `chart-1…6` — **`secondary` et `accent` en sont exclus** :
+  chez un hôte shadcn-vue ce sont des **surfaces** (`--secondary` ≈ blanc en clair, ≈ noir
+  en sombre), pas des couleurs ; une série de leur couleur serait invisible. Ils gardent
+  la valeur Material de dnax (teal / violet) et restent utilisables dans `stroke`/`fill`.
+- Conséquence assumée : dans `docd`, `<q-btn color="secondary">` prend la surface du thème
+  Docd (gris clair) alors qu'un `stroke: 'secondary'` de graphique prend le teal Material.
+  C'est le prix du conflit de noms ; la recommandation documentée est d'utiliser
+  **`primary`** (couleur de marque chez les deux) ou **`chart-N`** (couleurs de séries).
+- Doc mise à jour : `5.charts/1.line.md` gagne une section **Series colors** (table des
+  tokens), `2.bar.md` renvoie à la palette, la démo `DnaxDemoChart` passe la 2ᵉ courbe à
+  `stroke: 'chart-2'`.
+- Vérif : `chartToECharts` exercé hors navigateur avec un **hôte hostile** (`secondary` =
+  `oklch(96.7%…)`) → `primary` suit l'hôte, `secondary` = `#26a69a`, `chart-2` suit
+  l'hôte, `chart-3` non défini retombe sur `#9c27b0`, palette auto = `--chart-1/-2` de
+  l'hôte ; `bun test packages/ui/lib` 41/41 ; build docd EXIT 0.
+
+## Doc : la page d'accueil `5.charts/index.md` documente `<q-chart>` — 2026-09-14
+
+tag: `decisions` — `filename: docd/content/docs/5.charts/index.md`
+
+Demande : « c'est ici que tu dois parler de q-chart et de l'API QChart (marks) avec les
+props `options` » — la page d'index ne contenait qu'un « Charts. » + deux liens.
+
+- La page est devenue la **vue d'ensemble du composant** : lead (marks = données, pas
+  d'arbre de composants, rendu canvas client-only) + démo live, table des **marks**,
+  canaux (3 formes), table des **props** (`marks`, `x`/`y`, `height`, `title`, `colors`,
+  `legend`, `tooltip`, `options`), événement `ready` / `chart` / `refresh()`,
+  section « The `options` escape hatch » (`options` fusionné **en dernier**, exemple
+  `dataZoom`, callout `warning` sur les modules ECharts à enregistrer), `:dnax-api`,
+  puis deux `::prose-card` vers Line et Bar.
+- Callout important : les props `x`/`y`/`title` configurent le **graphique** (axes, titre)
+  alors que, dans une marque, `x`/`y`/`title` sont des **canaux** (mapping, info-bulle).
+- Nouvelle démo `demo="overview"` dans `DnaxDemoChart.vue` (bar + line + rule, trois
+  marques qui se superposent) — les pages Line et Bar gardent leurs démos dédiées.
+- Vérif : `bun run generate` → EXIT 0, 0 `[404]`/`[500]` ; HTML relu : h2 Marks/Props/
+  « The options escape hatch »/API/Chart types, table des props (`QChartMark[]`,
+  `--chart-1…6`, « Raw ECharts options »), 2 callouts, 4 cartes, canvas `q-chart` présent.
+
+## QChart : normalisation des couleurs relues sur le DOM — 2026-09-14
+
+tag: `decisions` — `filename: packages/ui/components/QChart.vue`, `packages/ui/lib/chart.ts`
+
+Suite du bug « au survol l'élément disparaît » (cf. l'avertissement « zrender ne sait pas
+relire `oklch()` ») :
+
+- `QChart.vue` expose `normalizeColor(value)` — un canvas 2D mémoïsé convertit **toute**
+  couleur CSS (`oklch()`, `color-mix()`, `rgb(0 0 0 / .5)`) en `#rrggbb`/`rgba()`, la forme
+  que le parseur de zrender accepte (deux sentinelles `#010203`/`#040506` pour détecter une
+  valeur invalide). `themeOf()` l'applique aux 3 couleurs de thème et à chaque token.
+- `chartToECharts` reçoit `normalizeColor` (optionnel) et l'applique à **toutes** les
+  couleurs qu'il écrit : tokens résolus, palette (`DEFAULT_COLORS`/`colors`), couleurs
+  littérales des marks (`stroke: 'oklch(…)'`), axes/labels/grille, `markLine`. Hors
+  navigateur l'option est absente → couleurs telles quelles (SSR et tests inchangés).
+- Effet : au survol ECharts reçoit de nouveau une couleur qu'il peut éclaircir
+  (`liftColor` → +10 %) → la barre/la ligne reste visible et se met en valeur.
+- Vérif : stub de normalisation en bun → série, palette, littéraux et thème normalisés ;
+  sans normalizer → valeurs brutes (non-régression) ; `liftColor('oklch(…)')` = `undefined`
+  vs `liftColor('#123456')` = `rgba(19,57,94,1)` ; `bun test packages/ui/lib` 41/41 ;
+  build docd EXIT 0, 0 `[404]`/`[500]`.
+
+## Doc : page « Rule » (repères) + sémantique horizontale par défaut — 2026-09-14
+
+tag: `decisions` — `filename: docd/content/docs/5.charts/3.rule.md`,
+`packages/ui/lib/chart.ts`
+
+Demande : « après Line, Bar écris la page charts “rule” ».
+
+- **Nouvelle page `3.rule.md`** (route `/docs/charts/rule` ; ordre de la barre latérale
+  Line → Bar → Rule, donné par les préfixes numériques) : lead (« un `rule` n'est pas une
+  série » — dessiné au-dessus des autres marques, absent de la légende), démo live
+  `demo="rule"`, formes horizontales (`y: 50`, `y: [0, 25, 50]`, `data: [...]`),
+  verticales (`x: [0]`, **nom de catégorie** `x: ['Apr']`), table de style (`stroke`,
+  `strokeWidth`, clés ignorées), `:dnax-api{name="QChart"}`.
+- Carte « Rule » ajoutée aux cartes _Chart types_ de `index.md` (`lucide:minus`).
+- **Sémantique clarifiée** dans `chartToECharts` :
+  `vertical = m.x !== undefined && m.y === undefined`. Un repère est donc **horizontal
+  par défaut** (valeurs sur l'axe Y, comme `Plot.ruleY`) au lieu de `m.y === undefined`,
+  qui rendait `{ type: 'rule', data: [25] }` vertical par accident. Aucun usage existant
+  n'en dépendait (toutes les occurrences du repo passent `y` explicitement).
+- `strokeWidth` est maintenant appliqué aux repères (canal partagé qui était ignoré).
+- Vérif hors navigateur : options produites pour les 7 formes (`y` scalaire/tableau,
+  `data`, `x` index/catégorie, `stroke` + `strokeWidth`) ; **rendu SVG** (`ssr: true`) :
+  repère horizontal y=50 tracé à `M29.4 74.5` (axe 0→80 → correct) et repère vertical
+  `x: ['Apr']` à `x=178`, soit le centre de la bande d'avril (centres de bandes =
+  29.4 + (i+0.5)×42.4) → ECharts **résout bien le nom de catégorie** ; `bun test
+`packages/ui/lib`41/41 ; build docd EXIT 0,`/docs/charts/rule` prerendue, ordre
+  Line → Bar → Rule et 3 cartes confirmés dans le HTML.
+
+## Doc : page « Dot » (nuages de points & bulles) — 2026-09-14
+
+tag: `decisions` — `filename: docd/content/docs/5.charts/4.dot.md`,
+`packages/ui/lib/chart.ts`
+
+Demande : « Fait type “dot” » avec la référence https://observablehq.com/plot/marks/dot
+(la page Plot est derrière un checkpoint Vercel — API reprise de la connaissance de Plot :
+`x`, `y`, `r`, `fill`, `stroke`, `strokeWidth`, `symbol`, `title`, `z`).
+
+- **Nouvelle page `4.dot.md`** (route `/docs/charts/dot` ; ordre Line → Bar → Rule → Dot) :
+  lead (un point par ligne, deux axes de valeurs, info-bulle par point), démo
+  `demo="dot"` (graphique à bulles), sections _Radius — bubbles_, _Colour and outline_,
+  _Shape_, _Tooltips_, `:dnax-api{name="QChart"}`.
+- **Mark `dot` enrichi** dans `chartToECharts`, aligné sur Plot :
+  - `r` devient **par point** (`item.symbolSize`, `r * 2 + 2`) quand c'est un canal →
+    graphique à bulles (avant : le rayon était lu sur le premier point du groupe) ;
+  - `symbol` (nouveau) : forme des points (`circle` par défaut, `rect`, `triangle`,
+    `diamond`, `pin`, `none`…) ;
+  - `fill` = remplissage, `stroke` + `strokeWidth` = **contour** — appliqué seulement si
+    `fill` est aussi donné ; un `stroke` seul continue de colorer le point
+    (rétrocompatible : aucun usage existant de `stroke` sur un `dot`) ;
+  - `title` par point alimente l'info-bulle.
+- **Info-bulle** : `trigger` = `'axis'` dès qu'une série `line`/`bar` existe, sinon
+  `'item'`. Sans cette règle, un graphique de points restait en `axis` et le `title` par
+  point n'était jamais affiché.
+- Carte « Dot » (`lucide:chart-scatter`) ajoutée à l'index ; tables des marks mises à jour
+  (`index.md`, `1.line.md`).
+- Vérif hors navigateur : options produites (bulles `symbolSize` 18 puis 30, `symbol:
+diamond`, `borderColor`/`borderWidth`, `stroke` seul → couleur du point, `trigger`
+  selon les séries : points → `item`, avec ligne/barre → `axis`) ; `bun test
+packages/ui/lib` 41/41 ; build docd EXIT 0, `/docs/charts/dot` prerendue, ordre
+  Line → Bar → Rule → Dot et 4 cartes confirmés dans le HTML.
+
+## Doc : page « Image » (une image par point) — 2026-09-14
+
+tag: `decisions` — `filename: docd/content/docs/5.charts/5.image.md`,
+`packages/ui/lib/chart.ts`
+
+Demande : « tu fais “image” » avec la référence https://observablehq.github.io/plot/marks/image
+(page accessible, contrairement à observablehq.com).
+
+- **Nouvelle marque `image`** : `{ type: 'image', data, x, y, src, width, height, r,
+rotate, title }` → série `scatter` avec `symbol: 'image://<url>'`,
+  `symbolKeepAspect: true`, `symbolSize: [w, h]` (défaut 16, ou `2r`), `symbolRotate`,
+  `opacity` par défaut à **1** (les 0.8 par défaut de `scatter` délavaient les images).
+- Règles reprises de Plot : `src` est **constante** si elle commence par `.`, `/` ou un
+  protocole, sinon c'est un **canal** (un champ de données → une image par point) ;
+  `width` xor `height` → l'autre suit ; taille ≤ 0 → non dessiné ; `r` = raccourci carré.
+- **Écart assumé avec Plot** : `r` ne découpe **pas** l'image en cercle. ECharts ne sait
+  pas clipper un symbole ; la voie pattern (`symbol: 'circle'` +
+  `itemStyle.color.image`) a été essayée et échoue (zrender exige une position/taille
+  explicites par point, que l'option ne connaît pas : erreur « Image width/height must
+  been given explictly in svg-ssr renderer »). Documenté : utiliser une image déjà ronde.
+  Idem `preserveAspectRatio`/`imageRendering` : sans équivalent.
+- Sécurité du survol : `createSymbol` passe par `graphic.makeImage` qui produit un
+  **`ZRImage`** (et non un `Path`) — `createEmphasisDefaultState` (`states.js`) ne
+  s'applique qu'aux `Path` → pas de `liftColor` sur les images, donc pas de risque de
+  disparition au survol (contrairement aux séries colorées).
+- Démo `demo="image"` : **5 photos Unsplash** fournies par l'utilisateur (ids conservés).
+  Les URLs sont livrées en **carré 200×200 centré sur les visages**
+  (`?q=80&w=200&h=200&fit=crop&crop=faces&auto=format`) au lieu du `w=1470` d'origine :
+  une page de doc ne doit pas charger plusieurs Mo pour des vignettes de 44 px.
+  Vérifié en HTTP : les 5 répondent `200 image/jpeg`, ~9–11 Ko, **200×200** (donc pas de
+  letterboxing, l'aspect étant préservé par `symbolKeepAspect`). Une des photos vit sur
+  `plus.unsplash.com` (premium) → URL complète dans la démo, les autres via un helper
+  `photo(id)`. Le carré servi est aussi le conseil donné dans la page (_Size_), puisque
+  `symbolKeepAspect` fait tenir l'image dans la boîte au lieu de la rogner.
+- Vérif hors navigateur : `src` en canal → `data[i].symbol` par point et **3 `<image>`**
+  dans le SVG SSR (taille `2 × 2` mise à l'échelle par `matrix(18,0,0,18,…)` = 36 px pour
+  `r: 18`, `symbolKeepAspect` actif) ; `src` constante → `symbol` au niveau de la série ;
+  `width`/`height`/`rotate` appliqués ; `bun test packages/ui/lib` 41/41 ; build docd
+  EXIT 0, `/docs/charts/image` prerendue, ordre Line → Bar → Rule → Dot → Image et
+  5 cartes confirmés.
+
+## Doc : marque `text` (Plot.text) + couleurs oklch normalisées par lecture de pixel — 2026-09-15
+
+tag: `decisions` — `filename: packages/ui/lib/chart.ts`, `packages/ui/lib/color.ts`,
+`docd/content/docs/5.charts/6.text.md`
+
+Demande : « dans charts components ajoute text comme https://observablehq.github.io/plot/marks/text ».
+
+- **Marque `text` complète** (elle existait mais ne dessinait qu'un `label.position: 'top'`
+  sans contenu par défaut) : `text` (canal ; défaut = la ligne si primitive, sinon l'index,
+  comme Plot), `textAnchor` (`start|middle|center|end` → `label.align`) et `lineAnchor`
+  (`top|middle|bottom` → `label.verticalAlign`), **centré par défaut**, `dx`/`dy` (canaux),
+  `fontSize` (11 par défaut, canal), `fontWeight`/`fontFamily`/`fontStyle`/`lineHeight`,
+  `lineWidth` (ems → `width` + `overflow: 'break'`), `textOverflow` (`ellipsis` → « … »,
+  `clip` → coupe net), `rotate` (horaire : **signe inversé**, `label.rotate` d'ECharts est
+  anti-horaire), `fill` = couleur du texte, `fill` + `stroke` + `strokeWidth` (3 par défaut)
+  = **halo** (`label.textBorderColor`), `title` = info-bulle par point.
+- Le point d'ancrage est un symbole `size 1` transparent avec **`itemStyle.opacity: 1`** :
+  sinon le label hérite des 0.8 par défaut d'une série `scatter`
+  (`defaultOpacity` du symbole, `lib/chart/helper/Symbol.js`) et le texte sort délavé.
+- **Données en paires** `[[x, y], …]` quand ni `x` ni `y` n'est donné (raccourci Plot,
+  utile à `text` comme à `dot`/`line`).
+- **Correctif du bug de survol** (voir `.memory/warnings.md`) : `lib/color.ts` peint la
+  couleur sur un canvas 1×1 et relit le pixel (`getImageData`) — `ctx.fillStyle` conservant
+  l'espace colorimétrique, l'ancienne normalisation laissait passer les `oklch()` du thème
+  docd, donc `liftColor()` → `undefined` → marque qui disparaît au survol. Reproduit et
+  vérifié en Chromium headless (barre survolée : `fill="none"` avant, `rgb(255,81,0)` après).
+- Tests : `packages/ui/lib/chart.test.ts` (marque `text`, 13 cas) et `color.test.ts`
+  (6 cas, dont la conservation d'oklch) → **62/62**. Champs `x1/x2/y1/y2` de `QChartMark`
+  supprimés : jamais lus par le traducteur (et retirés des listes de canaux de la doc).
+- Docs : page `6.text.md` (position, ancres, contenu, police, wrap/troncature, couleur et
+  halo, tooltips, écarts avec Plot), démo `demo="text"` (barres étiquetées), `index.md`
+  (ligne + carte), `1.line.md`. Build docd EXIT 0, 475 routes prerendues.
+
+## Doc : l'API de chaque marque en plus de celle de `<q-chart>` — 2026-09-15
+
+tag: `rules` — `filename: packages/ui/lib/chart.ts`, `docd/scripts/mark-parse.ts`,
+`docd/app/components/DnaxMarkApi.vue`
+
+Demande : « chaque mark doit avoir son api et ses options en plus de l'api q-chart comme rappel ».
+
+- **`MARK_OPTIONS`** dans `lib/chart.ts` = **source de vérité** des options acceptées par
+  chaque marque (`line`, `area`, `bar`, `dot`, `image`, `text`, `rule`), contrainte par
+  `satisfies Record<QChartMarkType, readonly (keyof QChartMark)[]>`.
+- `docd/scripts/mark-parse.ts` l'analyse au build (comme `component-parse.ts` pour les SFC)
+  avec le **JSDoc de `QChartMark`** (type + description + valeurs littérales) → export `marks`
+  du module virtuel `#build/dnax-ui-meta.mjs` → `markMeta()` (`useComponentDocs.ts`) →
+  composant **`DnaxMarkApi.vue`**, utilisé dans les pages via `:dnax-mark-api{mark="bar"}`.
+- Chaque page `/docs/charts/<marque>` se termine par **`## <Mark> options`** (Line options,
+  Bar options, Rule options, Dot options, Image options, Text options) suivi de
+  `:dnax-mark-api{mark="<marque>"}`. Précision apportée ensuite : l'API de `<q-chart>`
+  (props/events/methods) est **retirée** des pages de marque — elle ne vit que sur
+  `5.charts/index.md`, avec un lien depuis chaque page.
+- Conséquences : un canal sans JSDoc s'affiche sans description, et une option absente de
+  `MARK_OPTIONS` n'apparaît pas → les deux se mettent à jour **dans `chart.ts`** (aucune
+  table manuelle en markdown à maintenir).

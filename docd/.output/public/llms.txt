@@ -102,6 +102,13 @@
 - [Uploader](http://localhost:3000/raw/docs/components/uploader.md): A file upload zone with thumbnails, a fullscreen preview, count/size limits, filters and custom slots.
 - [Video](http://localhost:3000/raw/docs/components/video.md): A Video.js-powered player for mp4, webm, HLS and YouTube — poster, ratio, placeholder and playback events.
 - [Virtual Scroll](http://localhost:3000/raw/docs/components/virtual-scroll.md): A windowed list renderer that mounts only the visible items — scroll through hundreds of thousands of rows.
+- [Line](http://localhost:3000/raw/docs/charts/line.md): Line chart — QChart driven by literal marks, rendered with ECharts.
+- [Bar](http://localhost:3000/raw/docs/charts/bar.md): Bar chart — QChart driven by literal marks, rendered with ECharts.
+- [Rule](http://localhost:3000/raw/docs/charts/rule.md): Reference lines — the rule mark of QChart, horizontal by default.
+- [Dot](http://localhost:3000/raw/docs/charts/dot.md): Scatter plots and bubble charts — the dot mark of QChart.
+- [Image](http://localhost:3000/raw/docs/charts/image.md): Image marks — one image per row, plotted like dots.
+- [Text](http://localhost:3000/raw/docs/charts/text.md): Text marks — a label at x and y, the QChart equivalent of Plot's text mark.
+- [Charts](http://localhost:3000/raw/docs/charts.md): QChart — declarative charts built from marks and rendered with Apache ECharts.
 - [Bottom Sheet](http://localhost:3000/raw/docs/plugins/bottom-sheet.md): Open a bottom-anchored panel imperatively from code with $q.bottomSheet, with height, rounded, translucent and transition options.
 - [Dialog](http://localhost:3000/raw/docs/plugins/dialog.md): Open a component-based modal dialog imperatively from code with $q.dialog, a chainable controller and OK / Cancel / Dismiss events.
 - [Image Preview](http://localhost:3000/raw/docs/plugins/image-preview.md): Open the fullscreen image viewer imperatively from code with $q.imagePreview and its goTo controller.

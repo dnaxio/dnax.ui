@@ -4,13 +4,23 @@
 //   `modules/dnax-ui-meta.ts` (analyse statique des SFC) → `#build/dnax-ui-meta.mjs`
 import { shallowRef, watchEffect } from "vue"
 import type { ComponentMeta } from "../../scripts/component-parse"
-import componentMetaMap from "#build/dnax-ui-meta.mjs"
+import type { MarkMeta } from "../../scripts/mark-parse"
+import componentMetaMap, { marks as marksMap } from "#build/dnax-ui-meta.mjs"
 
 /** Table des métadonnées par export (ex. "QBtn") — générée au build. */
 const META = componentMetaMap as unknown as Record<string, ComponentMeta | undefined>
 
+/** API des marques de graphique (`lib/chart.ts` → `MARK_OPTIONS`) — générée au build. */
+const MARKS = marksMap as unknown as Record<string, MarkMeta | undefined>
+
 /** Métadonnées statiques d'un composant (slots, events, methods, valeurs de props). */
 export const componentMeta = (exportName: string): ComponentMeta | undefined => META[exportName]
+
+/** Options d'une marque de graphique (`bar`, `line`, `dot`, `image`, `text`, `rule`…). */
+export const markMeta = (type: string): MarkMeta | undefined => MARKS[type]
+
+/** Types de marque documentés, dans l'ordre de `MARK_OPTIONS` */
+export const markTypes = (): string[] => Object.keys(MARKS)
 
 /** Balise kebab-case complète : QBtn → q-btn, QInputPassword → q-input-password */
 export const componentTag = (exportName: string) =>

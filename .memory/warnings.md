@@ -508,3 +508,206 @@ Vérif : CSS du bundle relu (`--q-z-menu:3200`, `z-index:var(--q-z-menu,3200)` s
 `.q-spreadsheet__ctx,.q-spreadsheet__fpop` et `.q-btn-actions__panel`,
 `calc(var(--q-z-menu,3200) + 30)` sur `.q-spreadsheet__fnsug--fx`) ; `bun run
 generate` → 0 erreur.
+
+## Doc : un sous-dossier de section doit avoir un `index.md` — 2026-09-14
+
+`filename: docd/content/docs/4.components/charts/`
+
+**Symptôme** : créer un dossier `charts/` (avec `.navigation.yml` + `1.line.md` +
+`2.bar.md`) sous une section fait **échouer le prerender** :
+
+```
+ERROR [request error] [fatal] [GET] http://localhost/docs/components/charts
+  │ ├── [404] Page not found
+ERROR  Exiting due to prerender errors.
+```
+
+**Cause** : l'entrée de navigation d'un dossier pointe vers **sa propre route**
+(`/docs/components/charts`) et le crawler du prerender la suit ; sans `index.md`,
+aucune page n'existe à cette route → 404 **fatal** (le build s'arrête).
+
+**Correctif** : ajouter `index.md` dans le dossier (il devient la page du groupe) ;
+les pages filles restent dans la barre latérale repliable. Les sections de premier
+niveau existantes ne posaient pas le problème, mais le réflexe vaut pour tout
+nouveau dossier.
+
+## TS : `Array.isArray` ne narrow pas `readonly any[]` — 2026-09-14
+
+`filename: packages/ui/lib/chart.ts`
+
+Dans une union `string | readonly any[] | ((d, i) => any)`, un
+`if (Array.isArray(x)) { … }` laisse `readonly any[]` subsister dans la branche
+**false** (le type predicate de `Array.isArray` est `any[]`) → `row[x]` échoue avec
+« Type 'readonly any[]' cannot be used as an index type ».
+
+**Contournement** : tester la forme objet (`typeof x === "object" && x !== null`) puis
+caster — `const arr = x as readonly any[]` — ce qui retire bien le membre de l'union.
+
+## Doc : les tokens `:root` de dnax.ui écrasaient le thème de l'app hôte — 2026-09-14
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/styles/main.css`
+
+Symptôme : dans la doc (`docd`), des **surfaces violettes** apparaissaient alors que
+le thème Docd est bleu (`.theme-blue`) — barre latérale au survol, entrées de menus,
+états actifs.
+
+**Cause** : `styles/main.css` déclarait la palette Material dans un `:root` **hors
+couche**, et le module `@dnax/ui` fait `nuxt.options.css.push(...)` → la feuille dnax
+est émise **après** celle de l'hôte. `--accent` de dnax vaut `#9c27b0` (accent
+Material = violet), celui du thème Docd vaut `oklch(96.7% .001 286.375)` (gris clair)
+et sert de fond de survol shadcn (`.hover\:bg-accent`) : même spécificité (`:root` vs
+`.theme-*` = 0,1,0), donc **l'ordre source tranche → dnax gagne**. Le piège est
+sémantique en plus d'être un problème de cascade : `--accent` n'a **pas** le même sens
+chez Quasar (couleur d'accent) et chez shadcn (surface de survol) ; idem pour
+`--primary`, `--secondary`, `--muted`, `--border`, `--background`, `--foreground`,
+`--card`.
+
+**Correctif** : envelopper les deux blocs de tokens de couleur (`:root` et le `.dark`
+correspondant) dans **`@layer dnax-tokens`** — une règle hors couche gagne toujours
+sur une règle en couche, quelle que soit la spécificité ou l'ordre d'émission. Le
+thème de l'hôte (Docd/Docus, shadcn-vue…) reprend la main, et dnax reste fonctionnel
+seul (aucune règle concurrente). `color-scheme: dark` est resté **hors** couche.
+
+Diagnostic : `docd/.output/public/_nuxt/entry.*.css`, comparer l'ordre et la couche
+de `:root{--primary:#1976d2` et de `.theme-blue{` (`@layer` n'est pas hérité par un
+simple `rfind('}')` — il faut piler les `{`/`}`).
+
+## SKILL.md : un `:` suivi d'une espace dans le `description` casse le frontmatter — 2026-09-14
+
+tag: `warning` — `filename: .agents/skills/*/SKILL.md`
+
+Un frontmatter de skill écrit en **scalaire YAML non quoté** ne supporte pas la
+séquence `"` + espace (deux-points + espace) : `yaml` lève
+« Nested mappings are not allowed in compact mappings » et **le skill n'est plus
+chargé du tout** (échec silencieux côté éditeur).
+
+```md
+---
+name: echarts-skill
+description: … lib/chart.ts : marks … ← INVALIDE (colonne 14)
+---
+```
+
+**Correctifs possibles** : remplacer par une virgule / un tiret cadratin
+(`lib/chart.ts, marks …`), ou **quoter** la valeur (`description: "…"`, en échappant
+les `"` internes). Vérifier après écriture :
+
+```bash
+cd docd && bun -e 'const fs=require("fs"),YAML=require("yaml");YAML.parse(fs.readFileSync("../.agents/skills/echarts/SKILL.md","utf8").split("---")[1])'
+```
+
+Les autres `:` sont sans danger s'ils ne sont **pas** suivis d'une espace (`https://…`,
+`{ type: 'line' }` dans un bloc de code — le corps du fichier n'est pas du YAML).
+
+## Un token de SURFACE n'est pas une couleur de série (lignes invisibles) — 2026-09-14
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/lib/chart.ts`
+
+Symptôme : « en mode dark et light, quand je survole les charts de type line on ne voit
+plus la line » — la courbe `Cost` du graphe de doc `/docs/charts/line` disparaissait
+(les deux modes), alors que la série était bien listée dans l'info-bulle.
+
+**Cause** : `stroke: 'secondary'` était résolu sur le **thème hôte**. Or chez shadcn-vue
+(et donc dans `docd`, thème `.theme-blue`) `--secondary` est une **surface**, pas une
+couleur — mesuré dans `entry.*.css` :
+
+| token                      | `.theme-blue` (clair)                   | `.theme-blue.dark`                     |
+| -------------------------- | --------------------------------------- | -------------------------------------- |
+| `--background`             | `oklch(100% 0 0)`                       | `oklch(14.1% .005 285.823)`            |
+| `--primary`                | `oklch(62.3% .214 259.815)` (bleu)      | `oklch(54.6% .245 262.881)`            |
+| `--secondary` / `--accent` | `oklch(96.7% .001 286.375)` ≈ **blanc** | `oklch(27.4% .006 286.033)` ≈ **noir** |
+| `--chart-1…5`              | oranges/verts/bleus **vifs**            | idem, adaptés au sombre                |
+
+Une ligne de 2 px avec la couleur du fond est invisible — dans **les deux** modes (d'où
+le fait que ce n'était pas un problème de thème clair/sombre). Même classe de piège que
+l'entrée « tokens `:root` qui écrasaient le thème de l'app hôte » ci-dessus : deux
+systèmes qui donnent le **même nom** à deux concepts différents (`--accent` = couleur
+d'accent chez Quasar, surface de survol chez shadcn).
+
+**Correctif** : `COLOR_TOKENS` (tokens relus sur l'hôte) **exclut** `secondary` et
+`accent` — ils gardent la valeur Material de dnax (`#26a69a`, `#9c27b0`) — et la palette
+des séries utilise les tokens **`--chart-1…6`** (convention shadcn, définie par tous les
+thèmes shadcn _et_ ajoutée à dnax dans `styles/main.css`), donc jamais un nom de surface.
+Règle générale : avant de relire un token hôte comme couleur, vérifier qu'il désigne une
+**couleur** dans les deux systèmes (cf. `.theme-*` construits).
+
+## zrender ne sait pas relire `oklch()` : l'élément SURVOLÉ disparaît — 2026-09-14
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/lib/chart.ts`,
+`packages/ui/components/QChart.vue`
+
+Symptôme (signalé après le premier correctif de couleurs, donc **autre cause**) :
+« au survol d'une chart l'élément disparaît — sur un bar, la bar disparaît, mais le
+tooltip s'affiche ». Lignes **et** barres, en clair **et** en sombre (ce n'est donc ni un
+problème de thème, ni un token de surface).
+
+**Cause** : au survol ECharts applique l'état `emphasis` en **recalculant la couleur** :
+
+```js
+// echarts/lib/util/states.js — createEmphasisDefaultState()
+emphasisStyle.fill = liftColor(fromFill); // barres, points, surfaces
+emphasisStyle.stroke = liftColor(fromStroke); // lignes
+```
+
+Or `liftColor()` s'appuie sur le parseur de couleur de **zrender**, qui ne comprend que
+`#hex`, `rgb(a,b,c)` / `rgba(a,b,c,a)`, `hsl(h,s%,l%)` et les noms CSS. Mesuré :
+
+```
+#f97316                    parse=OK     lift=rgba(255,126,24,1)
+oklch(62.3% .214 259.815)  parse=ÉCHEC  lift=undefined   ← tous les tokens d'un thème shadcn/docd
+rgb(0 0 0 / 0.55)          parse=ÉCHEC  lift=undefined   ← syntaxe moderne espace/slash
+hsl(210 90% 50%)           parse=ÉCHEC  lift=undefined
+color-mix(in srgb,…), var(…)  parse=ÉCHEC  lift=undefined
+```
+
+`lift()` sort par `if (colorArr)` **sans `return`** → `undefined`. L'état `emphasis`
+reçoit alors `fill: undefined` (resp. `stroke: undefined`) ; zrender considère la forme
+sans remplissage (`styleHasFill()` faux) → l'élément survolé n'est plus dessiné.
+
+**Correctif** (⚠️ 2ᵉ passe — la 1ʳᵉ était insuffisante, cf. juste après) : normaliser les
+couleurs **relues sur le DOM** en `#rrggbb`/`rgba()` avant de les donner à ECharts, et les
+appliquer à **toutes** les couleurs de l'option : tokens,
+`--foreground`/`--muted-foreground`/`--border`, palette et couleurs littérales des marks.
+Hors navigateur, `normalizeColor` est absent → couleurs telles quelles (aucun impact SSR).
+
+### ⚠️ `ctx.fillStyle` ne normalise RIEN (le bug est revenu) — 2026-09-15
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/lib/color.ts`,
+`packages/ui/components/QChart.vue`
+
+Symptôme (re-signalé) : « au survol des marks par exemple bar ou line la marque disparaît ».
+
+**Cause racine de la 1ʳᵉ tentative** : la normalisation recopiait `ctx.fillStyle` après
+`ctx.fillStyle = value` pour « sérialiser » la couleur. Or **`fillStyle` conserve l'espace
+colorimétrique** : pour `oklch(64.6% .222 41.116)` (tous les `--chart-N`, `--primary`,
+`--foreground`… de `docd`, mesurés dans `docd/.output/public/_nuxt/entry.*.css`) la
+relecture rend la **même chaîne oklch** → zrender échoue toujours → `liftColor` → `undefined`
+→ la forme survolée n'est plus remplie. Les seules couleurs converties étaient les hex des
+tokens dnax (repli Material), d'où un correctif qui « marchait » sur les démos sans thème.
+
+**Reproduction** (Chromium 149 headless, Playwright `chromium_headless_shell`, tokens oklch
+réels, marque `bar` + `line`, état `emphasis` forcé) :
+
+| normalisation | couleur dans l'option | barre survolée |
+| --- | --- | --- |
+| `fillStyle` recopié | `oklch(0.646 0.222 41.116)` | `fill="none"` → **disparaît** |
+| peinture + pixel | `#f54a00` | `fill="rgb(255,81,0)"` → visible, éclaircie |
+
+**Correctif (retenu)** : `lib/color.ts` — **peindre** la couleur sur un canvas **1×1** puis
+**relire le pixel** (`getImageData`) → `rgbaFromBytes()` → `#rrggbb` (opaque) ou
+`rgba(r, g, b, a)`. Seule conversion indépendante de l'espace colorimétrique et du
+navigateur. Sentinelles conservées pour détecter une couleur invalide, repli sur la
+sérialisation si `getImageData` échoue (canvas illisible), cache par couleur dans `QChart`.
+Vérifié par `lib/color.test.ts` (faux contexte mimant la conservation d'oklch) et par le
+harnais Chromium ci-dessus.
+
+Règle générale : **normaliser une couleur = la peindre et relire le pixel** ; ne jamais
+supposer qu'une API de sérialisation convertit d'espace colorimétrique.
+
+Diagnostic reproductible **sans navigateur** :
+`bun -e` + `import { liftColor } from "…/zrender/lib/tool/color.js"` sur les valeurs des
+tokens (voir tableau ci-dessus) ; et en SVG (`echarts.init(null,null,{renderer:'svg',ssr:true})`
+
+- `dispatchAction({type:'highlight'})`) l'état est visible dans le `<style>` (`:hover`).
+  Règle générale : **une couleur qui traverse une bibliothèque graphique doit être dans une
+  forme que son parseur connaît** ; les tokens CSS modernes ne le sont pas.

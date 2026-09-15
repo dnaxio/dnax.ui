@@ -203,31 +203,66 @@ body {
   border-color: rgb(244 67 54 / 0.4);
 }
 
-/* ===== Tokens de couleur (palette Material façon Quasar) ===== */
-:root {
-  --primary: #1976d2;
-  --primary-foreground: #fff;
-  --secondary: #26a69a;
-  --secondary-foreground: #fff;
-  --accent: #9c27b0;
-  --accent-foreground: #fff;
-  --dark: #1d1d1d;
-  --dark-foreground: #fff;
-  --positive: #21ba45;
-  --positive-foreground: #fff;
-  --negative: #c10015;
-  --negative-foreground: #fff;
-  --info: #31ccec;
-  --info-foreground: #fff;
-  --warning: #f2c037;
-  --warning-foreground: #1d1d1d;
+/* ===== Tokens de couleur (palette Material façon Quasar) =====
+   Déclarés dans `@layer dnax-tokens` : une règle hors couche (le thème de
+   l'application hôte) gagne toujours sur une règle en couche, quelle que soit
+   la spécificité et l'ordre d'émission. Sans cette couche, ce `:root` — émis
+   *après* le CSS de l'hôte — écrasait ses tokens de même nom (`--primary`,
+   `--accent`, `--muted`, `--border`…). C'est ce qui faisait apparaître le
+   violet `--accent: #9c27b0` dans les docs à thème bleu (Docd/Docus).
+   Attention : les noms shadcn n'ont pas le même sens ici (`--accent` = couleur
+   d'accent Material, pas la surface de survol shadcn). */
+@layer dnax-tokens {
+  :root {
+    --primary: #1976d2;
+    --primary-foreground: #fff;
+    --secondary: #26a69a;
+    --secondary-foreground: #fff;
+    --accent: #9c27b0;
+    --accent-foreground: #fff;
+    --dark: #1d1d1d;
+    --dark-foreground: #fff;
+    --positive: #21ba45;
+    --positive-foreground: #fff;
+    --negative: #c10015;
+    --negative-foreground: #fff;
+    --info: #31ccec;
+    --info-foreground: #fff;
+    --warning: #f2c037;
+    --warning-foreground: #1d1d1d;
 
-  /* Tokens sémantiques (utilisés par le mode sombre) */
-  --background: #ffffff;
-  --foreground: #1d1d1d;
-  --card: #ffffff;
-  --muted: #f4f6f9;
-  --border: rgb(0 0 0 / 0.12);
+    /* Tokens sémantiques (utilisés par le mode sombre) */
+    --background: #ffffff;
+    --foreground: #1d1d1d;
+    --card: #ffffff;
+    --muted: #f4f6f9;
+    --border: rgb(0 0 0 / 0.12);
+
+    /* Palette des séries de <q-chart> (convention `--chart-N`, reprise de shadcn) :
+       ce sont les SEULES couleurs de la palette Material à être faites pour ça —
+       `--secondary` et `--accent` sont des surfaces chez shadcn-vue, pas des
+       couleurs de série (une ligne de leur couleur serait invisible). */
+    --chart-1: #1976d2;
+    --chart-2: #26a69a;
+    --chart-3: #9c27b0;
+    --chart-4: #31ccec;
+    --chart-5: #21ba45;
+    --chart-6: #f2c037;
+  }
+
+  /* Mode sombre : mêmes règles de priorité que ci-dessus. */
+  .dark {
+    --background: #0f1115;
+    --foreground: #e6edf3;
+    --card: #161b22;
+    --muted: #1c2128;
+    --border: rgb(255 255 255 / 0.12);
+    --q-table-border: rgb(255 255 255 / 0.12);
+    --q-table-header-bg: rgb(255 255 255 / 0.04);
+    --q-table-hover-bg: rgb(255 255 255 / 0.06);
+    --q-sidebar-border: rgb(255 255 255 / 0.12);
+    --q-translucent-bg: #0f1115;
+  }
 }
 
 /* ===== Mode sombre (QConfigProvider mode="dark" | "system") =====
@@ -235,16 +270,6 @@ body {
    Les overlays téléportés au body (dialog, sheets) sont couverts via html.dark. */
 .dark {
   color-scheme: dark;
-  --background: #0f1115;
-  --foreground: #e6edf3;
-  --card: #161b22;
-  --muted: #1c2128;
-  --border: rgb(255 255 255 / 0.12);
-  --q-table-border: rgb(255 255 255 / 0.12);
-  --q-table-header-bg: rgb(255 255 255 / 0.04);
-  --q-table-hover-bg: rgb(255 255 255 / 0.06);
-  --q-sidebar-border: rgb(255 255 255 / 0.12);
-  --q-translucent-bg: #0f1115;
 }
 
 /* Surface de base : le conteneur et la page (html.dark body) */
