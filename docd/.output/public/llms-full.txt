@@ -15257,14 +15257,17 @@ theme, so the chart follows it (light/dark included).
 
 ### Marks
 
-| `type` | Rendering                                                                                        |
-| ------ | ------------------------------------------------------------------------------------------------ |
-| `line` | Line through the points                                                                          |
-| `area` | Line with a filled surface underneath                                                            |
-| `bar`  | Bars                                                                                             |
-| `dot`  | Points (`r` sets the radius — a channel gives a bubble chart)                                    |
-| `text` | Labels at `x` / `y` (`text` is the content) — see [Text](http://localhost:3000/docs/charts/text) |
-| `rule` | Reference line (`{ type: 'rule', y: [0] }`)                                                      |
+| `type`    | Rendering                                                                                                               |
+| --------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `line`    | Line through the points                                                                                                 |
+| `area`    | Line with a filled surface underneath (the mark's colour, 18 % opacity)                                                 |
+| `bar`     | Bars                                                                                                                    |
+| `dot`     | Points (`r` sets the radius — a channel gives a bubble chart) — see [Dot](http://localhost:3000/docs/charts/dot)        |
+| `text`    | Labels at `x` / `y` (`text` is the content) — see [Text](http://localhost:3000/docs/charts/text)                        |
+| `image`   | One image per row (`src` is required, `round: true` for circles) — see [Image](http://localhost:3000/docs/charts/image) |
+| `rule`    | Reference line (`{ type: 'rule', y: [0] }`) — see [Rule](http://localhost:3000/docs/charts/rule)                        |
+| `pie`     | Pie / donut, off the axes — see [Pie](http://localhost:3000/docs/charts/pie)                                            |
+| `heatmap` | A value per cell over two category axes — see [Heatmap](http://localhost:3000/docs/charts/heatmap)                      |
 
 Every mark takes its own `data` (an array of rows, or of plain values). Set
 `orientation: 'horizontal'` on a mark to flip the axes — categories then run along
@@ -15292,6 +15295,19 @@ A &#x2A;*`line`** mark takes the options below (a mark is a plain object — not
 Other marks are listed on the [Charts](http://localhost:3000/docs/charts) overview.
 
 :dnax-mark-api{mark="line"}
+
+### `area`
+
+An &#x2A;*`area`** mark draws the same line **with a filled surface underneath**. The surface
+takes the mark's own colour (`stroke`) at **18 % opacity** — enough to stack a few series
+without hiding them — while `fill` is only accepted as a fallback colour and `opacity`
+applies to the line:
+
+```ts
+{ type: 'area', data: monthly, x: 'month', y: 'revenue', stroke: 'primary', name: 'Revenue' }
+```
+
+:dnax-mark-api{mark="area"}
 
 
 # Bar
@@ -15491,8 +15507,8 @@ const campaigns = [
 
 ### Tooltips
 
-With `title`, hovering a dot shows that value instead of the coordinates — give it a
-field name, explicit values or an accessor. A chart made **only** of dots (or labels) is
+With `title`, hovering a dot shows that value — give it a field name, explicit values or
+an accessor. A chart made **only** of dots (or labels) is
 hovered point by point; as soon as a `line` or a `bar` shares the chart, the tooltip
 switches to the whole axis, as on the [Line](http://localhost:3000/docs/charts/line) page.
 
@@ -15575,10 +15591,70 @@ Any URL the browser can load works — `https://…`, a relative path, an object
 
 The aspect ratio is preserved: the image is fitted inside the box rather than stretched,
 so **serve a square crop** when the box is square (Unsplash/imgix: `&w=200&h=200&fit=crop`),
-otherwise the picture is letterboxed. A size of `0` (or less) hides the image. Unlike
-[Plot](https://observablehq.com/plot/marks/image){rel="&#x22;nofollow&#x22;"}, `r` does **not** clip the image to a
-circle — ECharts cannot clip a symbol to a shape — so use a round source image if you
-want round markers.
+otherwise the picture is letterboxed. A size of `0` (or less) hides the image. `image://`
+does **not** clip the image — for round markers use `round: true`, just below.
+
+### Round markers
+
+`round: true` paints the image **inside a circle** instead of drawing it as a square symbol —
+the avatar look, with an optional ring around it:
+
+::prose-show-case
+:dnax-demo-chart{demo="image-round"}
+
+#code
+```vue
+<script setup lang="ts">
+// Serve the picture **at the marker size**: the image is painted as a pattern at its own
+// size, anchored at the top-left of the marker, so a bigger source would be cropped.
+const avatar = (id: string) =>
+  `https://images.unsplash.com/${id}?q=80&w=44&h=44&fit=crop&crop=faces&auto=format`
+
+const team = [
+  { name: "Amina", experience: 3, score: 4.6, src: avatar("photo-1502323777036-f29e3972d82f") },
+  { name: "Bastien", experience: 6, score: 4.2, src: avatar("photo-1611590027211-b954fd027b51") },
+  { name: "Chloé", experience: 2, score: 4.8, src: avatar("photo-1753381449444-9fe1d1cf5b5b") },
+  { name: "Dan", experience: 9, score: 3.9, src: avatar("photo-…premium…") },
+  { name: "Elif", experience: 5, score: 4.4, src: avatar("photo-1568579569464-f87941549e29") },
+]
+</script>
+
+<template>
+  <q-chart
+    title="Team"
+    :height="260"
+    :x="{ label: 'Experience (years)', min: 0 }"
+    :y="{ label: 'Review score', min: 3 }"
+    :marks="[
+      {
+        type: 'image',
+        data: team,
+        x: 'experience',
+        y: 'score',
+        src: 'src',
+        r: 22,
+        round: true,
+        stroke: 'primary',
+        strokeWidth: 2,
+        title: 'name',
+      },
+    ]"
+  />
+</template>
+```
+::
+
+ECharts cannot clip a symbol to a shape (`image://`), so `round: true` uses the one trick that
+does work: a **pattern fill** (`itemStyle.color.image`) inside a `circle` symbol. Two things
+to know:
+
+|                                        |                                                                                                                                                                                                                         |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Serve the image at the marker size** | the pattern is painted at the image's own size, anchored at the marker's top-left corner — a 200 px photo in a 44 px circle shows its top-left 44 px. Resize on the fly (`&w=44&h=44&fit=crop`) and keep it **square**. |
+| The marker stays a **box**             | `r` (or `width` / `height`) sizes that box; an unsquare box becomes an ellipse.                                                                                                                                         |
+
+`stroke` + `strokeWidth` draw the **ring** around the circle (2 px by default); `opacity`,
+`title` and `rotate` behave as for a plain image.
 
 Images are loaded **asynchronously**: on the first paint the boxes can be empty for a few
 frames. They are drawn in input order — sort the data if overlapping images must be
@@ -15725,8 +15801,8 @@ Plot's `-start` / `-middle` variants have no ECharts equivalent and fall back to
 
 ### Tooltips
 
-With `title`, hovering a label shows that value instead of the coordinates — give it a field
-name, explicit values or an accessor. A chart made **only** of labels (or dots) is hovered
+With `title`, hovering a label shows that value — give it a field name, explicit values or
+an accessor. A chart made **only** of labels (or dots) is hovered
 label by label; as soon as a `line` or a `bar` shares the chart, the tooltip switches to the
 whole axis, as on the [Line](http://localhost:3000/docs/charts/line) page.
 
@@ -15746,6 +15822,438 @@ A &#x2A;*`text`** mark takes the options below (a mark is a plain object — not
 Other marks are listed on the [Charts](http://localhost:3000/docs/charts) overview.
 
 :dnax-mark-api{mark="text"}
+
+
+# Pie
+
+**`{ type: 'pie' }`** draws **one slice per row** — `x` is the label of the slice and `y` its
+value (the same mapping as `bar`, but a slice instead of a bar). Give `innerRadius` and it
+becomes a **donut**:
+
+::prose-show-case
+:dnax-demo-chart{demo="pie"}
+
+#code
+```vue
+<script setup lang="ts">
+const share = [
+  { channel: "Online", revenue: 62 },
+  { channel: "Store", revenue: 41 },
+  { channel: "Partners", revenue: 27 },
+  { channel: "Other", revenue: 12 },
+]
+</script>
+
+<template>
+  <!-- 1. No `radius`: the default pie (70 % of the container) -->
+  <q-chart
+    :height="230"
+    :marks="[
+      { type: 'pie', data: share, x: 'channel', y: 'revenue', labels: 'name-percent', name: 'Revenue' },
+    ]"
+  />
+
+  <!-- 2. `radius` as a percentage: the same pie, more compact -->
+  <q-chart
+    :height="230"
+    :marks="[
+      { type: 'pie', data: share, x: 'channel', y: 'revenue', radius: '45%', labels: 'percent' },
+    ]"
+  />
+
+  <!-- 3. `radius` in pixels + `innerRadius`: a 180 px donut -->
+  <q-chart
+    :height="230"
+    :marks="[
+      {
+        type: 'pie',
+        data: share,
+        x: 'channel',
+        y: 'revenue',
+        radius: 90,
+        innerRadius: 55,
+        labels: false,
+      },
+    ]"
+  />
+```
+::
+
+### Position — off the axes
+
+A pie is **not laid out on the axes**: the mark brings no `grid`, no `xAxis`, no `yAxis`
+(they only appear when a `line`, a `bar` or a `dot` shares the chart). `x` is the slice
+label and `y` its value; `orientation`, `z` and `stack` do not apply — there is exactly one
+series, and one slice per row.
+
+Slices are ordered as the data is: sort the rows beforehand if the order matters.
+
+### Radius — pie and donut
+
+| Key           | Effect                                                                                        |
+| ------------- | --------------------------------------------------------------------------------------------- |
+| `radius`      | Outer radius — a number (pixels) or a CSS length. `70%` by default.                           |
+| `innerRadius` | Inner radius. Given, the chart becomes a **donut** (`radius: ['50%', '75%']` under the hood). |
+| `startAngle`  | Starting angle in degrees — ECharts' convention: `90` (the default) is 12 o'clock.            |
+
+```ts
+{ type: 'pie', data: rows, x: 'label', y: 'value' }                                  // pie, 70 % by default
+{ type: 'pie', data: rows, x: 'label', y: 'value', radius: '45%' }                   // more compact
+{ type: 'pie', data: rows, x: 'label', y: 'value', radius: 90 }                      // 90 px radius
+{ type: 'pie', data: rows, x: 'label', y: 'value', innerRadius: '50%' }              // donut
+{ type: 'pie', data: rows, x: 'label', y: 'value', radius: 90, innerRadius: 55 }     // 180 px donut
+{ type: 'pie', data: rows, x: 'label', y: 'value', startAngle: 180 }                 // starts at 9 o'clock
+```
+
+The demo above shows three of them — no `radius`, a percentage radius and a pixel radius
+with an inner radius.
+
+### Labels
+
+`labels` picks what the slice labels show — they are drawn **outside** the pie, with a
+leader line, and coloured like their slice:
+
+| `labels`                     | Rendered                                |
+| ---------------------------- | --------------------------------------- |
+| `name&#x60; &#x2A;(default)* | The slice label (`{b}`)                 |
+| `value`                      | The value (`{c}`)                       |
+| `percent`                    | The slice's share of the total (`{d}%`) |
+| `name-value`                 | `Online: 62`                            |
+| `name-percent`               | `Online 43.7%`                          |
+| `false`                      | No label, no leader line                |
+
+With many slices the labels overlap — ECharts hides the ones that do not fit, or use
+`labels: false` and keep the tooltip alone.
+
+### Colour
+
+Without `fill`, the slices take the **series palette** (`--chart-1…6`), one after the other.
+`fill` colours them:
+
+```ts
+{ type: 'pie', data: rows, x: 'label', y: 'value', fill: ['primary', 'chart-2', 'chart-3'] }
+{ type: 'pie', data: rows, x: 'label', y: 'value', fill: 'region' }   // a channel: one colour per row
+```
+
+A **constant** `fill` gives every slice the same colour — use a channel (a field, values, or
+an accessor) for one colour per slice. `opacity` applies to all of them.
+
+### Tooltips and legend
+
+With `title`, hovering a slice shows that value (a token, a field, an accessor…).
+A pie is a chart of its own: slices are hovered one by one (never as an axis). Give the mark
+a `name` and the **legend lists the slices**, as on the [Bar](http://localhost:3000/docs/charts/bar) page.
+
+## Pie options
+
+A &#x2A;*`pie`** mark takes the options below (a mark is a plain object — nothing to import).
+Other marks are listed on the [Charts](http://localhost:3000/docs/charts) overview.
+
+:dnax-mark-api{mark="pie"}
+
+
+# Heatmap
+
+**`{ type: 'heatmap' }`** draws **one cell per row**: `x` is the column, `y` the row — both
+are **category axes** — and `fill` is the **value** of the cell, mapped to a colour scale
+(just like the `fill` of a Plot rectangle):
+
+::prose-show-case
+:dnax-demo-chart{demo="heatmap"}
+
+#code
+```vue
+<script setup lang="ts">
+const temps = [
+  { day: "Mon", hour: "9h", temp: 12 },
+  { day: "Mon", hour: "13h", temp: 21 },
+  { day: "Mon", hour: "17h", temp: 19 },
+  { day: "Tue", hour: "9h", temp: 8 },
+  { day: "Tue", hour: "13h", temp: 18 },
+  { day: "Tue", hour: "17h", temp: 23 },
+  { day: "Wed", hour: "9h", temp: 14 },
+  { day: "Wed", hour: "13h", temp: 26 },
+  { day: "Wed", hour: "17h", temp: 30 },
+  { day: "Thu", hour: "9h", temp: 10 },
+  { day: "Thu", hour: "13h", temp: 24 },
+  { day: "Thu", hour: "17h", temp: 27 },
+]
+</script>
+
+<template>
+  <q-chart
+    title="Temperature by hour"
+    :height="260"
+    :x="{ label: 'Hour' }"
+    :y="{ label: 'Day' }"
+    :marks="[
+      {
+        type: 'heatmap',
+        data: temps,
+        x: 'hour',
+        y: 'day',
+        fill: 'temp',
+        labels: true,
+        name: 'Temperature',
+      },
+    ]"
+  />
+</template>
+```
+::
+
+### A grid of categories — both axes
+
+A heat map uses **both axes as categories**: the columns come from `x`, the rows from `y`,
+each in the order the data is read (sort the rows beforehand if the order matters). The
+cells are then laid out automatically, one per `(column, row)` pair.
+
+Two consequences:
+
+- the axes of `<q-chart>` are **replaced** by those categories — giving `x` / `y` a
+  `label` still works, but a `type` (`linear`, `time`…) is ignored;
+- a heat map **cannot share a chart** with a `line`, a `bar` or a `dot`: those need a value
+  axis, which a heat map takes over. Use one chart per heat map.
+
+### The value — `fill`
+
+`fill` holds the cell value, as a channel (a field, explicit values, or an accessor):
+
+```ts
+{ type: 'heatmap', data: rows, x: 'hour', y: 'day', fill: 'temp' }        // a field
+{ type: 'heatmap', data: rows, x: 'hour', y: 'day', fill: (d) => d.c - 273 }  // an accessor
+```
+
+Numbers are mapped to a **colour ramp**: the series palette (`colors`, i.e. `--chart-1…6`)
+between the smallest and the largest value of the mark. A **colour** instead of a number
+(a token like `primary`, or any CSS colour) paints every cell that colour — handy for a
+plain grid, or to layer your own encoding on top.
+
+The scale itself is an ECharts `visualMap` (ECharts requires one for a heat map): it is
+drawn under the chart, with the minimum and the maximum on each side. For a custom ramp,
+a different position, or a range selector, pass it through the escape hatch — it is merged
+**after** the generated one:
+
+```vue
+<q-chart
+  :marks="[{ type: 'heatmap', data: rows, x: 'hour', y: 'day', fill: 'temp' }]"
+  :options="{ visualMap: [{ min: 0, max: 40, inRange: { color: ['#fff', '#c10015'] }, calculable: true }] }"
+/>
+```
+
+Given a constant colour there is nothing to scale, so the `visualMap` is emitted **hidden**
+and the cells keep that colour.
+
+### Labels and tooltips
+
+| Key            | Effect                                                |
+| -------------- | ----------------------------------------------------- |
+| `labels: true` | Prints the value **inside** each cell.                |
+| `title`        | Per-cell tooltip — a channel, to replace the default. |
+| `opacity`      | Applies to the whole grid.                            |
+| `name`         | Series name (legend entry and tooltip).               |
+
+`title` sets the **tooltip** of a cell — a channel of your own (the raw temperature, a
+formatted date, a label…). A chart made of a heat map
+alone is hovered cell by cell — never as an axis.
+
+## Heatmap options
+
+A &#x2A;*`heatmap`** mark takes the options below (a mark is a plain object — nothing to import).
+Other marks are listed on the [Charts](http://localhost:3000/docs/charts) overview.
+
+:dnax-mark-api{mark="heatmap"}
+
+
+# Interaction
+
+Charts rarely live alone: a dashboard shows the same data as bars, as a pie, as a line and
+as dots, and reading one of them should move the others. Give them the same &#x2A;*`group`** and
+they synchronize, without a line of glue code:
+
+::prose-show-case
+:dnax-demo-chart{demo="interaction"}
+
+#code
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+import type { QChartPick } from "@dnax/ui"
+
+const monthly = [
+  { month: "Jan", revenue: 42, cost: 28 },
+  { month: "Feb", revenue: 51, cost: 31 },
+  { month: "Mar", revenue: 47, cost: 30 },
+  { month: "Apr", revenue: 63, cost: 35 },
+]
+
+/** Last clicked element — shared by the four charts */
+const picked = ref<QChartPick | null>(null)
+</script>
+
+<template>
+  <div class="grid">
+    <!-- Bar: the revenue per month -->
+    <q-chart
+      :height="200"
+      group="revenue"
+      :selected="picked"
+      :marks="[{ type: 'bar', data: monthly, x: 'month', y: 'revenue', fill: 'chart-1', name: 'Revenue' }]"
+      @pick="picked = $event"
+    />
+
+    <!-- Pie: the share of each month, with its own legend -->
+    <q-chart
+      :height="210"
+      group="revenue"
+      :selected="picked"
+      :marks="[{ type: 'pie', data: monthly, x: 'month', y: 'revenue', labels: 'percent', name: 'Revenue' }]"
+      @pick="picked = $event"
+    />
+
+    <!-- Line: the cost trend -->
+    <q-chart
+      :height="200"
+      group="revenue"
+      :selected="picked"
+      :marks="[{ type: 'line', data: monthly, x: 'month', y: 'cost', stroke: 'primary', name: 'Cost' }]"
+      @pick="picked = $event"
+    />
+
+    <!-- Dot: the revenue again, point by point -->
+    <q-chart
+      :height="200"
+      group="revenue"
+      :selected="picked"
+      :marks="[{ type: 'dot', data: monthly, x: 'month', y: 'revenue', fill: 'chart-2', r: 5, name: 'Revenue' }]"
+      @pick="picked = $event"
+    />
+  </div>
+</template>
+```
+::
+
+Hover a category in one chart and the others follow (axis pointer and tooltip); click an
+element and it is highlighted in **all four** — the same month in the bar, the slice it
+occupies in the pie, the point on the line, the dot. Four mark types, three props.
+
+## `group` — the link
+
+```vue
+<q-chart group="revenue" :marks="[…]" />
+<q-chart group="revenue" :marks="[…]" />
+```
+
+Charts sharing a `group` are connected through [`echarts.connect()`](https://echarts.apache.org/en/api.html#echarts.connect){rel="&#x22;nofollow&#x22;"},
+which replays the **shareable actions** from one chart onto the others:
+
+| Synchronized          | What it does                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| Axis pointer, tooltip | Hovering a category (or a point) shows the same tooltip position on the other charts |
+| Emphasis              | Highlighting an element (`highlight` / `downplay`) follows                           |
+| Legend                | Toggling a series on or off in one legend toggles it everywhere                      |
+| `dataZoom`            | Panning / zooming (with `DataZoomComponent`) stays aligned                           |
+| `visualMap`           | A selected interval on a colour scale is replayed                                    |
+
+Each chart keeps **its own `marks`, axes and options** — the link only carries the
+interaction, never the data. Charts are connected as long as they are mounted; leaving the
+page (or unmounting a chart) drops it from the group without disturbing the others.
+
+`group` is a plain string: use one per dashboard section (`"revenue"`, `"stores"`…) so two
+independent groups on the same page never talk to each other.
+
+## `@pick` — the click
+
+Every click on an element (bar, point, slice, cell, label) emits a normalized payload:
+
+```vue
+<q-chart :marks="[…]" @pick="onPick" />
+```
+
+```ts
+const onPick = (pick: QChartPick) => {
+  console.log(pick) // { name: 'Feb', value: 51, seriesName: 'Revenue', seriesIndex: 0, … }
+}
+```
+
+| Key                                         | Value                                                                                   |
+| ------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `name`                                      | The datum name — the category on a `band` axis (`Feb`), or the `name` of a slice / cell |
+| `value`                                     | Its value (a number, or `[x, y]` on a cartesian mark)                                   |
+| `seriesName` / `seriesIndex` / `seriesType` | Which series was clicked (its `name`, and the ECharts type)                             |
+| `dataIndex`                                 | Position of the datum in its series                                                     |
+| `componentType`                             | `series` for a chart element; other components (an axis…) report themselves             |
+
+The payload is deliberately **plain and comparable**: absent keys are omitted, so
+`pick.name === 'Feb'` is enough to drive a router, a table, a filter or a form. Nothing is
+interpreted for you — the click is data, not behaviour.
+
+## `selected` — a selection from anywhere
+
+`@pick` says what the user clicked; `selected` says what is **currently selected**, whoever
+decided it (a chart, a table row, a query parameter). Pass the last pick and every chart
+highlights the matching `name`:
+
+```vue
+<script setup lang="ts">
+const picked = ref<QChartPick | null>(null)
+</script>
+
+<template>
+  <q-chart group="revenue" :selected="picked" @pick="picked = $event" :marks="[…]" />
+  <q-chart group="revenue" :selected="picked" @pick="picked = $event" :marks="[…]" />
+</template>
+```
+
+`highlight` / `downplay` are dispatched on every chart, in **all** series carrying that
+name — which is what makes a click in the bar chart light up the same month in the line
+chart. `:selected="null"` clears the selection.
+
+::prose-callout{variant="note"}
+`selected` is the state, `@pick` the intent: two charts kept in sync by `selected` alone
+work even when they are **not** in the same `group` — handy to link a chart with a table or a
+list that is not a chart at all.
+::
+
+## Recipes
+
+**Four views, one selection.** The demo above is the pattern: a bar chart for the volume, a pie for the shares, a line for the trend, dots for the detail — all four on the same
+`group`, all four fed by `picked`.
+
+**A chart driving a table.** Keep the pick in your own state and filter on `pick.name`:
+
+```vue
+<script setup lang="ts">
+const picked = ref<QChartPick | null>(null)
+const rows = computed(() => (picked.value ? data.filter((d) => d.month === picked.value!.name) : data))
+</script>
+```
+
+**A filter driving the charts.** The reverse: a select or a tab sets `picked`, and every
+chart reflects it.
+
+**Clicking anywhere in the plot.** A click in the empty area fires no `@pick` (there is no
+element). Use the exposed `chart` instance for that:
+
+```vue
+<q-chart ref="c" :marks="[…]" />
+```
+
+```ts
+c.value.chart.getZr().on("click", (event: any) => {
+  if (!event.target) picked.value = null // click in the void → clear the selection
+})
+```
+
+## What it does not do
+
+- **No data synchronization**: each chart builds its own option from its own `marks`; the
+  link replays interactions only.
+- **No brush / cross-filtering**: selecting a range in one chart does not filter the others
+  (that is the job of your state + `selected`, or of the `options` escape hatch with a
+  custom `brush` handler).
+- **Linked tooltips need compatible axes**: charts of a group should share their category
+  axis (`x`) — otherwise the axis pointer has nothing to line up.
 
 
 # Charts
@@ -15789,15 +16297,17 @@ at 50. Every mark brings its own `data`, so they can come from different sources
 
 ## Marks
 
-| `type`  | Draws                      | Notable keys                                                                      |
-| ------- | -------------------------- | --------------------------------------------------------------------------------- |
-| `line`  | Line through the points    | `stroke`, `strokeWidth`                                                           |
-| `area`  | Line with a filled surface | `stroke`, `fill`                                                                  |
-| `bar`   | Bars                       | `fill`, `stack`, `orientation`                                                    |
-| `dot`   | Points                     | `fill`, `r` (radius → bubbles), `symbol` (shape)                                  |
-| `text`  | Labels                     | `text` (the label), `textAnchor`/`lineAnchor`, `dx`/`dy`, `fill`, `stroke` (halo) |
-| `image` | One image per row          | `src` (required), `width`/`height`/`r`, `rotate`                                  |
-| `rule`  | Reference line             | `y: [50]` (horizontal) or `x: [0]` (vertical)                                     |
+| `type`    | Draws                           | Notable keys                                                                      |
+| --------- | ------------------------------- | --------------------------------------------------------------------------------- |
+| `line`    | Line through the points         | `stroke`, `strokeWidth`                                                           |
+| `area`    | Line with a filled surface      | `stroke`, `fill`                                                                  |
+| `bar`     | Bars                            | `fill`, `stack`, `orientation`                                                    |
+| `dot`     | Points                          | `fill`, `r` (radius → bubbles), `symbol` (shape)                                  |
+| `text`    | Labels                          | `text` (the label), `textAnchor`/`lineAnchor`, `dx`/`dy`, `fill`, `stroke` (halo) |
+| `image`   | One image per row               | `src` (required), `width`/`height`/`r`, `rotate`                                  |
+| `pie`     | Pie / donut — one slice per row | `radius`, `innerRadius`, `labels`, `fill`                                         |
+| `heatmap` | Heat map — one cell per row     | `fill` (the value), `labels`                                                      |
+| `rule`    | Reference line                  | `y: [50]` (horizontal) or `x: [0]` (vertical)                                     |
 
 Shared keys: `data` (rows, or plain values), `x` / `y` (the data mapping), `name&#x60; (legend
 entry), &#x2A;*`z`** (one series — and one legend entry — per value), `fill` / `stroke`
@@ -15820,16 +16330,18 @@ theme, or any CSS color. See [Line](http://localhost:3000/docs/charts/line) for 
 
 ## Props
 
-| Prop      | Type              | Default       | Description                                                                            |
-| --------- | ----------------- | ------------- | -------------------------------------------------------------------------------------- |
-| `marks`   | `QChartMark[]`    | `[]`          | The layers of the chart.                                                               |
-| `x` / `y` | `QChartAxis`      | —             | **Axis** config: `type` (`band`/`linear`/`time`/`log`), `label`, `min`, `max`, `grid`. |
-| `height`  | `number | string` | `280`         | Container height (a number is read as pixels, otherwise a CSS value).                  |
-| `title`   | `string`          | —             | Chart title.                                                                           |
-| `colors`  | `string[]`        | `--chart-1…6` | Series palette, for marks without an explicit color.                                   |
-| `legend`  | `boolean`         | auto          | Forced on/off; by default as soon as a series is named.                                |
-| `tooltip` | `boolean`         | `true`        | Hover tooltip (a blurred glass card, styled from the theme tokens).                    |
-| `options` | `object`          | —             | Raw ECharts options, merged **last** (escape hatch).                                   |
+| Prop       | Type                     | Default       | Description                                                                                                                        |
+| ---------- | ------------------------ | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `marks`    | `QChartMark[]`           | `[]`          | The layers of the chart.                                                                                                           |
+| `x` / `y`  | `QChartAxis`             | —             | **Axis** config: `type` (`band`/`linear`/`time`/`log`), `label`, `min`, `max`, `grid`.                                             |
+| `height`   | `number | string`        | `280`         | Container height (a number is read as pixels, otherwise a CSS value).                                                              |
+| `title`    | `string`                 | —             | Chart title.                                                                                                                       |
+| `colors`   | `string[]`               | `--chart-1…6` | Series palette, for marks without an explicit color.                                                                               |
+| `legend`   | `boolean | QChartLegend` | auto          | `false` hides it, `true` forces it (by default: as soon as a series is named). An object places it: `{ position, offset, align }`. |
+| `tooltip`  | `boolean`                | `true`        | Hover tooltip (a blurred glass card, styled from the theme tokens).                                                                |
+| `group`    | `string`                 | —             | **Linked charts**: charts sharing a group synchronize hover, tooltip, legend, zoom and emphasis.                                   |
+| `selected` | `QChartPick | null`      | `null`        | Currently selected element — highlighted in every series. See [Interaction](http://localhost:3000/docs/charts/interaction).        |
+| `options`  | `object`                 | —             | Raw ECharts options, merged **last** (escape hatch).                                                                               |
 
 ::prose-callout{variant="note"}
 The props `x`, `y` and `title` configure the **chart** (its axes and heading). Inside a
@@ -15841,6 +16353,54 @@ per-point tooltip. They never collide — a mark is just an object.
 
 `@ready` receives the ECharts instance, also available as `chart` on the component ref
 (`refresh()` forces a re-render — useful after a hidden container becomes visible).
+`@pick` fires on every click on an element, with a normalized payload (`{ name, value, seriesName, dataIndex, … }`) — see [Interaction](http://localhost:3000/docs/charts/interaction).
+
+### Legend
+
+The legend appears as soon as a series is named. It sits **above the plot area**, with a
+comfortable **24 px gap** reserved in the grid — the plot is never pushed against the legend
+(the first tick label of the axis sits right at the grid edge, so a small margin reads as an
+overlap). Place the legend wherever it fits and set the gap:
+
+::prose-show-case
+:dnax-demo-chart{demo="legend"}
+
+#code
+```vue
+<script setup lang="ts">
+const monthly = [
+  { month: "Jan", revenue: 42, cost: 28 },
+  { month: "Feb", revenue: 51, cost: 31 },
+  { month: "Mar", revenue: 47, cost: 30 },
+  { month: "Apr", revenue: 63, cost: 35 },
+]
+
+const marks = [
+  { type: 'line', data: monthly, x: 'month', y: 'revenue', stroke: 'primary', name: 'Revenue' },
+  { type: 'line', data: monthly, x: 'month', y: 'cost', stroke: 'chart-2', name: 'Cost' },
+]
+</script>
+
+<template>
+  <!-- Above the plot, with a generous gap -->
+  <q-chart :height="170" :marks="marks" :legend="{ position: 'top', offset: 32 }" />
+
+  <!-- Below, centred -->
+  <q-chart :height="170" :marks="marks" :legend="{ position: 'bottom', align: 'center' }" />
+
+  <!-- On the side: a vertical legend -->
+  <q-chart :height="190" :marks="marks" :legend="{ position: 'right' }" />
+</template>
+```
+::
+
+| Key        | Value                                                  | Effect                                                                                                 |
+| ---------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `position` | `top&#x60; &#x2A;(default)*, `bottom`, `left`, `right` | Where the legend sits. `left` / `right` turn it **vertical**.                                          |
+| `offset`   | number (px, default `24`)                              | Gap between the legend and the plot area — the space is **reserved** in the grid, so nothing overlaps. |
+| `align`    | `start&#x60; &#x2A;(default)*, `center`, `end`         | Alignment along the edge, for a `top` or `bottom` legend.                                              |
+
+`legend: false` hides it, `legend: true` shows it even when no series is named.
 
 ## The `options` escape hatch
 
@@ -15865,8 +16425,9 @@ An ECharts feature whose module is not in the bundle is silently ignored: `dataZ
 
 The options of each mark are listed on its own page — [Line](http://localhost:3000/docs/charts/line),
 [Bar](http://localhost:3000/docs/charts/bar), [Rule](http://localhost:3000/docs/charts/rule), [Dot](http://localhost:3000/docs/charts/dot),
-[Image](http://localhost:3000/docs/charts/image), [Text](http://localhost:3000/docs/charts/text). The component every mark goes
-through, and its props, events and methods:
+[Image](http://localhost:3000/docs/charts/image), [Text](http://localhost:3000/docs/charts/text), [Pie](http://localhost:3000/docs/charts/pie),
+[Heatmap](http://localhost:3000/docs/charts/heatmap). The
+component every mark goes through, and its props, events and methods:
 
 :dnax-api{name="QChart"}
 
@@ -15924,6 +16485,33 @@ title: Text
 to: http://localhost:3000/docs/charts/text
 ---
 Labels at `x` and `y` — values on top of bars, annotations, per-point fonts.
+::
+
+::prose-card
+---
+icon: lucide:chart-pie
+title: Pie
+to: http://localhost:3000/docs/charts/pie
+---
+Pies and donuts — one slice per row, off the axes.
+::
+
+::prose-card
+---
+icon: lucide:grid-3x3
+title: Heatmap
+to: http://localhost:3000/docs/charts/heatmap
+---
+A value per cell — a colour scale over rows and columns.
+::
+
+::prose-card
+---
+icon: lucide:link
+title: Interaction
+to: http://localhost:3000/docs/charts/interaction
+---
+Link several charts together — synced hover, tooltip, legend and click selection.
 ::
 
 

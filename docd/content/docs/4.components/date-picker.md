@@ -1,17 +1,18 @@
 ---
 title: Date Picker
-description: A date selector with inline, sheet, modal and fullscreen dialog
-  modes, plus min/max and disabled-date restrictions.
+description: A date selector with inline, popover, sheet, modal and fullscreen
+  dialog modes, plus min/max and disabled-date restrictions.
 navigation:
   icon: lucide:calendar
 seo:
   title: Date Picker (QDatePicker)
-  description: QDatePicker — a Date v-model selector with inline, sheet, modal and dialog modes.
+  description: QDatePicker — a Date v-model selector with inline, popover, sheet, modal and dialog modes.
 ---
 
-A date selector with four display modes. **`<q-date-picker>`** binds a `Date` (or
+A date selector with five display modes. **`<q-date-picker>`** binds a `Date` (or
 `null`) via `v-model` — `mode="inline"` renders the calendar in place, while
-`sheet` / `modal` / `dialog` show a field trigger that opens a panel.
+`popover` / `sheet` / `modal` / `dialog` show a field trigger that opens a panel:
+anchored to the field, a bottom sheet, a centered dialog or a fullscreen panel.
 
 ## Inline
 
@@ -37,6 +38,49 @@ const dateInline = ref(null)
 </template>
 ```
 ::
+
+## Popover
+
+A field trigger that opens a floating panel anchored under the field. Unlike the
+three overlay modes there is no backdrop and no scroll lock — the page around stays
+visible and interactive — and the panel follows the field: it flips above it when
+there is no room below, and stays inside the window.
+
+`today-btn` adds a **Today** shortcut under the grid (disabled when today falls
+outside the allowed window) and `month-dropdown` turns the header label into a
+picker — a year stepper plus the twelve months — to jump to any month. Both work in
+every mode that renders the calendar.
+
+::prose-show-case
+<dnax-demo-date-picker demo="popover"></dnax-demo-date-picker>
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const fmt = (d) => (d ? d.toLocaleDateString("en-GB") : "—")
+
+const datePopover = ref(null)
+</script>
+
+<template>
+  <q-date-picker
+    v-model="datePopover"
+    mode="popover"
+    label="Invoice date"
+    placeholder="Pick a date"
+    outlined
+    clearable
+    today-btn
+    month-dropdown
+  />
+</template>
+```
+::
+
+On a narrow screen the anchor leaves little room — prefer `sheet` or `dialog` there.
 
 ## Sheet
 

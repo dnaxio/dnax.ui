@@ -5,10 +5,11 @@ import { ref } from "vue"
 
 defineProps<{
   /** Identifiant de la démo à afficher */
-  demo: "inline" | "sheet" | "modal" | "dialog" | "restrictions" | "custom-format"
+  demo: "inline" | "popover" | "sheet" | "modal" | "dialog" | "restrictions" | "custom-format"
 }>()
 
 const dateInline = ref<Date | null>(null)
+const datePopover = ref<Date | null>(null)
 const dateSheet = ref<Date | null>(null)
 const dateModal = ref<Date | null>(null)
 const dateDialog = ref<Date | null>(null)
@@ -22,6 +23,20 @@ const fmt = (d: Date | null) => (d ? d.toLocaleDateString("en-GB") : "—")
   <div v-if="demo === 'inline'" class="demo-cal">
     <q-date-picker v-model="dateInline" mode="inline" />
     <p class="demo-p demo-p--value">Selected: <code>{{ fmt(dateInline) }}</code></p>
+  </div>
+
+  <div v-else-if="demo === 'popover'" class="demo-field">
+    <q-date-picker
+      v-model="datePopover"
+      mode="popover"
+      label="Invoice date"
+      placeholder="Pick a date"
+      outlined
+      clearable
+      today-btn
+      month-dropdown
+    />
+    <p class="demo-p demo-p--value">Selected: <code>{{ fmt(datePopover) }}</code></p>
   </div>
 
   <div v-else-if="demo === 'sheet'" class="demo-field">

@@ -243,7 +243,6 @@ const titleOf = (name: string) => {
 // Titres de menu surchargés (dérivation automatique imparfaite)
 const TITLE_OVERRIDES: Record<string, string> = {
   QInputOtp: "Input OTP",
-  QEditorJs: "Editor.js",
 };
 const titleOfEntry = (exportName: string) =>
   TITLE_OVERRIDES[exportName] ?? titleOf(exportName);

@@ -383,30 +383,6 @@ mouseSensitivity }` ; modifiers mouse/capture/mouseCapture/stop/prevent/
   et disconnect quand le pool est vide. Enregistrée `intersection` ; page docs
   `/docs/directives/intersection` (démo cartes viewport + sentinel once).
 
-## QEditorJs — éditeur par blocs Editor.js — 2026-09-05
-
-`packages/ui/components/QEditorJs.vue` : `<q-editor-js v-model="data" />` —
-éditeur par BLOCS Editor.js (https://editorjs.io/base-concepts/) — données
-JSON `{ time?, blocks: [{ type, data }], version? }` (pas du HTML !).
-
-- **Deps** : `@editorjs/editorjs` + tools header/paragraph/list/checklist/
-  quote/code/delimiter (chargés dynamiquement à l'init via `import()` — SSR-safe,
-  instance créée dans onMounted, destroy au unmount)
-- **v-model** : `onChange → save() → emit update:modelValue` (JSON) ; watch
-  externe → `render()` sauf si égal au dernier JSON émis (garde `lastJson` +
-  flag `internal` → pas de boucle).
-- ⚠ Editor.js v2 **injecte lui-même ses styles** à l'init (pas de
-  `dist/style.css` dans le paquet npm — un import CSS plante Vite ; rien à
-  importer). Les surcharges de thème vivent dans `styles/main.css`.
-- Props : `data`, `placeholder`, `min-height`, `readonly`/`disable` (readOnly +
-  pointer-events), `tools` (fusion d'extras) ; events `@ready` ; méthodes
-  exposées `save()`, `clear()`, `getEditor()`
-- CSS `main.css` : conteneur tokens (border/radius/card), focus-within primary,
-  surcharges light/dark des classes Editor.js (.ce-paragraph, .ce-header,
-  .cdx-list, .cdx-checklist, .ce-code\_\_textarea, .cdx-quote, toolbar/popovers)
-- Page docs générée `/docs/components/editor-js` (menu « Editor.js »,
-  TITLE_OVERRIDES gen-menu)
-
 ## QTiptap — éditeur riche Tiptap v3 — 2026-09-05
 
 `packages/ui/components/QTiptap.vue` : `<q-tiptap v-model="html" />` basé sur
@@ -1168,7 +1144,7 @@ Complète l'entrée « Conversion docs → ddocs (Docus/MDC) » (mêmes règles)
   `## QAccordionContent — the animated content`, chacune avec son `### API` +
   `<dnax-api>` (cf. `bottom-sheet.md`). Les `q-syntax` → fences ` ```html ` exactes.
 - `app.vue` = stub `DocsComponentPage` (`title="App" export="QApp"`) → page minimale
-  (intro + `## Example` avec `<q-app></q-app>` + `## API`), même patron que `editor-js.md`.
+  (intro + `## Example` avec `<q-app></q-app>` + `## API`), même patron que `circular-progress.md`.
 - `accordion` était **en français** (prose) : lead, titres de sections et `doc-note`
   traduits ; les chaînes d'exemple **dans les snippets/démos** sont restées verbatim
   (règle « `#code` = exactement `xCode` » ; même choix que les commentaires FR gardés
@@ -1246,7 +1222,7 @@ Pages : `file-picker`, `gallery`, `icon`, `image-picker`, `image-preview-provide
 
 - **Stubs générés** (`file-picker`, `image-picker`, `image-preview-provider`) → page
   minimale (intro lue dans le SFC `packages/ui/components/Q…vue` + `## Example`
-  statique + `## API`), patron `editor-js.md` / `app.md` : live en kebab-case +
+  statique + `## API`), patron `circular-progress.md` / `app.md` : live en kebab-case +
   balise fermante, `#code` = version auto-fermante du même exemple.
 - Démos stateful → UN composant par page : `DnaxDemoGallery`
   (basic/multiple/labels/custom/viewer), `DnaxDemoImagePreview`
@@ -1726,3 +1702,25 @@ Quatre points à toucher (sinon la directive disparaît ou n'est pas enregistré
    `docd/app/components/demos/DnaxDemo<Nom>.vue` (un `defineProps<{ demo: ... }>()`
    par page, styles scoped). Vérifier les collisions de nom avec une page
    composant (cf. warnings).
+
+## Plan de page pour un guide (page « Interaction » comme modèle)
+
+Un guide se lit dans cet ordre — chaque section répond à une question différente :
+
+1. **Démo vivante + code complet** en tête (`::prose-show-case`) : on voit le résultat avant tout.
+2. **Modèle mental** : schéma SVG (3 boîtes : source → état → cibles, flèches étiquetées) + un
+   tableau « quel niveau synchronise quoi / avec quelle prop ». Un schéma vaut trois paragraphes.
+3. **Pas-à-pas numéroté** (4 étapes) : reproduire le minimum, chaque étape = 1 prop.
+4. **Référence par prop** : une section par prop — signature, tableau des valeurs, exemple.
+5. **Recettes** : les cas d'usage transverses (piloter un tableau, filtrer depuis l'URL…).
+6. **« When it doesn't work »** : tableau symptôme → cause → correction. Indispensable pour un
+   mécanisme invisible (ici : un `group` posé mais pas de `link`, une légende sans `action`).
+7. **Limites assumées** : ce que l'API ne fait pas (pas de brush, pas de données partagées…).
+
+### Piège : un SVG inline dans un markdown est **coupé** à son viewBox
+
+`<svg viewBox="0 0 760 214" width="100%">` : si un libellé déborde du viewBox, il est **tronqué**
+(le viewport SVG clippe par défaut) — un texte plus large que prévu (police héritée) suffit.
+Toujours ajouter `style="max-width:760px;height:auto;overflow:visible"` et des libellés courts.
+Vérifier au rendu (capture Chromium), pas au code.
+

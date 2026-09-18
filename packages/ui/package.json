@@ -22,14 +22,6 @@
     "vue": "^3.5.41"
   },
   "dependencies": {
-    "@editorjs/checklist": "^1.6.0",
-    "@editorjs/code": "^2.9.4",
-    "@editorjs/delimiter": "^1.4.2",
-    "@editorjs/editorjs": "^2.31.6",
-    "@editorjs/header": "^2.8.9",
-    "@editorjs/list": "^2.0.9",
-    "@editorjs/paragraph": "^2.11.7",
-    "@editorjs/quote": "^2.7.6",
     "@iconify/vue": "^5.0.1",
     "@nuxt/kit": "4.5.2",
     "@tiptap/extension-bubble-menu": "^3.31.3",

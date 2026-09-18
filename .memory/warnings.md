@@ -62,7 +62,7 @@ c'est valide en SFC).
 `DnaxDemoBtn`), `back-top`, `badge`, `bar`, `board`, `bottom-sheet`, `breadcrumbs`,
 `btn-actions`, `btn-dropdown`, `btn-group`, `bubble`, `card`, `carousel`, `checkbox`,
 `chip`, `circular-progress`, `collapse`, `container`, `count-down`, `country-picker`,
-`data-grid`, `date-picker`, `dialog`, `editor-js`, `fab`.
+`data-grid`, `date-picker`, `dialog`, `fab`.
 Priorité : pages famille (tout ce qui suit le 1ᵉʳ `<DnaxApi />` est invisible) puis
 démos passées par `DnaxDemo<Page>` (onglet Code manquant).
 
@@ -711,3 +711,120 @@ tokens (voir tableau ci-dessus) ; et en SVG (`echarts.init(null,null,{renderer:'
 - `dispatchAction({type:'highlight'})`) l'état est visible dans le `<style>` (`:hover`).
   Règle générale : **une couleur qui traverse une bibliothèque graphique doit être dans une
   forme que son parseur connaît** ; les tokens CSS modernes ne le sont pas.
+
+## Marquage `heatmap` : `visualMap` obligatoire et `{c}` qui imprime les index — 2026-09-15
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/lib/chart.ts`
+
+Deux pièges rencontrés en écrivant la carte de chaleur :
+
+1. **`Heatmap must use with visualMap`** — l'erreur est **levée** par `HeatmapView.js` quand
+   la série n'a pas de `visualMap` associé (mode dev) : la carte ne s'affiche pas du tout.
+   Le traducteur en émet donc **toujours** un ; quand `fill` est une couleur constante il est
+   **caché** (`show: false`) avec une rampe dégénérée `inRange.color: [c, c]` (et des valeurs
+   de cellule mises à `1` pour que la mise en correspondance aboutisse).
+2. **L'étiquette d'une cellule n'est pas `{c}`** : avec un item `[colonne, ligne, valeur]`,
+   `formatter: '{c}'` imprime les **index** (« 0,3 ») et non la valeur. Il faut viser la
+   dimension : **`formatter: '{@[2]}'`** (vérifié en SVG SSR : 12, 21, 26, 8, 18, 33…).
+
+Rappel utile : sans `visualMap`, les **couleurs par cellule** sont ignorées (le `visualMap`
+a priorité sur `itemStyle.color` pour la dimension mappée) — d'où la conception « `fill` =
+la valeur », qui suit le `fill` d'un rectangle de Plot.
+
+## Image ronde (`round`) : le motif n'est pas redimensionné — 2026-09-15
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/lib/chart.ts`
+
+Pour découper une image en cercle on peint un **motif** (`itemStyle.color.image`) dans un
+symbole `circle`. Deux constats mesurés :
+
+- Le motif est posé à la **taille native** de l'image, ancré en **haut à gauche** du
+  symbole : une source 200 px dans une pastille de 44 px n'affiche qu'un fragment zoomé du
+  coin haut-gauche. → servir l'image **au format du marqueur** (`&w=44&h=44&fit=crop`).
+- `width`/`height` passés dans le motif (formes documentées pour `label.backgroundColor`)
+  sont **ignorés** par le rendu d'un `itemStyle.color.image` : captures byte-identiques
+  avec et sans. Ne pas compter sur eux pour adapter la taille.
+
+Autre piège du même genre que l'étiquette : un caractère moche peut aussi venir du
+**chargement asynchrone** — une capture prise trop tôt montre le motif partiel et flou
+(c'est ce qui a fait croire un instant à un bug de `devicePixelRatio`).
+
+## `echarts.connect(group)` seul ne lie RIEN (piège silencieux)
+
+`echarts.connect('revenue')` n'active aucun lien tant que le groupe n'est pas aussi posé sur
+**l'instance** : `chart.group = 'revenue'`. Les deux sont nécessaires (`connectedGroups` +
+`chart.group`, testés dans `enableConnect`). L'API ne signale pas l'erreur : la liaison est un
+no-op silencieux, et toutes les mesures « ne se propage pas » deviennent fausses.
+
+```ts
+// correct (utilisation (A) documentée par ECharts)
+chart.group = "revenue"
+echarts.connect("revenue")
+```
+
+`echarts.connect([chart1, chart2])` (forme tableau) génère un nom `g_<n>` et **perd le nom de
+groupe** : à n'utiliser que sans nom imposé.
+
+Mesuré dans Chromium (rendu SVG, deux bar charts) : avec les deux posés, le survol de A
+affiche dans B **le curseur d'axe** (même x) et **l'info-bulle avec la valeur propre de B**
+(`Feb Revenue 51` dans A, `31` dans B). En revanche `highlight`/`downplay` **ne sont pas**
+propagés (actions non partageables) → d'où la prop `selected` de `<q-chart>`, qui rejoue la
+mise en évidence graphique par graphique.
+
+## Piège TDZ : ne jamais nommer une locale comme la ref du composant
+
+Dans `<script setup>`, une locale qui **masque** une ref du même nom la met en zone morte :
+
+```ts
+const applySelection = () => {
+  const chart = chart.value   // ❌ « Cannot access 'chart' before initialization »
+  ...
+}
+```
+
+Le bug peut rester **latent** : tant que la fonction n'est appelée que depuis un `watch` qui ne
+se déclenche jamais (sélection initiale nulle), rien ne casse. Dès qu'on l'appelle dans le
+chemin du rendu (`applySelection()` en fin de `render()`), chaque montage de `<q-chart>` jette
+une exception — visible seulement comme « Unhandled error during execution of mounted hook »
+dans la console du navigateur, les graphiques restant dessinés. Renommer en `instance`.
+Vérification : recharger une page contenant des `<q-chart>` et surveiller
+`Runtime.exceptionThrown` par CDP.
+
+## `v-if="picked.value"` sur un état indexé par clé : le span ne s'affiche jamais
+
+Après le passage de `picked` (une `ref`) à un état par démo (`picked.interaction`,
+`picked.select`…), une légende de démo testait encore `picked.value !== undefined` — or
+`picked` est l'objet **indexé**, sans champ `value` : la condition était toujours fausse et la
+valeur ne s'affichait pas. Symptôme trompeur : on croit que le payload est incomplet alors que
+le composant est correct. Vérifier les `v-if` d'un état refactorisé (`grep picked\.` vs
+`grep picked\.[a-z]*\.`).
+
+## Préfixe numérique de page : au-delà de 9, l'ordre casse (tri **alphabétique**)
+
+L'ordre de la sidebar suit le **nom de fichier trié en texte**, pas la valeur du nombre :
+`10.interaction.md` se range **juste après `1.line.md`** (car `"10." < "2."`), pas à la fin.
+
+- Règle : préfixes **sur deux chiffres** dès qu'un dossier peut dépasser 9 pages
+  (`01.line.md` … `09.table.md`, `10.interaction.md`).
+- Les URL ne changent pas : le préfixe (`\d+\.`) est retiré du slug
+  (`01.line.md` → `/docs/charts/line`) — vérifié après renommage.
+- `4.components/` (84 pages) n'utilise **aucun** préfixe : l'ordre y est alphabétique, ce qui
+  n'est pas un ordre voulu. Ne pas s'en inspirer pour un dossier ordonné.
+- Vérification : extraire la sidebar du HTML (avant `<main>`) et lire l'ordre des
+  `href="/docs/charts/…"` — un tri visuel ne suffit pas, la page contient aussi ses propres liens.
+
+
+## Pièges : état `select`, props non renseignées, défauts — 2026-09-15
+
+`filename: packages/ui/components/QChart.vue, packages/ui/lib/chart.ts`
+
+- **Le style `select` par défaut du moteur** ajoute `borderColor: primary, borderWidth: 2` autour de
+  l'élément sélectionné. Toute définition de `select.itemStyle` **fusionne** avec lui : pour s'en
+  débarrasser il faut l'annuler explicitement (`borderColor: 'transparent'`, `borderWidth: 0`).
+- **Ne pas toucher au `borderRadius`** en estompant ou en sélectionnant : il vient de la marque
+  (`borderRadius: [3, 3, 0, 0]` pour les barres, l. ~1003 de `chart.ts`). L'écraser à `0` casse le
+  dessin de la marque — l'état `dim` ne doit surcharger **que** l'opacité.
+- Un composant qui lit une prop **directement** (la marque `table`, rendue en HTML, ne passe pas par
+  `chartToECharts`) ne bénéficie pas des défauts du traducteur : les poser aussi dans
+  `withDefaults` (`linkMode: 'filter'`, `dimOpacity: 0.25`), sinon `opacity: undefined` → attribut
+  `style` vide et aucun effet visible (les classes, elles, étaient bien posées).

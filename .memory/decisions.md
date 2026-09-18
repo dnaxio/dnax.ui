@@ -1251,3 +1251,256 @@ Demande : « chaque mark doit avoir son api et ses options en plus de l'api q-ch
 - Conséquences : un canal sans JSDoc s'affiche sans description, et une option absente de
   `MARK_OPTIONS` n'apparaît pas → les deux se mettent à jour **dans `chart.ts`** (aucune
   table manuelle en markdown à maintenir).
+
+## Marques `pie` et `heatmap` + légende positionnable — 2026-09-15
+
+tag: `decisions` — `filename: packages/ui/lib/chart.ts`, `packages/ui/components/QChart.vue`,
+`docd/content/docs/5.charts/{7.pie,8.heatmap}.md`
+
+Demandes : « crée la mark pie », « implémente heatmap », puis « dans les charts les légendes
+sont proches de la chart il faut mettre un offset et aussi on doit pouvoir mettre la
+position où doit se trouver les légendes ».
+
+- **`pie`** (camembert / anneau) : `x` = libellé de la part, `y` = valeur, une part par
+  ligne ; `radius` (défaut `70%`), `innerRadius` (→ anneau), `startAngle`, `labels`
+  (`name` défaut / `value` / `percent` / `name-value` / `name-percent` / `false`), `fill`
+  (couleur constante ou canal), `title` (info-bulle par part), `name` (légende = les parts).
+  **Famille hors axes** : le traducteur n'émet `grid`/`xAxis`/`yAxis` que si une série
+  cartésienne existe (`bar`/`line`/`scatter`/`heatmap`) — sinon ECharts laissait un cadre
+  fantôme et décalait le titre. `charts.PieChart` ajouté à `use([...])`.
+- **`heatmap`** (carte de chaleur) : `x` = colonne, `y` = ligne — **deux axes catégories**
+  (nouveaux `rowCategories` + `yAxis` catégorie + `splitArea`), `fill` = la **valeur** de la
+  cellule (canal numérique → rampe = palette ; couleur → rampe dégénérée cachée), `labels:
+  true` → valeur imprimée dans la cellule, `title`/`opacity`/`name`. ECharts **exige** un
+  `visualMap` (cf. `warnings.md`) : il est toujours émis, visible seulement si la valeur est
+  numérique (30 px réservés sous l'axe). Une carte de chaleur ne se mélange pas à une
+  série à axe de valeurs (`line`/`bar`/`dot`) — documenté.
+- **Légende** : la prop `legend` accepte `boolean | { position, offset, align }`
+  (`QChartLegend`). La **place est réservée dans le `grid`** : `grid.top = 26 (titre) + 14 +
+  offset` quand elle est en haut, `grid.bottom += 14 + offset` en bas (+ 30 px si une
+  échelle de couleurs visible), `grid.left/right += 90 + offset` sur les côtés (légende
+  verticale). Avant : `top: 0` avec `grid.top: 16` → légende collée au graphique.
+- Docs : pages `7.pie.md` / `8.heatmap.md` (+ démos `demo="pie"` et `demo="heatmap"`),
+  lignes et cartes dans `index.md`, section « Legend » dans `index.md`.
+- Vérifications : **76/76** tests (`chart.test.ts` : 7 cas `pie`, 5 `heatmap`, 2 légende) ;
+  rendu SVG SSR (cellules colorées par la rampe, valeurs imprimées `12/21/26…`, anneau,
+  visualMap) ; pages servies en dev (`table:1`, 0 mot français) et **captures Chromium** de
+  `/docs/charts/{bar,pie,heatmap}` relues : légende détachée du graphique, donut + %,
+  carte de chaleur alignée avec son échelle de couleurs.
+
+## Marque `image` : option `round` (pastilles rondes) — 2026-09-15
+
+tag: `decisions` — `filename: packages/ui/lib/chart.ts`,
+`docd/content/docs/5.charts/5.image.md`
+
+Demande : « pour la mark image ajoute des exemple avec image avec border radius tout en rond ».
+
+- **`round: true`** sur la marque `image` : l'image est peinte **en motif**
+  (`itemStyle.color = { image: src, repeat: 'no-repeat' }`, posé **par point** puisqu'un
+  `src` peut être un canal) dans un symbole `circle` — zrender ne sait pas découper un
+  symbole, c'est le seul rendu circulaire possible. `image://` (défaut) reste inchangé :
+  symbole image, `symbolKeepAspect`, pas de découpe.
+- **Anneau** : `stroke` + `strokeWidth` (2 px par défaut) → `borderColor`/`borderWidth` de
+  l'`itemStyle`. `fill` retiré des options documentées de la marque (inerte sur une image).
+- **Contrainte vérifiée** : le motif est peint à la **taille native** de l'image, ancré en
+  haut à gauche du marqueur → servir l'image **carrée, au format du marqueur**
+  (`r: 22` → `&w=44&h=44&fit=crop`) ; une source plus grande est rognée sur son coin
+  haut-gauche (vérifié : une source 200 px dans une pastille de 44 px ne montre qu'un
+  fragment zoomé). Les options `width`/`height` du motif (documentées pour
+  `label.backgroundColor`) **n'ont aucun effet** sur `itemStyle.color.image` (captures
+  byte-identiques).
+- **Doc** : section « Round markers » dans `5.image.md` (démo live + code + tableau des
+  deux contraintes), démo `demo="image-round"` dans `DnaxDemoChart.vue` (les mêmes
+  portraits servis en 44 px), note « `image://` ne découpe pas » corrigée pour renvoyer vers
+  `round`.
+- **Vérifications** : 80/80 tests (`chart.test.ts` : 4 cas `image`, dont pastille ronde +
+  anneau) ; rendu réel en Chromium (canvas, vraies photos Unsplash) : pastilles rondes avec
+  anneau bleu, cadrage correct quand la source fait la taille du marqueur, rognage constaté
+  sinon — captures relues à l'œil.
+
+## Interaction : trois primitives (`group`, `@pick`, `selected`) plutôt qu'un orchestreur
+
+Décision : ne pas créer de composant « dashboard » qui coordonnerait les charts. `<q-chart>`
+expose trois primitives indépendantes, et l'application les compose.
+
+- `group="…"` — liaison native (`echarts.connect`) : survol/curseur d'axe, info-bulle et les
+  autres actions partageables. Zéro code applicatif ; chaque chart garde ses marks et options.
+- `@pick` — clic sur un élément → payload normalisé `QChartPick`
+  (`pickFromEvent()` dans `lib/chart.ts`, fonction pure testée) : `{ name, value, seriesName,
+  seriesIndex, seriesType, dataIndex, componentType }`, clés absentes omises pour rester
+  comparable/sérialisable. C'est l'**intention**, pas le comportement.
+- `selected` — l'**état** sélectionné (`QChartPick | null`) : le chart met en évidence
+  (`highlight`) tous les éléments portant ce `name`, dans toutes ses séries. Indispensable car
+  `highlight` n'est pas une action partageable (cf. warnings.md) ; et un chart piloté par
+  `selected` suit un autre chart même **sans** partager son groupe (chart ↔ tableau, filtre…).
+
+Corollaire d'API : `group`, `selected` et `@pick` vivent sur `<q-chart>` — pas de props
+globales, pas de store interne, pas de dépendance de l'app envers un contexte de dashboard.
+
+## Cross-filtering : jointure déclarée par mark (`link` + `selection`)
+
+Décision : le filtrage entre graphiques n'est **pas** un composant orchestrateur ni un store —
+c'est une **jointure déclarée par marque**, façon Mongo (`localField`/`foreignField`), appliquée
+dans le traducteur.
+
+- **`mark.link`** : `'month'` (raccourci de `{ localField: 'month' }`) ou
+  `{ localField, foreignField }` quand les deux graphiques nomment leurs champs autrement.
+- **`QChartConfig.selection`** : la sélection partagée (le `@pick` d'un graphique, ou un état
+  applicatif). `QChart` y passe `props.selected`.
+- **Résolution de la clé** (`linkValue`) : `pick.data[foreignField]` → `pick[foreignField]` →
+  `pick.name` → scalaire. D'où `QChartPick.data` (la ligne brute) dans le payload.
+- **Point d'application unique** : `dataOf(m)` = `linkedRows(m.data, chartLink(m.link), selection)`
+  → toutes les familles de marques en héritent sans code par marque.
+- **Garde-fous** : sans sélection → tout est affiché ; si aucune ligne ne porte le `localField`
+  → la marque garde ses données (une clé mal orthographiée ne vide pas un graphique).
+- **L'axe est l'union des marques** : une marque liée seule garde l'axe complet (une seule
+  barre) ; il faut lier **toutes** les marques pour que le graphique rétrécisse à la clé.
+- **`legend.action: 'select'`** : un clic sur la légende émet `@pick` au lieu de masquer la
+  série (ECharts bascule la visibilité et n'émet aucun clic de graphique sur la légende). Le
+  composant rétablit l'état puis émet ; un second clic sur le même nom émet `null` (efface).
+
+## Re-clic = désélection, la même règle pour la légende et pour les éléments
+
+Décision : cliquer **deux fois** sur le même élément (`sameSelection`) relâche la sélection —
+donc les filtres croisés — exactement comme un re-clic sur une entrée de légende.
+
+- `sameSelection(current, candidate)` compare d'abord le **`name`** (la clé partagée entre
+  graphiques : re-cliquer « Fév » dans une autre marque, c'est la même sélection), sinon la
+  **position** (`markIndex` + `dataIndex`).
+- Les deux signaux partent ensemble : `@unpick` porte l'élément lâché, `@pick` porte l'état
+  (`null`) — un seul drapeau aurait obligé chaque application à l'interpréter.
+- `@unpick` n'est **jamais** émis quand c'est l'application qui remet `selected` à `null`
+  (pas d'écho, pas de boucle).
+- Un clic qui ne vise aucune donnée (fond du graphique, axe) n'émet **rien**.
+
+## `pick.data` est toujours VOTRE ligne, jamais la forme interne du moteur
+
+Mesuré au navigateur : sur un clic d'élément, le moteur transmet
+`value: ['Jan', 42]` (la paire) et `data: { value: ['Jan', 42] }` — donc **pas** la ligne
+d'origine `{ month: 'Jan', revenue: 42 }`, ce qui cassait silencieusement les jointures
+`link.foreignField` (documentées comme lisant la ligne).
+
+Correctif : le composant relit la ligne dans `props.marks` par son **nom** (`legendPickOf`,
+avec l'index de marque du clic en indice) et recompose le pick champ par champ — `origin` reste
+celui du moteur (`mark`), `value` devient la vraie valeur (42), `data` la ligne d'origine.
+Règle : la fusion se fait **explicitement**, jamais par `{ ...a, ...b }` (l'ordre des spreads a
+déjà écrasé `origin: 'mark'` en `'legend'`).
+
+## Marque `table` : une marque comme les autres, rendue en HTML
+
+Décision : la table est une **marque** (`{ type: 'table', data, columns, link }`), pas un
+composant `QTable` à côté — mêmes `data`, même `link`, même `selected`, même `@pick`, même
+`@unpick`. C'est ce qui la rend pilotable et pilotante dans l'interaction (`chart ↔ table`).
+
+- `columns` : `'month'` ou `{ field, label, align, format }` ; **déduites des clés des lignes**
+  si absent (ordre d'apparition).
+- `tableModel(mark, selection)` (pure, testée, `lib/chart.ts`) : lignes **jointes** via
+  `linkedRows` (la table filtre exactement comme un graphique lié) + colonnes résolues.
+- Clé de ligne = le `link.localField`, sinon le **premier champ de la première colonne** : une
+  ligne se désigne donc par le **même `name`** que les autres marques (sélection partagée,
+  `highlight`, re-clic qui désélectionne).
+- `chartToECharts` **ignore** les marques `table` (aucune série) et la déduction d'orientation /
+  de catégories les saute : une table ne produit rien sur le canvas.
+- Rendu côté composant : `<div class="q-chart q-chart--table">` + `<table>` (en-tête collant,
+  `font-variant-numeric: tabular-nums`, ligne sélectionnée marquée par un liseré `--primary`) et
+  `height` devient un **`max-height`** (la table défile).
+- Une table **remplace le tracé** de son `<q-chart>` : ne pas mélanger avec une marque de série
+  dans le même composant (documenté + garde dans `render()` : l'instance est libérée).
+
+## Cross-filter : deux rendus possibles, `filter` (défaut) ou `dim`
+
+Décision : la **réaction** à la sélection est configurable par une prop de **chart**, tandis que
+la **jointure** reste par **mark** (`link`) — deux questions différentes.
+
+- `<q-chart link-mode="filter" | "dim" dim-opacity="0.25">` (props) → `QChartConfig.linkMode`
+  / `dimOpacity`. Défaut `filter` = comportement historique (non cassant).
+- `filter` : les lignes non jointes sont **retirées**, l'axe se recale sur la sélection.
+- `dim` : tout est **dessiné**, les éléments non liés passent à `dimOpacity`.
+- Implémentation `dim` (aucun masque par point, donc aucun risque de désynchronisation avec les
+  branches du traducteur) : en fin de `chartToECharts`, chaque série reçoit
+  `selectedMode: 'single'`, `itemStyle.opacity = dimOpacity` (+ `lineStyle.opacity` pour les
+  traits), et `select.itemStyle.opacity = 1`. ECharts n'a pas d'« état non sélectionné » : on
+  baisse le **style par défaut** et l'état `select` relève la sélection.
+- Conséquence côté composant : en mode `dim`, `applySelection()` pilote **`select`/`unselect`**
+  (au lieu de `highlight`/`downplay`) — l'emphase et l'estompage sont le même mécanisme.
+- Piège TDZ reproduit au passage (encore !) : `instance.dispatchAction({ type: dim ? … })` écrit
+  **avant** `const dim = …` → déclarer les locales avant tout usage.
+
+
+## Marque `table` : séparateurs, et suivi du mode `dim` — 2026-09-15
+
+`filename: packages/ui/lib/chart.ts, packages/ui/components/QChart.vue`
+
+- Nouvelle option **par marque** : `separator: 'horizontal' | 'vertical' | 'grid' | 'none'`
+  (défaut `horizontal`). Elle vit dans `MARK_OPTIONS.table` → elle apparaît **seule** dans la table
+  d'API générée de la page Table (rien à écrire à la main).
+- Rendue par une classe sur le `<table>` (`is-horizontal`…) + le CSS scoped du composant ; le `td`
+  générique ne porte plus de bordure (elle vient du mode) et l'en-tête garde son trait.
+- `tableModel(mark, selection, mode)` accepte le **mode de liaison** : `filter` (défaut — lignes non
+  jointes retirées) ou `dim` (toutes les lignes conservées, c'est le rendu qui estompe les autres).
+  Le composant passe `props.linkMode` : la table se comporte donc exactement comme une série.
+- Lignes : `is-selected` pour la ligne choisie, `is-dimmed` + `opacity: dimOpacity` en style inline
+  pour les autres (aucune variable CSS à propager).
+
+## Tooltip : `trigger: 'axis'` par défaut sur tout graphique cartésien — 2026-09-15
+
+`filename: packages/ui/lib/chart.ts`
+
+- `axis` dès qu'une série `bar`/`line` existe (c'était **déjà** le cas, mesuré) **et** désormais
+  pour un graphique de points seuls **sans** `title`. On reste en `item` si une marque déclare un
+  `title` (il ne s'afficherait jamais dans un tooltip d'axe), pour un graphique d'étiquettes
+  (`text`), une heatmap (cellule par cellule) et un camembert.
+- Le prédicat **n'utilise pas** `cartesian` : celui-ci inclut la heatmap (il sert au `grid`).
+- `axisPointer` rendu **explicite** : `{ type: 'shadow' }` dès qu'une barre est présente (bandeau
+  sous la catégorie survolée), `{ type: 'line' }` sinon (curseur vertical).
+
+## Lisibilité : marge des nombres de l'axe des ordonnées — 2026-09-15
+
+- `axisLabel.margin` passe de 8 (défaut moteur) à **16** sur l'axe des valeurs, et devient réglable
+  par axe (`QChartAxis.margin`, ex. `:y="{ margin: 24 }"`). Aucun ajustement du `grid` :
+  `containLabel: true` réserve la place tout seul.
+
+## QEditorJs supprimé du design system — 2026-09-17
+
+`filename: packages/ui/components/QEditorJs.vue, packages/ui/index.ts, packages/ui/package.json, packages/ui/styles/main.css, docd/content/docs/4.components/editor-js.md, scripts/gen-menu.ts`
+
+- Le composant **éditeur par blocs Editor.js** est retiré (demande utilisateur) : `QTiptap`
+  couvre déjà l'édition riche dans le même design system, deux éditeurs faisaient doublon.
+- Suppressions, toutes dans la même passe : `packages/ui/components/QEditorJs.vue`, l'export
+  `QEditorJs` de `packages/ui/index.ts`, le bloc CSS `/* ===== QEditorJs … ===== */` de
+  `packages/ui/styles/main.css` (94 lignes, rien d'autre ne référence `q-editor-js`),
+  la page `docd/content/docs/4.components/editor-js.md` (route `/docs/components/editor-js`),
+  la surcharge `QEditorJs: "Editor.js"` de `TITLE_OVERRIDES` dans `scripts/gen-menu.ts`, et
+  les **8 dépendances `@editorjs/*`** de `packages/ui/package.json` (`bun install` régénère
+  le lockfile — vérifier ensuite `grep -c editorjs bun.lock` = 0).
+- À ne pas réintroduire sans demande : les données Editor.js sont du **JSON**
+  (`{ time?, blocks: [{ type, data }], version? }`), pas du HTML — incompatible avec le
+  `v-model` HTML de `QTiptap`, et le seul composant qui portait ce format.
+
+## QDatePicker : mode `popover` (+ `today-btn`, `month-dropdown`) — 2026-09-17
+
+`filename: packages/ui/components/QDatePicker.vue, packages/ui/components/internal/QDateCalendar.vue, packages/ui/lib/datePicker.ts, packages/ui/styles/main.css`
+
+- **5ᵉ mode** `mode="popover"` : panneau ancré sous le champ, **sans voile, sans scroll
+  lock, sans retour navigateur** (les trois restent réservés à sheet/modal/dialog via un
+  `isOverlayMode` distinct de `isPanelMode`). Il suit le champ (scroll/resize), bascule
+  au-dessus quand la place manque, se recadre dans la fenêtre et se ferme au clic
+  extérieur / Échap.
+- **Placement = helper pur** `lib/datePicker.ts` (`placePopover`, exporté + 10 tests) :
+  le SFC ne fait que mesurer (`getBoundingClientRect` du champ, pas de la racine — le
+  `.q-field__bottom` réserve ~24px même vide) et sérialiser en `position: fixed`. Mêmes
+  règles que le popup `inline` de QSelect : bascule, écart rogné, hauteur bornée.
+- **La flèche (caret) est portée par le voile, pas par le panneau** : `.q-date-picker__sheet`
+  est en `overflow: hidden` et rognerait un pseudo-élément débordant. Position en variable
+  CSS `--q-date-picker-caret` (calculée par `placePopover`), peinte avant le panneau → seule
+  la moitié dépassante reste visible.
+- **Mesure après rendu** : le panneau est téléporté et sa largeur peut être en `%`/`vw`, donc
+  `positionPopover()` n'est appelé qu'après `await nextTick()` ; tant qu'aucun placement
+  n'existe, le style du voile est `visibility: hidden` (pas de flash au coin haut-gauche) et
+  le dernier placement est **conservé à la fermeture** pour que l'animation de sortie ait un
+  emplacement à animer.
+- `today-btn` (raccourci « Today », désactivé si aujourd'hui est hors bornes/`disabled-dates`)
+  et `month-dropdown` (libellé d'en-tête cliquable → pas-à-pas d'année + grille de 12 mois,
+  qui remplace la grille des jours) vivent dans **QDateCalendar** mais valent pour **tous les
+  modes** — démo et page : `date-picker.md` § Popover, `DnaxDemoDatePicker` branche `popover`.
+

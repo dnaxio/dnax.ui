@@ -51,7 +51,6 @@ export { default as QDialogFooter } from "./components/QDialogFooter.vue"
 export { default as QDialogHeader } from "./components/QDialogHeader.vue"
 export { default as QDialogProvider } from "./components/QDialogProvider.vue"
 export { default as QDialogTrigger } from "./components/QDialogTrigger.vue"
-export { default as QEditorJs } from "./components/QEditorJs.vue"
 export { default as QFab } from "./components/QFab.vue"
 export { default as QFabAction } from "./components/QFabAction.vue"
 export { default as QFilePicker } from "./components/QFilePicker.vue"
@@ -167,17 +166,27 @@ export {
 } from "./lib/overlayBack"
 export type { OverlayHandle } from "./lib/overlayBack"
 export { markOverlayClose, closeParentOverlay, vClose } from "./lib/closeOverlay"
+export { placePopover } from "./lib/datePicker"
+export type {
+  PlacePopoverOptions,
+  PopoverAnchor,
+  PopoverPlacement,
+  PopoverViewport,
+} from "./lib/datePicker"
 export { vRipple } from "./lib/ripple"
 export type { RippleOptions, RippleValue } from "./lib/ripple"
-export { chartToECharts, channelValue, textValue } from "./lib/chart"
+export { chartToECharts, channelValue, pickFromEvent, tableModel, textValue } from "./lib/chart"
 export type {
   QChartAxis,
   QChartChannel,
+  QChartColumn,
   QChartConfig,
   QChartLegend,
   QChartMark,
   QChartMarkType,
   QChartOrientation,
+  QChartTable,
+  QChartPick,
 } from "./lib/chart"
 export { vTouchPan } from "./lib/touchPan"
 export type { PanDetails, TouchPanHandler, PanDirection } from "./lib/touchPan"

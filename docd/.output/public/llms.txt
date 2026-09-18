@@ -108,6 +108,9 @@
 - [Dot](http://localhost:3000/raw/docs/charts/dot.md): Scatter plots and bubble charts — the dot mark of QChart.
 - [Image](http://localhost:3000/raw/docs/charts/image.md): Image marks — one image per row, plotted like dots.
 - [Text](http://localhost:3000/raw/docs/charts/text.md): Text marks — a label at x and y, the QChart equivalent of Plot's text mark.
+- [Pie](http://localhost:3000/raw/docs/charts/pie.md): Pie and donut marks — one slice per row, off the axes.
+- [Heatmap](http://localhost:3000/raw/docs/charts/heatmap.md): Heat map marks — a value per cell, coloured by a scale over rows and columns.
+- [Interaction](http://localhost:3000/raw/docs/charts/interaction.md): Linked charts — several QCharts that synchronize on hover and click.
 - [Charts](http://localhost:3000/raw/docs/charts.md): QChart — declarative charts built from marks and rendered with Apache ECharts.
 - [Bottom Sheet](http://localhost:3000/raw/docs/plugins/bottom-sheet.md): Open a bottom-anchored panel imperatively from code with $q.bottomSheet, with height, rounded, translucent and transition options.
 - [Dialog](http://localhost:3000/raw/docs/plugins/dialog.md): Open a component-based modal dialog imperatively from code with $q.dialog, a chainable controller and OK / Cancel / Dismiss events.

@@ -1,19 +1,18 @@
 ---
 title: Charts
-description: QChart — declarative charts built from marks and rendered with Apache
-  ECharts.
+description: QChart — declarative charts built from marks, painted on a canvas.
 navigation:
   icon: lucide:chart-line
 seo:
   title: Charts (QChart)
-  description: QChart — marks, props and raw ECharts options.
+  description: QChart — marks, props and raw chart options.
 ---
 
 **`<q-chart>`** draws a chart from a list of **marks**. A mark is a plain object —
 `{ type: 'line', data, x, y }` — so a chart is *data*, not a component tree: nothing to
-import, nothing to nest. The marks are translated to [Apache ECharts](https://echarts.apache.org)
-options and painted on a canvas (ECharts is loaded on the client only, so nothing heavy
-runs during server rendering).
+import, nothing to nest. Most marks are translated to chart options and painted on a canvas (the
+renderer is loaded on the client only, so nothing heavy runs during server rendering); a
+[`table`](/docs/charts/table) mark renders real HTML rows instead.
 
 ::prose-show-case
 <dnax-demo-chart demo="overview"></dnax-demo-chart>
@@ -61,8 +60,11 @@ at 50. Every mark brings its own `data`, so they can come from different sources
 | `pie`   | Pie / donut — one slice per row       | `radius`, `innerRadius`, `labels`, `fill`        |
 | `heatmap` | Heat map — one cell per row          | `fill` (the value), `labels`                     |
 | `rule`  | Reference line                       | `y: [50]` (horizontal) or `x: [0]` (vertical) |
+| `table` | The rows as a **table** (HTML)       | `columns` (`field`, `label`, `align`, `format`), `link` |
 
-Shared keys: `data` (rows, or plain values), `x` / `y` (the data mapping), `name` (legend
+Shared keys: `link` (join to the shared selection — see [Interaction](/docs/charts/interaction)),
+`columns` (for a [Table](/docs/charts/table) mark),
+`data` (rows, or plain values), `x` / `y` (the data mapping), `name` (legend
 entry), **`z`** (one series — and one legend entry — per value), `fill` / `stroke`
 (a series color), `opacity`, `title` (per-point tooltip), `orientation`. Text marks add
 their own keys — `text`, `textAnchor`, `lineAnchor`, `dx` / `dy`, `fontSize`… — listed on
@@ -86,13 +88,17 @@ theme, or any CSS color. See [Line](/docs/charts/line) for the full table.
 | Prop      | Type             | Default          | Description                                                                   |
 | --------- | ---------------- | ---------------- | ----------------------------------------------------------------------------- |
 | `marks`   | `QChartMark[]`   | `[]`             | The layers of the chart.                                                      |
-| `x` / `y` | `QChartAxis`     | —                | **Axis** config: `type` (`band`/`linear`/`time`/`log`), `label`, `min`, `max`, `grid`. |
+| `x` / `y` | `QChartAxis`     | —                | **Axis** config: `type` (`band`/`linear`/`time`/`log`), `label`, `min`, `max`, `grid`, `margin` (gap between the numbers and the axis — 16 px by default on the value axis). |
 | `height`  | `number \| string` | `280`          | Container height (a number is read as pixels, otherwise a CSS value).          |
 | `title`   | `string`         | —                | Chart title.                                                                   |
 | `colors`  | `string[]`       | `--chart-1…6`    | Series palette, for marks without an explicit color.                           |
-| `legend`  | `boolean`        | auto             | Forced on/off; by default as soon as a series is named.                        |
-| `tooltip` | `boolean`        | `true`           | Hover tooltip (a blurred glass card, styled from the theme tokens).            |
-| `options` | `object`         | —                | Raw ECharts options, merged **last** (escape hatch).                           |
+| `legend`  | `boolean \| QChartLegend` | auto      | `false` hides it, `true` forces it (by default: as soon as a series is named). An object places it: `{ position, offset, align }`. |
+| `tooltip` | `boolean`        | `true`           | Hover tooltip (a blurred glass card, styled from the theme tokens). **`axis` trigger by default** on every cartesian chart (bar, line, dot…), with a shadow band for bars and a vertical cursor otherwise; `item` — point or cell by point — when a mark declares a `title`, or for a labels-only (`text`) chart. |
+| `group`   | `string`         | —                | **Linked charts**: charts sharing a group synchronize hover, tooltip, legend, zoom and emphasis. |
+| `selected`| `QChartPick \| null` | `null`       | Currently selected element — highlighted in every series. See [Interaction](/docs/charts/interaction). |
+| `link-mode`| `filter` \| `dim` | `filter`        | What happens to the rows that do **not** match the selection: removed, or **dimmed** at `dim-opacity`. Applies to every linked mark, **`table` rows included**. |
+| `dim-opacity`| `number`      | `0.25`           | Opacity of the unselected elements in `link-mode="dim"`.              |
+| `options` | `object`         | —                | Raw chart options, merged **last** (escape hatch).                             |
 
 ::prose-callout{variant="note"}
 The props `x`, `y` and `title` configure the **chart** (its axes and heading). Inside a
@@ -102,8 +108,66 @@ per-point tooltip. They never collide — a mark is just an object.
 
 ### Events and methods
 
-`@ready` receives the ECharts instance, also available as `chart` on the component ref
+`@ready` receives the chart instance, also available as `chart` on the component ref
 (`refresh()` forces a re-render — useful after a hidden container becomes visible).
+`@pick` fires on every click on an element, with a normalized payload (`{ name, value,
+markName, dataIndex, … }`) — see [Interaction](/docs/charts/interaction).
+`@unpick` fires when the user **deselects** (a re-click on the selected element, or on the
+selected legend entry), with the dropped element — `@pick` receives `null` in the same movement. A legend click carries the very
+same identity as a click on an element (`markName`, `markIndex`, `markType`, `dataIndex`,
+`data`), with `origin: 'legend'`.
+
+### Legend
+
+The legend appears as soon as a series is named. It sits **above the plot area**, with a
+comfortable **24 px gap** reserved in the grid — the plot is never pushed against the legend
+(the first tick label of the axis sits right at the grid edge, so a small margin reads as an
+overlap). Place the legend wherever it fits and set the gap:
+
+::prose-show-case
+<dnax-demo-chart demo="legend"></dnax-demo-chart>
+
+#code
+
+```vue
+<script setup lang="ts">
+const monthly = [
+  { month: "Jan", revenue: 42, cost: 28 },
+  { month: "Feb", revenue: 51, cost: 31 },
+  { month: "Mar", revenue: 47, cost: 30 },
+  { month: "Apr", revenue: 63, cost: 35 },
+]
+
+const marks = [
+  { type: 'line', data: monthly, x: 'month', y: 'revenue', stroke: 'primary', name: 'Revenue' },
+  { type: 'line', data: monthly, x: 'month', y: 'cost', stroke: 'chart-2', name: 'Cost' },
+]
+</script>
+
+<template>
+  <!-- Above the plot, with a generous gap -->
+  <q-chart :height="170" :marks="marks" :legend="{ position: 'top', offset: 32 }" />
+
+  <!-- Below, centred -->
+  <q-chart :height="170" :marks="marks" :legend="{ position: 'bottom', align: 'center' }" />
+
+  <!-- On the side: a vertical legend -->
+  <q-chart :height="190" :marks="marks" :legend="{ position: 'right' }" />
+</template>
+```
+
+::
+
+| Key | Value | Effect |
+| --- | --- | --- |
+| `position` | `top` *(default)*, `bottom`, `left`, `right` | Where the legend sits. `left` / `right` turn it **vertical**. |
+| `offset` | number (px, default `24`) | Gap between the legend and the plot area — the space is **reserved** in the grid, so nothing overlaps. |
+| `align` | `start` *(default)*, `center`, `end` | Alignment along the edge, for a `top` or `bottom` legend. |
+| `action` | `toggle` *(default)*, `select` | `toggle` hides the series (the default behaviour). `select` turns the legend into a **selector**: the click emits `@pick`, the series stay visible, and a second click on the same entry clears the selection. |
+
+`legend: false` hides it, `legend: true` shows it even when no series is named.
+With `action: 'select'` the legend drives the [Interaction](/docs/charts/interaction) link
+instead of hiding series.
 
 ## The `options` escape hatch
 
@@ -119,9 +183,9 @@ that way:
 ```
 
 ::prose-callout{variant="warning"}
-An ECharts feature whose module is not in the bundle is silently ignored: `dataZoom` needs
-`DataZoomComponent`, `aria` needs `AriaComponent`, … Those modules are registered in
-`QChart.vue` (`echarts.use([...])`) — see the `echarts` skill for the mapping.
+Features that are **not part of the bundle** are silently ignored: `dataZoom` (zoom and
+panning) and `aria` (accessibility descriptions) are not registered by default, so passing them
+through `options` has no effect.
 ::
 
 ## API
@@ -166,4 +230,12 @@ Pies and donuts — one slice per row, off the axes.
 
 ::prose-card{icon="lucide:grid-3x3" title="Heatmap" to="/docs/charts/heatmap"}
 A value per cell — a colour scale over rows and columns.
+::
+
+::prose-card{icon="lucide:table" title="Table" to="/docs/charts/table"}
+The same rows as a table — HTML, selectable, filtered by the shared selection.
+::
+
+::prose-card{icon="lucide:link" title="Interaction" to="/docs/charts/interaction"}
+Link several charts together — synced hover and tooltip, click selection and cross-filtering.
 ::

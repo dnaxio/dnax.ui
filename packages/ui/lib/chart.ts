@@ -1,4 +1,4 @@
-// Marks de graphique → options ECharts.
+// Marks de graphique → options du moteur de rendu.
 //
 // Une marque est un **objet littéral** : `{ type: "line", data, x, y, stroke }`.
 // Les canaux acceptent 3 formes :
@@ -43,9 +43,71 @@ export type QChartMarkType =
   | "rule"
   | "pie"
   | "heatmap"
+  /** Données en **table** (HTML, pas de canvas) — mêmes données, même `link`, même sélection */
+  | "table"
 
 /** Sens des axes : `horizontal` inverse les axes (catégories sur l'axe Y) */
 export type QChartOrientation = "vertical" | "horizontal"
+
+/** Colonne d'une marque `table`. Une colonne se déclare en toutes lettres (`{ field, label }`)
+ *  ou par son seul champ (`'month'`). Sans `columns`, les colonnes sont déduites des clés des
+ *  lignes, dans leur ordre d'apparition. */
+export interface QChartColumn {
+  /** Champ lu dans chaque ligne */
+  field: string
+  /** En-tête affiché (défaut : le champ) */
+  label?: string
+  /** Alignement du contenu — `start` (défaut), `center`, `end` (nombres) */
+  align?: "start" | "center" | "end"
+  /** Formate la valeur affichée (reçoit la valeur et la ligne) */
+  format?: (value: any, row: any) => string
+}
+
+/** Séparateurs d'une marque `table` : `horizontal` (défaut — un trait sous chaque rangée),
+ *  `vertical` (entre les colonnes), `grid` (les deux) ou `none`. */
+export type QChartTableSeparator = "horizontal" | "vertical" | "grid" | "none"
+
+/** Modèle prêt à rendre d'une marque `table` */
+export interface QChartTable {
+  columns: QChartColumn[]
+  /** Lignes **jointes** à la sélection (même règle que les autres marques) */
+  rows: any[]
+  /** Séparateurs demandés par la marque (`separator`, défaut `horizontal`) */
+  separator: QChartTableSeparator
+}
+
+/** Modèle d'une marque `table` : colonnes déclarées ou déduites des lignes, lignes jointes à la
+ *  sélection partagée (comme n'importe quelle marque liée).
+ *
+ *  `mode` a le même sens que sur les graphiques : `filter` ne garde que les lignes liées, `dim`
+ *  les **garde toutes** (c'est au rendu d'estomper les autres, comme pour une série). */
+export function tableModel(
+  mark: QChartMark | undefined,
+  selection?: any,
+  mode: QChartLinkMode = "filter",
+): QChartTable {
+  if (!mark) return { columns: [], rows: [], separator: "horizontal" }
+  const separator = mark.separator ?? "horizontal"
+  const all = mark.data ?? []
+  const rows = mode === "dim" ? all : linkedRows(all, chartLink(mark.link), selection)
+  const declared = mark.columns ?? []
+  const columns: QChartColumn[] = declared.map((column) =>
+    typeof column === "string" ? { field: column, label: column } : { ...column, label: column.label ?? column.field },
+  )
+  if (columns.length === 0) {
+    const seen = new Set<string>()
+    for (const row of rows) {
+      if (row === null || typeof row !== "object") continue
+      for (const key of Object.keys(row)) {
+        if (!seen.has(key)) {
+          seen.add(key)
+          columns.push({ field: key, label: key })
+        }
+      }
+    }
+  }
+  return { columns, rows, separator }
+}
 
 /** A single mark: `{ type: 'line', data, x, y, … }` */
 export interface QChartMark {
@@ -53,6 +115,14 @@ export interface QChartMark {
   type: QChartMarkType
   /** Data: rows (objects) or plain values */
   data?: any[]
+  /** **Jointure** de cette marque à la sélection partagée : `link: 'month'` (champ local) ou
+   *  `link: { localField, foreignField }`. Sans sélection, la marque affiche tout. */
+  link?: string | QChartLink
+  /** Separator lines of a `table` mark's cells: `horizontal` (default — one line under each
+   *  row), `vertical` (between columns), `grid` (both) or `none`. */
+  separator?: QChartTableSeparator
+  /** Marque `table` : les colonnes à afficher (défaut : déduites des clés des lignes) */
+  columns?: (string | QChartColumn)[]
   /** Axis direction (default: `vertical`) */
   orientation?: QChartOrientation
   /** Position on the X axis */
@@ -71,7 +141,7 @@ export interface QChartMark {
   radius?: number | string
   /** `pie`: inner radius (number or CSS length). Given, the pie becomes a **donut**. */
   innerRadius?: number | string
-  /** `pie`: starting angle in degrees (ECharts' convention — 90, the default, is 12 o'clock) */
+  /** `pie`: starting angle in degrees — `90` (the default) starts at 12 o'clock, angles growing counter-clockwise */
   startAngle?: number
   /** `pie`: content of the slice labels — `name` (default), `value`, `percent`, `name-value`, `name-percent`, or `false` to hide them.
    *  `heatmap`: `true` prints the value inside each cell. */
@@ -82,11 +152,15 @@ export interface QChartMark {
   symbol?: string
   /** `image`: URL of each image — a constant when it starts with `.`, `/` or a protocol, otherwise a channel (a field of each row). Required. */
   src?: QChartChannel
+  /** `image`: `true` paints the image inside a **circle** (round marker) — serve the image at
+   *  the marker size (the pattern is anchored at the top-left, a bigger source is cropped).
+   *  `stroke` + `strokeWidth` then draw a ring around it. */
+  round?: boolean
   /** `image`: width in pixels (default 16, or `2 * r`) */
   width?: number | QChartChannel
   /** `image`: height in pixels (default 16, or `2 * r`) */
   height?: number | QChartChannel
-  /** Rotation in degrees, **clockwise** (like Plot) — `image` (`symbolRotate`) and `text` (ECharts' `label.rotate` turns the other way, so the sign is flipped for you) */
+  /** Rotation in degrees, **clockwise** (like Plot) — the sign is flipped for you, because the underlying label rotation turns the other way */
   rotate?: number | QChartChannel
   /** `text`: font size in pixels (default 11) — constant or channel */
   fontSize?: number | QChartChannel
@@ -132,13 +206,33 @@ export interface QChartMark {
  *  `orientation` (`rule` reference lines only carry positions and a stroke, and `pie`
  *  slices are one per row: no `z`, `stack` or `orientation`). */
 export const MARK_OPTIONS = {
-  line: ["data", "x", "y", "stroke", "strokeWidth", "opacity", "title", "name", "z", "stack", "orientation"],
-  area: ["data", "x", "y", "fill", "stroke", "strokeWidth", "opacity", "title", "name", "z", "stack", "orientation"],
-  bar: ["data", "x", "y", "fill", "stroke", "strokeWidth", "opacity", "title", "name", "z", "stack", "orientation"],
-  dot: ["data", "x", "y", "fill", "stroke", "strokeWidth", "opacity", "r", "symbol", "title", "name", "z", "stack", "orientation"],
-  image: ["data", "x", "y", "src", "width", "height", "r", "rotate", "opacity", "title", "name", "z", "stack", "orientation"],
+  line: ["data", "link", "x", "y", "stroke", "strokeWidth", "opacity", "title", "name", "z", "stack", "orientation"],
+  area: ["data", "link", "x", "y", "fill", "stroke", "strokeWidth", "opacity", "title", "name", "z", "stack", "orientation"],
+  bar: ["data", "link", "x", "y", "fill", "stroke", "strokeWidth", "opacity", "title", "name", "z", "stack", "orientation"],
+  dot: ["data", "link", "x", "y", "fill", "stroke", "strokeWidth", "opacity", "r", "symbol", "title", "name", "z", "stack", "orientation"],
+  image: [
+    "data",
+    "link",
+    "x",
+    "y",
+    "src",
+    "round",
+    "width",
+    "height",
+    "r",
+    "rotate",
+    "stroke",
+    "strokeWidth",
+    "opacity",
+    "title",
+    "name",
+    "z",
+    "stack",
+    "orientation",
+  ],
   text: [
     "data",
+    "link",
     "x",
     "y",
     "text",
@@ -164,13 +258,16 @@ export const MARK_OPTIONS = {
     "stack",
     "orientation",
   ],
-  rule: ["data", "x", "y", "stroke", "fill", "strokeWidth"],
-  pie: ["data", "x", "y", "fill", "radius", "innerRadius", "startAngle", "labels", "opacity", "title", "name"],
-  heatmap: ["data", "x", "y", "fill", "labels", "opacity", "title", "name"],
+  rule: ["data", "link", "x", "y", "stroke", "fill", "strokeWidth"],
+  pie: ["data", "link", "x", "y", "fill", "radius", "innerRadius", "startAngle", "labels", "opacity", "title", "name"],
+  heatmap: ["data", "link", "x", "y", "fill", "labels", "opacity", "title", "name"],
+  table: ["data", "link", "columns", "separator"],
 } as const satisfies Record<QChartMarkType, readonly (keyof QChartMark)[]>
 
 /** Configuration d'axe */
 export interface QChartAxis {
+  /** Espace entre les nombres et l'axe, en pixels (défaut : 16 sur l'axe des ordonnées) */
+  margin?: number
   /** `band` (catégories — défaut si l'axe contient du texte), `linear`, `time`, `log` */
   type?: "band" | "linear" | "time" | "log"
   label?: string
@@ -180,14 +277,179 @@ export interface QChartAxis {
   grid?: boolean
 }
 
+/** Élément désigné dans un graphique (clic, survol) — émis par `<q-chart>` sur `@pick`.
+ *  Le vocabulaire est celui des **marques** (`markName`, `markIndex`, `markType`) : jamais
+ *  celui du moteur de rendu. */
+export interface QChartPick {
+  /** Nom de la donnée : le `name` du point, ou la catégorie sur un axe `band` */
+  name?: string
+  /** Valeur du point (un nombre, ou `[x, y]` sur une marque cartésienne) */
+  value?: any
+  /** Nom de la **marque** cliquée (son `name` — l'entrée de légende) */
+  markName?: string
+  /** Index de la marque dans la propriété `marks` */
+  markIndex?: number
+  /** **Type** de la marque cliquée (`bar`, `line`, `pie`, `heatmap`…) */
+  markType?: string
+  /** Index de la donnée dans sa marque */
+  dataIndex?: number
+  /** D'où vient le clic : `mark` (un élément du graphique) ou `legend` (une entrée de légende) */
+  origin?: "mark" | "legend"
+  /** **Donnée brute** de l'élément (la ligne d'origine) — c'est elle qui alimente les
+   *  jointures `link.foreignField` des autres graphiques. */
+  data?: any
+}
+
+/** Identité d'un élément par son **nom** dans les marques du graphique : la **marque**
+ *  (index, `name`, `type`) et la **donnée** (index, ligne, valeur). Un clic de légende ne porte
+ *  que le nom : cette fonction reconstruit le `QChartPick` complet, pour que `selected` ait la
+ *  même forme quelle que soit l'origine du clic. */
+export function legendPickOf(
+  marks: readonly QChartMark[] | undefined,
+  name: string,
+  /** Marque à essayer **en premier** — le clic transmet sa position ; la recherche est globale
+   *  ensuite (deux marques peuvent partager un nom, comme `line` et `bar` sur les mois). */
+  markHint?: number,
+): QChartPick {
+  const pick: QChartPick = { name, origin: "legend" }
+  const order = [...(marks?.keys() ?? [])]
+  if (markHint !== undefined && order.includes(markHint)) {
+    order.splice(order.indexOf(markHint), 1)
+    order.unshift(markHint)
+  }
+  for (const markIndex of order) {
+    const mark = marks![markIndex]
+    const rows = mark.data ?? []
+    for (let dataIndex = 0; dataIndex < rows.length; dataIndex++) {
+      const row = rows[dataIndex]
+      if (row === null || typeof row !== "object") continue
+      const label = typeof mark.x === "string" ? (row as any)[mark.x] : undefined
+      const matched =
+        label !== undefined
+          ? String(label) === String(name)
+          : Object.values(row).some((v) => typeof v !== "object" && v !== null && String(v) === String(name))
+      if (!matched) continue
+      pick.markIndex = markIndex
+      pick.markName = mark.name
+      pick.markType = mark.type
+      pick.dataIndex = dataIndex
+      pick.data = row
+      const ordinate = typeof mark.y === "string" ? (row as any)[mark.y] : undefined
+      if (ordinate !== undefined) pick.value = ordinate
+      return pick
+    }
+  }
+  return pick
+}
+
+/** Deux sélections désignent-elles le **même élément** ? Le `name` d'abord — c'est la clé
+ *  partagée entre graphiques (re-cliquer « Fév », même dans une autre marque, c'est la même
+ *  sélection) ; à défaut la position (marque + donnée). Sert au **re-clic qui désélectionne**,
+ *  pour les éléments comme pour la légende. */
+export function sameSelection(current: QChartPick | null | undefined, candidate: QChartPick): boolean {
+  if (!current || !candidate) return false
+  if (current.name !== undefined && candidate.name !== undefined) {
+    return String(current.name) === String(candidate.name)
+  }
+  return (
+    current.markIndex !== undefined &&
+    current.markIndex === candidate.markIndex &&
+    current.dataIndex !== undefined &&
+    current.dataIndex === candidate.dataIndex
+  )
+}
+
+/** Sélection suivante après un clic de **légende** en mode `select` : le nom déjà sélectionné
+ *  → `null` (l'utilisateur **désélectionne** : le filtre se relâche), un autre nom → ce nom
+ *  (on bascule). Le composant rétablit au passage l'entrée de légende que le moteur a
+ *  basculée, pour que la part / la série reste visible. */
+export function nextLegendPick(
+  current: QChartPick | null | undefined,
+  name: string,
+  data?: any,
+) : QChartPick | null {
+  // Même règle que pour un clic sur un élément (cf. `sameSelection`) : re-cliquer le nom
+  // courant **désélectionne**.
+  if (current && current.name !== undefined && String(current.name) === String(name)) return null
+  return { name, origin: "legend", data }
+}
+
+/** Normalise l'événement de clic du moteur en `QChartPick` — les clés absentes sont omises,
+ *  pour que le payload reste comparable et sérialisable. */
+export function pickFromEvent(params: any): QChartPick {
+  const pick: QChartPick = {}
+  const put = (key: keyof QChartPick, value: any) => {
+    if (value !== undefined && value !== null) pick[key] = value
+  }
+  put("name", params?.name)
+  put("value", params?.value)
+  put("markName", params?.seriesName)
+  put("markIndex", params?.seriesIndex)
+  put("markType", params?.seriesType)
+  put("dataIndex", params?.dataIndex)
+  // `series` (le moteur) devient `mark` (notre vocabulaire)
+  put("origin", params?.componentType === "series" ? "mark" : params?.componentType === "legend" ? "legend" : undefined)
+  put("data", params?.data)
+  return pick
+}
+
+/** Jointure d'une marque à la **sélection partagée** (façon `localField`/`foreignField` de
+ *  Mongo) : la marque ne garde que les lignes dont `localField` correspond à la clé de la
+ *  sélection. Écrire `link: 'month'` est le raccourci de `link: { localField: 'month' }`. */
+export interface QChartLink {
+  /** Le champ de **cette** marque qui porte la clé de jointure (côté local) */
+  localField: string
+  /** Le champ de la **source** de la sélection (côté étranger), résolu dans la donnée du clic
+   *  (`pick.data[foreignField]`), puis dans le pick lui-même, puis dans son `name`.
+   *  Défaut : `localField`. */
+  foreignField?: string
+}
+
+/** Normalise `link: 'month'` en `{ localField: 'month' }` */
+export function chartLink(link?: string | QChartLink): QChartLink | undefined {
+  if (!link) return undefined
+  return typeof link === "string" ? { localField: link } : link
+}
+
+/** Clé de jointure d'une sélection : `pick.data[foreignField]`, sinon `pick[foreignField]`,
+ *  sinon le `name` du pick ; un scalaire est sa propre clé. `undefined` = pas de sélection. */
+export function linkValue(link: QChartLink, selection: any): any {
+  if (selection === null || selection === undefined) return undefined
+  const field = link.foreignField ?? link.localField
+  if (typeof selection !== "object") return selection
+  for (const candidate of [selection.data?.[field], selection[field], selection.name]) {
+    if (candidate !== undefined && candidate !== null) return candidate
+  }
+  return undefined
+}
+
+/** Lignes d'une marque **jointes** à la sélection : filtre sur `localField`. Deux garde-fous —
+ *  sans sélection, ou quand aucune ligne ne porte le champ (jointure impossible), la marque
+ *  garde toutes ses données : un graphique ne doit pas se vider sur une clé mal orthographiée. */
+export function linkedRows(rows: any[], link: QChartLink | undefined, selection: any): any[] {
+  if (!link || selection === null || selection === undefined || rows.length === 0) return rows
+  if (!rows.some((row) => row !== null && typeof row === "object" && link.localField in row)) return rows
+  const key = linkValue(link, selection)
+  if (key === undefined || key === null) return rows
+  return rows.filter((row) => String(row?.[link.localField]) === String(key))
+}
+
+/** Réaction d'une marque liée à une sélection : `filter` retire les lignes non liées, `dim`
+ *  les estompe (opacité réduite) et garde tout le contexte visible. */
+export type QChartLinkMode = "filter" | "dim"
+
 /** Placement de la légende (position autour de la zone de tracé, marge, alignement) */
 export interface QChartLegend {
   /** Côté où se trouve la légende — `top` (défaut), `bottom`, `left`, `right` */
   position?: "top" | "bottom" | "left" | "right"
   /** Marge entre la légende et la zone de tracé, en pixels (défaut 12) */
   offset?: number
-  /** Alignement le long du bord (`top` / `bottom`) — `start` (défaut), `center`, `end` */
+  /** Alignement le long du bord — `start` (défaut), `center`, `end` */
   align?: "start" | "center" | "end"
+  /** Un clic sur un élément de légende : `toggle` (défaut — masque la série) ou
+   *  `select` (la légende sert de **sélecteur** : le clic émet `@pick` et l'état des séries
+   *  est préservé, pour filtrer les autres graphiques). */
+  action?: "toggle" | "select"
 }
 
 /** Entrée de `chartToECharts()` — ce que `<q-chart>` construit à partir de ses props */
@@ -204,6 +466,15 @@ export interface QChartConfig {
   legend?: boolean | QChartLegend
   /** Info-bulle (défaut : oui) */
   tooltip?: boolean
+  /** Ce que deviennent les lignes **non liées** par `link` : `filter` (défaut) les retire, `dim`
+   *  les **estompe** (`dimOpacity`) et laisse la place à la sélection. */
+  linkMode?: QChartLinkMode
+  /** Opacité des éléments non sélectionnés en mode `dim` — 0.25 par défaut */
+  dimOpacity?: number
+  /** **Sélection partagée** (le `@pick` d'un graphique, ou la clé choisie par l'application) :
+   *  les marques qui déclarent `link` ne gardent que les lignes jointes (`localField` ←
+   *  `foreignField`). `null` = aucune sélection, tout est affiché. */
+  selection?: any
   /** Thème : couleurs de texte/grille (résolues depuis les tokens CSS) */
   theme?: { text?: string; muted?: string; grid?: string }
   /** Valeurs des tokens de couleur (relues sur l'élément → suit le thème hôte) */
@@ -211,7 +482,7 @@ export interface QChartConfig {
   /** Normalise une couleur CSS en une forme que zrender relit (`#rrggbb` / `rgba()`).
    *  Injecté par `QChart` (canvas 2D) ; absent hors navigateur → couleurs telles quelles. */
   normalizeColor?: (value: string) => string | undefined
-  /** Options ECharts brutes, fusionnées en dernier (échappatoire) */
+  /** Options de rendu brutes, fusionnées en dernier (échappatoire) */
   options?: Record<string, any>
 }
 
@@ -368,11 +639,18 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
     grid: resolve(config.theme?.grid),
   }
 
-  const dataOf = (m: QChartMark) => m.data ?? []
+  /** Lignes d'une marque, **jointes** à la sélection partagée (`link` + `selection`).
+   *  Point d'application unique : toutes les familles de marques en héritent. */
+  const dataOf = (m: QChartMark) => {
+    const link = chartLink(m.link)
+    // Mode `dim` : la marque garde **toutes** ses lignes (l'estompage est un style, cf. plus bas)
+    if ((config.linkMode ?? "filter") === "dim") return m.data ?? []
+    return linkedRows(m.data ?? [], link, config.selection)
+  }
 
   // Orientation : donnée par la première marque de série. Toutes les marques
   // doivent partager la même orientation (`pie` n'est pas posé sur les axes → ignoré).
-  const first = marks.find((m) => !isRule(m) && m.type !== "pie") ?? marks[0]
+  const first = marks.find((m) => !isRule(m) && m.type !== "pie" && m.type !== "table") ?? marks[0]
   const horizontal = !!first && isHorizontal(first)
 
   const abscissaOf = (m: QChartMark) => m.x ?? m.y
@@ -402,7 +680,7 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
   let numericX = true
   let timeX = config.x?.type === "time"
   for (const m of marks) {
-    if (isRule(m) || m.type === "pie") continue
+    if (isRule(m) || m.type === "pie" || m.type === "table") continue
     const data = dataOf(m)
     const ch = abscissaOf(m)
     for (let i = 0; i < data.length; i++) {
@@ -481,6 +759,8 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
   const visualMaps: any[] = []
 
   for (const m of marks) {
+    // Une marque `table` n'est pas une série : elle est rendue en HTML par `<q-chart>`
+    if (m.type === "table") continue
     const data = dataOf(m)
 
     // Camembert / anneau — famille **hors axes** (ni grid ni xAxis/yAxis) : une part par
@@ -574,7 +854,7 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
         data: cells,
         ...(cellOpacity !== undefined ? { itemStyle: { opacity: cellOpacity } } : {}),
         ...(m.labels === true || m.labels === "value"
-          ? { label: { show: true, formatter: "{c}", color: theme.text } }
+          ? { label: { show: true, formatter: "{@[2]}", color: theme.text } }
           : {}),
       })
       continue
@@ -693,7 +973,12 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
           if (typeof r === "number" && r !== radius) item.symbolSize = r * 2 + 2
         } else if (m.type === "image") {
           const src = channelValue(m.src, data, p.index)
-          if (!constantSrc && typeof src === "string") item.symbol = `image://${src}`
+          if (m.round === true) {
+            // Pastille ronde : l'image est peinte en **motif** dans le symbole `circle`
+            if (typeof src === "string") item.itemStyle = { color: { image: src, repeat: "no-repeat" } }
+          } else if (!constantSrc && typeof src === "string") {
+            item.symbol = `image://${src}`
+          }
           const w = perPointValue(m.width, imageSize[0], p.index)
           const h = perPointValue(m.height, imageSize[1], p.index)
           if (typeof w === "number" || typeof h === "number") {
@@ -773,18 +1058,38 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
           },
         })
       } else if (m.type === "image") {
-        // `image://` : ECharts dessine l'image dans le cadre `symbolSize` (l'aspect est
-        // conservé via `symbolKeepAspect`). `opacity` par défaut à 1 : la valeur 0.8 de
-        // `scatter` délave les images.
+        const round = m.round === true
+        // Deux rendus :
+        //  - `round: true` : un symbole `circle` **rempli par un motif** image
+        //    (`itemStyle.color.image`, posé par point). zrender ne sait pas découper un
+        //    symbole : le motif est peint à la taille **native** de l'image, ancré en haut à
+        //    gauche du marqueur → servir l'image au format du marqueur.
+        //  - sinon `image://` : ECharts dessine l'image dans `symbolSize`, aspect conservé
+        //    (`symbolKeepAspect`), sans découpe possible.
+        // `opacity` par défaut à 1 : la valeur 0.8 de `scatter` délave les images.
+        const ring = resolve(colorValue(m.stroke, data, g.indexes[0] ?? 0))
         series.push({
           ...common,
           type: "scatter",
-          ...(constantSrc ? { symbol: `image://${constantSrc}` } : {}),
-          symbolKeepAspect: true,
+          ...(round
+            ? { symbol: "circle" }
+            : constantSrc
+              ? { symbol: `image://${constantSrc}` }
+              : {}),
+          ...(round ? {} : { symbolKeepAspect: true }),
           ...(typeof rotate0 === "number" ? { symbolRotate: rotate0 } : {}),
           data: points.map(perPoint),
           symbolSize: imageSize,
-          itemStyle: { opacity: opacity ?? 1 },
+          itemStyle: {
+            opacity: opacity ?? 1,
+            // Anneau (`stroke` + `strokeWidth`) — surtout lisible sur une pastille ronde
+            ...(typeof ring === "string" && looksLikeColor(ring)
+              ? {
+                  borderColor: ring,
+                  borderWidth: typeof m.strokeWidth === "number" ? m.strokeWidth : round ? 2 : 1,
+                }
+              : {}),
+          },
         })
       } else if (m.type === "text") {
         // Libellé (Plot.text) : le point n'est qu'une **ancre invisible** (1 px,
@@ -860,7 +1165,10 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
   const legendOn = config.legend === false ? false : config.legend === true || series.some((s) => !!s.name)
   const legendConfig: QChartLegend = typeof config.legend === "object" && config.legend !== null ? config.legend : {}
   const legendPosition = legendConfig.position ?? "top"
-  const legendGap = typeof legendConfig.offset === "number" ? legendConfig.offset : 12
+  // `offset` par défaut : 24 px — une respiration **conséquente** entre la légende et la
+  // zone de tracé (la première étiquette de graduation est collée au bord du grid, donc une
+  // marge faible se lit comme un chevauchement).
+  const legendGap = typeof legendConfig.offset === "number" ? legendConfig.offset : 24
   const legendAlign = legendConfig.align === "center" ? "center" : legendConfig.align === "end" ? "right" : 0
   /** Hauteur d'une entrée de légende (itemHeight 10 + respiration) */
   const LEGEND_LINE = 14
@@ -870,6 +1178,9 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
   const legendTopBand = legendOn && legendPosition === "top" ? legendTop + LEGEND_LINE + legendGap : 0
   /** Place sous le graphique quand une échelle de couleurs est visible (`heatmap`) */
   const scaleBand = visualMaps.some((vm) => vm.show !== false) ? 30 : 0
+  /** Bandeau du **nom d'axe** (nom de l'axe y au-dessus, nom de l'axe x en dessous) */
+  const axisNameTop = config.y?.label ? 16 : 0
+  const axisNameBottom = config.x?.label ? 16 : 0
   const legendOption = !legendOn
     ? { show: false }
     : {
@@ -887,12 +1198,20 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
   const gridBox = {
     left: 8 + (legendOn && legendPosition === "left" ? LEGEND_COLUMN + legendGap : 0),
     right: 16 + (legendOn && legendPosition === "right" ? LEGEND_COLUMN + legendGap : 0),
-    top: legendTopBand > 0 ? legendTopBand : config.title ? 44 : 16,
-    bottom: 8 + scaleBand + (legendOn && legendPosition === "bottom" ? LEGEND_LINE + legendGap : 0),
+    // Légende → nom d'axe → zone de tracé, sans recouvrement
+    top: (legendTopBand > 0 ? legendTopBand : config.title ? 44 : 16) + axisNameTop,
+    bottom:
+      8 +
+      axisNameBottom +
+      scaleBand +
+      (legendOn && legendPosition === "bottom" ? LEGEND_LINE + legendGap : 0),
     containLabel: true,
   }
 
   const axisLabel = { color: theme.muted }
+  /** Nombres de l'axe des ordonnées : un peu d'air entre eux et l'axe (défaut moteur : 8) —
+   *  `grid.containLabel` réserve la place, rien d'autre à ajuster. */
+  const valueAxisLabel = { ...axisLabel, margin: 16 }
   const axisLine = { lineStyle: { color: theme.grid } }
 
   const hasHeatmap = series.some((s) => s.type === "heatmap")
@@ -915,7 +1234,8 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
     nameTextStyle: axisLabel,
     min: axis?.min ?? (zero ? 0 : undefined),
     max: axis?.max,
-    axisLabel,
+    axisLabel:
+      typeof axis?.margin === "number" ? { ...valueAxisLabel, margin: axis.margin } : valueAxisLabel,
     axisLine: { show: false },
     axisTick: { show: false },
     splitLine: { show: axis?.grid ?? true, lineStyle: { color: theme.grid } },
@@ -944,6 +1264,15 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
     (s) => s.type === "bar" || s.type === "line" || s.type === "scatter" || s.type === "heatmap",
   )
 
+  // Un tooltip d'axe suppose des données **par catégorie** : vrai pour tout cartésien, sauf si
+  // l'info est par point (`title`) ou si le graphique ne porte que des étiquettes (`text`).
+  // (`cartesian` inclut la heatmap, qui se survole cellule par cellule : on ne s'en sert pas ici.)
+  const axisTooltip =
+    series.some((s) => s.type === "bar" || s.type === "line") ||
+    (series.some((s) => s.type === "scatter") &&
+      !series.some((s) => s.type === "heatmap") &&
+      !marks.some((m) => m.title !== undefined || m.type === "text"))
+
   const option: Record<string, any> = {
     ...(config.title
       ? { title: { text: config.title, left: 0, textStyle: { fontSize: 13, fontWeight: 600, color: theme.text } } }
@@ -960,16 +1289,51 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
       config.tooltip === false
         ? { show: false }
         : {
-            // `axis` : comparer les séries le long de l'axe (line/bar…). `item` : le
-            // graphique n'a que des points/étiquettes/parts — sinon le `title` d'un point
-            // n'est jamais affiché.
-            trigger: series.some((s) => s.type === "bar" || s.type === "line") ? "axis" : "item",
+            // **`axis` par défaut sur tout graphique cartésien** (bar, line, dot…) : on compare
+            // les séries le long de l'axe. On reste en `item` quand l'information est vraiment
+            // **par point** : une marque `title` (elle ne s'afficherait jamais dans un tooltip
+            // d'axe) ou un graphique d'étiquettes (`text`, dont la donnée est le libellé).
+            trigger: axisTooltip ? "axis" : "item",
+            ...(axisTooltip
+              ? { axisPointer: { type: series.some((s) => s.type === "bar") ? "shadow" : "line" } }
+              : {}),
             confine: true,
             ...tooltipStyle(theme),
           },
     legend: legendOption,
     color: palette,
     series,
+  }
+
+  // ── Mode `dim` : estomper au lieu de retirer ────────────────────────────────
+  // Tout est dessiné, les éléments non liés passent en opacité réduite et **l'état `select`
+  // de la série ramène la sélection au plein contraste** (ECharts n'a pas d'état « non
+  // sélectionné » : on baisse le style par défaut, la sélection le relève).
+  // **Seulement s'il y a une sélection** : au repos, tout doit être à plein contraste
+  const picked = config.selection
+  const hasSelection =
+    !!picked && (typeof picked !== "object" || picked.name !== undefined || picked.dataIndex !== undefined)
+  if ((config.linkMode ?? "filter") === "dim" && hasSelection) {
+    const dim = typeof config.dimOpacity === "number" ? config.dimOpacity : 0.25
+    for (const one of option.series ?? []) {
+      one.selectedMode = "single"
+      // Seule l'opacité change : on ne touche ni au rayon (celui des barres vient du
+      // traducteur : `borderRadius: [3, 3, 0, 0]`) ni au reste du style de la marque.
+      one.itemStyle = { ...(one.itemStyle ?? {}), opacity: dim }
+      if (one.type === "line" || one.type === "area") {
+        one.lineStyle = { ...(one.lineStyle ?? {}), opacity: dim }
+      }
+      // Le style `select` **par défaut** du moteur pose `borderColor: primary, borderWidth: 2`
+      // autour de l'élément sélectionné : on annule la **bordure** (largeur + couleur), et rien
+      // d'autre — le rayon, lui, reste celui de la marque (les barres gardent leurs coins).
+      const selectStyle = {
+        itemStyle: { opacity: 1, borderColor: "transparent", borderWidth: 0 },
+      }
+      one.select =
+        one.type === "line" || one.type === "area"
+          ? { ...selectStyle, lineStyle: { opacity: 1 } }
+          : selectStyle
+    }
   }
 
   return { ...option, ...(config.options ?? {}) }

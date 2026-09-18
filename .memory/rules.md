@@ -58,3 +58,32 @@ padding-top: env(safe-area-inset-top);            /* iOS 11.2+ */
 - Toute couleur donnée à ECharts doit être dans une forme que **zrender** relit : les couleurs
   relues sur le thème passent par `lib/color.ts` (peinture + lecture de pixel), jamais par
   `ctx.fillStyle` seul (`warnings.md`).
+
+## Aucun build spontané
+
+Ne lancer **aucun build** (`bun run generate`, `bun run build`, `nuxt build`) sans demande
+explicite de l'utilisateur, ou sauf nécessité réelle de test.
+
+- Vérifier une page : serveur de dev (`cd docd && PORT=3000 bun run dev`) ou test unitaire —
+  jamais un build complet « pour voir ».
+- `bun test packages/ui/lib` reste la vérification de référence du traducteur : rapide, sans
+  artefact, elle ne remplace pas un build.
+- Le build est réservé à la livraison (vérifier `docd/.output/public`, `llms.txt`).
+
+## Vocabulaire de la documentation : jamais le moteur de rendu
+
+La doc publique parle **la langue de la bibliothèque**, jamais celle de l'implémentation.
+
+- **Bannir le nom du moteur** (ECharts) de tout ce qui est publié : pages `docd/content/**`,
+  descriptions `frontmatter`/`seo`, démos (`docd/app/components/demos/**`), `llms.txt`,
+  **et les JSDoc de `packages/ui/lib/chart.ts`** — ces derniers alimentent les tables
+  d'options générées (`MARK_OPTIONS` + JSDoc), donc une mention y fuite dans la doc.
+  Remplacer par : « chart options », « the renderer », « the underlying label rotation »…
+- **Le payload `@pick` parle en marques** : `markName`, `markIndex`, `markType`
+  (`bar`, `pie`…), `origin` (`mark` | `legend`) — jamais `seriesName`/`seriesIndex`/
+  `seriesType`/`componentType`. La traduction des paramètres du moteur se fait **une seule
+  fois**, dans `pickFromEvent()`.
+- Vérification systématique après une modification de doc :
+  `grep -ri echarts docd/content docd/app docd/public docs` → **0**, plus un contrôle HTTP de
+  chaque page (un serveur de dev tombé renvoie 0 occurrence : le comptage serait faux).
+
