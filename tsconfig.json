@@ -25,6 +25,23 @@
     // Some stricter flags (disabled by default)
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noPropertyAccessFromIndexSignature": false
-  }
+    "noPropertyAccessFromIndexSignature": false,
+
+    // Alias Nuxt pour les composants de la couche @baybreezy/docd. Ces fichiers vivent
+    // dans node_modules et importent `NuxtLinkProps` via `#app` / `#app/components` ;
+    // @vue/compiler-sfc résout ces imports de types avec TypeScript **et le tsconfig le
+    // plus proche du fichier**. Depuis node_modules, le seul découvrable est celui-ci :
+    // sans ces `paths`, le build de production de docd échoue
+    // (« Failed to resolve import source "#app" »).
+    "paths": {
+      "#app": [
+        "./docd/node_modules/nuxt/dist/app",
+        "./node_modules/nuxt/dist/app",
+      ],
+      "#app/*": [
+        "./docd/node_modules/nuxt/dist/app/*",
+        "./node_modules/nuxt/dist/app/*",
+      ],
+    },
+  },
 }
