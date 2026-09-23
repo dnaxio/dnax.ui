@@ -1521,3 +1521,29 @@ détaillé dans `warnings.md`) : le tsconfig racine porte désormais les `paths`
   correction doit être robuste à la version, pas dépendante.
 - Vérif : `ts.resolveModuleName` depuis le `realpath` d'un composant du layer → `index.d.ts` ;
   `bun run build` **EXIT 0** (0 erreur), `bun run generate` EXIT 0.
+
+## Suppression de QVideo et de `@videojs/html` — 2026-09-23
+
+tag: `decisions` — `filename: packages/ui/components/QVideo.vue`
+
+Retrait **définitif** du composant **QVideo** et de sa dépendance **`@videojs/html`**
+(framework HTML Video.js v10, qui embarque le custom element `mux-video`) : le design
+system n'expose plus de lecteur vidéo. Aucun autre usage dans le repo.
+
+- `packages/ui/components/QVideo.vue` supprimé + export `QVideo` retiré de
+  `packages/ui/index.ts`.
+- `packages/ui/module.ts` : la liste `VIDEOJS_CUSTOM_ELEMENTS` (`video-player`,
+  `video-skin`, `youtube-video`, `hlsjs-video`, `mux-video`) et le hook
+  `nuxt.options.vue.compilerOptions.isCustomElement` sont **supprimés** — ils
+  n'existaient que pour QVideo (plus aucune balise non-Vue dans les composants).
+- `packages/ui/package.json` : dépendance `@videojs/html` retirée. `bun.lock` n'étant
+  pas versionné, la purge de `node_modules` se fera au prochain `bun install`
+  (aucun `bun install` lancé ici, pas de build spontané — règle projet).
+- Docs : `docd/content/docs/4.components/video.md` + `docd/app/components/demos/DnaxDemoVideo.vue`
+  supprimés. Navigation MDC et `llms.txt` sont **générés depuis le contenu** → aucune
+  liste à éditer ; `docd/.output/public/llms.txt` est un artefact **gitignoré**
+  (régénéré au build). Le catalogue de la skill `.agents/skills/quasar/SKILL.md`
+  n'est **pas** touché : il documente Quasar (où `QVideo` existe), pas dnax.ui.
+- Vérif : `grep` de contrôle → 0 occurrence restante de `q-video`/`QVideo`/`videojs`/
+  `mux-video` dans les sources (hors musique `.memory` historique et skill Quasar) ;
+  `diagnostics` projet → 0 erreur.

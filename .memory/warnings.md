@@ -865,3 +865,21 @@ dépend donc de la machine (`latest` dans `docd/package.json`) — d'où le « c
 `.bun/…`) d'un composant du layer → trouvent le tsconfig racine, `#app` →
 `nuxt/dist/app/index.d.ts` et `#app/components` → `nuxt/dist/app/components/index.d.ts` ;
 `bun run build` → **EXIT 0**, 0 erreur de résolution ; `bun run generate` → EXIT 0, 0 `[404]`/`[500]`.
+
+## `scripts/generate-exports.ts` désynchronisé de `index.ts` — 2026-09-23
+
+tag: `warning` — `filename: packages/ui/scripts/generate-exports.ts`
+
+Le générateur réécrit entièrement `packages/ui/index.ts` (exports des composants +
+bloc `manualExports`), mais son bloc `manualExports` **ne contient pas** les exports de
+`lib/datePicker.ts` présents dans `index.ts` (`placePopover`, `PlacePopoverOptions`,
+`PopoverAnchor`, `PopoverPlacement`, `PopoverViewport`) : tout ajout manuel à
+`index.ts` hors composants ne survit pas à une régénération.
+
+**Conséquence** : lancer `bun run generate` (dans `packages/ui`) **supprime** ces 7
+lignes → `placePopover` et ses types disparaissent de l'API publique.
+
+**Vérif** : générateur exécuté sur une copie hors repo (`/tmp/gen-check`, scripts +
+components + index.ts) → `diff` avec le vrai `index.ts` = 7 lignes manquantes
+(`167a168,174`). **Correctif** : recopier les lignes `placePopover` / types dans
+`manualExports` avant toute régénération.
