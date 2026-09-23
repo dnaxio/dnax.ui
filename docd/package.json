@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@baybreezy/docd": "latest",
-    "@dnax/ui": "workspace:*"
+    "@dnax/ui": "workspace:*",
+    "@takumi-rs/core": "^2.13.7"
   },
   "devDependencies": {
     "@types/node": "latest",

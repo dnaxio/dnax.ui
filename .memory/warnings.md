@@ -883,3 +883,47 @@ lignes → `placePopover` et ses types disparaissent de l'API publique.
 components + index.ts) → `diff` avec le vrai `index.ts` = 7 lignes manquantes
 (`167a168,174`). **Correctif** : recopier les lignes `placePopover` / types dans
 `manualExports` avant toute régénération.
+
+## `nuxt-og-image` : `Cannot find module '@takumi-rs/core'` en dev — 2026-09-23
+
+tag: `warning` — `filename: docd/nuxt.config.ts`
+
+**Symptôme** : `ERROR renderer.createImage error for /_og/s/*.png: Cannot find module
+'@takumi-rs/core'` (logger `@nuxtjs/og-image`), stack passant par
+`<racine projet>/docd/noop.js` et `[worker eval]` — puis `[request error] [unhandled]
+[GET] /_og/s/*.png`.
+
+**Cause** : `docd` étend `@baybreezy/docd`, qui dépend de `nuxt-og-image` (rendu des
+og:image). En v6 le moteur par défaut est **Takumi**, dont `@takumi-rs/core` n'est
+qu'un **peer optionnel** (pas installé d'office). En dev le binding `node-dev`
+(`nuxt-og-image/dist/runtime/server/og-image/bindings/takumi/node-dev.js`) exécute le
+rendu dans un **worker thread** qui résout le natif avec
+`createRequire(process.cwd() + '/')` → **depuis la racine du projet qui tourne**, alors
+que la détection du module (`hasResolvableDependency` → `resolvePath`) se fait dans le
+**scope du module** (`node_modules/.bun/nuxt-og-image@…/node_modules/`), où le peer est
+bien lié : « détecté installé, introuvable au runtime ». Le hoisting du peer à
+`docd/node_modules/@takumi-rs/core` dépend de la machine/plateforme → ça marche sur ce
+Mac (2.13.7 + `core-darwin-arm64` hoistés), pas ailleurs.
+Même piège pour **`@resvg/resvg-js`** (`bindings/resvg/node-dev.js`, même
+`createRequire(cwd)`) si le rendu Satori/resvg est choisi.
+
+**Correctifs** : déclarer le moteur dans `docd` (`bun add -D @takumi-rs/core`, **sur la
+machine cible** → bonne binaire `@takumi-rs/core-<os>-<arch>`, ex. `linux-x64-gnu` vs
+`-musl` pour Alpine) ; ou `ogImage: { enabled: false }` ; ou désactiver Takumi en dev
+(`ogImage: { compatibility: { dev: { takumi: false } } }`, avec satori + resvg installés
+— même contrainte CWD).
+**Aggravant** : `bun.lock` non versionné + `@baybreezy/docd: latest` → hoisting d'un
+peer optionnel variable selon la machine (même classe de problème que l'avertissement
+`#app`/tsconfig racine ci-dessus).
+
+**Appliqué (2026-09-23)** : `"@takumi-rs/core": "^2.13.7"` déclaré dans les
+`dependencies` de `docd/package.json` (satisfait le peer `^1.0.0-beta.3 || ^2.0.0` de
+`nuxt-og-image` 6.x ; en `dependencies` car le rendu est aussi appelé à la demande par
+le serveur Nitro, pas seulement au build). Garantit un `docd/node_modules/@takumi-rs/core`
+résolu depuis le CWD, sur toute plateforme (les binaires `@takumi-rs/core-<os>-<arch>`
+sont des deps optionnelles du paquet). **Reste à faire** : `bun install` **sur la machine
+qui plante** (aucun install/build lancé ici — règle projet + réseau requis).
+Écartés : `ogImage.enabled: false` (fonctionnalité voulue par la couche Docus, cf.
+`modules` de son `nuxt.config.ts`) et le repli Satori/resvg (même `createRequire(cwd)`
+dans `bindings/resvg/node-dev.js`) ; si `@takumi-rs/core` et `@takumi-rs/wasm` sont tous
+deux présents, le module alerte sur un écart de version majeure.
