@@ -688,10 +688,10 @@ tokens dnax (repli Material), d'où un correctif qui « marchait » sur les dém
 **Reproduction** (Chromium 149 headless, Playwright `chromium_headless_shell`, tokens oklch
 réels, marque `bar` + `line`, état `emphasis` forcé) :
 
-| normalisation | couleur dans l'option | barre survolée |
-| --- | --- | --- |
-| `fillStyle` recopié | `oklch(0.646 0.222 41.116)` | `fill="none"` → **disparaît** |
-| peinture + pixel | `#f54a00` | `fill="rgb(255,81,0)"` → visible, éclaircie |
+| normalisation       | couleur dans l'option       | barre survolée                              |
+| ------------------- | --------------------------- | ------------------------------------------- |
+| `fillStyle` recopié | `oklch(0.646 0.222 41.116)` | `fill="none"` → **disparaît**               |
+| peinture + pixel    | `#f54a00`                   | `fill="rgb(255,81,0)"` → visible, éclaircie |
 
 **Correctif (retenu)** : `lib/color.ts` — **peindre** la couleur sur un canvas **1×1** puis
 **relire le pixel** (`getImageData`) → `rgbaFromBytes()` → `#rrggbb` (opaque) ou
@@ -758,8 +758,8 @@ no-op silencieux, et toutes les mesures « ne se propage pas » deviennent fauss
 
 ```ts
 // correct (utilisation (A) documentée par ECharts)
-chart.group = "revenue"
-echarts.connect("revenue")
+chart.group = "revenue";
+echarts.connect("revenue");
 ```
 
 `echarts.connect([chart1, chart2])` (forme tableau) génère un nom `g_<n>` et **perd le nom de
@@ -813,7 +813,6 @@ L'ordre de la sidebar suit le **nom de fichier trié en texte**, pas la valeur d
 - Vérification : extraire la sidebar du HTML (avant `<main>`) et lire l'ordre des
   `href="/docs/charts/…"` — un tri visuel ne suffit pas, la page contient aussi ses propres liens.
 
-
 ## Pièges : état `select`, props non renseignées, défauts — 2026-09-15
 
 `filename: packages/ui/components/QChart.vue, packages/ui/lib/chart.ts`
@@ -828,3 +827,41 @@ L'ordre de la sidebar suit le **nom de fichier trié en texte**, pas la valeur d
   `chartToECharts`) ne bénéficie pas des défauts du traducteur : les poser aussi dans
   `withDefaults` (`linkMode: 'filter'`, `dimOpacity: 0.25`), sinon `opacity: undefined` → attribut
   `style` vide et aucun effet visible (les classes, elles, étaient bien posées).
+
+## Build de production docd cassé : « Failed to resolve import source "#app" » — 2026-09-23
+
+tag: `warning` — `filename: tsconfig.json`
+
+`bun run build` (nuxt build) dans `docd/` **échoue** (`EXIT=1`) sur les composants de la couche
+`@baybreezy/docd` : `[plugin vite:vue] Error: [@vue/compiler-sfc] Failed to resolve import source
+"#app"` — puis `"#app/components"` — sur `app/components/Ui/{Button,Badge}.vue` et
+`app/components/content/prose/Prose*.global.vue`.
+
+**Cause** : ces fichiers font `import type { NuxtLinkProps } from "#app"` (ou `"#app/components"`).
+Pour un `defineProps<…>()`, `@vue/compiler-sfc` génère **toujours** des props runtime
+(`compileScript` → `genRuntimeProps` → `resolveRuntimePropsFromType`, inconditionnel) et doit donc
+**résoudre les types importés** : il le fait avec TypeScript, en cherchant le `tsconfig.json`
+**le plus proche du fichier compilé** (`ts.findConfigFile`), puis `ts.resolveModuleName` avec les
+`paths` de ce tsconfig (`importSourceToScope`, `@vue/compiler-sfc`). Or ces fichiers vivent dans
+`node_modules/.bun/@baybreezy+docd@…/node_modules/@baybreezy/docd/…` : en remontant l'arbre, le seul
+tsconfig trouvé est celui de la **racine du monorepo** — qui n'avait aucun `paths`.
+Les alias Nuxt ne se résolvent pas autrement : `#app` existe dans les `imports` de
+`nuxt/package.json`, mais le _package scope_ du fichier compilé est
+`@baybreezy/docd/package.json`, qui ne déclare rien (`#app/components` n'existe nulle part dans un
+`imports`).
+
+**Déclencheur** : `@baybreezy/docd@0.3.6` — le paquet est **identique** depuis 0.3.3 (même
+`app/`, vérifié en extrayant les tarballs) mais ses dépendances ont bougé (`@nuxt/content` 3.16.1,
+`nuxt-og-image` 6.8, `@nuxtjs/mcp-toolkit` 0.21…) et ses composants `Ui/*` + `Prose*.global.vue`
+entrent alors dans le build client (avec 0.3.3 ils n'étaient pas compilés → pas d'erreur).
+`bun.lock` **n'est pas versionné** (`.gitignore:9`) : la version résolue de `@baybreezy/docd`
+dépend donc de la machine (`latest` dans `docd/package.json`) — d'où le « chez moi ça passe ».
+
+**Correctif** : `paths` dans le **tsconfig racine** (le seul découvrable depuis `node_modules`) :
+`"#app"` → `./docd/node_modules/nuxt/dist/app` (repli `./node_modules/nuxt/dist/app`) et
+`"#app/*"` → `…/dist/app/*` — les deux `index.d.ts` exportent bien `NuxtLinkProps`.
+
+**Vérif** : `ts.findConfigFile` + `ts.resolveModuleName` exécutés sur le chemin **réel** (`realpath`
+`.bun/…`) d'un composant du layer → trouvent le tsconfig racine, `#app` →
+`nuxt/dist/app/index.d.ts` et `#app/components` → `nuxt/dist/app/components/index.d.ts` ;
+`bun run build` → **EXIT 0**, 0 erreur de résolution ; `bun run generate` → EXIT 0, 0 `[404]`/`[500]`.

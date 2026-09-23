@@ -135,7 +135,6 @@ export { default as QTiptap } from "./components/QTiptap.vue"
 export { default as QToolbar } from "./components/QToolbar.vue"
 export { default as QTooltip } from "./components/QTooltip.vue"
 export { default as QUploader } from "./components/QUploader.vue"
-export { default as QVideo } from "./components/QVideo.vue"
 export { default as QVirtualScroll } from "./components/QVirtualScroll.vue"
 
 export { $q, usePlugin, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet, useDialogPluginComponent, useBottomSheetPluginComponent } from "./lib/q"

@@ -1271,13 +1271,13 @@ position où doit se trouver les légendes ».
 - **`heatmap`** (carte de chaleur) : `x` = colonne, `y` = ligne — **deux axes catégories**
   (nouveaux `rowCategories` + `yAxis` catégorie + `splitArea`), `fill` = la **valeur** de la
   cellule (canal numérique → rampe = palette ; couleur → rampe dégénérée cachée), `labels:
-  true` → valeur imprimée dans la cellule, `title`/`opacity`/`name`. ECharts **exige** un
+true` → valeur imprimée dans la cellule, `title`/`opacity`/`name`. ECharts **exige** un
   `visualMap` (cf. `warnings.md`) : il est toujours émis, visible seulement si la valeur est
   numérique (30 px réservés sous l'axe). Une carte de chaleur ne se mélange pas à une
   série à axe de valeurs (`line`/`bar`/`dot`) — documenté.
 - **Légende** : la prop `legend` accepte `boolean | { position, offset, align }`
   (`QChartLegend`). La **place est réservée dans le `grid`** : `grid.top = 26 (titre) + 14 +
-  offset` quand elle est en haut, `grid.bottom += 14 + offset` en bas (+ 30 px si une
+offset` quand elle est en haut, `grid.bottom += 14 + offset` en bas (+ 30 px si une
   échelle de couleurs visible), `grid.left/right += 90 + offset` sur les côtés (légende
   verticale). Avant : `top: 0` avec `grid.top: 16` → légende collée au graphique.
 - Docs : pages `7.pie.md` / `8.heatmap.md` (+ démos `demo="pie"` et `demo="heatmap"`),
@@ -1327,7 +1327,7 @@ expose trois primitives indépendantes, et l'application les compose.
   autres actions partageables. Zéro code applicatif ; chaque chart garde ses marks et options.
 - `@pick` — clic sur un élément → payload normalisé `QChartPick`
   (`pickFromEvent()` dans `lib/chart.ts`, fonction pure testée) : `{ name, value, seriesName,
-  seriesIndex, seriesType, dataIndex, componentType }`, clés absentes omises pour rester
+seriesIndex, seriesType, dataIndex, componentType }`, clés absentes omises pour rester
   comparable/sérialisable. C'est l'**intention**, pas le comportement.
 - `selected` — l'**état** sélectionné (`QChartPick | null`) : le chart met en évidence
   (`highlight`) tous les éléments portant ce `name`, dans toutes ses séries. Indispensable car
@@ -1426,7 +1426,6 @@ la **jointure** reste par **mark** (`link`) — deux questions différentes.
 - Piège TDZ reproduit au passage (encore !) : `instance.dispatchAction({ type: dim ? … })` écrit
   **avant** `const dim = …` → déclarer les locales avant tout usage.
 
-
 ## Marque `table` : séparateurs, et suivi du mode `dim` — 2026-09-15
 
 `filename: packages/ui/lib/chart.ts, packages/ui/components/QChart.vue`
@@ -1504,3 +1503,21 @@ la **jointure** reste par **mark** (`link`) — deux questions différentes.
   qui remplace la grille des jours) vivent dans **QDateCalendar** mais valent pour **tous les
   modes** — démo et page : `date-picker.md` § Popover, `DnaxDemoDatePicker` branche `popover`.
 
+## Alias Nuxt déclarés dans le tsconfig **racine** — 2026-09-23
+
+tag: `decisions` — `filename: tsconfig.json`
+
+Suite au build de production cassé (`Failed to resolve import source "#app"`, cf. l'avertissement
+détaillé dans `warnings.md`) : le tsconfig racine porte désormais les `paths`
+`"#app"` / `"#app/*"` → `./docd/node_modules/nuxt/dist/app(/ *)`, avec repli
+`./node_modules/nuxt/dist/app(/ *)` (les deux layouts de hoisting bun).
+
+- Pourquoi **là** et pas dans `docd/tsconfig.json` : `@vue/compiler-sfc` résout les types avec
+  `ts.findConfigFile(fichierCompilé)` ; les composants de la couche sont dans `node_modules`, donc le
+  seul tsconfig atteignable en remontant est celui de la racine. Un `paths` dans `docd/` n'aurait
+  aucun effet.
+- Choix assumé plutôt que « épingler `@baybreezy/docd` » : `bun.lock` **n'est pas versionné** dans ce
+  repo (`.gitignore`), la version résolue varie donc d'une machine à l'autre (`latest`) — la
+  correction doit être robuste à la version, pas dépendante.
+- Vérif : `ts.resolveModuleName` depuis le `realpath` d'un composant du layer → `index.d.ts` ;
+  `bun run build` **EXIT 0** (0 erreur), `bun run generate` EXIT 0.
