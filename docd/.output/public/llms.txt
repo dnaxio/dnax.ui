@@ -45,9 +45,8 @@
 - [Count Down](http://localhost:3000/raw/docs/components/count-down.md): A countdown timer from a duration or to a target date, with formatting tokens, an end event, controls and a raw-data slot.
 - [Country Picker](http://localhost:3000/raw/docs/components/country-picker.md): A ready-made country selector with flags, dialing codes and English/French search.
 - [Data Grid](http://localhost:3000/raw/docs/components/data-grid.md): A spreadsheet-like grid with keyboard selection, in-place editing and formula columns.
-- [Date Picker](http://localhost:3000/raw/docs/components/date-picker.md): A date selector with inline, sheet, modal and fullscreen dialog modes, plus min/max and disabled-date restrictions.
+- [Date Picker](http://localhost:3000/raw/docs/components/date-picker.md): A date selector with inline, popover, sheet, modal and fullscreen dialog modes, plus min/max and disabled-date restrictions.
 - [Dialog](http://localhost:3000/raw/docs/components/dialog.md): A modal overlay family — dialog, header, content, footer, trigger and programmatic provider.
-- [Editor.js](http://localhost:3000/raw/docs/components/editor-js.md): A block editor built on Editor.js, storing documents as JSON blocks.
 - [Fab](http://localhost:3000/raw/docs/components/fab.md): A floating action button that expands a stack of actions, fixed to the screen edge with safe-areas.
 - [File Picker](http://localhost:3000/raw/docs/components/file-picker.md): A file selection field with image thumbnails, typed file icons, size/count validation and hint/error slots.
 - [Gallery](http://localhost:3000/raw/docs/components/gallery.md): A responsive image grid with single or multiple selection, labels, a max-selected limit, hover zoom and a viewer mode.
@@ -102,16 +101,17 @@
 - [Uploader](http://localhost:3000/raw/docs/components/uploader.md): A file upload zone with thumbnails, a fullscreen preview, count/size limits, filters and custom slots.
 - [Video](http://localhost:3000/raw/docs/components/video.md): A Video.js-powered player for mp4, webm, HLS and YouTube — poster, ratio, placeholder and playback events.
 - [Virtual Scroll](http://localhost:3000/raw/docs/components/virtual-scroll.md): A windowed list renderer that mounts only the visible items — scroll through hundreds of thousands of rows.
-- [Line](http://localhost:3000/raw/docs/charts/line.md): Line chart — QChart driven by literal marks, rendered with ECharts.
-- [Bar](http://localhost:3000/raw/docs/charts/bar.md): Bar chart — QChart driven by literal marks, rendered with ECharts.
+- [Line](http://localhost:3000/raw/docs/charts/line.md): Line chart — QChart driven by literal marks, painted on a canvas.
+- [Bar](http://localhost:3000/raw/docs/charts/bar.md): Bar chart — QChart driven by literal marks, painted on a canvas.
 - [Rule](http://localhost:3000/raw/docs/charts/rule.md): Reference lines — the rule mark of QChart, horizontal by default.
 - [Dot](http://localhost:3000/raw/docs/charts/dot.md): Scatter plots and bubble charts — the dot mark of QChart.
 - [Image](http://localhost:3000/raw/docs/charts/image.md): Image marks — one image per row, plotted like dots.
 - [Text](http://localhost:3000/raw/docs/charts/text.md): Text marks — a label at x and y, the QChart equivalent of Plot's text mark.
 - [Pie](http://localhost:3000/raw/docs/charts/pie.md): Pie and donut marks — one slice per row, off the axes.
 - [Heatmap](http://localhost:3000/raw/docs/charts/heatmap.md): Heat map marks — a value per cell, coloured by a scale over rows and columns.
-- [Interaction](http://localhost:3000/raw/docs/charts/interaction.md): Linked charts — several QCharts that synchronize on hover and click.
-- [Charts](http://localhost:3000/raw/docs/charts.md): QChart — declarative charts built from marks and rendered with Apache ECharts.
+- [Table](http://localhost:3000/raw/docs/charts/table.md): A table mark — the same data, the same selection, rendered in HTML.
+- [Interaction](http://localhost:3000/raw/docs/charts/interaction.md): Linked charts — several QCharts that synchronize on hover, on click and by filtering.
+- [Charts](http://localhost:3000/raw/docs/charts.md): QChart — declarative charts built from marks, painted on a canvas.
 - [Bottom Sheet](http://localhost:3000/raw/docs/plugins/bottom-sheet.md): Open a bottom-anchored panel imperatively from code with $q.bottomSheet, with height, rounded, translucent and transition options.
 - [Dialog](http://localhost:3000/raw/docs/plugins/dialog.md): Open a component-based modal dialog imperatively from code with $q.dialog, a chainable controller and OK / Cancel / Dismiss events.
 - [Image Preview](http://localhost:3000/raw/docs/plugins/image-preview.md): Open the fullscreen image viewer imperatively from code with $q.imagePreview and its goTo controller.

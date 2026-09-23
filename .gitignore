@@ -7,6 +7,8 @@ out
 dist
 *.tgz
 bun.lock
+.tmp-docdv
+.output
 
 # code coverage
 coverage

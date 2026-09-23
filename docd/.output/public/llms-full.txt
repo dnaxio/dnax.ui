@@ -5244,9 +5244,10 @@ const rows = ref([
 
 # Date Picker
 
-A date selector with four display modes. &#x2A;*`<q-date-picker>`** binds a `Date` (or
+A date selector with five display modes. &#x2A;*`<q-date-picker>`** binds a `Date` (or
 `null`) via `v-model` — `mode="inline"` renders the calendar in place, while
-`sheet` / `modal` / `dialog` show a field trigger that opens a panel.
+`popover` / `sheet` / `modal` / `dialog` show a field trigger that opens a panel:
+anchored to the field, a bottom sheet, a centered dialog or a fullscreen panel.
 
 ## Inline
 
@@ -5271,6 +5272,48 @@ const dateInline = ref(null)
 </template>
 ```
 ::
+
+## Popover
+
+A field trigger that opens a floating panel anchored under the field. Unlike the
+three overlay modes there is no backdrop and no scroll lock — the page around stays
+visible and interactive — and the panel follows the field: it flips above it when
+there is no room below, and stays inside the window.
+
+`today-btn` adds a **Today** shortcut under the grid (disabled when today falls
+outside the allowed window) and `month-dropdown` turns the header label into a
+picker — a year stepper plus the twelve months — to jump to any month. Both work in
+every mode that renders the calendar.
+
+::prose-show-case
+:dnax-demo-date-picker{demo="popover"}
+
+#code
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const fmt = (d) => (d ? d.toLocaleDateString("en-GB") : "—")
+
+const datePopover = ref(null)
+</script>
+
+<template>
+  <q-date-picker
+    v-model="datePopover"
+    mode="popover"
+    label="Invoice date"
+    placeholder="Pick a date"
+    outlined
+    clearable
+    today-btn
+    month-dropdown
+  />
+</template>
+```
+::
+
+On a narrow screen the anchor leaves little room — prefer `sheet` or `dialog` there.
 
 ## Sheet
 
@@ -5846,36 +5889,6 @@ const { open, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginCompon
 ### API
 
 :dnax-api{name="QDialogProvider"}
-
-
-# Editor.js
-
-A block editor built on [Editor.js](https://editorjs.io){rel="&#x22;nofollow&#x22;"&#x7D;. &#x2A;*`<q-editor-js>`** holds a
-JSON document — `{ time?, blocks: [{ type, data }], version? }` — in its `data` prop
-and emits changes through `update:model-value`. It ships with paragraph, header
-(H1–H3), list, checklist, quote, code and delimiter blocks, and is SSR-safe (the
-Editor.js instance is only created on mount).
-
-## Example
-
-::prose-show-case
-  :::div{.demo-col}
-  :q-editor-js{min-height="280px" placeholder="Tell your story…"}
-  :::
-
-#code
-```vue
-<q-editor-js placeholder="Tell your story…" min-height="280px" />
-```
-::
-
-Real props include `data`, `placeholder`, `min-height`, `readonly` / `disable` and
-`tools` (extra blocks merged over the defaults). The component emits `ready` and
-exposes `save()`, `clear()` and `getEditor()`.
-
-## API
-
-:dnax-api{name="QEditorJs"}
 
 
 # Fab
@@ -15287,7 +15300,7 @@ Available channels: `x`, `y`, `fill`, `stroke`, `strokeWidth`,
 `opacity`, `r`, `title` (per-point tooltip), `text`, `fontSize`, `dx`, `dy&#x60;, &#x2A;*`z`** (one
 series — and one legend entry — per value) and `stack`. Axes and formatting go through the
 props `x`, `y`, `title`, `height`, `colors`, `legend`, `tooltip`, and `options` merges raw
-ECharts options last (escape hatch).
+chart options last (escape hatch).
 
 ## Line options
 
@@ -15502,15 +15515,15 @@ const campaigns = [
 
 ### Shape
 
-`symbol` picks the ECharts symbol: `circle` (default), `rect`, `roundRect`, `triangle`,
+`symbol` picks the marker shape: `circle` (default), `rect`, `roundRect`, `triangle`,
 `diamond`, `pin`, `arrow`, `none`… It applies to the whole mark.
 
 ### Tooltips
 
-With `title`, hovering a dot shows that value — give it a field name, explicit values or
-an accessor. A chart made **only** of dots (or labels) is
-hovered point by point; as soon as a `line` or a `bar` shares the chart, the tooltip
-switches to the whole axis, as on the [Line](http://localhost:3000/docs/charts/line) page.
+With `title`, hovering a dot shows **that value** — give it a field name, explicit values or
+an accessor. Declaring a `title` is also what keeps the tooltip per point: a dot chart
+**without** a `title` is cartesian like any other, so it shares the axis tooltip (the
+cursor follows the month) exactly as on the [Line](http://localhost:3000/docs/charts/line) page.
 
 Marks, channels and the axis/format props are listed on the
 [Line](http://localhost:3000/docs/charts/line) page — every page uses the same `q-chart`.
@@ -15644,9 +15657,8 @@ const team = [
 ```
 ::
 
-ECharts cannot clip a symbol to a shape (`image://`), so `round: true` uses the one trick that
-does work: a **pattern fill** (`itemStyle.color.image`) inside a `circle` symbol. Two things
-to know:
+An image cannot be clipped to a shape (`image://` stays square), so `round: true` uses the one
+approach that works: a **pattern fill** painted inside a `circle` symbol. Two things to know:
 
 |                                        |                                                                                                                                                                                                                         |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -15757,25 +15769,25 @@ shorthand), and the default label is the row index:
 | a field name                  | That field of each row                                                                 |
 | explicit values / an accessor | One label per row (`(d, i) => …`)                                                      |
 | omitted                       | The row itself for primitive data (`[42, 51]`), its **index** for objects — as in Plot |
-| a string with `\n`            | Several lines (ECharts renders the line breaks)                                        |
+| a string with `\n`            | Several lines (the line breaks are rendered)                                           |
 | a per-row channel             | `fill`, `fontSize`, `rotate`… see below                                                |
 
 ### Font
 
-| Key          | Effect                                                                                                                                  |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `fontSize`   | Size in pixels — **11 by default**, constant or channel                                                                                 |
-| `fontWeight` | `bold`, `600`…                                                                                                                          |
-| `fontFamily` | Font name (the host font by default)                                                                                                    |
-| `fontStyle`  | `italic`, `oblique`                                                                                                                     |
-| `lineHeight` | Line height in pixels, once the text has several lines                                                                                  |
-| `rotate`     | Degrees, **clockwise** (unlike `label.rotate` in ECharts, which turns the other way — the sign is flipped for you), constant or channel |
+| Key          | Effect                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `fontSize`   | Size in pixels — **11 by default**, constant or channel                                                                  |
+| `fontWeight` | `bold`, `600`…                                                                                                           |
+| `fontFamily` | Font name (the host font by default)                                                                                     |
+| `fontStyle`  | `italic`, `oblique`                                                                                                      |
+| `lineHeight` | Line height in pixels, once the text has several lines                                                                   |
+| `rotate`     | Degrees, **clockwise** — the sign is flipped for you when the underlying label turns the other way. Constant or channel. |
 
 ### Wrapping and truncating
 
-`lineWidth` is a width in **ems** (as in Plot): beyond it the text wraps. ECharts measures
-text approximately, exactly like Plot's own heuristic, so hard-wrap with `\n` when the
-result matters. `textOverflow` truncates lines that are too long:
+`lineWidth` is a width in **ems** (as in Plot): beyond it the text wraps. Text is measured
+approximately, exactly like Plot's own heuristic, so hard-wrap with `\n` when the result
+matters. `textOverflow` truncates lines that are too long:
 
 | `textOverflow`              | Result                            |
 | --------------------------- | --------------------------------- |
@@ -15783,7 +15795,7 @@ result matters. `textOverflow` truncates lines that are too long:
 | `ellipsis` / `ellipsis-end` | End replaced with an ellipsis (…) |
 | `clip` / `clip-end`         | Cut at the end, no ellipsis       |
 
-Plot's `-start` / `-middle` variants have no ECharts equivalent and fall back to the end.
+Plot's `-start` / `-middle` variants are not available and fall back to the end.
 
 ### Colour and halo
 
@@ -15890,11 +15902,11 @@ Slices are ordered as the data is: sort the rows beforehand if the order matters
 
 ### Radius — pie and donut
 
-| Key           | Effect                                                                                        |
-| ------------- | --------------------------------------------------------------------------------------------- |
-| `radius`      | Outer radius — a number (pixels) or a CSS length. `70%` by default.                           |
-| `innerRadius` | Inner radius. Given, the chart becomes a **donut** (`radius: ['50%', '75%']` under the hood). |
-| `startAngle`  | Starting angle in degrees — ECharts' convention: `90` (the default) is 12 o'clock.            |
+| Key           | Effect                                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------------------ |
+| `radius`      | Outer radius — a number (pixels) or a CSS length. `70%` by default.                                    |
+| `innerRadius` | Inner radius. Given, the chart becomes a **donut** (`radius: ['50%', '75%']` under the hood).          |
+| `startAngle`  | Starting angle in degrees — `90` (the default) starts at 12 o'clock, angles growing counter-clockwise. |
 
 ```ts
 { type: 'pie', data: rows, x: 'label', y: 'value' }                                  // pie, 70 % by default
@@ -15922,8 +15934,8 @@ leader line, and coloured like their slice:
 | `name-percent`               | `Online 43.7%`                          |
 | `false`                      | No label, no leader line                |
 
-With many slices the labels overlap — ECharts hides the ones that do not fit, or use
-`labels: false` and keep the tooltip alone.
+With many slices the labels overlap — the ones that do not fit are hidden; use
+`labels: false` and keep the tooltip alone if it gets crowded.
 
 ### Colour
 
@@ -16029,8 +16041,7 @@ between the smallest and the largest value of the mark. A **colour** instead of 
 (a token like `primary`, or any CSS colour) paints every cell that colour — handy for a
 plain grid, or to layer your own encoding on top.
 
-The scale itself is an ECharts `visualMap` (ECharts requires one for a heat map): it is
-drawn under the chart, with the minimum and the maximum on each side. For a custom ramp,
+The scale itself is emitted by the mark (`visualMap`): it is drawn under the chart, with the minimum and the maximum on each side. For a custom ramp,
 a different position, or a range selector, pass it through the escape hatch — it is merged
 **after** the generated one:
 
@@ -16065,11 +16076,160 @@ Other marks are listed on the [Charts](http://localhost:3000/docs/charts) overvi
 :dnax-mark-api{mark="heatmap"}
 
 
+# Table
+
+`<q-chart>&#x60; is not only for plots. A &#x2A;*`table`** mark shows the same rows as a table — same
+`data`, same `link` jointure, same `selected`, same `@pick` — but rendered in **HTML** instead of
+on the canvas. Text is selectable, long lists scroll, screen readers read it, and it costs
+nothing to draw:
+
+::prose-show-case
+:dnax-demo-chart{demo="table"}
+
+#code
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+import type { QChartPick } from "@dnax/ui"
+
+const monthly = [
+  { month: "Jan", revenue: 42, cost: 28 },
+  { month: "Feb", revenue: 51, cost: 31 },
+  { month: "Mar", revenue: 47, cost: 30 },
+]
+
+const picked = ref<QChartPick | null>(null)
+</script>
+
+<template>
+  <!-- The plot: click a bar to pick a month -->
+  <q-chart
+    :height="200"
+    :selected="picked"
+    :marks="[{ type: 'bar', data: monthly, x: 'month', y: 'revenue', name: 'Revenue' }]"
+    @pick="picked = $event"
+  />
+
+  <!-- The table: same rows, same selection, no canvas -->
+  <q-chart
+    :height="240"
+    :selected="picked"
+    :marks="[
+      {
+        type: 'table',
+        data: monthly,
+        link: 'month',
+        columns: [
+          { field: 'month', label: 'Month' },
+          { field: 'revenue', label: 'Revenue', align: 'end' },
+          { field: 'cost', label: 'Cost', align: 'end' },
+          { field: 'revenue', label: 'Margin', align: 'end', format: (_v, row) => `${row.revenue - row.cost}` },
+        ],
+      },
+    ]"
+    @pick="picked = $event"
+  />
+</template>
+```
+::
+
+Click a bar: the table keeps the matching row. Click a row: every linked chart filters on it.
+The two views are two marks of the same story.
+
+## Columns
+
+Without `columns`, the columns are **the keys of the rows**, in the order they appear — enough
+for a quick dump of any data. Declare them to control the header, the alignment and the
+formatting:
+
+```ts
+columns: [
+  'month',                                                    // the field, as the header
+  { field: 'revenue', label: 'Revenue', align: 'end' },        // a label, right-aligned numbers
+  { field: 'revenue', label: 'Margin', align: 'end',
+    format: (_value, row) => `${row.revenue - row.cost} €` },   // a computed cell
+]
+```
+
+| Column key | Effect                                                                              |
+| ---------- | ----------------------------------------------------------------------------------- |
+| `field`    | The key read in each row                                                            |
+| `label`    | The header (default: `field`)                                                       |
+| `align`    | `start&#x60; &#x2A;(default)*, `center`, `end` — `end` is what you want for numbers |
+| `format`   | `(value, row) => string` — formats the displayed cell; the value is left untouched  |
+
+## Separators
+
+A table is a grid of cells, and how much of that grid you want to see is a matter of taste — a
+dense financial table wants lines, a small dashboard wants air. `separator` settles it **per
+mark**:
+
+| Value                              | What appears                                                              |
+| ---------------------------------- | ------------------------------------------------------------------------- |
+| `horizontal&#x60; &#x2A;(default)* | One line under each row — the header keeps a stronger one                 |
+| `vertical`                         | Lines between the columns only                                            |
+| `grid`                             | Both, like a spreadsheet                                                  |
+| `none`                             | No row lines at all — the header line stays, so the table keeps its shape |
+
+::prose-show-case
+:dnax-demo-chart{demo="table-separators"}
+
+#code
+```vue
+<q-chart
+  :marks="[
+    { type: 'table', data: monthly, separator: 'grid',
+      columns: [{ field: 'month', label: 'Month' }, { field: 'revenue', label: 'Revenue', align: 'end' }] },
+  ]"
+/>
+```
+
+The mark's own options:
+
+:dnax-mark-api{mark="table"}
+
+## A table is a mark like the others
+
+Everything you know about marks applies — that is the whole point of putting the table *in* the
+API rather than next to it:
+
+|            |                                                                                                                                                                                                          |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data`     | The rows, like any mark                                                                                                                                                                                  |
+| `link`     | Joins the shared selection: the table reacts like a linked chart — rows **filtered** out, or **kept and dimmed** in `link-mode="dim"` (see [Interaction](http://localhost:3000/docs/charts/interaction)) |
+| `selected` | The matching row is highlighted (a left accent bar), whatever picked it                                                                                                                                  |
+| `@pick`    | A click on a row emits the same payload as a click on an element, with `markType: 'table'`; a second click on the same row clears the selection                                                          |
+| Row key    | The `link` field, or the first column — so a row is designated by **the same `name`** as the other marks                                                                                            |
+
+```ts
+// A click on the row "Feb" of the table above
+{ name: 'Feb', markType: 'table', markIndex: 1, dataIndex: 1, origin: 'mark', data: { month: 'Feb', … } }
+```
+
+That is what makes a table usable as the *driver* as well as the *driven*: click a row and the
+bar, the line and the dots follow.
+
+## Two things to know
+
+  :::prose-callout{variant="note"}
+  A `table` mark **replaces the plot** of its chart: mixing a `table` with a series mark
+  (`bar`, `line`…) in the same `<q-chart>` would draw nothing on the canvas. Give the table its own
+  `<q-chart>` — as in the demo above — and link the two.
+  :::
+
+- **The height is a max**: `height` becomes the table's `max-height`, so a long table scrolls
+  inside the chart instead of stretching the page, with a sticky header.
+- **The empty state** is a small `No rows` line: a selection that matches nothing (or empty
+  `data`) leaves a readable table frame rather than a blank box.
+::
+
+
 # Interaction
 
-Charts rarely live alone: a dashboard shows the same data as bars, as a pie, as a line and
-as dots, and reading one of them should move the others. Give them the same &#x2A;*`group`** and
-they synchronize, without a line of glue code:
+A dashboard shows the same data several ways: bars for the volume, a pie for the shares, a
+line for the trend, dots for the detail. Reading one of them should move the others — hover a
+month, click a slice, and the four charts tell the same story. Give them the same &#x2A;*`group`**
+and it works, without a line of glue code:
 
 ::prose-show-case
 :dnax-demo-chart{demo="interaction"}
@@ -16087,45 +16247,48 @@ const monthly = [
   { month: "Apr", revenue: 63, cost: 35 },
 ]
 
-/** Last clicked element — shared by the four charts */
+/** The one shared piece of state: what the user last picked */
 const picked = ref<QChartPick | null>(null)
 </script>
 
 <template>
   <div class="grid">
-    <!-- Bar: the revenue per month -->
+    <!-- Bar: the volume, filtered on the selection -->
     <q-chart
       :height="200"
       group="revenue"
       :selected="picked"
-      :marks="[{ type: 'bar', data: monthly, x: 'month', y: 'revenue', fill: 'chart-1', name: 'Revenue' }]"
+      :marks="[{ type: 'bar', data: monthly, x: 'month', y: 'revenue', fill: 'chart-1', name: 'Revenue', link: 'month' }]"
       @pick="picked = $event"
     />
 
-    <!-- Pie: the share of each month, with its own legend -->
-    <q-chart
-      :height="210"
-      group="revenue"
-      :selected="picked"
-      :marks="[{ type: 'pie', data: monthly, x: 'month', y: 'revenue', labels: 'percent', name: 'Revenue' }]"
-      @pick="picked = $event"
-    />
-
-    <!-- Line: the cost trend -->
+    <!-- Pie: the shares — it is the *selector*, so it is not linked -->
     <q-chart
       :height="200"
       group="revenue"
       :selected="picked"
-      :marks="[{ type: 'line', data: monthly, x: 'month', y: 'cost', stroke: 'primary', name: 'Cost' }]"
+      :legend="{ position: 'right', offset: 36, action: 'select' }"
+      :marks="[
+        { type: 'pie', data: monthly, x: 'month', y: 'revenue', radius: '48%', labels: 'percent', name: 'Revenue' },
+      ]"
       @pick="picked = $event"
     />
 
-    <!-- Dot: the revenue again, point by point -->
+    <!-- Line: the trend -->
     <q-chart
       :height="200"
       group="revenue"
       :selected="picked"
-      :marks="[{ type: 'dot', data: monthly, x: 'month', y: 'revenue', fill: 'chart-2', r: 5, name: 'Revenue' }]"
+      :marks="[{ type: 'line', data: monthly, x: 'month', y: 'cost', stroke: 'primary', name: 'Cost', link: 'month' }]"
+      @pick="picked = $event"
+    />
+
+    <!-- Dot: the detail -->
+    <q-chart
+      :height="200"
+      group="revenue"
+      :selected="picked"
+      :marks="[{ type: 'dot', data: monthly, x: 'month', y: 'revenue', fill: 'chart-2', r: 5, name: 'Revenue', link: 'month' }]"
       @pick="picked = $event"
     />
   </div>
@@ -16133,38 +16296,102 @@ const picked = ref<QChartPick | null>(null)
 ```
 ::
 
-Hover a category in one chart and the others follow (axis pointer and tooltip); click an
-element and it is highlighted in **all four** — the same month in the bar, the slice it
-occupies in the pie, the point on the line, the dot. Four mark types, three props.
+Click a bar, or the legend entry *Jan* of the pie: the three linked charts shrink to January.
+Hover a category and the tooltips line up. Four mark types, four props.
 
-## `group` — the link
+## The mental model
+
+Four props, two roles. Two of them **speak**, two of them **listen** — everything else is
+plumbing:
+
+| Level         | What moves between the charts                                                        | Props                                     |
+| ------------- | ------------------------------------------------------------------------------------ | ----------------------------------------- |
+| **Hover**     | Axis pointer and tooltip — each chart shows *its own* value for the hovered category | `group` (one name for all)                |
+| **Highlight** | The picked element is emphasised in every chart, in every series carrying that name  | `@pick` → `selected`                      |
+| **Filter**    | The linked marks keep only the rows that match the selection                         | `@pick` → `selected` + `link` on the mark |
+
+The three are independent: use `group` alone for a classic linked-tooltip dashboard, add
+`selected` for the emphasis, add `link` where the charts must actually filter.
+
+### Events and props — who owns what
+
+`@pick` is an **event** (it happened), `selected` is a **prop** (it is true now). The chart keeps
+**no selection of its own**: it renders what `selected` says and nothing else. That is why the two
+travel together in every example — and why each is useful on its own:
+
+|                  | `@pick` / `@unpick`                                                         | `selected`                                                   |
+| ---------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Nature           | Event, emitted **by** the chart                                             | Prop, given **to** the chart                                 |
+| Direction        | chart → your code                                                           | your code → chart                                            |
+| Lifetime         | One instant (the click)                                                     | Until you change it                                          |
+| Who decides      | The user                                                                    | Your application — a click, a table row, a URL…              |
+| If you ignore it | Nothing happens on click, and `selected` can still be driven from elsewhere | The click is emitted, but nothing is highlighted or filtered |
+
+In short: &#x2A;*`@pick` is the question, `selected` is the answer.** A chart bound to `@pick` only is
+a reporter (log it, route it, open a panel); a chart bound to `selected` only is a follower
+(a filter, a URL, a table selects for it).
+
+## Install it, step by step
+
+1. **Give every chart the same group** — that is the hover and the tooltip:
+   ```vue
+   <q-chart group="revenue" :marks="[…]" />
+   <q-chart group="revenue" :marks="[…]" />
+   ```
+2. **Name your marks** (`name`) — a named mark gets a legend entry, and the legend is how the
+   user picks a member of a series. Without `name` there is nothing to select in a pie.
+3. **Keep the pick in your own state** and hand it back to every chart:
+   ```ts
+   const picked = ref<QChartPick | null>(null)
+   ```
+   ```vue
+   <q-chart group="revenue" :selected="picked" @pick="picked = $event" :marks="[…]" />
+   ```
+4. **Declare the join** on the marks that must filter (`link: 'month'`) — and leave it off on
+   the chart that plays the selector (the pie keeps all its slices).
+
+That is the whole API. Each section below takes one prop and shows what it does.
+
+## `group` — the hover
 
 ```vue
 <q-chart group="revenue" :marks="[…]" />
-<q-chart group="revenue" :marks="[…]" />
 ```
 
-Charts sharing a `group` are connected through [`echarts.connect()`](https://echarts.apache.org/en/api.html#echarts.connect){rel="&#x22;nofollow&#x22;"},
-which replays the **shareable actions** from one chart onto the others:
+Charts sharing a `group` are connected: the **shareable interactions** of the chart you touch
+are replayed on the other charts of the group:
 
-| Synchronized          | What it does                                                                         |
-| --------------------- | ------------------------------------------------------------------------------------ |
-| Axis pointer, tooltip | Hovering a category (or a point) shows the same tooltip position on the other charts |
-| Emphasis              | Highlighting an element (`highlight` / `downplay`) follows                           |
-| Legend                | Toggling a series on or off in one legend toggles it everywhere                      |
-| `dataZoom`            | Panning / zooming (with `DataZoomComponent`) stays aligned                           |
-| `visualMap`           | A selected interval on a colour scale is replayed                                    |
+| Replayed on the group   |                                                                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Axis pointer, tooltip   | Hovering a category (or a point) lines the others up; each chart reads **its own** value — `Feb 51` in the bar chart, `Feb 31` in the line |
+| `dataZoom`, `visualMap` | Panning, zooming and interval selections stay aligned (when you add those components)                                                      |
 
-Each chart keeps **its own `marks`, axes and options** — the link only carries the
-interaction, never the data. Charts are connected as long as they are mounted; leaving the
-page (or unmounting a chart) drops it from the group without disturbing the others.
+::prose-callout{variant="warning"}
+Two things are **not** replayed, by design: the **emphasis** (`highlight` / `downplay`) and the
+**legend** — they are local view states. Synchronising them is what `selected` and
+`legend.action` are for.
+::
 
-`group` is a plain string: use one per dashboard section (`"revenue"`, `"stores"`…) so two
-independent groups on the same page never talk to each other.
+`group` carries the interaction only, never the data: each chart keeps its own `marks`, axes
+and options. Charts are connected while they are mounted; unmounting one leaves the group
+alone. Use one group per dashboard section (`"revenue"`, `"stores"`) so two independent groups
+on the same page never talk to each other. Charts of a group should share their category axis
+(`x`), otherwise the axis pointer has nothing to line up.
 
-## `@pick` — the click
+::prose-show-case
+:dnax-demo-chart{demo="link-hover"}
 
-Every click on an element (bar, point, slice, cell, label) emits a normalized payload:
+#code
+```vue
+<!-- Two charts, one group name — and nothing else -->
+<q-chart group="hover" :marks="[{ type: 'bar',  data: monthly, x: 'month', y: 'revenue' }]" />
+<q-chart group="hover" :marks="[{ type: 'line', data: monthly, x: 'month', y: 'cost' }]" />
+```
+::
+
+## `@pick` — what was clicked
+
+Every click on an element — bar, point, slice, cell, label — emits a normalised payload:
 
 ```vue
 <q-chart :marks="[…]" @pick="onPick" />
@@ -16172,68 +16399,381 @@ Every click on an element (bar, point, slice, cell, label) emits a normalized pa
 
 ```ts
 const onPick = (pick: QChartPick) => {
-  console.log(pick) // { name: 'Feb', value: 51, seriesName: 'Revenue', seriesIndex: 0, … }
+  console.log(pick) // { name: 'Feb', value: 51, markName: 'Revenue', markIndex: 0, … }
 }
 ```
 
-| Key                                         | Value                                                                                   |
-| ------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `name`                                      | The datum name — the category on a `band` axis (`Feb`), or the `name` of a slice / cell |
-| `value`                                     | Its value (a number, or `[x, y]` on a cartesian mark)                                   |
-| `seriesName` / `seriesIndex` / `seriesType` | Which series was clicked (its `name`, and the ECharts type)                             |
-| `dataIndex`                                 | Position of the datum in its series                                                     |
-| `componentType`                             | `series` for a chart element; other components (an axis…) report themselves             |
+| Key                                   | Value                                                                                        |
+| ------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `name`                                | The datum name — the category on a `band` axis (`Feb`), or the `name` of a slice / cell      |
+| `value`                               | Its value (a number, or `[x, y]` on a cartesian mark)                                        |
+| `markName` / `markIndex` / `markType` | Which **mark** was clicked — its `name`, its index in `marks`, its `type` (`bar`, `pie`…)    |
+| `dataIndex`                           | Position of the datum inside that mark                                                       |
+| `origin`                              | `mark` for a chart element, `legend` for a legend entry                                      |
+| `data`                                | The **raw datum** — *your* row, restored by the component; what `link.foreignField` joins on |
+
+The renderer only hands over its own shape (`{ value: ['Feb', 51] }`); the component looks the
+row back up in your `marks` by its position, so `data` is the object **you** passed —
+`{ month: 'Feb', revenue: 51 }` — on an element click as well as on a legend click. That is what
+makes `link.foreignField` work the same either way.
 
 The payload is deliberately **plain and comparable**: absent keys are omitted, so
 `pick.name === 'Feb'` is enough to drive a router, a table, a filter or a form. Nothing is
 interpreted for you — the click is data, not behaviour.
 
-## `selected` — a selection from anywhere
+A click is also a **toggle**: clicking the element that is **already selected** (the same bar, the
+same slice, the same month in another mark) does not re-select it — it **clears the selection**,
+exactly like a re-click on a legend entry. `@pick` receives `null`, `@unpick` receives the
+element that was dropped, and the linked charts go back to their full data.
+
+A click that hits no datum (the empty area of the plot, an axis) emits **nothing**: only a data
+element is a selection.
+
+## `selected` — the shared state
 
 `@pick` says what the user clicked; `selected` says what is **currently selected**, whoever
-decided it (a chart, a table row, a query parameter). Pass the last pick and every chart
-highlights the matching `name`:
+decided it: a chart, a table row, a query parameter.
 
+### What `selected` accepts
+
+Any `QChartPick` — the very payload `@pick` hands you. Only `name` is required to highlight and
+to join; the rest is the element's **identity**, carried along so your application knows exactly
+what is selected, whatever the origin:
+
+| Field                                 | Used for                                                              |
+| ------------------------------------- | --------------------------------------------------------------------- |
+| `name`                                | The highlight (every series carrying it) **and** the default join key |
+| `data`                                | The `link.foreignField` join — the raw row                            |
+| `markName` / `markIndex` / `markType` | Which mark the selection comes from (your logic, analytics)           |
+| `dataIndex`                           | Its position inside that mark                                         |
+| `origin`                              | `mark` (an element) or `legend` (a legend entry)                      |
+| `value`                               | The element's value                                                   |
+
+A click on an element and a click on a legend entry produce the **same shape** — only `origin`
+differs, and the legend one is reconstructed from the entry name:
+
+```ts
+// click on a bar
+{ name: 'Feb', value: 51, markName: 'Revenue', markIndex: 0, markType: 'bar', dataIndex: 1, origin: 'mark',   data: { month: 'Feb', … } }
+// click on the pie's legend entry “Jan”
+{ name: 'Jan', value: 42, markName: 'Revenue', markIndex: 1, markType: 'pie', dataIndex: 0, origin: 'legend', data: { month: 'Jan', … } }
+```
+
+### What it does
+
+Hand that pick back to every chart — no need to copy fields out of it:
+
+```vue
+<script setup lang="ts">
+// `picked` **is** the identity: name, value, markName, markIndex, markType, dataIndex, origin, data
+const picked = ref<QChartPick | null>(null)
+</script>
+
+<template>
+  <q-chart group="revenue" :selected="picked" @pick="picked = $event" :marks="[…] " />
+</template>
+```
+
+| `selected`                                  | Effect                                                    |
+| ------------------------------------------- | --------------------------------------------------------- |
+| `{ name: 'Feb' }` — or a whole `QChartPick` | Every series carrying `Feb` is emphasised, in every chart |
+| `{ markIndex: 0, dataIndex: 2 }` (no name)  | The precise element is emphasised                         |
+| `null`                                      | The selection is cleared                                  |
+
+A **minimal** selection is enough: `{ name: 'Feb' }` drives everything, the identity fields are
+simply absent. And because it is a prop, a chart driven by `selected` follows another one even
+**outside** its group — link a chart with a table, a list, or a URL parameter:
+
+```vue
+<script setup lang="ts">
+const month = new URLSearchParams(location.search).get("month") // 'Feb'
+const picked = ref<QChartPick | null>(month ? { name: month } : null)
+</script>
+```
+
+::prose-show-case
+:dnax-demo-chart{demo="link-select"}
+
+#code
 ```vue
 <script setup lang="ts">
 const picked = ref<QChartPick | null>(null)
 </script>
 
 <template>
-  <q-chart group="revenue" :selected="picked" @pick="picked = $event" :marks="[…]" />
-  <q-chart group="revenue" :selected="picked" @pick="picked = $event" :marks="[…]" />
+  <!-- `selected` alone: the click lights up every chart. Without `link`, nothing filters. -->
+  <q-chart group="select" :selected="picked" @pick="picked = $event" :marks="[bar]" />
+  <q-chart group="select" :selected="picked" @pick="picked = $event" :marks="[dot]" />
 </template>
 ```
+::
 
-`highlight` / `downplay` are dispatched on every chart, in **all** series carrying that
-name — which is what makes a click in the bar chart light up the same month in the line
-chart. `:selected="null"` clears the selection.
+## `link` — cross-filtering
+
+Hovering links charts; **clicking can filter them**. A mark declares how its own rows join the
+shared selection, and the chart keeps only the rows that match:
+
+```ts
+// The pie is the selector — it keeps all its slices…
+{ type: 'pie',  data: monthly, x: 'month', y: 'revenue', name: 'Revenue' }
+
+// …the others only show the selected month
+{ type: 'bar',  data: monthly, x: 'month', y: 'revenue', link: 'month' }
+{ type: 'line', data: monthly, x: 'month', y: 'cost',    link: 'month' }
+{ type: 'dot',  data: monthly, x: 'month', y: 'revenue', link: 'month' }
+```
+
+`link` is the **local field** of the mark: the join key comes from the selection (the datum
+that was clicked, or whatever `selected` holds). A mark **without** `link` is never filtered —
+that is how the pie stays whole while the others react. `link` is declared **per mark**, so a
+chart can filter one layer and leave another intact.
+
+### Two ways to react: `filter` or `dim`
+
+By default a linked mark **drops** the rows that do not match: the chart rescales to the
+selection. Sometimes you want the opposite — keep everything and **grey out** what is not
+selected, so the shape, the scale and the other points stay readable.
 
 ::prose-callout{variant="note"}
-`selected` is the state, `@pick` the intent: two charts kept in sync by `selected` alone
-work even when they are **not** in the same `group` — handy to link a chart with a table or a
-list that is not a chart at all.
+**What `dim` means** — to *dim* is the English verb for "make something less bright". A dimmed
+element is still there, just **faded** (a lower opacity); in other words *estompé*. It is not
+hidden, and not darkened either.
+::
+
+| `link-mode`                    | The rows that do not match                    | Read as                      |
+| ------------------------------ | --------------------------------------------- | ---------------------------- |
+| `filter&#x60; &#x2A;(default)* | Removed — the axis rescales to the selection  | "what happened in February?" |
+| `dim`                          | Kept, drawn at `dim-opacity` (default `0.25`) | "February, **in context**"   |
+
+The two demos below are the same charts, the same click — only the mode changes. The `dim&#x60; one
+also carries a &#x2A;*`table`** mark: a table is a linked mark like any other, so its rows stay on
+screen too and only the others fade — the data underneath the chart, at a glance.
+
+**`filter`** (the default) — clicking a month removes the others and the axis rescales:
+
+::prose-show-case
+:dnax-demo-chart{demo="link-filter"}
+
+#code
+```vue
+<!-- Default mode: nothing to add -->
+<q-chart
+  :selected="picked"
+  :marks="[{ type: 'bar', data: monthly, x: 'month', y: 'revenue', link: 'month' }]"
+  @pick="picked = $event"
+/>
+```
+::
+
+**`dim`** — the same click, but the others stay on screen at a lower opacity:
+
+::prose-show-case
+:dnax-demo-chart{demo="link-dim"}
+
+#code
+```vue
+<!-- Nothing is removed: the others fade, the selected month keeps full contrast -->
+<q-chart
+  link-mode="dim"
+  dim-opacity="0.25"
+  :selected="picked"
+  :marks="[{ type: 'bar', data: monthly, x: 'month', y: 'revenue', link: 'month' }]"
+  @pick="picked = $event"
+/>
+```
+::
+
+In `dim&#x60; mode the selected element is what comes back to full contrast. The component drives the
+renderer's &#x2A;*`select`** state instead of the highlight, so the emphasis and the dimming are the
+same mechanism — and an element with no selection at all is **never** dimmed: at rest, every
+chart is at full contrast.
+
+::prose-callout{variant="note"}
+`link-mode` is a **chart** setting (it is how the chart draws its marks), while `link` is per
+**mark** (it is what makes a mark react at all). A mark without `link` is never filtered nor
+dimmed, whatever the mode.
+::
+
+### Joining fields that are not named the same
+
+`link` also takes an object, Mongo style: `localField` is read in *this* mark's rows,
+`foreignField` in the datum of the selection (`pick.data`), falling back to the pick itself,
+then to its `name`.
+
+```ts
+// This chart groups by channel; the chart that drives it groups by month
+{ type: 'bar', data: byChannel, x: 'label', y: 'revenue', link: { localField: 'label', foreignField: 'month' } }
+```
+
+| `link`                                           | Join key                                                               |
+| ------------------------------------------------ | ---------------------------------------------------------------------- |
+| `'month'`                                        | `row.month === selected.data.month ?? selected.month ?? selected.name` |
+| `{ localField: 'label', foreignField: 'month' }` | `row.label === selected.data.month`                                    |
+
+::prose-callout{variant="note"}
+Two guard rails keep a mis-spelled key from emptying a chart: with **no selection** every mark
+shows everything, and when **no row carries** the `localField` the mark keeps its data (the
+join is simply ignored).
+::
+
+Two charts holding the same values under two different names — `month` in one, `label` in the
+other:
+
+::prose-show-case
+:dnax-demo-chart{demo="link-fields"}
+
+#code
+```vue
+<!-- driver: the field is `month` -->
+<q-chart :selected="picked" @pick="picked = $event"
+  :marks="[{ type: 'bar', data: monthly, x: 'month', y: 'revenue' }]" />
+
+<!-- driven: the same values, stored under `label` -->
+<q-chart :selected="picked" @pick="picked = $event"
+  :marks="[{ type: 'bar', data: byLabel, x: 'label', y: 'revenue',
+             link: { localField: 'label', foreignField: 'month' } }]" />
+```
+::
+
+### One axis for all the marks
+
+The axis categories are the **union of the marks** of the chart: a single linked mark among
+unlinked ones keeps its full axis (the linked one just has one bar). Link **every** mark and
+the chart rescales to the selection — that is what the demo above does.
+
+## The legend as a selector
+
+A legend click does not emit a chart click: it turns the series (or the slice) off instead. Ask for `action: 'select'` and the legend becomes a **selector** — the click emits
+`@pick` with the entry name, the series stay visible, and clicking the same entry again clears
+the selection:
+
+```vue
+<q-chart
+  group="revenue"
+  :legend="{ position: 'right', action: 'select' }"
+  :selected="picked"
+  @pick="picked = $event"
+  :marks="[pie]"
+/>
+```
+
+| `legend.action`                | A click on a legend entry                                             |
+| ------------------------------ | --------------------------------------------------------------------- |
+| `toggle&#x60; &#x2A;(default)* | Hides the series / the slice — emits nothing                          |
+| `select`                       | Emits `@pick` with the entry name; the entry itself **stays visible** |
+
+In `select` mode, a click is one of three cases — and a re-click on the current name **is** the
+unselect, there is no second event to listen to:
+
+| You click…                                     | `@pick` receives                                                                           | What the linked charts do                       |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| an entry that is not selected (`Jan`)          | `{ name: 'Jan', origin: 'legend', markName, markIndex, markType, dataIndex, data, value }` | they filter on January                          |
+| another entry, while `Jan` is selected (`Feb`) | `{ name: 'Feb', origin: 'legend', data }`                                                  | they **switch** to February                     |
+| the entry that **is** selected (`Jan` again)   | `null` — and `@unpick` with `{ name: 'Jan' }`                                              | the selection is cleared, everything comes back |
+
+A deselection is signalled **twice**, on purpose: `@pick` carries the **state** (`null`), and
+`@unpick` carries the **action** — the element that was dropped (a re-click on the selected
+element, or on the selected legend entry), so you can log it, push it to
+analytics or clear a related panel:
+
+```vue
+<q-chart :selected="picked" @pick="picked = $event" @unpick="onUnpick" :marks="[pie]" />
+```
+
+```ts
+const onUnpick = (dropped: QChartPick) => {
+  console.log('deselected', dropped.name) // { name: 'Jan', origin: 'legend', data: { … } }
+}
+```
+
+`@unpick` fires **only** on a user deselection. Clearing from your code (`picked = null`) touches
+`@pick` not at all — no echo, no loop.
+
+The clicked entry is always restored (the slice stays in the pie) — the emphasis and the
+filtering are driven by `selected`, never by hiding a series.
+
+The demo above shows **both sides**: click `Jan` and the bar shrinks to January; re-click it, or
+press **Clear**, and every month comes back — "no longer selected" is simply `picked = null`.
+
+The smallest cross-filter: a pie whose legend drives a single bar. The pie is **not** linked, so
+it keeps every slice; the bar filters, and the linked chart is the only one that moves.
+
+::prose-show-case
+:dnax-demo-chart{demo="link-legend"}
+
+#code
+```vue
+<!-- The pie: legend as a selector, not linked -->
+<q-chart
+  :legend="{ position: 'right', action: 'select' }"
+  :selected="picked"
+  :marks="[{ type: 'pie', data: monthly, x: 'month', y: 'revenue', name: 'Revenue' }]"
+  @pick="picked = $event"
+/>
+
+<!-- The bar: keeps the selected month only -->
+<q-chart
+  :selected="picked"
+  :marks="[{ type: 'bar', data: monthly, x: 'month', y: 'revenue', link: 'month' }]"
+  @pick="picked = $event"
+/>
+```
 ::
 
 ## Recipes
 
-**Four views, one selection.** The demo above is the pattern: a bar chart for the volume, a pie for the shares, a line for the trend, dots for the detail — all four on the same
-`group`, all four fed by `picked`.
+**Four views, one selection.** The demo above is the pattern: a bar chart for the volume, a pie
+for the shares, a line for the trend, dots for the detail — same `group`, same `picked`, and
+`link: 'month'` on the three that must shrink.
 
 **A chart driving a table.** Keep the pick in your own state and filter on `pick.name`:
 
-```vue
-<script setup lang="ts">
-const picked = ref<QChartPick | null>(null)
+```ts
 const rows = computed(() => (picked.value ? data.filter((d) => d.month === picked.value!.name) : data))
-</script>
 ```
 
-**A filter driving the charts.** The reverse: a select or a tab sets `picked`, and every
-chart reflects it.
+**A filter driving the charts.** The reverse: a select, a tab or the URL sets `picked`, and
+every chart reflects it.
 
-**Clicking anywhere in the plot.** A click in the empty area fires no `@pick` (there is no
-element). Use the exposed `chart` instance for that:
+**A filter driving the charts — without any chart click.** The selection can come from
+anywhere: a `<select>`, tabs, the URL. Here a menu drives both charts, and **All months** puts
+them back to the unselected state:
+
+::prose-show-case
+:dnax-demo-chart{demo="link-app"}
+
+#code
+```vue
+<script setup lang="ts">
+const month = ref("") // '' = all months
+</script>
+
+<template>
+  <select v-model="month">
+    <option value="">All months</option>
+    <option v-for="m in months" :key="m" :value="m">{{ m }}</option>
+  </select>
+
+  <!-- A plain object is enough: `selected` only needs a name -->
+  <q-chart :selected="month ? { name: month } : null" :marks="[barLinked]" />
+  <q-chart :selected="month ? { name: month } : null" :marks="[dotsLinked]" />
+</template>
+```
+::
+
+**Clearing the selection.** "No longer selected" is not a special case: set the state to
+`null` and every chart returns to its full data (a re-click on the selected legend entry emits
+exactly that).
+
+```vue
+<template>
+  <button @click="picked = null">Clear</button>
+  <q-chart :selected="picked" @pick="picked = $event" :marks="[linkedBar]" />
+</template>
+```
+
+**Clicking in the empty area.** A click in the void triggers no `@pick` (there is no element).
+Use the exposed instance to clear the selection:
 
 ```vue
 <q-chart ref="c" :marks="[…]" />
@@ -16241,28 +16781,39 @@ element). Use the exposed `chart` instance for that:
 
 ```ts
 c.value.chart.getZr().on("click", (event: any) => {
-  if (!event.target) picked.value = null // click in the void → clear the selection
+  if (!event.target) picked.value = null
 })
 ```
 
-## What it does not do
+## When it doesn't work
 
-- **No data synchronization**: each chart builds its own option from its own `marks`; the
-  link replays interactions only.
-- **No brush / cross-filtering**: selecting a range in one chart does not filter the others
-  (that is the job of your state + `selected`, or of the `options` escape hatch with a
-  custom `brush` handler).
-- **Linked tooltips need compatible axes**: charts of a group should share their category
-  axis (`x`) — otherwise the axis pointer has nothing to line up.
+| Symptom                                                  | Cause                                      | Fix                                                                                                             |
+| -------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Hovering does nothing                                    | Charts have different (or no) `group`      | Give them the **same** `group` string                                                                           |
+| The tooltip follows, but the clicked element stays dull  | `selected` is not bound                    | `:selected="picked"` on the chart, `@pick="picked = $event"`                                                    |
+| Clicking the legend hides the slice instead of selecting | `legend.action` is missing                 | `:legend="{ action: 'select' }"`                                                                                |
+| Clicking works, nothing filters                          | The mark has no `link`                     | Add `link: 'month'` (the field shared with the selection)                                                       |
+| Only one chart filters                                   | The other charts have no `link`            | Link **every** mark of a chart for its axis to shrink                                                           |
+| Everything empties on click                              | The selection key does not exist in `rows` | Check the field name — the join is ignored when the field is absent, but a *wrong value* filters everything out |
+| The highlight targets the wrong elements                 | `name` collides between series             | Give the marks distinct `name`s, or drive the selection with `picked.name` values you control                   |
+
+## What the link does not do
+
+- **No shared data**: each chart builds its own option from its own `marks` — the link replays
+  interactions and `link` filters rows, it never moves data between charts.
+- **No range brush**: selecting a *range* (drag) to filter is not built in — that still needs
+  your own state + `selected` (or the `options` escape hatch with a custom `brush` handler).
+- **No layout coupling**: heights, axes and legends stay per chart; synchronise them yourself
+  if you want pixel-identical panels.
 
 
 # Charts
 
 **`<q-chart>`** draws a chart from a list of **marks**. A mark is a plain object —
 `{ type: 'line', data, x, y }` — so a chart is *data*, not a component tree: nothing to
-import, nothing to nest. The marks are translated to [Apache ECharts](https://echarts.apache.org){rel="&#x22;nofollow&#x22;"}
-options and painted on a canvas (ECharts is loaded on the client only, so nothing heavy
-runs during server rendering).
+import, nothing to nest. Most marks are translated to chart options and painted on a canvas (the
+renderer is loaded on the client only, so nothing heavy runs during server rendering); a
+[`table`](http://localhost:3000/docs/charts/table) mark renders real HTML rows instead.
 
 ::prose-show-case
 :dnax-demo-chart{demo="overview"}
@@ -16308,8 +16859,11 @@ at 50. Every mark brings its own `data`, so they can come from different sources
 | `pie`     | Pie / donut — one slice per row | `radius`, `innerRadius`, `labels`, `fill`                                         |
 | `heatmap` | Heat map — one cell per row     | `fill` (the value), `labels`                                                      |
 | `rule`    | Reference line                  | `y: [50]` (horizontal) or `x: [0]` (vertical)                                     |
+| `table`   | The rows as a **table** (HTML)  | `columns` (`field`, `label`, `align`, `format`), `link`                           |
 
-Shared keys: `data` (rows, or plain values), `x` / `y` (the data mapping), `name&#x60; (legend
+Shared keys: `link` (join to the shared selection — see [Interaction](http://localhost:3000/docs/charts/interaction)),
+`columns` (for a [Table](http://localhost:3000/docs/charts/table) mark),
+`data` (rows, or plain values), `x` / `y` (the data mapping), `name&#x60; (legend
 entry), &#x2A;*`z`** (one series — and one legend entry — per value), `fill` / `stroke`
 (a series color), `opacity`, `title` (per-point tooltip), `orientation`. Text marks add
 their own keys — `text`, `textAnchor`, `lineAnchor`, `dx` / `dy`, `fontSize`… — listed on
@@ -16330,18 +16884,20 @@ theme, or any CSS color. See [Line](http://localhost:3000/docs/charts/line) for 
 
 ## Props
 
-| Prop       | Type                     | Default       | Description                                                                                                                        |
-| ---------- | ------------------------ | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `marks`    | `QChartMark[]`           | `[]`          | The layers of the chart.                                                                                                           |
-| `x` / `y`  | `QChartAxis`             | —             | **Axis** config: `type` (`band`/`linear`/`time`/`log`), `label`, `min`, `max`, `grid`.                                             |
-| `height`   | `number | string`        | `280`         | Container height (a number is read as pixels, otherwise a CSS value).                                                              |
-| `title`    | `string`                 | —             | Chart title.                                                                                                                       |
-| `colors`   | `string[]`               | `--chart-1…6` | Series palette, for marks without an explicit color.                                                                               |
-| `legend`   | `boolean | QChartLegend` | auto          | `false` hides it, `true` forces it (by default: as soon as a series is named). An object places it: `{ position, offset, align }`. |
-| `tooltip`  | `boolean`                | `true`        | Hover tooltip (a blurred glass card, styled from the theme tokens).                                                                |
-| `group`    | `string`                 | —             | **Linked charts**: charts sharing a group synchronize hover, tooltip, legend, zoom and emphasis.                                   |
-| `selected` | `QChartPick | null`      | `null`        | Currently selected element — highlighted in every series. See [Interaction](http://localhost:3000/docs/charts/interaction).        |
-| `options`  | `object`                 | —             | Raw ECharts options, merged **last** (escape hatch).                                                                               |
+| Prop          | Type                     | Default       | Description                                                                                                                                                                                                                                                                                                       |
+| ------------- | ------------------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `marks`       | `QChartMark[]`           | `[]`          | The layers of the chart.                                                                                                                                                                                                                                                                                          |
+| `x` / `y`     | `QChartAxis`             | —             | **Axis** config: `type` (`band`/`linear`/`time`/`log`), `label`, `min`, `max`, `grid`, `margin` (gap between the numbers and the axis — 16 px by default on the value axis).                                                                                                                                      |
+| `height`      | `number | string`        | `280`         | Container height (a number is read as pixels, otherwise a CSS value).                                                                                                                                                                                                                                             |
+| `title`       | `string`                 | —             | Chart title.                                                                                                                                                                                                                                                                                                      |
+| `colors`      | `string[]`               | `--chart-1…6` | Series palette, for marks without an explicit color.                                                                                                                                                                                                                                                              |
+| `legend`      | `boolean | QChartLegend` | auto          | `false` hides it, `true` forces it (by default: as soon as a series is named). An object places it: `{ position, offset, align }`.                                                                                                                                                                                |
+| `tooltip`     | `boolean`                | `true`        | Hover tooltip (a blurred glass card, styled from the theme tokens). **`axis` trigger by default** on every cartesian chart (bar, line, dot…), with a shadow band for bars and a vertical cursor otherwise; `item` — point or cell by point — when a mark declares a `title`, or for a labels-only (`text`) chart. |
+| `group`       | `string`                 | —             | **Linked charts**: charts sharing a group synchronize hover, tooltip, legend, zoom and emphasis.                                                                                                                                                                                                                  |
+| `selected`    | `QChartPick | null`      | `null`        | Currently selected element — highlighted in every series. See [Interaction](http://localhost:3000/docs/charts/interaction).                                                                                                                                                                                       |
+| `link-mode`   | `filter` \| `dim`        | `filter`      | What happens to the rows that do **not** match the selection: removed, or **dimmed** at `dim-opacity&#x60;. Applies to every linked mark, **`table` rows included**.                                                                                                                                              |
+| `dim-opacity` | `number`                 | `0.25`        | Opacity of the unselected elements in `link-mode="dim"`.                                                                                                                                                                                                                                                          |
+| `options`     | `object`                 | —             | Raw chart options, merged **last** (escape hatch).                                                                                                                                                                                                                                                                |
 
 ::prose-callout{variant="note"}
 The props `x`, `y` and `title` configure the **chart** (its axes and heading). Inside a
@@ -16351,9 +16907,13 @@ per-point tooltip. They never collide — a mark is just an object.
 
 ### Events and methods
 
-`@ready` receives the ECharts instance, also available as `chart` on the component ref
+`@ready` receives the chart instance, also available as `chart` on the component ref
 (`refresh()` forces a re-render — useful after a hidden container becomes visible).
-`@pick` fires on every click on an element, with a normalized payload (`{ name, value, seriesName, dataIndex, … }`) — see [Interaction](http://localhost:3000/docs/charts/interaction).
+`@pick` fires on every click on an element, with a normalized payload (`{ name, value, markName, dataIndex, … }`) — see [Interaction](http://localhost:3000/docs/charts/interaction).
+`@unpick` fires when the user **deselects** (a re-click on the selected element, or on the
+selected legend entry), with the dropped element — `@pick` receives `null` in the same movement. A legend click carries the very
+same identity as a click on an element (`markName`, `markIndex`, `markType`, `dataIndex`,
+`data`), with `origin: 'legend'`.
 
 ### Legend
 
@@ -16394,13 +16954,16 @@ const marks = [
 ```
 ::
 
-| Key        | Value                                                  | Effect                                                                                                 |
-| ---------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `position` | `top&#x60; &#x2A;(default)*, `bottom`, `left`, `right` | Where the legend sits. `left` / `right` turn it **vertical**.                                          |
-| `offset`   | number (px, default `24`)                              | Gap between the legend and the plot area — the space is **reserved** in the grid, so nothing overlaps. |
-| `align`    | `start&#x60; &#x2A;(default)*, `center`, `end`         | Alignment along the edge, for a `top` or `bottom` legend.                                              |
+| Key        | Value                                                  | Effect                                                                                                                                                                                                         |
+| ---------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `position` | `top&#x60; &#x2A;(default)*, `bottom`, `left`, `right` | Where the legend sits. `left` / `right` turn it **vertical**.                                                                                                                                                  |
+| `offset`   | number (px, default `24`)                              | Gap between the legend and the plot area — the space is **reserved** in the grid, so nothing overlaps.                                                                                                         |
+| `align`    | `start&#x60; &#x2A;(default)*, `center`, `end`         | Alignment along the edge, for a `top` or `bottom` legend.                                                                                                                                                      |
+| `action`   | `toggle&#x60; &#x2A;(default)*, `select`               | `toggle` hides the series (the default behaviour). `select` turns the legend into a **selector**: the click emits `@pick`, the series stay visible, and a second click on the same entry clears the selection. |
 
 `legend: false` hides it, `legend: true` shows it even when no series is named.
+With `action: 'select'` the legend drives the [Interaction](http://localhost:3000/docs/charts/interaction) link
+instead of hiding series.
 
 ## The `options` escape hatch
 
@@ -16416,9 +16979,9 @@ that way:
 ```
 
 ::prose-callout{variant="warning"}
-An ECharts feature whose module is not in the bundle is silently ignored: `dataZoom` needs
-`DataZoomComponent`, `aria` needs `AriaComponent`, … Those modules are registered in
-`QChart.vue` (`echarts.use([...])`) — see the `echarts` skill for the mapping.
+Features that are **not part of the bundle** are silently ignored: `dataZoom` (zoom and
+panning) and `aria` (accessibility descriptions) are not registered by default, so passing them
+through `options` has no effect.
 ::
 
 ## API
@@ -16507,11 +17070,20 @@ A value per cell — a colour scale over rows and columns.
 
 ::prose-card
 ---
+icon: lucide:table
+title: Table
+to: http://localhost:3000/docs/charts/table
+---
+The same rows as a table — HTML, selectable, filtered by the shared selection.
+::
+
+::prose-card
+---
 icon: lucide:link
 title: Interaction
 to: http://localhost:3000/docs/charts/interaction
 ---
-Link several charts together — synced hover, tooltip, legend and click selection.
+Link several charts together — synced hover and tooltip, click selection and cross-filtering.
 ::
 
 
