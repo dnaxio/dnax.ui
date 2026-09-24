@@ -1547,3 +1547,93 @@ system n'expose plus de lecteur vidéo. Aucun autre usage dans le repo.
 - Vérif : `grep` de contrôle → 0 occurrence restante de `q-video`/`QVideo`/`videojs`/
   `mux-video` dans les sources (hors musique `.memory` historique et skill Quasar) ;
   `diagnostics` projet → 0 erreur.
+
+## docui — docs migrées de `docd/`, section Layouts réordonnée + page App Layout — 2026-09-24
+
+tag: `decisions` — `filename: docui/nuxt.config.ts`, `docui/content/docs/2.layouts/`
+
+Le site de documentation vit maintenant dans **`docui/`** (copie du starter Docd, contenu
+porté depuis `docd/`) ; le dossier `docd/` a été supprimé du disque.
+
+- `docui/nuxt.config.ts` : `extends: ["@baybreezy/docd"]` + `modules: ["@dnax/ui",
+`./scripts/dnax-ui-meta"]`(cf.`warnings.md`), `components: [{ path: "~~/components",
+  pathPrefix: false }]`(les démos MDC sont appelées en kebab-case sans préfixe de
+dossier :`<dnax-demo-…>`, `<dnax-api>`), `css: ["~~/assets/css/main.css"]`, port 2009.
+- **Section Layouts** (`content/docs/2.layouts/`) : nouvelle page **App Layout**
+  (`2.app-layout.md`) placée juste après Config Provider. Elle décrit la coquille
+  assemblée (config provider → barres → tiroir → page) et le choix entre les deux
+  shells : `<q-layout view="hHh LpR fFf">` (grille 3×3) vs `<q-app>` + barres `fixed`.
+- Les pages suivantes ont été **renumérotées** : page → `3.`, header → `4.`, footer →
+  `5.`, sidebar → `6.`, qlayout → `7.` Le préfixe numérique ne pilote que l'ordre de la
+  sidebar et est retiré de l'URL → les routes `/docs/layouts/*` restent identiques
+  (vérifié : les 7 routes répondent 200).
+- Démo : `docui/app/components/demos/DnaxDemoAppLayout.vue` — `demo="shell"` (grille
+  `container` + tiroir statique, `:breakpoint="0"`) et `demo="drawer"` (tiroir
+  offcanvas ouvert par un `☰` du header : sans `show-if-above`, le panneau sort de la
+  grille et recouvre la page).
+- Vérif : serveur de dev déjà lancé sur 2009 → ordre sidebar Layouts = Config Provider →
+  App Layout → Page → Header → Footer → Sidebar → QLayout ; les deux démos rendues en
+  SSR (`class="q-layout"`, `q-sidebar--offcanvas` + backdrop).
+
+## QPage — prop `padding` (modifier = 14px, valeur CSS) — 2026-09-24
+
+tag: `decisions` — `filename: packages/ui/components/QPage.vue`, `packages/ui/lib/pagePadding.ts`
+
+QPage accepte désormais un padding utilisateur : `<q-page padding>` (modifier, comme dans
+Quasar) applique **14px** — 16px chez Quasar, valeur alignée ici sur le pas du design
+system — et toute longueur CSS est acceptée : `padding="12px"`, `padding="2rem"`,
+`padding="24px"` ; un nombre nu reçoit son unité (`padding="12"` → `12px`, sinon le
+`calc()` de composition serait invalide).
+
+- Type : `padding?: boolean | string | number` (défaut `false`) ; aucune valeur énumérée
+  → rien à maintenir dans la table API auto-générée.
+- Normalisation pure dans `packages/ui/lib/pagePadding.ts` (`resolvePagePadding`,
+  `PAGE_PADDING = "14px"`), testée par `lib/pagePadding.test.ts`.
+- Le composant pose la longueur en variable CSS `--q-page-padding` (inline, donc rendue en
+  SSR) ; la composition avec les offsets de barres `fixed` et la safe-area est décrite
+  dans `knowledges.md` (« `.q-page` — composer 3 paddings »).
+- Docs : section « Padding » + `docui/app/components/demos/DnaxDemoPage.vue`
+  (`demo="padding"` = 14px, `demo="custom"` = `padding="24px"`) sur la page
+  `docui/content/docs/2.layouts/3.page.md`.
+- Vérif : `bun test packages/ui/lib` → 162 pass / 0 fail (dont 5 nouveaux) ;
+  `curl /docs/layouts/page` → 200 avec `--q-page-padding:14px` et `--q-page-padding:24px`
+  dans le HTML SSR ; `diagnostics` QPage → 0 erreur.
+
+## QPageContainer — structure Quasar `q-layout > q-page-container > q-page` — 2026-09-24
+
+tag: `decisions` — `filename: packages/ui/components/QPageContainer.vue`, `packages/ui/styles/main.css`
+
+Ajout du conteneur de page Quasar, pour que le markup Quasar fonctionne tel quel :
+
+```vue
+<q-layout view="hHh LpR fFf">
+  <q-header>…</q-header>
+  <q-sidebar side="left" show-if-above>…</q-sidebar>
+  <q-page-container>
+    <router-view />        <!-- la page rendue : <q-page padding>…</q-page> -->
+  </q-page-container>
+  <q-footer>…</q-footer>
+</q-layout>
+```
+
+- **Aucun prop** (comme Quasar) : un `div.q-page-container` + `$attrs`. Il occupe la
+  cellule « page » du QLayout via la règle existante `.q-layout > *` et sert de colonne
+  flex (`display:flex; flex-direction:column; flex:1 1 auto; min-height:0`), donc le
+  `<q-page>` qu'il contient remplit la cellule.
+- **Optionnel dans dnax.ui** : `<q-page>` directement dans le layout continue de marcher
+  (toutes les démos existantes) ; le conteneur devient utile dès que la cellule contient
+  un `<router-view />` ou une page échangée à l'exécution.
+- **Pas de `pageContainerKey`** (la clé Quasar qui interdit à QPage de vivre hors
+  conteneur) : dnax.ui autorise `<q-page>` dans la coquille `<q-app>` + barres `fixed`,
+  la contrainte Quasar n'a donc pas lieu d'être.
+- **Non repris de Quasar** : la racine `<main>` de QPage (risque de `<main>` imbriqués
+  dans un site qui a le sien) et le `min-height` calculé inline (dnax.ui remplit déjà la
+  zone par la rangée `1fr` du QLayout et `flex: 1 1 auto` — forcer `100dvh` casserait les
+  démos en mode `container` embarqué).
+- Docs : section « Page container » dans `docui/content/docs/2.layouts/3.page.md` (démo
+  `:dnax-demo-page{demo="container"}`) ; la coquille complète de la page App Layout
+  utilise désormais le conteneur.
+- Vérif : `bun run generate` → 140 exports (QPageContainer ajouté) ; `bun test
+packages/ui/lib` 162/162 ; `curl /docs/layouts/page` et `/docs/layouts/app-layout` →
+  200, `class="q-page-container"` rendu (aucune balise non résolue) ; `diagnostics`
+  QPageContainer → 0 erreur.

@@ -26,7 +26,7 @@ fading `grid` of squares, a `star` grid, `falling-stars`, a `flickering-grid`, a
 
 ```vue
 <q-container>
-  <p>Max-width 1200px by default, 16px horizontal padding.</p>
+  <p>Max-width 1200px by default, 12px horizontal padding.</p>
 </q-container>
 
 <q-container max-width="640px" padding="24px">

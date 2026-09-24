@@ -3,10 +3,14 @@
 //
 // Problème : les barres fixed sortent du flux (position: fixed) → le contenu de
 // q-page passe dessous. Ce module :
-//  - q-page (mode "page") reçoit un padding-top = hauteur cumulée des barres
-//    fixed HAUT qui le précèdent ET un padding-bottom = hauteur cumulée des
-//    barres fixed BAS qui le suivent (le contenu n'est masqué ni en haut ni en
-//    bas au scroll)
+//  - q-page et q-page-container (mode "page") publient la hauteur cumulée des barres
+//    fixed HAUT qui les précèdent et des barres fixed BAS qui les suivent dans les
+//    variables CSS `--q-page-offset` / `--q-page-offset-bottom` (le contenu n'est masqué
+//    ni en haut ni en bas au scroll). Le padding lui-même est composé dans
+//    `styles/main.css`, avec la safe-area et le padding utilisateur de la prop `padding`
+//    (`--q-page-padding`) — d'où des variables et non un style inline : deux sources de
+//    padding ne peuvent pas s'écraser mutuellement. Le conteneur ne s'en sert que s'il
+//    ne contient pas de q-page (règle `:has()`), pour ne jamais additionner les deux.
 //  - chaque barre fixed suivante (mode "bar") s'empile sous la précédente (top)
 //  - chaque barre fixed basse (mode "bar-bottom") s'empile au-dessus de la
 //    suivante (bottom)
@@ -79,9 +83,10 @@ function fixedBarsInRoot(el: HTMLElement): HTMLElement[] {
 
 /**
  * Applique l'offset lié aux barres fixed qui entourent `el` :
- * - mode "page"       : padding-top = barres HAUT précédentes,
- *                       padding-bottom = barres BAS suivantes
- *                       (+ variables --q-page-offset / --q-page-offset-bottom)
+ * - mode "page"       : variables `--q-page-offset` (barres HAUT précédentes) et
+ *                       `--q-page-offset-bottom` (barres BAS suivantes) — le padding
+ *                       est composé par les règles `.q-page` / `.q-page-container`
+ *                       (`styles/main.css`)
  * - mode "bar"        : top = hauteur cumulée (empilement des barres fixed HAUT)
  * - mode "bar-bottom" : bottom = hauteur cumulée (empilement des footers fixed
  *                       depuis le bas de l'écran)
@@ -113,8 +118,6 @@ export function useFixedBarOffset(
       const bottom = fixedBarsHeightAfter(node)
       node.style.setProperty("--q-page-offset", top ? `${top}px` : "0px")
       node.style.setProperty("--q-page-offset-bottom", bottom ? `${bottom}px` : "0px")
-      node.style.paddingTop = top ? `${top}px` : ""
-      node.style.paddingBottom = bottom ? `${bottom}px` : ""
     }
     else if (mode === "bar") {
       const h = fixedBarsHeightBefore(node)
@@ -132,8 +135,6 @@ export function useFixedBarOffset(
     if (mode === "page") {
       node.style.removeProperty("--q-page-offset")
       node.style.removeProperty("--q-page-offset-bottom")
-      node.style.paddingTop = ""
-      node.style.paddingBottom = ""
     }
     else if (mode === "bar") {
       node.style.top = ""

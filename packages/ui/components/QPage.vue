@@ -1,14 +1,23 @@
 <script setup lang="ts">
-// QPage — zone de contenu. Prop `virtual` : active le virtual scroll
-// (rendu fenêtré via QVirtualScroll) quand on a beaucoup d'items.
+// QPage — zone de contenu. Prop `padding` : padding uniforme du contenu —
+// présence (modifier) = 14px, valeur CSS (« 12px ») = cette valeur.
+// Prop `virtual` : active le virtual scroll (rendu fenêtré via QVirtualScroll) quand
+// on a beaucoup d'items.
 // Padding-top/padding-bottom automatiques quand des barres fixed
 // (q-header / q-back-header avant, q-footer après) entourent la page : le
 // contenu reste visible, jamais masqué par les barres au scroll.
-import { onBeforeUnmount, onMounted, ref } from "vue"
+// La composition du padding (utilisateur + offsets des barres + safe-area) vit dans
+// `styles/main.css` : ce composant ne pose que `--q-page-padding`, l'offset mesuré est
+// publié en variables par `lib/fixedLayout.ts`.
+import { computed, onBeforeUnmount, onMounted, ref } from "vue"
+import type { CSSProperties } from "vue"
 import { useFixedBarOffset } from "../lib/fixedLayout"
+import { resolvePagePadding } from "../lib/pagePadding"
 import QVirtualScroll from "./QVirtualScroll.vue"
 
 interface Props {
+  /** Padding uniforme du contenu : modifier (sans valeur) = 14px, valeur CSS = cette valeur */
+  padding?: boolean | string | number
   /** Active le virtual scroll (rendu fenêtré des items) */
   virtual?: boolean
   /** Données à afficher (requis si virtual) */
@@ -29,7 +38,9 @@ interface Props {
   virtualScrollStickySizeEnd?: number
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  padding: false,
+})
 
 const rootEl = ref<HTMLElement | null>(null)
 // ref fonctionnel : sur un élément → l'élément ; sur q-virtual-scroll (composant) → .$el
@@ -38,8 +49,16 @@ const setRoot = (el: unknown) => {
   rootEl.value = node?.$el ?? node ?? null
 }
 
-// Offset automatique : padding-top = hauteur des barres fixed précédentes
+// Offset automatique : padding (haut/bas) = hauteur des barres fixed autour de la page
 useFixedBarOffset(rootEl, "page")
+
+// Padding utilisateur → variable CSS lue par `.q-page` (styles/main.css), qui le
+// compose avec les offsets et la safe-area. Inline (et non posé à l'impératif) pour
+// être rendu dès le SSR.
+const rootStyle = computed<CSSProperties | undefined>(() => {
+  const padding = resolvePagePadding(props.padding)
+  return padding ? ({ "--q-page-padding": padding } as CSSProperties) : undefined
+})
 </script>
 
 <template>
@@ -47,6 +66,7 @@ useFixedBarOffset(rootEl, "page")
     v-if="virtual"
     :ref="setRoot"
     class="q-page"
+    :style="rootStyle"
     :items="items"
     :item-key="itemKey"
     :virtual-scroll-slice-size="virtualScrollSliceSize"
@@ -67,7 +87,7 @@ useFixedBarOffset(rootEl, "page")
       <slot name="after" />
     </template>
   </q-virtual-scroll>
-  <div v-else :ref="setRoot" class="q-page" v-bind="$attrs">
+  <div v-else :ref="setRoot" class="q-page" :style="rootStyle" v-bind="$attrs">
     <slot />
   </div>
 </template>

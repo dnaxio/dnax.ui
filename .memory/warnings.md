@@ -927,3 +927,28 @@ qui plante** (aucun install/build lancé ici — règle projet + réseau requis)
 `modules` de son `nuxt.config.ts`) et le repli Satori/resvg (même `createRequire(cwd)`
 dans `bindings/resvg/node-dev.js`) ; si `@takumi-rs/core` et `@takumi-rs/wasm` sont tous
 deux présents, le module alerte sur un écart de version majeure.
+
+## docui — `@dnax/ui` dans `extends` → « Unknown file extension ".vue" » — 2026-09-24
+
+tag: `warnings` — `filename: docui/nuxt.config.ts`
+
+**Symptôme** : `bun run dev` dans `docui/` s'arrête **avant** de servir, sans autre
+indication :
+
+```
+ERROR  Unknown file extension ".vue" for …/packages/ui/components/QAccordion.vue
+    at Object.getFileProtocolModuleFormat (node:internal/modules/esm/get_format:219:9)
+```
+
+**Cause racine** : `extends: ["@baybreezy/docd", "@dnax/ui", …]`. `@dnax/ui` **n'est pas
+une layer** Nuxt : son `exports["."]` est le barrel **runtime** (`index.ts`, qui importe
+`./components/*.vue`). c12/Nuxt résout donc `packages/ui/index.ts` et le charge avec
+l'ESM de **Node** (aucun loader `.vue`) → erreur sur la 1re ligne du barrel. Par
+contraste, `@baybreezy/docd` exporte `./nuxt.config.ts` : c'est une vraie layer.
+
+**Correctif** : garder `@dnax/ui` dans **`modules`** (contrat documenté en tête de
+`packages/ui/module.ts`) — `extends: ["@baybreezy/docd"]` +
+`modules: ["@dnax/ui", "./scripts/dnax-ui-meta"]`.
+
+**Vérif** : `bun run dev` → serveur démarré (plus d'erreur) ;
+`curl -s localhost:2009/docs/layouts/app-layout` → 200.

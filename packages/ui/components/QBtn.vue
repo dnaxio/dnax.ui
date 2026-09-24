@@ -39,9 +39,9 @@ interface Props {
   type?: "button" | "submit" | "reset"
   /** Rend un lien natif <a> */
   href?: string
-  /** Fond transparent, texte coloré */
+  /** Fond transparent, texte coloré. Gagne sur `outline` (designs exclusifs) */
   flat?: boolean
-  /** Fond transparent + bordure */
+  /** Fond transparent + bordure (ignoré si `flat`, cf. Quasar : le design `flat` retire aussi la bordure) */
   outline?: boolean
   /** Supprime l'ombre portée */
   unelevated?: boolean
@@ -110,8 +110,7 @@ const btnClasses = computed(() =>
     btnVariants({ size: sizeVariant.value }),
     isTokenColor(props.color) && `q-btn--${props.color}`,
     isTokenColor(props.textColor) && `q-btn--text-${props.textColor}`,
-    props.flat && "q-btn--flat",
-    props.outline && "q-btn--outline",
+    props.flat ? "q-btn--flat" : props.outline && "q-btn--outline",
     props.unelevated && "q-btn--unelevated",
     props.dense && "q-btn--dense",
     effectiveRadius.value === true && "q-btn--rounded",

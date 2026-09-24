@@ -1,6 +1,6 @@
 <script lang="ts">
 // QSidebar — panneau latéral type Sidebar shadcn-vue, API QDrawer Quasar :
-// <q-sidebar v-model="open" side="left" width="260px" bordered show-if-above breakpoint="1023">
+// <q-sidebar v-model="open" side="left" width="260px" bordered show-if-above :breakpoint="1023">
 // Fournit le contexte (toggle) aux QSidebarTrigger enfants.
 import type { InjectionKey, Ref } from "vue"
 
@@ -14,10 +14,11 @@ export const qSidebarKey: InjectionKey<SidebarContext> = Symbol("q-sidebar")
 </script>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from "vue"
+import { computed, inject, onBeforeUnmount, onMounted, provide, ref, watch } from "vue"
 import type { StyleValue } from "vue"
 import { cn } from "../lib/utils"
 import { useOverlayBack } from "../lib/overlayBack"
+import { qLayoutKey } from "../lib/layout"
 
 interface Props {
   /** Ouvert (v-model) — mode offcanvas ; ignoré en mode statique */
@@ -68,6 +69,13 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{ "update:modelValue": [value: boolean] }>()
 
+// Multi-racines (<aside> + backdrop) : Vue ne peut pas hériter les attributs tout seul
+// (avertissement « could not be automatically inherited because component renders
+// fragment … »). On les applique explicitement sur le panneau, la seule racine qui
+// compte : `id`, `data-*`, `aria-label`… arrivent donc sur l'<aside> (l'accessibilité
+// et les sélecteurs de test sont préservés). `class` / `style` restent des props.
+defineOptions({ inheritAttrs: false })
+
 // — Mode statique (viewport >= breakpoint && show-if-above) —
 const isAbove = ref(false)
 let mql: MediaQueryList | null = null
@@ -96,6 +104,13 @@ const setOpen = (v: boolean) => {
 const toggle = () => setOpen(!open.value)
 
 provide<SidebarContext>(qSidebarKey, { open, setOpen, toggle })
+
+// — Placement dans un QLayout (facultatif) —
+// En mode statique le panneau occupe sa cellule (« l » / « r » du `view`) et devient
+// sticky si la lettre est en majuscule ; en offcanvas il est `fixed` (recouvrant),
+// donc sa place dans la grille ne compte plus.
+const layout = inject(qLayoutKey, null)
+const layoutZone = computed(() => layout?.zones.value[props.side])
 
 // « Retour » navigateur → ferme la sidebar (mode offcanvas uniquement)
 const overlayOpen = computed(() => !isStatic.value && open.value)
@@ -131,7 +146,8 @@ const rootClasses = computed(() =>
     isStatic.value ? "q-sidebar--static" : "q-sidebar--offcanvas",
     !isStatic.value && open.value && "q-sidebar--open",
     props.side === "right" && "q-sidebar--right",
-    props.sticky && "q-sidebar--sticky",
+    // sticky : prop explicite, ou imposé par la casse de la lettre dans un QLayout
+    (props.sticky || !!layoutZone.value?.fixed) && "q-sidebar--sticky",
     props.bordered && "q-sidebar--bordered",
     props.elevated && "q-sidebar--elevated",
     props.dark && "q-sidebar--dark",
@@ -143,6 +159,14 @@ const rootStyle = computed<Record<string, string>>(() => {
   const style: Record<string, string> = { "--q-sidebar-w": props.width }
   if (props.height) style.height = props.height
   if (props.maxHeight) style.maxHeight = props.maxHeight
+  // Cellule de la grille QLayout (mode statique : en offcanvas le panneau est fixed)
+  const zone = layoutZone.value
+  if (isStatic.value && zone?.area) style.gridArea = zone.area
+  // Sticky : ne s'accroche qu'aux barres qui le surplombent (rangée 0 = au-dessus de lui)
+  if (isStatic.value && zone?.fixed) {
+    if (zone.cells.some(([row]) => row === 0)) style["--q-sidebar-sticky-top"] = "0px"
+    if (zone.cells.some(([row]) => row === 2)) style["--q-sidebar-sticky-bottom"] = "0px"
+  }
   return style
 })
 
@@ -221,6 +245,7 @@ watch(open, (v) => {
     class="q-sidebar"
     :class="rootClasses"
     :style="[rootStyle, props.style]"
+    v-bind="$attrs"
     :aria-hidden="!isStatic && !open ? 'true' : undefined"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"

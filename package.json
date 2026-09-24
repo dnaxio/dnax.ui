@@ -4,9 +4,8 @@
   "type": "module",
   "private": true,
   "workspaces": [
-    "docd/",
-    "packages/*",
-    "apps/*"
+    "docui/",
+    "packages/*"
   ],
   "devDependencies": {
     "@types/bun": "latest"

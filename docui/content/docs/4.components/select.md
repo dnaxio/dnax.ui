@@ -197,6 +197,17 @@ Per-mode tuning goes in `inline-options` / `modal-options` / `sheet-options`
 `class`) — they override the direct props, e.g. `sheet-options="{ width: '100%' }"`
 for a full-width sheet.
 
+### Radius
+
+Every surface of the select follows the **radius scale** (`none | xs | sm | md | lg`),
+resolved from `field-radius` first, then `componentProps.QSelect.radius`, then
+`componentProps.default.radius` — so a single
+`componentProps: { default: { radius: 'sm' } }` rounds the field, the inline list and
+the modal / sheet panels alike. `rounded` (or the per-mode `rounded`) still wins when
+you set it explicitly, and `rounded: false` keeps a sharp panel. Because the list and
+the panels are appended to `<body>`, the resolved value is applied to them directly —
+setting `--q-radius` globally is not enough, use `componentProps` (or their `style`).
+
 ::prose-show-case
 <dnax-demo-select demo="panel"></dnax-demo-select>
 
@@ -337,6 +348,21 @@ const country = ref(null)
 Like `offset`, `position` can be overridden per mode:
 `inline-options="{ position: 'top' }"`. A forced side never flips — the popup just
 shrinks its `max-height` to the room available on that side.
+
+### The popup lives in `<body>`
+
+The inline popup is appended to `<body>` (like the modal and sheet panels) and
+positioned in viewport coordinates, then repositioned on scroll and resize while it
+stays open. It therefore **escapes the clipping ancestors**: a `<q-card>`, a scroll
+area or any box in `overflow: hidden` can no longer hide it.
+
+Two consequences worth knowing:
+
+- a parent selector cannot style it anymore — use `inline-options.class` (the class
+  lands on the popup itself), and `inline-options.width` for its width, since the
+  inline coordinates take precedence over CSS;
+- it sits above the modal overlays (z-index token `--q-z-popup`, `3500` by default),
+  so a select inside a dialog or a bottom sheet still shows its list.
 
 ## API
 

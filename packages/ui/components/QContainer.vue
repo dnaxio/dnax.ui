@@ -9,7 +9,7 @@ interface Props {
   maxWidth?: string | number
   /** Supprime la largeur max (pleine largeur, padding conservé) */
   fluid?: boolean
-  /** Padding horizontal (défaut 16px) */
+  /** Padding horizontal (défaut 12px) */
   padding?: string
   /** Effet d'arrière-plan : "grid" | "aurora" | "star" | "falling-stars" | "flickering-grid" | "interactive-grid" | "wave" (vagues qui glissent) */
   backgroundEffect?:
@@ -57,7 +57,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   maxWidth: "1200px",
   fluid: false,
-  padding: "16px",
+  padding: "12px",
 })
 
 const IMG_FIT = new Set(["cover", "contain", "fill", "none", "scale-down"])

@@ -1073,7 +1073,7 @@ Contrat : `ddocs/CONVERSION.md` (autoritaire). Source `docs/app/pages/docs/compo
 - `<docs-demo :code :script>` → `::code-preview` : slot par défaut = démo live,
   `#code` = exactement `:code` (+ `:script` combinés en SFC complet si présent), en
   ` ```vue `. `<q-syntax :code lang>` → bloc ` `<lang> ```.
-`<docs-api>`→`<DnaxApi name="QXxx" />`(export de`useComponent`, jamais d'import).
+  `<docs-api>`→`<DnaxApi name="QXxx" />`(export de`useComponent`, jamais d'import).
 - Démos **statiques** (aucun binding) → markup inliné dans le slot, en gardant les
   wrappers `demo-row` / `demo-col` / `demo-stack` (globaux dans `app/assets/css/main.css`).
 - **Piège** : un `<style scoped>` de `DnaxDemo<Page>.vue` n'atteint **pas** le markup
@@ -1724,3 +1724,58 @@ Un guide se lit dans cet ordre — chaque section répond à une question diffé
 Toujours ajouter `style="max-width:760px;height:auto;overflow:visible"` et des libellés courts.
 Vérifier au rendu (capture Chromium), pas au code.
 
+## `.q-page` — composer 3 paddings sans qu'ils s'écrasent — 2026-09-24
+
+tag: `knowledges` — `filename: packages/ui/styles/main.css`, `packages/ui/lib/fixedLayout.ts`
+
+`.q-page` reçoit **trois** paddings d'origines différentes : celui de l'utilisateur
+(prop `padding`), l'offset des barres `fixed` (mesuré par `lib/fixedLayout.ts`) et la
+safe-area basse. Avant, les deux premiers vivaient en style **inline**
+(`node.style.paddingTop = …`) : le dernier écrit écrasait l'autre — impossible d'ajouter
+un padding utilisateur.
+
+**Modèle retenu** : le JS ne publie plus que des **variables** (`--q-page-offset`,
+`--q-page-offset-bottom`, via `setProperty`) et la composition vit dans la règle `.q-page` :
+
+```css
+padding: var(--q-page-padding, 0px);
+padding-top: calc(var(--q-page-offset, 0px) + var(--q-page-padding, 0px));
+padding-bottom: calc(
+  max(env(safe-area-inset-bottom), var(--q-page-offset-bottom, 0px)) +
+    var(--q-page-padding, 0px)
+);
+```
+
+- **`max()` et non une somme** pour le bas : la hauteur mesurée du `q-footer fixed`
+  **contient déjà** sa safe-area → une somme la compterait deux fois.
+- Le padding utilisateur est posé en inline par le composant (`--q-page-padding`,
+  binding `:style` → présent dès le SSR), pas à l'impératif : le rendu serveur est juste.
+- **Repli sans mesure JS** (SSR/première peinture) : les règles `:has()` des barres
+  `fixed` écrivent la variable (`--q-page-offset: calc(env(safe-area-inset-top) + 50px)`)
+  au lieu d'un `padding`, sinon leur spécificité (0,3,0) écraserait la composition de
+  `.q-page`. Effet de bord assumé : l'inline mesuré gagne toujours (plus de « 50px qui
+  reste » quand la barre mesurée fait 0), et sur **iOS 11.0-11.1 uniquement**
+  (`constant()` seul, sans `env()`) le repli tombe à 0 — une valeur `env()` inconnue dans
+  une variable CSS rend la déclaration « invalid at computed-value time ». Versions hors
+  support, considéré comme acceptable.
+- Tests : `lib/pagePadding.test.ts` (normalisation de la valeur) ; `bun test packages/ui/lib`.
+
+## `.q-page-container` — un seul porteur des offsets de barres `fixed` — 2026-09-24
+
+tag: `knowledges` — `filename: packages/ui/styles/main.css`
+
+`QPageContainer` et `QPage` publient **les mêmes** variables d'offset
+(`--q-page-offset`, `--q-page-offset-bottom`) via `useFixedBarOffset(rootEl, "page")`.
+Pour ne jamais additionner deux paddings, c'est le CSS qui tranche, par la structure :
+
+- `.q-page` compense toujours les barres `fixed` (comportement historique — et seul cas
+  quand la page est posée directement dans le layout) ;
+- `.q-page-container:not(:has(.q-page))` ne compense **que** s'il n'y a aucune page
+  rendue à l'intérieur : c'est le rôle que Quasar donne au conteneur (`QPageContainer.js`
+  → `paddingTop/Bottom` selon `$layout.header.space`), transposé pour qu'un
+  `<router-view />` rendant un composant **sans** racine `<q-page>` soit offset quand
+  même — sans jamais de double padding.
+
+Effet de bord utile : les variables étant posées sur le conteneur, une page à l'intérieur
+en **hérite** avant sa propre mesure ; les valeurs sont identiques (mêmes barres, même
+racine `.q-app`), donc aucun écart visuel avant hydratation.

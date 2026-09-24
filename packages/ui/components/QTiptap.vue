@@ -816,6 +816,7 @@ defineExpose({
             :disable="!editor.isEditable"
             aria-label="Font size"
             class="q-tiptap__font-size"
+            :inline-options="{ class: 'q-tiptap__font-size-popup', width: '100px' }"
             @update:model-value="onFontSizeUpdate"
           />
         </div>

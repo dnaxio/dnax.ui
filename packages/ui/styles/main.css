@@ -32,18 +32,22 @@ body {
 /* ===== Échelle des z-index =====
    Règle : un menu superposé ne doit JAMAIS passer sous un overlay. Les menus
    téléportés dans <body> sont donc au-dessus de la couche modale.
-     1000        popups en flux (`position: absolute` dans leur champ : select,
-                 autocomplete, nav-menu…) → pas concernés par les overlays
+     1000        popups en flux (`position: absolute` dans leur champ : autocomplete,
+                 nav-menu…) → pas concernés par les overlays
      1999/2000   sidebar offcanvas + backdrop
      3000        overlays modaux : dialog, bottom sheet, action sheet,
                  date-picker, country-picker, select sheet
      3200        menus téléportés dans <body> : panneau QBtnActions, menu
                  contextuel / filtre / suggestions du tableur → --q-z-menu
+     3500        popup inline de QSelect (téléporté dans <body> : il doit passer
+                 au-dessus d'un overlay quand le champ est dans un dialog/sheet)
+                 → --q-z-popup
      4000        palettes tiptap · 7000 loading global · 9999 tooltip ·
                  10000 image preview
-   Surchargez --q-z-menu si votre application a un overlay plus haut que 3200. */
+   Surchargez --q-z-menu ou --q-z-popup si votre application a un overlay plus haut. */
 :root {
   --q-z-menu: 3200;
+  --q-z-popup: 3500;
 }
 
 /* ===== Safe-area insets (encoche & barre d'accueil) =====
@@ -52,8 +56,13 @@ body {
 .q-app {
   display: flex;
   flex-direction: column; /* header en haut, contenu au milieu, footer en bas */
-  min-height: 100vh;
-  min-height: 100dvh; /* barres de navigateur dynamiques (mobile) */
+  width: 100%; /* prend toute la largeur disponible */
+  /* Équivalent PUR CSS de `flex h-screen w-full` (les classes sont aussi sur la
+     div) : le conteneur fait exactement un écran. Ce qui dépasse doit donc défiler
+     dans un enfant (`min-height: 0` + `overflow: auto`), sinon le document scrolle
+     sous les barres. */
+  height: 100vh; /* fallback vieux navigateurs */
+  height: 100dvh; /* barres de navigateur dynamiques (mobile) */
 }
 
 /* Safe-area intégrées aux règles de base (pas de conflit de cascade) */
@@ -79,30 +88,114 @@ body {
   z-index: 100;
 }
 
+/* sticky : opt-in (prop `sticky`, ou automatique dans un QLayout quand la lettre du
+   `view` est en majuscule) — la barre reste visible, le contenu défile dessous.
+   Dans un QLayout elle est close dans sa cellule : elle ne peut pas passer au-dessus
+   d'une colonne voisine (drawer, rangée du milieu). */
+.q-header--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
 /* Barre d'action basse */
 /* Safe-area intégrées à la règle de base .q-footer (plus bas) */
 
-/* Contenu de page : pas de padding par défaut (barres dans le flux).
-   Compensation UNIQUEMENT si une barre est fixée (:has) : 50px + safe-area.
-   Safe-area bas : le contenu scroillé jusqu'au bout ne passe pas sous la barre
-   d'accueil iOS. */
+/* Contenu de page : padding utilisateur (prop `padding` → `--q-page-padding`),
+   compensation des barres `fixed` (variables posées par `lib/fixedLayout.ts`) et
+   safe-area basse. Les deux sources de padding sont **composées ici** (jamais écrasées
+   l'une par l'autre) ; `max()` évite de compter deux fois la safe-area quand la barre
+   basse fixe est déjà mesurée (sa hauteur la contient). */
 .q-page {
   flex: 1 1 auto; /* prend l'espace restant */
-  padding-bottom: 0;
-  padding-bottom: constant(safe-area-inset-bottom);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: var(--q-page-padding, 0px);
+  padding-top: calc(var(--q-page-offset, 0px) + var(--q-page-padding, 0px));
+  padding-bottom: calc(var(--q-page-offset-bottom, 0px) + var(--q-page-padding, 0px));
+  padding-bottom: calc(
+    max(constant(safe-area-inset-bottom), var(--q-page-offset-bottom, 0px)) +
+      var(--q-page-padding, 0px)
+  );
+  padding-bottom: calc(
+    max(env(safe-area-inset-bottom), var(--q-page-offset-bottom, 0px)) +
+      var(--q-page-padding, 0px)
+  );
 }
 
-.q-app:has(.q-header--fixed) .q-page {
-  padding-top: 50px;
-  padding-top: calc(constant(safe-area-inset-top) + 50px);
-  padding-top: calc(env(safe-area-inset-top) + 50px);
+/* Conteneur de pages (QPageContainer, modèle Quasar) : la cellule de contenu du
+   QLayout, colonne flex pour que la page qu'il contient remplisse la zone. */
+.q-page-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.q-app:has(.q-footer--fixed) .q-page {
-  padding-bottom: 50px;
-  padding-bottom: calc(constant(safe-area-inset-bottom) + 50px);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 50px);
+/* Compensation des barres `fixed` : seulement quand **aucune** page n'est rendue à
+   l'intérieur — sinon c'est `.q-page` qui s'en charge (jamais les deux). */
+.q-page-container:not(:has(.q-page)) {
+  padding-top: var(--q-page-offset, 0px);
+  padding-bottom: var(--q-page-offset-bottom, 0px);
+  padding-bottom: calc(max(constant(safe-area-inset-bottom), var(--q-page-offset-bottom, 0px)));
+  padding-bottom: calc(max(env(safe-area-inset-bottom), var(--q-page-offset-bottom, 0px)));
+}
+
+/* Fallback sans mesure JS (SSR, barres pas encore observées) : 50px + safe-area.
+   Écrit dans la **variable** d'offset — et non en padding — pour que la hauteur
+   mesurée (style inline, lib/fixedLayout.ts) la remplace dès l'hydratation. */
+.q-app:has(.q-header--fixed) :is(.q-page, .q-page-container) {
+  --q-page-offset: 50px;
+  --q-page-offset: calc(constant(safe-area-inset-top) + 50px);
+  --q-page-offset: calc(env(safe-area-inset-top) + 50px);
+}
+
+.q-app:has(.q-footer--fixed) :is(.q-page, .q-page-container) {
+  --q-page-offset-bottom: 50px;
+  --q-page-offset-bottom: calc(constant(safe-area-inset-bottom) + 50px);
+  --q-page-offset-bottom: calc(env(safe-area-inset-bottom) + 50px);
+}
+
+/* ===== QLayout — matrice 3×3 pilotée par `view` =====
+   Colonnes : drawer gauche / contenu / drawer droit. Rangées : header / milieu /
+   footer. `grid-template-areas` vient du prop `view` (variable CSS posée par le
+   composant). `minmax(0, 1fr)` sur la colonne du milieu = l'équivalent de
+   `min-width: 0` : un enfant large (tableau à colonnes nombreuses) ne pousse plus
+   les drawers hors de l'écran. */
+.q-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: var(--q-layout-areas);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Tout enfant direct sans cellule explicite (le contenu) va dans la cellule « page ».
+   q-header / q-footer / q-sidebar posent la leur en style inline — l'ordre
+   d'écriture dans le template est donc libre. */
+.q-layout > * {
+  grid-area: var(--q-layout-page-area, p);
+}
+
+/* Mode conteneur (comme Quasar) : le layout gère son propre cadre — une hauteur
+   explicite est requise et le conteneur devient la zone de scroll (les barres
+   sticky s'y accrochent, pas à la fenêtre). */
+.q-layout--container {
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Drawer sticky dans un QLayout : accroché sous les barres qui le surplombent
+   seulement (les variables `--q-sidebar-sticky-*` sont posées par QSidebar d'après
+   les cellules de sa zone), sur la hauteur visible entre les deux barres — il ne
+   glisse donc jamais sous le header. */
+.q-layout > .q-sidebar--static.q-sidebar--sticky {
+  top: var(--q-sidebar-sticky-top, var(--q-layout-header-h, 0px));
+  height: calc(
+    var(--q-layout-viewport-h, 100dvh) -
+      var(--q-sidebar-sticky-top, var(--q-layout-header-h, 0px)) -
+      var(--q-sidebar-sticky-bottom, var(--q-layout-footer-h, 0px))
+  );
 }
 
 .q-toolbar {
@@ -258,7 +351,6 @@ body {
     --muted: #1c2128;
     --border: rgb(255 255 255 / 0.12);
     --q-table-border: rgb(255 255 255 / 0.12);
-    --q-table-header-bg: rgb(255 255 255 / 0.04);
     --q-table-hover-bg: rgb(255 255 255 / 0.06);
     --q-sidebar-border: rgb(255 255 255 / 0.12);
     --q-translucent-bg: #0f1115;
@@ -352,7 +444,9 @@ html.dark body {
 }
 .dark .q-data-grid {
   --q-data-grid-border: rgb(255 255 255 / 0.12);
-  --q-data-grid-header-bg: rgb(255 255 255 / 0.04);
+  /* Opaque (cf. QTable : en-tête sticky sur surface composée) */
+  --q-data-grid-header-bg: #1f242b;
+  --q-data-grid-header-bg: color-mix(in srgb, #fff 4%, var(--card, #161b22));
 }
 
 /* Footer de table (pagination) en dark : range + sélecteur lignes/page */
@@ -650,6 +744,15 @@ html.dark body {
   bottom: 0;
   left: 0;
   right: 0;
+  z-index: 100;
+}
+
+/* sticky (prop `sticky`, ou automatique dans un QLayout avec une lettre majuscule) :
+   la rangée footer étant la dernière, elle tombe en fin de page dans les deux cas —
+   `F` ne change donc rien de visible, contrairement à `H` sur le header. */
+.q-footer--sticky {
+  position: sticky;
+  bottom: 0;
   z-index: 100;
 }
 
@@ -3142,7 +3245,10 @@ html.dark body {
 /* ===== QTable ===== */
 .q-table {
   --q-table-border: rgb(0 0 0 / 0.1);
-  --q-table-header-bg: rgb(0 0 0 / 0.03);
+  /* En-tête : la MÊME surface que le tableau (blanc en clair, carte en sombre) — il se
+     distingue par sa bordure basse, pas par un fond grisé. Opaque par construction,
+     donc un en-tête collant ne laisse pas voir les lignes qui défilent dessous. */
+  --q-table-header-bg: var(--card, #fff);
   --q-table-hover-bg: rgb(0 0 0 / 0.04);
 
   position: relative;
@@ -3166,7 +3272,8 @@ html.dark body {
 
 .q-table--dark {
   --q-table-border: rgb(255 255 255 / 0.15);
-  --q-table-header-bg: rgb(255 255 255 / 0.06);
+  /* = la surface du tableau dans cette variante (cf. `background-color` ci-dessous) */
+  --q-table-header-bg: #1d1d1d;
   --q-table-hover-bg: rgb(255 255 255 / 0.06);
   background-color: #1d1d1d;
   color: #fff;
@@ -4369,11 +4476,15 @@ a.q-breadcrumbs__el:hover {
   transition: background-color 0.15s ease;
 }
 
-.q-sidebar__menu-button:hover {
+/* Hover : uniquement sur un item NON actif — sans le `:not(...)`, la règle `:hover`
+   (spécificité 0,2,0) écrasait l'état actif `.q-sidebar__menu-button--active`
+   (0,1,0) : au survol, le fond passait au gris et le texte blanc du primaire devenait
+   illisible. Un item actif garde donc son apparence au survol. */
+.q-sidebar__menu-button:hover:not(.q-sidebar__menu-button--active) {
   background-color: rgb(0 0 0 / 0.05);
 }
 
-.q-sidebar--dark .q-sidebar__menu-button:hover {
+.q-sidebar--dark .q-sidebar__menu-button:hover:not(.q-sidebar__menu-button--active) {
   background-color: rgb(255 255 255 / 0.08);
 }
 
@@ -4768,12 +4879,16 @@ a.q-breadcrumbs__el:hover {
   transform: rotate(180deg);
 }
 
+/* Popup inline : téléporté dans <body> et en `position: fixed` — en `position:
+   absolute` il restait **rogné** par le premier ancêtre en `overflow: hidden` (un
+   q-card, par exemple), et un `z-index` ne franchit JAMAIS un clip. Les coordonnées
+   fenêtre (top/bottom/left/width) sont posées en inline par `positionPopup()`, qui
+   le repositionne aussi au scroll et au resize. */
 .q-select__popup {
-  position: absolute;
-  top: calc(100% + 8px);
+  position: fixed;
+  top: 0;
   left: 0;
-  right: 0;
-  z-index: 1000;
+  z-index: var(--q-z-popup, 3500);
   max-height: 240px;
   overflow-y: auto;
   padding: 4px 0;
@@ -7227,7 +7342,7 @@ a.q-breadcrumbs__el:hover {
   width: 100%;
   max-width: var(--q-container-max, 1200px);
   margin-inline: auto;
-  padding-inline: var(--q-container-pad, 16px);
+  padding-inline: var(--q-container-pad, 12px);
 }
 
 .q-container--fluid {
@@ -8581,7 +8696,9 @@ a.q-breadcrumbs__el:hover {
 /* ===== QDataGrid — grille type tableur (formules, édition, sélection clavier) ===== */
 .q-data-grid {
   --q-data-grid-border: rgb(0 0 0 / 0.1);
-  --q-data-grid-header-bg: rgb(0 0 0 / 0.03);
+  /* Opaque (cf. QTable : en-tête sticky sur surface composée) */
+  --q-data-grid-header-bg: #f7f7f7;
+  --q-data-grid-header-bg: color-mix(in srgb, #000 3%, #fff);
 
   position: relative;
   display: flex;
@@ -8600,7 +8717,8 @@ a.q-breadcrumbs__el:hover {
 }
 .q-data-grid--dark {
   --q-data-grid-border: rgb(255 255 255 / 0.15);
-  --q-data-grid-header-bg: rgb(255 255 255 / 0.06);
+  --q-data-grid-header-bg: #2b2b2b;
+  --q-data-grid-header-bg: color-mix(in srgb, #fff 6%, #1d1d1d);
   background: #1d1d1d;
   color: #fff;
 }
@@ -9059,11 +9177,14 @@ a.q-breadcrumbs__el:hover {
   width: 17px;
   height: 17px;
 }
-.q-tiptap__tool:hover:not(:disabled) {
+/* Hover : jamais sur un bouton actif (même règle que QSidebarMenuButton — sans le
+   `:not(...)`, `:hover` (0,2,0) écrasait `.q-tiptap__tool--active` (0,1,0) : le bouton
+   actif perdait son fond et sa couleur primaire au survol). */
+.q-tiptap__tool:hover:not(:disabled):not(.q-tiptap__tool--active) {
   background-color: rgb(0 0 0 / 0.06);
   color: var(--q-tiptap-text);
 }
-.dark .q-tiptap__tool:hover:not(:disabled) {
+.dark .q-tiptap__tool:hover:not(:disabled):not(.q-tiptap__tool--active) {
   background-color: rgb(255 255 255 / 0.08);
 }
 .q-tiptap__tool--active {
@@ -9418,11 +9539,12 @@ a.q-breadcrumbs__el:hover {
   width: 15px;
   height: 15px;
 }
-.q-tiptap__bubble-btn:hover:not(:disabled) {
+/* Idem : un bouton de bulle actif garde son apparence au survol */
+.q-tiptap__bubble-btn:hover:not(:disabled):not(.q-tiptap__bubble-btn--active) {
   background-color: rgb(0 0 0 / 0.06);
   color: var(--q-tiptap-text);
 }
-.dark .q-tiptap__bubble-btn:hover:not(:disabled) {
+.dark .q-tiptap__bubble-btn:hover:not(:disabled):not(.q-tiptap__bubble-btn--active) {
   background-color: rgb(255 255 255 / 0.08);
 }
 .q-tiptap__bubble-btn--active {
@@ -9516,11 +9638,13 @@ a.q-breadcrumbs__el:hover {
   width: 14px;
   height: 14px;
 }
-.q-tiptap__font-size .q-select__popup {
-  width: 100px;
+/* Popup inline téléporté dans <body> : impossible de le styler depuis le parent — on
+   passe par la classe du popup (`inline-options.class`) ; la largeur, elle, vient de
+   `inline-options.width` (l'inline posé par positionPopup() prime sur ce CSS). */
+.q-tiptap__font-size-popup {
   min-width: 100px;
 }
-.q-tiptap__font-size .q-select__option-label {
+.q-tiptap__font-size-popup .q-select__option-label {
   font-size: 12px;
 }
 
@@ -9710,7 +9834,9 @@ a.q-breadcrumbs__el:hover {
 /* ===== QSpreadsheet (tableur type Excel) ===== */
 .q-spreadsheet {
   --q-spreadsheet-border: rgb(0 0 0 / 0.1);
-  --q-spreadsheet-header-bg: rgb(0 0 0 / 0.03);
+  /* Opaque (cf. QTable : entêtes sticky des colonnes/lignes) */
+  --q-spreadsheet-header-bg: #f7f7f7;
+  --q-spreadsheet-header-bg: color-mix(in srgb, #000 3%, #fff);
   --q-spreadsheet-row-alt: rgb(0 0 0 / 0.015);
   --q-spreadsheet-range: rgb(25 118 210 / 0.1);
   --q-spreadsheet-range-brd: var(--primary, #1976d2);
@@ -9739,7 +9865,8 @@ a.q-breadcrumbs__el:hover {
 .q-spreadsheet--dark,
 .dark .q-spreadsheet {
   --q-spreadsheet-border: rgb(255 255 255 / 0.12);
-  --q-spreadsheet-header-bg: rgb(255 255 255 / 0.05);
+  --q-spreadsheet-header-bg: #22262d;
+  --q-spreadsheet-header-bg: color-mix(in srgb, #fff 5%, var(--card, #1d1d1d));
   --q-spreadsheet-row-alt: rgb(255 255 255 / 0.02);
   background: var(--card, #1d1d1d);
   color: var(--foreground, #ececef);

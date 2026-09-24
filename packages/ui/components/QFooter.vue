@@ -1,11 +1,14 @@
 <script setup lang="ts">
 // QFooter — barre basse (safe-area bottom appliquée par styles/main.css : .q-app .q-footer)
-import { computed, onBeforeUnmount, onMounted, ref } from "vue"
+import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue"
 import { useFixedBarOffset } from "../lib/fixedLayout"
+import { qLayoutKey } from "../lib/layout"
 
 interface Props {
   /** Fixe la barre en bas de l'écran (sort du flux) */
   fixed?: boolean
+  /** Colle la barre en bas pendant le scroll (automatique dans un QLayout avec une lettre majuscule) */
+  sticky?: boolean
   /** Ombre portée vers le haut */
   elevated?: boolean
   /** Masqué au scroll vers le bas, réaffiché au scroll vers le haut */
@@ -22,6 +25,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   fixed: false,
+  sticky: false,
   elevated: false,
   reveal: false,
   bordered: false,
@@ -29,6 +33,15 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const rootEl = ref<HTMLElement | null>(null)
+
+// Placement dans un QLayout (facultatif) : cellule « f » du `view`, et sticky imposé
+// par la casse de la lettre (F).
+const layout = inject(qLayoutKey, null)
+const zone = computed(() => layout?.zones.value.footer)
+const isSticky = computed(() => props.sticky || !!zone.value?.fixed)
+const layoutStyle = computed<Record<string, string | undefined>>(() => ({
+  gridArea: zone.value?.area,
+}))
 
 // Empilement : bottom = hauteur cumulée des footers fixed suivants (si fixed)
 useFixedBarOffset(rootEl, "bar-bottom", () => props.fixed)
@@ -68,6 +81,7 @@ onBeforeUnmount(() => {
     class="q-footer"
     :class="{
       'q-footer--fixed': fixed,
+      'q-footer--sticky': isSticky,
       'q-footer--elevated': props.elevated,
       'q-footer--bordered': props.bordered,
       'q-footer--reveal': props.reveal,
@@ -76,7 +90,7 @@ onBeforeUnmount(() => {
       'q-footer--glass': props.glass,
       'q-footer--no-padding': props.noPadding,
     }"
-    :style="translucentStyle"
+    :style="[translucentStyle, layoutStyle]"
     v-bind="$attrs"
   >
     <slot />

@@ -37,8 +37,9 @@ when `href` is set — and exposes the Quasar API: variants such as `unelevated`
 ::
 
 The default button has an elevation shadow. `unelevated` removes it, `outline`
-keeps a transparent background with a border, `flat` drops the border too, and
-`radius` (or `radius="sm|md|lg"` for a finer scale) rounds the corners into a
+keeps a transparent background with a border, `flat` drops the border too — and
+`flat` wins when both are set, since the two designs are mutually exclusive. `radius`
+(or `radius="sm|md|lg"` for a finer scale) rounds the corners into a
 pill. `no-caps` disables any text transformation applied by the theme, `dense`
 reduces the height.
 

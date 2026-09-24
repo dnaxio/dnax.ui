@@ -55,7 +55,13 @@ export function useRadius(
   return computed(() => toValue(own) ?? (defaults.value.radius as RadiusProp | undefined))
 }
 
+/** Valeur CSS concrète d'une échelle de radius (`undefined` si `true` (forme native) ou absent) */
+export function radiusValue(radius: RadiusProp | undefined): string | undefined {
+  return isRadiusScale(radius) ? RADIUS_VALUES[radius] : undefined
+}
+
 /** Style `--q-radius` à poser sur la racine du composant pour une valeur d'échelle. */
 export function radiusStyle(radius: RadiusProp | undefined): Record<string, string> | undefined {
-  return isRadiusScale(radius) ? { "--q-radius": RADIUS_VALUES[radius] } : undefined
+  const value = radiusValue(radius)
+  return value ? { "--q-radius": value } : undefined
 }

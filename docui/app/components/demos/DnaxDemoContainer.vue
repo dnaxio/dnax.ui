@@ -28,7 +28,7 @@ const imgDirs = ["alternate", "alternate-reverse", "normal", "reverse"]
 <template>
   <div v-if="demo === 'basic'" class="demo-col">
     <q-container class="demo-box demo-box--default">
-      <p>Max-width 1200px by default, 16px horizontal padding.</p>
+      <p>Max-width 1200px by default, 12px horizontal padding.</p>
     </q-container>
     <q-container max-width="640px" padding="24px" class="demo-box">
       <p>A narrower, roomier container.</p>

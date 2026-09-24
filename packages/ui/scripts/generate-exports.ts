@@ -54,6 +54,15 @@ export {
 } from "./lib/overlayBack"
 export type { OverlayHandle } from "./lib/overlayBack"
 export { markOverlayClose, closeParentOverlay, vClose } from "./lib/closeOverlay"
+export { placePopover } from "./lib/datePicker"
+export type {
+  PlacePopoverOptions,
+  PopoverAnchor,
+  PopoverPlacement,
+  PopoverViewport,
+} from "./lib/datePicker"
+export { DEFAULT_LAYOUT_VIEW, parseView, qLayoutKey } from "./lib/layout"
+export type { LayoutView, LayoutZone, LayoutZonePlacement, QLayoutContext } from "./lib/layout"
 export { vRipple } from "./lib/ripple"
 export type { RippleOptions, RippleValue } from "./lib/ripple"
 export { chartToECharts, channelValue, pickFromEvent, tableModel, textValue } from "./lib/chart"

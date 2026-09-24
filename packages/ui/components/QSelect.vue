@@ -56,7 +56,7 @@ import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
-import { radiusStyle, useRadius } from "../lib/useComponentProps"
+import { radiusStyle, radiusValue, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 import { useOverlayBack } from "../lib/overlayBack"
 import { createSearcher } from "../lib/search"
@@ -184,6 +184,11 @@ defineSlots<{
   hint?: () => any
 }>()
 
+// Multi-racines (le champ + les <Teleport> du popup et du panneau) : Vue ne peut pas
+// hériter les attributs tout seul (avertissement « fragment or text or teleport root
+// nodes »). Ils sont posés explicitement sur le champ (racine principale).
+defineOptions({ inheritAttrs: false })
+
 const instance = getCurrentInstance()
 const hasFilter = computed(() => !!instance?.vnode.props?.onFilter)
 
@@ -223,9 +228,11 @@ const VIEWPORT_MARGIN = 8
 
 const popupDirection = ref<"down" | "up">("down")
 const popupMaxHeight = ref(POPUP_MAX_HEIGHT)
-/** Décalages en px par rapport à la RACINE (bloc conteneur du popup) — null avant mesure */
+/** Coordonnées **fenêtre** : le popup est téléporté dans <body> (`position: fixed`) — null avant mesure */
 const popupTop = ref<number | null>(null)
 const popupBottom = ref<number | null>(null)
+/** Rect du champ (coordonnées fenêtre) : ancre horizontale du popup */
+const popupAnchor = ref<{ left: number; right: number; width: number } | null>(null)
 
 /** Écart champ ↔ popup : `inline-options.offset` prioritaire sur la prop `offset` */
 const popupOffset = computed(() => modeOptions.value?.offset ?? props.offset)
@@ -265,17 +272,32 @@ const positionPopup = () => {
 
   popupDirection.value = down ? "down" : "up"
   popupMaxHeight.value = Math.max(0, Math.min(POPUP_MAX_HEIGHT, available - gap))
-  popupTop.value = Math.round(anchor.bottom - rect.top + gap)
-  popupBottom.value = Math.round(rect.bottom - anchor.top + gap)
+  // Tout en coordonnées fenêtre : le popup est `fixed` dans <body>, il n'est donc
+  // plus positionné par rapport à la racine du composant. Horizontalement on garde la
+  // boîte du CHAMP (c'était `left: 0; right: 0` sur la racine), verticalement l'ancre.
+  popupAnchor.value = { left: rect.left, right: rect.right, width: rect.width }
+  popupTop.value = Math.round(anchor.bottom + gap)
+  popupBottom.value = Math.round(window.innerHeight - anchor.top + gap)
 }
 
 const popupStyle = computed<Record<string, string>>(() => {
   const up = popupDirection.value === "up"
-  const fallback = `calc(100% + ${popupOffset.value}px)`
+  const anchor = popupAnchor.value
   const style: Record<string, string> = {
-    top: up ? "auto" : popupTop.value === null ? fallback : `${popupTop.value}px`,
-    bottom: up ? (popupBottom.value === null ? fallback : `${popupBottom.value}px`) : "auto",
     maxHeight: `${Math.round(popupMaxHeight.value)}px`,
+    // Arrondi : l'échelle de radius du composant (composantProps / prop), sinon la
+    // variable globale. Le popup est TÉLÉPORTÉ dans <body> : il n'hérite plus de
+    // `--q-radius` posé sur le champ, d'où la valeur matérialisée ici.
+    borderRadius: radiusValue(effectiveFieldRadius.value) ?? "var(--q-radius, 4px)",
+  }
+
+  // Vertical : sous le champ, ou au-dessus (bascule / placement forcé)
+  if (up) {
+    style.bottom = popupBottom.value === null ? "0px" : `${popupBottom.value}px`
+    style.top = "auto"
+  } else {
+    style.top = popupTop.value === null ? "0px" : `${popupTop.value}px`
+    style.bottom = "auto"
   }
 
   // Ancre horizontale : par défaut le popup couvre la largeur du champ. Les suffixes
@@ -284,14 +306,19 @@ const popupStyle = computed<Record<string, string>>(() => {
   const placement = popupPlacement.value
   const width = modeOptions.value?.width
   const anchored = placement !== "auto" && placement.includes("-")
+  const left = anchor?.left ?? 0
+  const right =
+    anchor && typeof window !== "undefined" ? window.innerWidth - anchor.right : 0
+
   if (anchored || width) {
     const alignEnd = placement.endsWith("-end")
-    style.left = alignEnd ? "auto" : "0"
-    style.right = alignEnd ? "0" : "auto"
-    style.width = width ?? "100%"
+    style.left = alignEnd ? "auto" : `${left}px`
+    style.right = alignEnd ? `${right}px` : "auto"
+    style.width = width ?? "auto"
   } else {
-    style.left = "0"
-    style.right = "0"
+    style.left = `${left}px`
+    style.right = "auto"
+    style.width = anchor ? `${anchor.width}px` : "auto"
   }
 
   return style
@@ -575,6 +602,8 @@ const onDocMousedown = (e: MouseEvent) => {
   const target = e.target as Node
   if (rootEl.value?.contains(target)) return
   if (sheetRef.value?.contains(target)) return
+  // Popup inline : téléporté dans <body>, donc HORS de la racine du composant
+  if (popupRef.value?.contains(target)) return
   closePopup()
 }
 
@@ -643,7 +672,10 @@ const sheetRadiusStyle = computed<Record<string, string> | undefined>(() => {
   const rounded = modeOptions.value?.rounded ?? props.rounded
   if (rounded === false) return { borderRadius: "0" }
 
-  const defaultRadius = props.mode === "modal" ? "20px" : "12px"
+  // Défaut : l'échelle de radius du composant (composantProps), sinon le défaut
+  // historique du mode — le panneau est téléporté, il ne peut pas lire `--q-radius`.
+  const defaultRadius =
+    radiusValue(effectiveFieldRadius.value) ?? (props.mode === "modal" ? "20px" : "12px")
   const value = typeof rounded === "string" ? rounded : defaultRadius
   const asPx = (v: string | number) => (typeof v === "number" ? `${v}px` : v)
 
@@ -672,7 +704,7 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
 </script>
 
 <template>
-  <div ref="rootEl" class="q-select" :class="fieldClasses" :style="fieldRadiusStyle">
+  <div ref="rootEl" class="q-select" :class="fieldClasses" :style="fieldRadiusStyle" v-bind="$attrs">
     <label v-if="label" class="q-field__label-stack">{{ label }}</label>
     <div class="q-field__control" @click="onControlClick">
       <slot name="prepend">
@@ -751,50 +783,53 @@ const sheetClass = computed(() => [`q-select__sheet--${props.mode}`, modeOptions
       </div>
     </div>
 
-    <!-- Popup inline (mode inline) -->
-    <div
-      v-if="open && mode === 'inline'"
-      ref="popupRef"
-      class="q-select__popup"
-      :class="[inlineOptions?.class, popupDirection === 'up' && 'q-select__popup--up']"
-      :style="[popupStyle, inlineOptions?.style]"
-      role="listbox"
-      @mousedown.prevent
-    >
-      <div v-if="searchEnabled && !useInput" class="q-select__search" @mousedown.stop>
-        <Icon :icon="icons.search" class="q-select__search-icon" aria-hidden="true" />
-        <input
-          class="q-select__search-input"
-          :value="query"
-          :placeholder="effectiveSearchPlaceholder"
-          @input="onInput"
-          @keydown="onKeydown"
-        />
-      </div>
-      <template v-if="displayOptions.length">
-        <div
-          v-for="(opt, i) in displayOptions"
-          :key="String(getOptionValue(opt))"
-          role="option"
-          :aria-selected="isSelected(opt) ? 'true' : 'false'"
-          class="q-select__option"
-          :class="{
-            'q-select__option--active': i === activeIndex,
-            'q-select__option--selected': isSelected(opt),
-          }"
-          @mouseenter="activeIndex = i"
-          @mousedown.prevent="select(opt)"
-        >
-          <slot :opt="opt" :index="i" :selected="isSelected(opt)">
-            <span class="q-select__option-label">{{ getOptionLabel(opt) }}</span>
-          </slot>
-          <Icon :icon="icons.check" v-if="multiple && isSelected(opt)" class="q-select__check" aria-hidden="true" />
+    <!-- Popup inline (mode inline) : téléporté dans <body> + `position: fixed`,
+         pour échapper au `overflow: hidden` d'un q-card (cf. positionPopup) -->
+    <Teleport to="body">
+      <div
+        v-if="open && mode === 'inline'"
+        ref="popupRef"
+        class="q-select__popup"
+        :class="[inlineOptions?.class, popupDirection === 'up' && 'q-select__popup--up']"
+        :style="[popupStyle, inlineOptions?.style]"
+        role="listbox"
+        @mousedown.prevent
+      >
+        <div v-if="searchEnabled && !useInput" class="q-select__search" @mousedown.stop>
+          <Icon :icon="icons.search" class="q-select__search-icon" aria-hidden="true" />
+          <input
+            class="q-select__search-input"
+            :value="query"
+            :placeholder="effectiveSearchPlaceholder"
+            @input="onInput"
+            @keydown="onKeydown"
+          />
         </div>
-      </template>
-      <div v-else class="q-select__empty">
-        <slot name="noOption">{{ noOptionsLabel }}</slot>
+        <template v-if="displayOptions.length">
+          <div
+            v-for="(opt, i) in displayOptions"
+            :key="String(getOptionValue(opt))"
+            role="option"
+            :aria-selected="isSelected(opt) ? 'true' : 'false'"
+            class="q-select__option"
+            :class="{
+              'q-select__option--active': i === activeIndex,
+              'q-select__option--selected': isSelected(opt),
+            }"
+            @mouseenter="activeIndex = i"
+            @mousedown.prevent="select(opt)"
+          >
+            <slot :opt="opt" :index="i" :selected="isSelected(opt)">
+              <span class="q-select__option-label">{{ getOptionLabel(opt) }}</span>
+            </slot>
+            <Icon :icon="icons.check" v-if="multiple && isSelected(opt)" class="q-select__check" aria-hidden="true" />
+          </div>
+        </template>
+        <div v-else class="q-select__empty">
+          <slot name="noOption">{{ noOptionsLabel }}</slot>
+        </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- Mode modal / sheet / dialog : panneau téléporté -->
     <Teleport to="body">
