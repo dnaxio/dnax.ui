@@ -952,3 +952,281 @@ contraste, `@baybreezy/docd` exporte `./nuxt.config.ts` : c'est une vraie layer.
 
 **Vérif** : `bun run dev` → serveur démarré (plus d'erreur) ;
 `curl -s localhost:2009/docs/layouts/app-layout` → 200.
+
+## MapTiler SDK — le constructeur `Map` exige `container` — 2026-09-25
+
+tag: `warnings` — `filename: packages/ui/components/QMap.vue`
+
+**Symptôme** : la carte reste sur la surcouche « Carte indisponible », et la console du
+navigateur affiche :
+
+```
+[q-map] Error: Invalid type: 'container' must be a String or HTMLElement.
+```
+
+**Cause** : `new Map(options)` du SDK MapTiler (v4) **exige `container`** (id ou élément),
+comme maplibre — ce n'est pas une option facultative. En séparant les options « pures »
+(`lib/map.ts`, testable) de l'initialisation, il est facile d'oublier de le passer.
+
+**Correctif** : `new lib.Map({ ...options, container: node })` — le composant pose le
+`container` lui-même (c'est son DOM), donc une option `container` passée par
+l'utilisateur est ignorée.
+
+**Piège du diagnostic** : le prerender SSR et `curl` ne voient **rien** (le SDK ne tourne
+qu'au navigateur, dans `onMounted`) — la page répond 200 et la surcouche « Chargement de
+la carte… » est dans le HTML. Seul un rendu réel (Chromium headless, cf. `knowledges.md`)
+révèle l'erreur, via le log console `CONSOLE:` ou la présence/absence de
+`class="maplibregl-canvas"` / `class="q-map__overlay"` dans le DOM.
+
+## MapTiler — `terrain` / `projection` au constructeur : « Style is not done loading » — 2026-09-25
+
+tag: `warnings` — `filename: packages/ui/components/QMap.vue`, `packages/ui/lib/map.ts`
+
+**Symptôme** : sur une page dont une carte passe `terrain` (et/ou `projection`), la console
+du navigateur montre une erreur **non capturée** — `Uncaught Error: Style is not done
+loading.` — et l'événement `ready` du SDK **ne se déclenche pas** : la surcouche
+« Chargement de la carte… » reste affichée alors que le style est bel et bien chargé
+(attribution « © MapTiler » dans le DOM, contexte WebGL créé).
+
+**Cause** : passer `terrain: true` / `projection: "…"` au **constructeur** `new Map({…})`
+(les options sont pourtant documentées par MapTiler). Le SDK les applique avant que le
+style soit chargé → exception interne, qui casse la suite de l'init.
+
+**Correctif** : ne plus les passer au constructeur, et les appliquer **après** le
+chargement, avec les méthodes du SDK : `map.enableTerrain()` / `map.setProjection(type,
+{ persist: true })` (appelées au premier `load`/`ready`, puis réactives sur changement de
+prop). Corollaire utile : s'accrocher au **premier** de `load` et `ready` — `ready` attend
+tous les contrôles du SDK et peut être retardé (ou ne pas venir si l'init a jeté).
+
+**Vérif** : Chromium headless sur `/docs/maps/maptiler` → 0 `Uncaught`,
+`class="maplibregl-canvas"`, `© MapTiler` dans le DOM, aucune surcouche `q-map__overlay`.
+
+## Ne jamais nommer une prop `style` (ni `class`) — 2026-09-25
+
+tag: `warnings` — `filename: packages/ui/components/QMap.vue`
+
+`style` et `class` sont des attributs réservés par Vue : `resolveProps` les traite à part
+de l'héritage d'attributs, et côté types (`vue-tsc`, `<script setup>`) une écriture
+**statique** `<q-map style="outdoor">` est typée comme le `style` CSS (`{}` / `StyleValue`)
+→ « Type '{}' is not assignable to type 'string' » dès que la prop est déclarée, et côté
+usage l'utilisateur qui écrit `<q-map style="height: 300px">` (intention CSS) l'envoie à
+la prop sans le voir.
+
+- La prop de style de carte s'appelle donc **`map-style`** (`mapStyle` en JS) ; le nom
+  reste proche de l'option du SDK (`style`, résolue par `lib/map.ts`) puisque c'est le
+  composant qui la traduit.
+- Règle générale : pour une prop dont le nom serait `style`/`class`/`key`/`ref`,
+  préfixer (ex. `map-style`, `card-class`) — jamais ces noms nus.
+
+## MDC — un `::` de fermeture manquant avale la fin de la page, en silence — 2026-09-25
+
+tag: `warnings` — `filename: docui/content/docs/**/*.md`
+
+**Symptôme** : une section d'une page de doc disparaît sans aucune erreur — le composant de
+démo n'est pas rendu (parfois ni son texte ni son contenu ne figurent dans le HTML) et tout
+ce qui suit la section (autres sections, `## API`…) s'évanouit aussi. Le serveur de dev
+répond `200` et le build passe : **rien ne signale le problème**.
+
+**Cause** : un bloc `::prose-show-case … #code …` dont la ligne `::` de fermeture a été
+oubliée. Le bloc engloutit alors le reste du fichier comme contenu de la directive.
+
+**Détection** (à lancer après toute retouche de page MDC) :
+
+```sh
+# par fichier : fermetures attendues = prose-show-case + prose-card + autres directives
+grep -c '::prose-show-case' page.md ; grep -cE '^::$' page.md
+# et côté navigateur : vérifier que les sections attendues sont dans le HTML servi
+curl -s http://localhost:2009/docs/<page> | grep -o "Nom de section"
+```
+
+Deux occurrences le 2026-09-25 : `4.components/image-picker.md` (la démo « états » et les
+sections « Recipes » / « API » avalées) et `6.maps/01.maptiler.md` (tout ce qui suivait la
+démo « terrain »).
+
+## CSS — une règle partagée déclarée **avant** la règle de base du composant est écrasée — 2026-09-25
+
+tag: `warnings` — `filename: packages/ui/styles/main.css`
+
+**Symptôme** : une variante stylée par une classe (`--translucent`, `--glass`…) semble ne
+rien faire — mesuré en CDP sur le bottom sheet : `.q-bottom-sheet__panel--translucent`
+donnait un fond `rgb(255, 255, 255)` (le fond de base) et **pas** de `backdrop-filter`.
+
+**Cause** : la recette partagée (`.q-header--translucent, .q-footer--translucent,
+.q-back-header--translucent, .q-bottom-sheet__panel--translucent, .q-country-picker__sheet--translucent { … }`)
+vit **ligne ~1670**, alors que `.q-bottom-sheet__panel` (5211) et `.q-country-picker__sheet`
+(6074) posent `background-color` plus loin. À **spécificité égale** (une classe contre une
+classe), c'est l'**ordre du fichier** qui tranche : la règle de base gagnait, en silence.
+Le même piège touchait donc `translucent` sur les deux feuilles (bottom sheet **et** country
+picker) — corrigé en donnant à chaque feuille sa règle **dans sa propre section**, après sa
+règle de base.
+
+**Règle** : pour styler une variante d'un composant « téléporté / plein écran » dont la
+section vit en fin de fichier, déclarer la variante **dans cette section**, pas dans un bloc
+partagé en tête de feuille — ou monter la spécificité (`.q-bottom-sheet__panel.q-bottom-sheet__panel--glass`).
+Vérifier la valeur **calculée** (CDP `getComputedStyle`), jamais la seule présence de la
+classe dans le DOM.
+
+## Disposition aléatoire : ne jamais tirer `Math.random()` pendant le rendu (SSR) — 2026-09-25
+
+tag: `warnings` — `filename: packages/ui/components/QNumericKeyboard.vue`
+
+**Symptôme** : un pavé à disposition aléatoire (`random`) diverge entre le HTML prérendu et le
+premier rendu client → **écart d'hydratation** Vue (et un mélange qui « saute » au chargement).
+
+**Cause** : tirer la permutation dans un `computed` ou au `setup` fait tourner `Math.random()`
+**aussi côté serveur** (prerender Nuxt) et **une seconde fois** côté client — deux dispositions
+différentes pour le même arbre virtuel.
+
+**Correctif** : générer la permutation dans `onMounted` (client uniquement). Le SSR et le
+premier rendu client affichent alors la disposition **canonique** (identique), puis le mélange
+s'applique. Un `watch` sur `random` gère l'activation ultérieure ; `shuffle()` (exposé) permet
+de re-tirer sans remonter le composant. Même logique que `QChart` (ECharts chargé dans
+`onMounted`, rien en SSR).
+
+**Vérif** : en CDP, comparer l'ordre des chiffres du DOM prérendu puis après hydratation —
+le prérendu doit être canonique (`1234567890`).
+
+## Couleur calculée : mesurer APRÈS la fin de la transition — 2026-09-25
+
+tag: `warnings` — `filename: packages/ui/styles/main.css` (vérif dans le navigateur)
+
+**Symptôme** : en CDP, `getComputedStyle(dot).backgroundColor` d'un point qui vient de passer en
+état d'erreur renvoyait `rgba(134, 42, 88, 0.984)` — une teinte violette sans rapport avec
+`var(--negative)` (`#c10015`), alors que la classe `--error` était bien posée sur le pavé.
+
+**Cause** : `.q-numeric-keyboard__dot` porte `transition: background-color 0.18s, border-color
+0.18s`. La mesure tombait **pendant** l'interpolation (alpha `0,984` = transition inachevée) ;
+selon l'espace d'interpolation, la couleur intermédiaire n'est pas sur le segment attendu.
+
+**Règle** : après avoir déclenché un changement d'état stylé, **attendre la fin des transitions**
+(≥ la durée, ou écouter `transitionend`) avant de comparer une valeur **calculée de couleur**.
+Même vigilance qu'avec une animation (le `--pop` des points dure 0,34 s). Vérifié après 700 ms :
+`rgb(193, 0, 21)` pour les points pleins **et** le message — c'est-à-dire `var(--negative)`.
+
+## QSpreadsheet — un diff révèle les incohérences de représentation interne — 2026-09-25
+
+tag: `warnings` — `filename: packages/ui/components/QSpreadsheet.vue`
+
+Le delta `changes` compare le document courant à une référence : il révèle donc **toute**
+incohérence de représentation interne du composant. Deux faux positifs trouvés en CDP (une
+feuille inactive comptée comme « modifiée » sans qu'on ait rien fait) :
+
+1. **`_key` manquantes sur les feuilles inactives.** `ensureRowKeys` n'était appelé que pour
+   `props.rows` et pour la feuille **chargée** — alors que la doc du composant promet l'injection
+   « pour `rows`, pour chaque `sheets[].rows` et pour `loadDocument()` ». Une feuille jamais
+   ouverte n'avait donc aucune `_key` dans la référence : au premier chargement, l'injection les
+   créait ⇒ **toutes ses lignes comptaient comme « added »**. Correctif : `ensureRowKeys(s.rows)`
+   à l'**ingestion** (watcher `props.sheets` + `loadDocument`) — le code rejoint sa doc.
+2. **Colonnes non canoniques à l'ingestion.** Le moteur normalise les colonnes en sortant de
+   `localSheets` (`type ?? "text"`, `options ?? []`, largeur résolue — via
+   `loadSheetIntoEngine` / `persistCurrent`), mais `localSheets[].columns` gardait la forme brute
+   reçue : la référence contenait la forme brute, le courant la forme normalisée ⇒
+   `sheets.updated[].changed = ["columns"]` sans changement réel. Correctif : `canonicalColumns()`
+   appliqué à l'ingestion (watcher + `loadDocument`), ce qui rend aussi `buildDocument()` /
+   `toJSON()` stables.
+
+**Leçon** : quand on compare deux représentations, elles doivent être **canoniques des deux
+côtés** ; un diff qui « voit » des différences invisibles à l'œil signale presque toujours une
+normalisation faite trop tard (au chargement) plutôt qu'à l'entrée.
+
+## QSpreadsheet — undo/redo morts : piles non réactives (NON corrigé) — 2026-09-25
+
+tag: `warnings` — `filename: packages/ui/components/QSpreadsheet.vue`
+
+**Symptôme** (mesuré en CDP) : le bouton « Undo » de la barre d'outils est **toujours
+désactivé**, même après une édition de cellule ou un `addRow()` ; cliquer ne fait rien (et donc
+`Ctrl+Z` non plus).
+
+**Cause** : `const undoStack: Snapshot[] = []` et `redoStack` sont des **tableaux simples**, alors
+que `canUndo` / `canRedo` sont des `computed(() => undoStack.length > 0 && …)` : un tableau non
+réactif ne crée **aucune** dépendance, le computed est figé sur sa première évaluation (`false`).
+Et comme `undo()` / `redo()` commencent par `if (!canUndo.value) return`, l'historique ne peut
+jamais s'exécuter. À noter : l'édition de cellule n'appelle pas `pushHistory()` (seules les
+opérations structurelles le font), donc même réparé l'undo n'annulerait pas une saisie.
+
+**À corriger** (proposé, hors périmètre du suivi de modifications) : en faire des
+`ref<Snapshot[]>([])` (≈10 lignes : `pushHistory`, `canUndo`/`canRedo`, `undo`, `redo`,
+`loadSheetIntoEngine`) **et** pousser un snapshot dans `commitEdit` quand la valeur change.
+
+## Échappatoire `options` de `<q-chart>` : fusion **superficielle** (une clé tableau est remplacée) — 2026-09-28
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/lib/chart.ts`
+
+`chartToECharts` termine par `{ ...option, ...(config.options ?? {}) }` : la fusion est **clé par
+clé**, sans profondeur. Passer `options.visualMap` (rampe personnalisée d'une heatmap) **remplace**
+donc l'échelle émise par la marque — y compris sa mise en page (`orient: 'horizontal'`,
+`left`/`bottom`, `itemWidth`/`itemHeight`) et son `textStyle` adapté au thème. Il faut la redonner
+en entier. Même règle pour tout autre canal tableau (`series`, `xAxis`…). Documenté et démoé sur
+`/docs/charts/heatmap`.
+
+## `<style scoped>` — `:global(.dark) .q-x` **avale** le sélecteur ciblé — 2026-09-28
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/components/*.vue`
+
+Dans un `<style scoped>`, écrire `:global(.dark) .q-timeline__content { … }` ne produit **pas**
+`.dark .q-timeline__content[data-v-x]`. Le compilateur `@vue/compiler-sfc` émet seulement
+`.dark { … }` : le sélecteur d'après `:global(...)` **disparaît** (vérifié à la compilation).
+
+- **Correctif** : utiliser le motif éprouvé du dépôt `.dark .q-timeline__content { … }`, qui
+  compile en `.dark .q-timeline__content[data-v-x]` — fonctionnellement équivalent à
+  `:global(.dark) &` (le `.dark` reste global, l'élément scoped porte l'attribut).
+- Idem pour `:global(.dark)` en **fin** de sélecteur (`.q-x :global(.dark)`) : le résultat est
+  perdu.
+- Vérification rapide : `compileStyle({ source, scoped: true })` de `@vue/compiler-sfc`
+  (dispo dans `docui/node_modules`).
+- Piège lié : le CSS `scoped` d'un composant **ne cible pas le contenu de son slot** (compilé
+  dans le scope du consommateur). Pour transmettre un style (couleur, dark) à travers la
+  frontière de slot, passer par une **variable CSS héritée** posée inline sur la racine
+  (cf. `QTimeline` → `--q-timeline-*`).
+
+## CDP headless — `#__nuxt.__vue_app__` est posé AVANT la fin de l'hydratation — 2026-09-28
+
+> ⛔ **NE PAS APPLIQUER** — le pilotage de navigateur headless / Puppeteer / CDP est **interdit**
+> dans ce projet depuis 2026-09-28 (voir la règle dans `AGENTS.md`) : il ralentit le processus de
+> développement. Entrée conservée comme **historique**.
+
+tag: `warning` — `namespace: dnax.ui` — `filename: .tmp/cdp-verify.ts` (recette CDP)
+
+`!!document.querySelector('#__nuxt')?.__vue_app__` vaut **vrai dès `app.mount()`**, avant que
+l'hydratation ait branché les écouteurs. Un `Input.dispatchMouseEvent` (clic CDP) émis à ce
+moment part **dans le vide** : le bouton SSR existe, mais son `@click` n'est pas encore
+attaché.
+
+- **Symptôme vérifié** (démo `basic` de `QPopupProxy`) : le **1er** clic n'ouvre pas le
+  panneau, le **2e** (même séquence `mousePressed`/`mouseReleased`, 450 ms plus tard) l'ouvre —
+  et le nœud DOM n'a pourtant **pas** été remplacé (`sameNode: true`). Faux KO de recette, pas
+  un bug du composant.
+- **Correctif** : ne pas se fier au drapeau d'app ; **sonder l'interactivité** — boucler
+  `el.click()` + `await rAF×2` et vérifier que le composant réagit (panneau ouvert), puis
+  refermer par `Escape`, **avant** de lancer les vrais `Input.dispatchMouseEvent`.
+- Un `el.click()` **JS** suffit pour cette sonde (même listener) et évite de consommer l'état
+  de la démo.
+- Confirmé sur cette page : après la porte, les 4 points `QPopupProxy` et les 4 points
+  `QTime` passent, **0 erreur console / exception**.
+
+## docui — le cache SQLite de contenu garde les octets d'une page supprimée — 2026-09-28
+
+tag: `warning` — `namespace: dnax.ui` — `filename: docui/.data/content/contents.sqlite`
+
+Après la suppression d'une page (`content/docs/4.components/tiptap.md`), `/docs/components/tiptap`
+renvoyait bien **404** et `_content_docs` n'avait plus la ligne, mais un `grep -ri tiptap` sur
+`docui/` continuait de trouver les octets de la page dans le cache SQLite (fichier **gitignoré**,
+`docui/.data/content/contents.sqlite`). Ce n'était pas une ligne résiduelle mais des **pages
+libres** (`freelist_count > 0`) laissées par la suppression. Un `VACUUM` (non destructif, serveur
+de dev resté actif et 200) fait retomber le `grep` à **0**. À refaire si un audit de « traces »
+après suppression de contenu remonte d'anciennes chaînes.
+
+## Règle « llms.txt » de `AGENTS.md` — obsolète (l'ancien site `docs/` n'existe plus) — 2026-09-28
+
+tag: `warning` — `namespace: dnax.ui` — `filename: AGENTS.md`
+
+`AGENTS.md` impose de mettre à jour `docs/public/llms.txt` après `bun scripts/gen-menu.ts` à chaque
+ajout de composant. **Constat mesuré (2026-09-28)** : `scripts/gen-menu.ts`, `docs/public/llms.txt`,
+`docs/app/data/menu.ts` — **aucun n'existe** (ni sous `docui/`). Le site est désormais `docui/`
+(layer `@baybreezy/docd`) : la navigation vient du contenu (`content/docs/**`, frontmatter
+`navigation.icon`), et `llms.txt` est **généré au build** par la layer Docd (clé `llms` de
+`docui/nuxt.config.ts`) — il n'y a plus de fichier statique ni de menu à régénérer à la main.
+
+→ Ajouter un composant = créer le SFC + (pour le barrel) `bun scripts/generate-exports.ts` +
+la page `docui/content/docs/4.components/<slug>.md` + la démo. Rien d'autre.
+La section « llms.txt » de `AGENTS.md` reste à réécrire (proposé, non fait).

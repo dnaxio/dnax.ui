@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Live demos for the Spreadsheet page (per-page state).
 // One component per page, the `demo` prop selects which demo to render.
-import { computed, onMounted, ref } from "vue"
+import { computed, onMounted, ref, useTemplateRef } from "vue"
 
 const props = defineProps<{
   /** Identifier of the demo to render */
@@ -9,6 +9,8 @@ const props = defineProps<{
     | "inline"
     | "people"
     | "types"
+    | "choice"
+    | "changes"
     | "formulas"
     | "power"
     | "filter"
@@ -162,6 +164,109 @@ const typesRows = ref([
   { product: "Ikura", category: "seafood", price: 31, stock: 0, rating: 2, inStock: false, email: "fish@dnax.dev", website: "https://example.net", bestBefore: "2026-11-15", lastCheck: "2026-08-28T16:20" },
   { product: "Mishi Kobe Niku", category: "seafood", price: 97, stock: 29, rating: 5, inStock: true, email: "mishi@dnax.dev", website: "https://dnax.dev/blog", bestBefore: "2026-08-20", lastCheck: "2026-08-20T11:10" },
 ])
+
+// — Choice demo : choix unique (`select`) vs choix multiples (`multiselect`) —
+const choiceColumns = [
+  { name: "task", label: "Task", width: 180 },
+  {
+    name: "priority",
+    label: "Priority",
+    type: "select" as const,
+    chip: true,
+    width: 140,
+    options: [
+      { value: "low", label: "Low", color: "#dcfce7" },
+      { value: "medium", label: "Medium", color: "#fef9c3" },
+      { value: "high", label: "High", color: "#fee2e2" },
+    ],
+  },
+  {
+    name: "tags",
+    label: "Tags (chip)",
+    type: "multiselect" as const,
+    chip: true,
+    width: 250,
+    options: [
+      { value: "design", label: "Design", color: "#ede9fe" },
+      { value: "frontend", label: "Frontend", color: "#dbeafe" },
+      { value: "backend", label: "Backend", color: "#dcfce7" },
+      { value: "docs", label: "Docs", color: "#f1f5f9" },
+      { value: "urgent", label: "Urgent", color: "#fee2e2" },
+    ],
+  },
+  {
+    name: "reviewers",
+    label: "Reviewers (labels)",
+    type: "multiselect" as const,
+    width: 210,
+    options: [
+      { value: "ada", label: "Ada" },
+      { value: "grace", label: "Grace" },
+      { value: "alan", label: "Alan" },
+      { value: "edsger", label: "Edsger" },
+    ],
+  },
+]
+
+const choiceRows = ref([
+  { task: "Landing hero", priority: "high", tags: ["design", "frontend"], reviewers: ["ada", "grace"] },
+  { task: "Checkout API", priority: "medium", tags: ["backend"], reviewers: ["alan"] },
+  { task: "Docs rewrite", priority: "low", tags: ["docs", "design"], reviewers: [] },
+  { task: "Hotfix payment", priority: "high", tags: ["backend", "urgent"], reviewers: ["ada", "edsger"] },
+  { task: "Design tokens", priority: "medium", tags: ["design", "docs"], reviewers: ["grace"] },
+])
+
+// — Suivi des modifications (dirty + delta) —
+const changeColumns = [
+  { name: "task", label: "Task", width: 180 },
+  { name: "owner", label: "Owner", width: 130 },
+  {
+    name: "status",
+    label: "Status",
+    type: "select" as const,
+    chip: true,
+    width: 120,
+    options: [
+      { value: "todo", label: "To do", color: "#e0e7ff" },
+      { value: "doing", label: "Doing", color: "#fef9c3" },
+      { value: "done", label: "Done", color: "#dcfce7" },
+    ],
+  },
+]
+const changeRows = ref([
+  { task: "Landing hero", owner: "Ada", status: "done" },
+  { task: "Checkout API", owner: "Grace", status: "doing" },
+  { task: "Docs rewrite", owner: "Alan", status: "todo" },
+])
+const changeDirty = ref(false)
+const changeSet = ref<any>(null)
+const changeGrid = useTemplateRef<{ acceptChanges: () => void; revertChanges: () => void }>(
+  "changeGrid",
+)
+/** Vue lisible du delta (les lignes sont résumées à ce qui bouge) */
+const changesJson = computed(() => {
+  const c = changeSet.value
+  if (!c) return "{}"
+  return JSON.stringify(
+    {
+      dirty: c.dirty,
+      count: c.count,
+      rows: {
+        added: c.rows.added.map((r: any) => r.row.task),
+        updated: c.rows.updated.map((u: any) => ({ key: u.key, columns: u.columns })),
+        deleted: c.rows.deleted.map((r: any) => r.row.task),
+      },
+      sheets: {
+        added: c.sheets.added.map((s: any) => s.key),
+        updated: c.sheets.updated.map((u: any) => ({ key: u.key, changed: u.changed })),
+        deleted: c.sheets.deleted.map((s: any) => s.key),
+      },
+      extras: c.extras,
+    },
+    null,
+    2,
+  )
+})
 
 // — A1 formulas demo —
 const formulaColumns = [
@@ -414,6 +519,42 @@ onMounted(() => {
     bordered
     :default-col-width="120"
   />
+
+  <div v-else-if="demo === 'choice'">
+    <q-spreadsheet
+      v-model:rows="choiceRows"
+      :columns="choiceColumns"
+      height="230px"
+      bordered
+    />
+    <p class="demo-p demo-log">
+      stored → <code>priority</code>: {{ JSON.stringify(choiceRows[0]?.priority) }} ·
+      <code>tags</code>: {{ JSON.stringify(choiceRows[0]?.tags) }} ·
+      <code>reviewers</code>: {{ JSON.stringify(choiceRows[0]?.reviewers) }}
+    </p>
+  </div>
+
+  <div v-else-if="demo === 'changes'">
+    <q-spreadsheet
+      ref="changeGrid"
+      v-model:rows="changeRows"
+      v-model:dirty="changeDirty"
+      v-model:changes="changeSet"
+      :columns="changeColumns"
+      height="200px"
+      bordered
+    />
+    <div class="demo-tools">
+      <button class="demo-btn" type="button" @click="changeGrid?.acceptChanges()">
+        acceptChanges() — saved
+      </button>
+      <button class="demo-btn" type="button" @click="changeGrid?.revertChanges()">
+        revertChanges() — discard
+      </button>
+      <span class="demo-meta">dirty = <code>{{ changeDirty }}</code></span>
+    </div>
+    <pre class="demo-json">{{ changesJson }}</pre>
+  </div>
 
   <q-spreadsheet
     v-else-if="demo === 'formulas'"

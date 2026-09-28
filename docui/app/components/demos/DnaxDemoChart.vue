@@ -20,11 +20,13 @@ defineProps<{
     | "bar"
     | "rule"
     | "dot"
+    | "dot-trend"
     | "image"
     | "image-round"
     | "text"
     | "pie"
     | "heatmap"
+    | "heatmap-github"
     | "table"
     | "legend"
     | "interaction"
@@ -107,6 +109,99 @@ const temps = [
   { day: "Thu", hour: "17h", temp: 27 },
 ]
 
+// `heatmap` : échelle de couleurs personnalisée. L'échappatoire `options` **remplace** la clé
+// `visualMap` émise par la marque (fusion superficielle, clé par clé) : la config porte donc
+// sa propre mise en page, sinon le moteur de rendu reprend ses défauts.
+const heatScale = {
+  visualMap: [
+    {
+      min: 0,
+      max: 35,
+      calculable: true,
+      inRange: { color: ["#dbeafe", "#1d4ed8"] },
+      orient: "horizontal",
+      left: 0,
+      bottom: 0,
+      itemWidth: 12,
+      itemHeight: 100,
+      textStyle: { color: "#71717a" },
+    },
+  ],
+}
+
+// `heatmap-github` : un « calendrier de contributions » — 20 semaines × 7 jours, échelle
+// **discrète** (paliers, pas de dégradé). Données **déterministes** (hash entier, jamais
+// `Math.random()`) : le rendu serveur et le rendu client restent identiques.
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+/** Hash entier déterministe (0 → 99) — exact sur toutes les plateformes */
+const noise = (n: number) => {
+  let x = (n * 2654435761) % 4294967296
+  x = ((x ^ (x >>> 13)) * 1597334677) % 4294967296
+  return (x >>> 0) % 100
+}
+const calendarWeeks = 20
+const contribStart = Date.UTC(2025, 0, 6) // lundi 6 janvier 2025
+const dayLabel = (ms: number) => {
+  const date = new Date(ms)
+  return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}`
+}
+const contributions = Array.from({ length: calendarWeeks }).flatMap((_, w) =>
+  DAYS.map((day, d) => {
+    const ms = contribStart + (w * 7 + d) * 864e5
+    const n = noise(w * 7 + d)
+    // week-ends plus calmes ; sinon 5 paliers, comme GitHub
+    const quiet = n < 26 || (d >= 5 && n < 62)
+    const count = quiet ? 0 : n < 52 ? 1 + (n % 3) : n < 78 ? 4 + (n % 3) : n < 92 ? 7 + (n % 3) : 10 + (n % 6)
+    return { week: dayLabel(contribStart + w * 7 * 864e5), day, date: dayLabel(ms), count }
+  }),
+)
+
+// Échelle **discrète** à 5 paliers (façon GitHub) — échappatoire `options.visualMap`
+const calendarScale = {
+  visualMap: [
+    {
+      type: "piecewise",
+      pieces: [
+        { min: 0, max: 0, color: "#ebedf0" },
+        { min: 1, max: 3, color: "#9be9a8" },
+        { min: 4, max: 6, color: "#40c463" },
+        { min: 7, max: 9, color: "#30a14e" },
+        { min: 10, color: "#216e39" },
+      ],
+      orient: "horizontal",
+      left: 0,
+      bottom: 0,
+      itemWidth: 12,
+      itemHeight: 12,
+      itemSymbol: "roundRect",
+      text: ["Less", "More"],
+      textStyle: { color: "#71717a" },
+    },
+  ],
+}
+
+// `dot-trend` : nuage de points + droite de régression (moindres carrés, calculée à la main)
+const scatter = Array.from({ length: 24 }, (_, i) => {
+  const spend = 2 + i * 1.1
+  const jitter = ((noise(i) - 50) / 50) * 4.5 // -4.5 → 4.5
+  return {
+    spend: Math.round(spend * 10) / 10,
+    revenue: Math.round((3.2 * spend + 12 + jitter) * 10) / 10,
+  }
+})
+const meanSpend = scatter.reduce((s, p) => s + p.spend, 0) / scatter.length
+const meanRevenue = scatter.reduce((s, p) => s + p.revenue, 0) / scatter.length
+const slope =
+  scatter.reduce((s, p) => s + (p.spend - meanSpend) * (p.revenue - meanRevenue), 0) /
+  scatter.reduce((s, p) => s + (p.spend - meanSpend) ** 2, 0)
+const intercept = meanRevenue - slope * meanSpend
+const spends = scatter.map((p) => p.spend)
+const trend = [
+  { spend: Math.min(...spends), revenue: slope * Math.min(...spends) + intercept },
+  { spend: Math.max(...spends), revenue: slope * Math.max(...spends) + intercept },
+]
+
 // `pie` : une part par ligne — `x` = le libellé de la part, `y` = sa valeur
 /** Même chose que `monthly`, mais le champ s'appelle `label` — démo de jointure `foreignField` */
 const byLabel = monthly.map((m) => ({ label: m.month, revenue: m.revenue }))
@@ -170,6 +265,29 @@ const share = [
           strokeWidth: 2,
           title: 'campaign',
         },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'dot-trend'" class="demo-chart">
+    <q-chart
+      title="Revenue vs spend, with a trend line"
+      :height="260"
+      :x="{ label: 'Ad spend (k€)', min: 0 }"
+      :y="{ label: 'Revenue (k€)', min: 0 }"
+      :marks="[
+        {
+          type: 'dot',
+          data: scatter,
+          x: 'spend',
+          y: 'revenue',
+          r: 4,
+          fill: 'chart-1',
+          stroke: '#fff',
+          strokeWidth: 1.5,
+          name: 'Stores',
+        },
+        { type: 'line', data: trend, x: 'spend', y: 'revenue', stroke: 'primary', strokeWidth: 2, name: 'Trend' },
       ]"
     />
   </div>
@@ -240,10 +358,11 @@ const share = [
     />
   </div>
 
-  <div v-else-if="demo === 'heatmap'" class="demo-chart">
+  <div v-else-if="demo === 'heatmap'" class="demo-chart demo-stack">
+    <!-- 1. `fill` numérique : la rampe de couleurs (palette des séries), valeur imprimée -->
     <q-chart
       title="Temperature by hour"
-      :height="260"
+      :height="230"
       :x="{ label: 'Hour' }"
       :y="{ label: 'Day' }"
       :marks="[
@@ -257,6 +376,53 @@ const share = [
           name: 'Temperature',
         },
       ]"
+    />
+    <!-- 2. `fill` constant : une grille unie — l'échelle disparaît, la valeur passe en info-bulle -->
+    <q-chart
+      title="Booked slots"
+      :height="230"
+      :x="{ label: 'Hour' }"
+      :y="{ label: 'Day' }"
+      :marks="[
+        {
+          type: 'heatmap',
+          data: temps,
+          x: 'hour',
+          y: 'day',
+          fill: 'primary',
+          title: (d) => `${d.temp} °C`,
+          name: 'Slot',
+        },
+      ]"
+    />
+    <!-- 3. Échelle personnalisée : `visualMap` via l'échappatoire `options` -->
+    <q-chart
+      title="Temperature, custom scale"
+      :height="250"
+      :x="{ label: 'Hour' }"
+      :y="{ label: 'Day' }"
+      :marks="[{ type: 'heatmap', data: temps, x: 'hour', y: 'day', fill: 'temp', name: 'Temperature' }]"
+      :options="heatScale"
+    />
+  </div>
+
+  <div v-else-if="demo === 'heatmap-github'" class="demo-chart">
+    <q-chart
+      title="Contributions"
+      :height="280"
+      :x="{ label: 'Week' }"
+      :y="{ label: 'Day' }"
+      :marks="[
+        {
+          type: 'heatmap',
+          data: contributions,
+          x: 'week',
+          y: 'day',
+          fill: 'count',
+          title: (d) => `${d.count} contributions · ${d.day}, ${d.date}`,
+        },
+      ]"
+      :options="calendarScale"
     />
   </div>
 

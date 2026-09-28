@@ -2,6 +2,15 @@ export default defineNuxtConfig({
   devServer: {
     port: 2009,
   },
+  // Clé MapTiler des démos `<q-map>`. Clé de **navigateur**, publique par nature (elle
+  // part dans chaque requête de tuiles, donc dans le bundle client) : à restreindre par
+  // domaine dans la console MapTiler plutôt qu'à cacher. Une variable d'environnement
+  // `NUXT_PUBLIC_MAPTILER_API_KEY` la surcharge.
+  runtimeConfig: {
+    public: {
+      maptilerApiKey: "ScyscoQenj0f6qac3eD6",
+    },
+  },
   extends: ["@baybreezy/docd"],
   // @dnax/ui est un *module* Nuxt (pas une layer) : son entrée racine est le
   // barrel runtime (index.ts → *.vue), que Node ne peut pas importer.

@@ -17,9 +17,9 @@ des doublons.
 Chaîne de fallback obligatoire, dans l'ordre :
 
 ```css
-padding-top: 0;                                   /* fallback vieux navigateurs */
-padding-top: constant(safe-area-inset-top);       /* iOS 11.0 – 11.2 */
-padding-top: env(safe-area-inset-top);            /* iOS 11.2+ */
+padding-top: 0; /* fallback vieux navigateurs */
+padding-top: constant(safe-area-inset-top); /* iOS 11.0 – 11.2 */
+padding-top: env(safe-area-inset-top); /* iOS 11.2+ */
 ```
 
 - `padding-*` pour les panneaux/conteneurs, `margin-*` pour les éléments flottants
@@ -87,3 +87,17 @@ La doc publique parle **la langue de la bibliothèque**, jamais celle de l'impl�
   `grep -ri echarts docd/content docd/app docd/public docs` → **0**, plus un contrôle HTTP de
   chaque page (un serveur de dev tombé renvoie 0 occurrence : le comptage serait faux).
 
+## Vérification — navigateur headless / Puppeteer / CDP **interdits** — 2026-09-28
+
+tag: `rules` — `namespace: dnax.ui` — `filename: AGENTS.md`
+
+Interdiction d'ouvrir un navigateur pour vérifier : `chrome-headless-shell` (y compris le
+binaire du cache Puppeteer), Puppeteer/Playwright/Selenium, et le DevTools Protocol (CDP :
+`--remote-debugging-port`, `/json/list`, `Input.dispatch*`, `Page.captureScreenshot`,
+`Runtime.evaluate`, `DOM.setFileInputFiles`), ainsi que tout `--dump-dom` ou capture d'écran.
+Motif : ces vérifications **ralentissent le processus de développement** de l'utilisateur.
+
+À la place : `curl`/`fetch` sur le serveur de dev **déjà lancé** (statut HTTP + marqueurs dans
+le HTML), `bun test packages/ui/lib`, ou un script Bun pur sans navigateur. Pour une
+interaction : lecture du code + tests unitaires ; un test navigateur exige l'accord explicite
+de l'utilisateur. Règle complète dans `AGENTS.md`.

@@ -293,6 +293,26 @@ packages/ui/lib`) — `formula.test.ts` (~25 cas : opérateurs, A1/abs/plages,
   import (promesse cachée), v2 renvoie un TABLEAU de problèmes directement
   (`type(s)(v) => []` si ok, message via [0]); validateAndSet est async et
   attendu dans commitEdit/commitFx
+- **Choix unique / multiple — `select` + `multiselect` (2026-09-25)** : nouveau type
+  `multiselect` (choix multiples) à côté de `select` (choix unique). Stockage : `select` =
+  le **`value`** de l'option (scalaire), `multiselect` = un **tableau** de `value`s (`[]` si
+  vide) — jamais les libellés. Helper unique `choiceText(col, raw)` (libellés joints par
+  « , ») + `multiValues` / `multiLabels` : copie, CSV, find, tri, `title`, filtre et contenu
+  de cellule lisent tous les **libellés**. Rendu : `chip` → un badge par valeur
+  (`.q-spreadsheet__badges`, `flex-wrap` dans la cellule), sinon libellés joints. Éditeur :
+  le panneau de `select` (`--select` + `--multi`), mais chaque option porte une coche et
+  **chaque clic écrit la valeur immédiatement** (`validateAndSet` → `cell-change`, l'éditeur
+  reste ouvert : `commitEdit` ne re-coerce pas un `multiselect`). `Enter` ferme quand le
+  filtre est vide, coche la suggestion quand on filtre ; `draft` = recherche (vide à
+  l'ouverture). Filtre : `filterValuesOf` compte **une entrée par élément** et la ligne est
+  retenue si **au moins une** valeur est autorisée. `guardValidation` : `[]` vaut vide, `list`
+  vérifie chaque élément. Coercition (collage / CSV) : `"a, b"` → tableau de `value`s.
+  Vérif : `bun test packages/ui/lib` 272/272 ; CDP → badges « Design/Frontend » (titre
+  « Design, Frontend »), `reviewers` sans chip → texte « Ada, Grace » ; coche « Backend » →
+  badge immédiat + `["design","frontend","backend"]`, éditeur toujours ouvert ; décoche
+  « Design » → `["frontend","backend"]` ; `Enter` ferme ; `select` → « Low », scalaire
+  `"low"`, fermeture immédiate ; filtre `tags` → 5 valeurs (Backend 2, Design 3, Docs 2,
+  Frontend 1, Urgent 1), filtre « Backend » → 2 lignes.
 - **QInteract — dashboard drag & resize (2026-09-07)** : conteneur de
   widgets ; items {id,x,y,w,h,…}, v-model:items + v-model:selected ; drag
   (tout l'élément ou poignée si `handle`), resize poignée bas-droite, snap
@@ -382,180 +402,6 @@ mouseSensitivity }` ; modifiers mouse/capture/mouseCapture/stop/prevent/
   identique (clé JSON root/rootMargin/threshold) — unobserve retire l'élément
   et disconnect quand le pool est vide. Enregistrée `intersection` ; page docs
   `/docs/directives/intersection` (démo cartes viewport + sentinel once).
-
-## QTiptap — éditeur riche Tiptap v3 — 2026-09-05
-
-`packages/ui/components/QTiptap.vue` : `<q-tiptap v-model="html" />` basé sur
-Tiptap v3 (déjà dans package.json : `@tiptap/vue-3`, `@tiptap/pm`,
-`@tiptap/starter-kit` 3.31.3).
-
-- **SSR-safe** : `new Editor()` créé dans `onMounted` uniquement (jamais en
-  SSR), `destroy()` dans `onBeforeUnmount`
-- **v-model** : `onUpdate → emit(getHTML())` ; le watch externe ne pousse le
-  HTML que s'il diffère vraiment de `editor.getHTML()` via
-  `setContent(html, { emitUpdate: false })` (v3 : options objet, plus de
-  booléen) → pas de boucle ni de saut de curseur ; garde spéciale document
-  vidé normalisé en `<p></p>`
-- **`EditorContent` v3 ne propage PAS les attrs** (render = `h("div", {ref})`) →
-  envelopper dans `.q-tiptap__editor` qui porte la classe + `min-height`
-  inline ; chaîne `min-height: inherit` pour que `.ProseMirror` remplisse la
-  zone (clic possible sur toute la hauteur)
-- **Barre d'outils réactive** : compteur `tick` incrémenté sur
-  `onTransaction`/`onSelectionUpdate`, lu dans un computed qui recrée les
-  boutons (active/disabled) → pas besoin de rendre l'éditeur réactif
-- `StarterKit.configure({ heading: { levels: [1,2,3] }, link: { openOnClick: false } })`
-- Icônes toolbar ajoutées dans `lib/icons.ts` (bold, heading1-3, undo2…)
-- **Couleur de texte (2026-09-05)** : extensions `TextStyle` + `Color` depuis
-  `@tiptap/extension-text-style` (en v3, `@tiptap/extension-color` n'est qu'un
-  alias de ré-export → ne pas installer le doublon). Bouton palette dans la
-  toolbar (`kind: "color"` dans ToolSpec/ToolView) qui ouvre une **palette
-  popover téléportée au body** (le conteneur `.q-tiptap` est overflow:hidden →
-  un popover absolu serait clippé) : 14 swatches prédéfinis + swatch « No
-  color » (fond blanc barré, `unsetColor`) + input natif « Custom… ».
-  Pourquoi pas un simple input type=color : il ne permet PAS de désélectionner
-  (pas de valeur « aucune »). `picked` ref : dernière couleur rappelée quand la
-  selection n'a pas de couleur ; fermeture = clic extérieur / Échap / blur /
-  resize ; position fixed recalculée sous le bouton au toggle.
-- **Image par URL (2026-09-05)** : extension `@tiptap/extension-image` ajoutée
-  aux deps ; bouton « Image URL » (icône image-plus, groupe blocks-list) →
-  **dialog dnax.ui** (plus de prompt) : `<q-dialog>` embarqué (imports
-  explicites QDialog/QDialogHeader/QDialogFooter/QBtn/QInput) avec champ URL +
-  champ alt optionnel ; `setImage({ src, alt })` ou `updateAttributes` si une
-  image est déjà sélectionnée (`isActive("image")` capturé à l'ouverture →
-  remplace au lieu de dupliquer). CSS : `img { max-width:100%; … }` dans la
-  typographie ProseMirror.
-- **Lien par dialog aussi (2026-09-05)** : le lien (avant : `window.prompt`)
-  utilise le même `<q-dialog>` (mode `link`, URL pré-remplie) →
-  `setLink({ href })` ; bouton de soumission désactivé si URL vide. Bouton
-  « Remove link » inchangé (`unsetLink`).
-- **Alignement (2026-09-05)** : extension `@tiptap/extension-text-align`
-  ajoutée, configurée `types: ["heading", "paragraph"]` +
-  `alignments: ["left", "center", "right"]` ; nouveau groupe de toolbar
-  « align » (icônes lucide align-left/center/right, ajoutées à lib/icons.ts) →
-  `setTextAlign(align)`. L'état actif lit l'attribut `textAlign` du nœud
-  courant (heading/paragraph) ; « left » est actif quand AUCUN attribut n'est
-  posé (alignement implicite).
-- **Task list avec q-checkbox (2026-09-05)** : extension officielle
-  `@tiptap/extension-task-list` + `@tiptap/extension-task-item` (v3 :
-  ré-exportées depuis `@tiptap/extension-list`). NodeView Vue custom :
-  `packages/ui/components/internal/QTiptapTaskItemView.vue` (dans internal/
-  → ignoré de l'auto-import Nuxt, des exports index.ts et du menu docs) qui
-  rend `q-checkbox` dnax.ui. `lib/tiptap-task-list.ts` : `QTipTapTaskItem =
-TaskItem.extend({ addNodeView: () =>
-VueNodeViewRenderer(QTiptapTaskItemView) })` — schéma, keymap, input rules
-  conservés. Toggle coché = transaction `setNodeMarkup(getPos(), …)` ; bouton
-  toolbar « Task list » (toggleTaskList).
-  ⚠ **NodeView Vue** : racine OBLIGATOIRE `<node-view-wrapper>` (sinon erreur
-  « Please use the NodeViewWrapper component for your node view ») ; en v3 ce
-  wrapper ne propage PAS les attrs → l'état `data-checked`/class cochée vit sur
-  un div interne contenant `<node-view-content>` (contentDOM imbriquable). CSS :
-  `ul[data-type="taskList"]` (nom camel du nœud) sans puces, li flex via
-  `[data-node-view-wrapper]`, texte coché barré `--q-tiptap-muted`.
-- **Mentions (2026-09-05)** : prop `mentions` ({ label, value }[]) branchée sur
-  `@tiptap/extension-mention` (deps ajoutées : extension-mention +
-  @tiptap/suggestion). Suggestion v3 : `char: "@"`, `items` (filtre
-  label/value), `command` (`insertContentAt(range, [mention attrs {id,label},
-espace])`), `render` → popup DOM stylé dnax.ui (`props.mount(el)` : la plugin
-  ancre/repositionne via Floating UI et renvoie unmount pour onExit) ;
-  navigation clavier Arrow/Enter/Tab dans `onKeyDown`, clic + hover. `allow`
-  garde la popup inactive si mentions vide. Rendu du nœud = défaut officiel
-  (span[data-type=mention], attrs id/label) stylé via CSS (puce primary +
-  popup `.q-tiptap__mention-*`).
-- **Bubble menu (2026-09-05)** : import `BubbleMenu` depuis
-  `@tiptap/vue-3/menus` (v3 : pas d'extension à enregistrer, le composant
-  crée la plugin et gère position/clavier). `:should-show` = sélection texte
-  non vide + editable (exclut codeBlock/image) ; boutons gras/italique/
-  souligné/barré/code, lien (dialog), retirer lien/couleur, nettoyage, +
-  bouton couleur qui réutilise `togglePalette`/`paletteCurrent` (barre de
-  couleur). `@mousedown.prevent` pour ne pas perdre la sélection ; états actifs
-  état actifs recalculés via `tick`. CSS `.q-tiptap__bubble*` (chip bar, dark).
-- **Drag handle (2026-09-05)** : composant `DragHandle` de
-  `@tiptap/extension-drag-handle-vue-3` (enregistre la plugin automatiquement)
-  - dep `@tiptap/extension-drag-handle`. Rendu quand editor éditable :
-    poignée grip (icône gripVertical) au survol du bord gauche ; `nested`
-    activé avec config CONSTANTE hors composant (`DRAG_HANDLE_NESTED`,
-    threshold -16 → vise facilement les items imbriqués — objet inline
-    réinitialiserait la plugin à chaque rendu) ; plugin-key dédié. Masqué en
-    readonly/disable. CSS `.q-tiptap__drag-handle` (grab, hover primary).
-- **Drag handle : espace icône ≥ 5% (2026-09-05)** : `margin-right: 5%` sur
-  `.q-tiptap__drag-handle` → espace entre l'icône et l'élément dragué ≥ 5% de
-  la largeur du conteneur (`.q-tiptap__body` est positionné → les % relatifs à
-  l'éditeur). Si la zone du margin gêne la sélection en début de ligne, passer
-  à une gouttière réservée dans le padding du contenu.
-- **Table of contents (2026-09-05)** : extension `@tiptap/extension-table-of-contents`
-  enregistrée (`onUpdate` → mapping des ancres en items sérialisables émis via
-  l'événement `@update:toc` : id, textContent, level, originalLevel, itemIndex,
-  pos, isActive, isScrolledOver) — la TOC n'est PAS un nœud éditable, c'est un
-  plugin qui fournit les données à afficher côté app. Le rendu (liste cliquable
-  scroll) est montré sur la page docs (`.demo-toc`, scroll via
-  `[data-toc-id]`).
-- **Scroll interne TOC (2026-09-05)** : méthodes exposées par QTiptap —
-  `scrollToHeading(id)` (cherche `[data-toc-id]`/`[id]` dans `editor.view.dom`,
-  repli via `view.nodeDOM(pos)` à partir de la TOC mémorisée, puis
-  `scrollIntoView` smooth — fonctionne aussi dans un conteneur scrollable
-  interne) et `getToc()` (copie des dernières ancres). La démo docs utilise
-  `tocEditor.value?.scrollToHeading(id)` via un ref au lieu du
-  `document.querySelector` global.
-- **Sélecteur font-size (2026-09-05)** : `FontSize` exporté par
-  `@tiptap/extension-text-style` (setFontSize/unsetFontSize, pas de paquet
-  séparé). Groupe toolbar « font-size » (entre align et marks) rendu avec
-  **`q-select` dnax.ui** (dense outlined, options Default + 12-40px, emit-value) ;
-  valeur courante lue depuis `textStyle.fontSize` (parse px),
-  `setFontSize("NNpx")`, option vide → `unsetFontSize`.
-  ⚠ L'extension `FontSize` doit être ENREGISTRÉE (import { FontSize } depuis
-  extension-text-style) — sans elle `setFontSize` n'existe pas et le run
-  échoue en silence (bug 2026-09-05 : le sélecteur ne faisait rien).
-- **Tableaux (2026-09-05)** : dep `@tiptap/extension-table` (v3 consolidé :
-  exporte `TableKit` qui enregistre table/row/header/cell + toutes les
-  commandes insertTable, add/delete Row/Column, mergeCells, splitCell,
-  toggleHeaderRow/Column, deleteTable). Bouton toolbar « Table » (groupe
-  `table`, icône lucide table) → popup `.q-tiptap__table-menu` (téléportée,
-  même pattern que la palette) : hors table = « Insert table (3×3) » ; dans une
-  table (détection ancêtre `$from.node(depth)` — isActive('table') est FAUX au
-  curseur dans une cellule) = insertion lignes/colonnes, suppression, fusion/
-  scission, header, suppression de la table. CSS table (bords, th, selectedCell,
-  column-resize-handle, tableWrapper overflow-x). Le rendu vit dans le DOM
-  ProseMirror (pas le composant data `QTable`, réservé aux données externes).
-- **Table : NodeView Vue (2026-09-05)** : rendu du nœud « table » passé en
-  Vue — `internal/QTiptapTableView.vue` (racine `<node-view-wrapper as="div">`
-  - `<table>` + `<node-view-content as="tbody">`, contentDOM imbriqué) et
-    `lib/tiptap-table.ts` (`QTipTapTable = Table.extend({ addNodeView: () =>
-VueNodeViewRenderer(QTiptapTableView) })`, rows/header/cell officiels
-    conservés — TableKit délaissé pour éviter le doublon « table »). Sélection de
-    cellules/merge/clavier toujours gérés par PM (décorations dans le contentDOM) ;
-    colgroup/redimensionnement natif non portés (largeurs via CSS).
-  - **Toolbar : tableaux retirés (2026-09-05)** : bouton « Table » + popup
-    d'actions retirés de la toolbar (groupe `table`, état + popup
-    `.q-tiptap__table-menu` supprimés). Les extensions (`QTipTapTable` + rows/
-    header/cell, NodeView Vue + resize colonnes) restent enregistrées : une
-    table présente dans le HTML (`v-model`) ou collée reste rendue et éditable ;
-    l'insertion se fait alors par contenu HTML ou commandes programmatiques.
-  * **Padding configurable (2026-09-05)** : prop `padding` (valeur CSS,
-    défaut `5%` sur les 4 côtés haut/droite/bas/gauche) appliquée via
-    `--q-tiptap-content-padding` sur `.ProseMirror` (computed `editorStyle`
-    sur `.q-tiptap__editor`) ; `dense` n'affecte plus que la toolbar
-    (overrides dense padding/placeholder retirés) ; placeholder aligné sur le
-    défaut (top/left/right 5%).
-- ⚠ **Popups téléportés** (mentions montées au body via props.mount, palette
-  Teleport, bubble menu) : ils n'héritent PAS des `--q-tiptap-*` définis sur
-  `.q-tiptap` (fond transparent). Fix : variables redéfinies localement sur
-  `.q-tiptap__mention-list` / `.q-tiptap__palette` / `.q-tiptap__bubble` —
-  fond `var(--card, #fff)` en light, `.dark` override sombre (2026-09-05).
-- **Piège listes + Tailwind (2026-09-05)** : le preflight de Tailwind pose
-  `ul/ol { list-style: none }` → les bullet/ordered list « ne fonctionnaient
-  pas » visuellement (pas de puces/chiffres). Fix CSS dans la typographie
-  ProseMirror : `list-style-type: disc` (ul), `decimal` (ol), circle/square
-  pour les niveaux imbriqués — l'override taskList (`list-style: none`) reste
-  déclaré après. Vérifié headless (happy-dom) : toggleBulletList/
-  toggleOrderedList/splitListItem OK avec la pile d'extensions complète.
-- ⚠ **Piège tokens** : `--muted` (#f4f6f9) est un token de FOND (bg shadcn),
-  pas une couleur de texte → ne jamais l'utiliser pour des icônes/secondary.
-  `--q-tiptap-muted` utilise des gris texte explicites (#8b93a1 / dark #9aa2b1)
-- Styles : section `QTiptap` dans `styles/main.css` (variables `--q-tiptap-*`
-  - `.dark` ; typographie ProseMirror : h1-h3, listes, blockquote, pre/code, a, hr)
-- Page docs manuelle `docs/components/tiptap.vue` (listée dans `CUSTOM_PAGES`
-  de gen-menu) : démo v-model + sortie, variantes filled/dense/min-height,
-  read-only ; menu « Tiptap »
 
 ## Headers dialog/bottom-sheet — mode contenu custom sans toolbar — 2026-08-31
 
@@ -1779,3 +1625,384 @@ Pour ne jamais additionner deux paddings, c'est le CSS qui tranche, par la struc
 Effet de bord utile : les variables étant posées sur le conteneur, une page à l'intérieur
 en **hérite** avant sa propre mesure ; les valeurs sont identiques (mêmes barres, même
 racine `.q-app`), donc aucun écart visuel avant hydratation.
+
+## Valider un composant WebGL dans Chromium headless (sans puppeteer npm) — 2026-09-25
+
+> ⛔ **NE PAS APPLIQUER** — le pilotage de navigateur headless / Puppeteer / CDP est **interdit**
+> dans ce projet depuis 2026-09-28 (voir la règle dans `AGENTS.md`) : il ralentit le processus de
+> développement. Entrée conservée comme **historique**.
+
+tag: `knowledges`
+
+Un composant qui n'agit qu'au navigateur (`q-map`, `q-chart`…) ne se vérifie **pas** au
+prerender SSR : il faut rendre la page réellement. Sans installer puppeteer, les binaires
+du cache `~/.cache/puppeteer` suffisent (plusieurs versions) :
+
+```sh
+BIN=~/.cache/puppeteer/chrome-headless-shell/mac_arm-<dernière>/chrome-headless-shell-mac-arm64/chrome-headless-shell
+$BIN --headless --no-sandbox --enable-unsafe-swiftshader --use-gl=angle --use-angle=swiftshader \
+  --virtual-time-budget=25000 --window-size=1280,1000 \
+  --dump-dom http://localhost:2009/docs/<page> > .tmp/dom.html 2> .tmp/log
+```
+
+- **WebGL fonctionne** en headless via SwiftShader (`--enable-unsafe-swiftshader`) : maplibre
+  crée son contexte, donc canvas, marqueurs et bulles sont dans le DOM.
+- `--virtual-time-budget` laisse le temps aux imports dynamiques et au style de se charger ;
+  pas de `--disable-gpu` (il tuerait WebGL).
+- Preuves à chercher dans le DOM : `class="maplibregl-canvas"`, `class="maplibregl-marker"`,
+  `class="maplibregl-popup …"`, l'attribution du style (« OpenStreetMap »), et **l'absence**
+  de la surcouche d'erreur du composant. Les `CONSOLE:` du log donnent les erreurs du SDK.
+- `--screenshot` dans la **même** invocation que `--dump-dom` peut ne jamais rendre la main :
+  deux exécutions séparées.
+- Sortir les artefacts **dans le projet** (`.tmp/`, supprimé ensuite) : un chemin hors projet
+  n'est pas relisible.
+
+**Deux leçons apprises sur `q-map` (2026-09-25)** :
+
+- La **surcouche « Chargement… » peut rester** dans le dump alors que la carte fonctionne :
+  avec SwiftShader, le rendu WebGL en continu empêche le temps virtuel d'avancer, donc le
+  snapshot peut précéder le `load`. Ne pas conclure « cassé » sans un second indice
+  (canvas, attribution, console) — et côté composant, se raccrocher au **premier** de
+  `load` / `ready` plutôt qu'au seul `ready` (les contrôles du SDK peuvent le retarder).
+- **Isoler une cause** en comparant deux pages : l'erreur `Style is not done loading`
+  apparaissait sur `/docs/maps/maptiler` (démos avec `terrain`/`projection`) et pas sur
+  `/docs/maps` (mêmes composants, sans ces props) → la cause était bien ces deux options,
+  pas le composant en général.
+
+## Moteurs de carte : ce qui change d'une bibliothèque à l'autre — 2026-09-25
+
+tag: `knowledges` — `filename: packages/ui/lib/mapEngine.ts`, `packages/ui/lib/mapLeaflet.ts`
+
+- **Ordre des coordonnées** : Leaflet attend `[lat, lng]` ; MapLibre/MapTiler (et GeoJSON)
+  `[lng, lat]`. dnax.ui expose `[lng, lat]` partout — la conversion vit dans le moteur
+  (`toLeaflet`), jamais dans les props ni dans les données de l'utilisateur. Une carte
+  centrée au mauvais endroit est presque toujours une paire inversée.
+- **Épingles** : MapTiler/MapLibre colorent leur marqueur par option (`color`) ; Leaflet
+  non (icône bitmap) → `divIcon` SVG dès qu'une couleur est demandée. La couleur part dans
+  un attribut SVG : `safeCssColor()` filtre ce qui pourrait sortir du cadre (guillemets,
+  `<`, `;`).
+- **Signal « prêt »** : Leaflet `map.whenReady()` ; SDK MapTiler `load` **ou** `ready`
+  (le second attend la fin de l'installation des contrôles, il peut être retardé). Le
+  composant se raccroche au **premier** événement reçu.
+- **Tuiles raster** : Leaflet les charge en `<img>` (aucun CORS requis), le SDK MapTiler
+  les `fetch` (CORS, quotas, réseau → échecs possibles). D'où la règle « une erreur de
+  tuile n'est pas fatale » et le minuteur de repli de la surcouche (`READY_TIMEOUT`).
+- **CSS** : Leaflet place ses panes à `z-index` 400-800 → une surcouche du composant doit
+  passer au-dessus (`z-index: 1000` sur `.q-map__overlay`) ; `.leaflet-div-icon` (carré
+  blanc par défaut) doit être neutralisé pour une épingle maison ; `.leaflet-container`
+  impose un fond gris et sa police, à ramener sur les tokens du thème.
+
+## Nouveau fichier `.ts` non résolu par le LS (mais résolu par `tsc`) — 2026-09-25
+
+tag: `knowledges`
+
+**Symptôme** : après création d'un module (`lib/mapMaplibre.ts`), le diagnostic Zed reste
+sur `Cannot find module './mapMaplibre'` dans le fichier importateur, alors que le fichier
+existe, que `bun` le résout et que `tsc --noEmit` ne signale **rien**.
+
+**Cause** : cache de structure de répertoire du serveur TypeScript (le fichier est bien
+analysé — on obtient ses propres diagnostics — mais la résolution de modules ne voit pas
+encore le nouveau nom).
+
+**Correctif** : forcer un rechargement du projet, p. ex. `touch packages/ui/tsconfig.json`
+→ diagnostic propre. En cas de doute, trancher avec le vrai compilateur :
+`packages/ui/node_modules/.bin/tsc --noEmit -p packages/ui/tsconfig.json` (ignorer les
+erreurs `Cannot find module './components/*.vue'` d'`index.ts`, normales hors vue-tsc).
+
+## Vérifier une **interaction** en headless : piloter Chrome par CDP — 2026-09-25
+
+> ⛔ **NE PAS APPLIQUER** — le pilotage de navigateur headless / Puppeteer / CDP est **interdit**
+> dans ce projet depuis 2026-09-28 (voir la règle dans `AGENTS.md`) : il ralentit le processus de
+> développement. Entrée conservée comme **historique**.
+
+tag: `knowledges`
+
+`--dump-dom` ne montre que l'état initial : pour un drag, un clic ou un `v-model`, on
+pilote `chrome-headless-shell` par le **DevTools Protocol**, sans installer puppeteer :
+
+1. `Bun.spawn([chrome, "--headless", …, `--remote-debugging-port=9224`, url])` ;
+2. `GET http://127.0.0.1:9224/json/list` → `webSocketDebuggerUrl` de la page (attendre que
+   Nuxt dev ait compilé, ~6 s) ;
+3. `new WebSocket(wsUrl)` (WebSocket **natif** de bun), puis un `Map` d'id → promesse pour
+   `Runtime.evaluate` et `Input.dispatchMouseEvent` ; fermer le process dans un `finally`.
+
+Ce qui fait gagner du temps :
+
+- `Runtime.evaluate` avec `awaitPromise` permet d'`await requestAnimationFrame(...)` dans la
+  page : indispensable pour lire un **DOM mis à jour par Vue** (le rendu est groupé en
+  microtask — relire `element.style` juste après une mutation donne l'ancienne valeur).
+- Un drag se simule par des `PointerEvent` (`pointerdown` / `pointermove` / `pointerup`)
+  dispatchés sur la cible : le composant doit tenter `setPointerCapture` dans un
+  **try/catch**, sinon un pointeur synthétique (sans pointeur actif) fait jeter le
+  gestionnaire.
+- **Attendre l'hydratation, pas le drapeau `__vue_app__`** : il est posé par `app.mount()`
+  AVANT que les écouteurs soient branchés → un clic CDP émis trop tôt part dans le vide
+  (1er clic perdu, 2e OK, alors que le nœud DOM n'a pas été remplacé). Sonder
+  l'interactivité (boucler `el.click()` + `rAF×2` jusqu'à ce que le composant réagisse, puis
+  `Escape`) avant les vrais `Input.dispatchMouseEvent` (cf. `warnings.md`, 2026-09-28).
+- Sortir les artefacts du script dans le projet puis supprimer (`.tmp/`).
+
+## Valider un dépôt de fichier en headless (`DOM.setFileInputFiles`) — 2026-09-25
+
+> ⛔ **NE PAS APPLIQUER** — le pilotage de navigateur headless / Puppeteer / CDP est **interdit**
+> dans ce projet depuis 2026-09-28 (voir la règle dans `AGENTS.md`) : il ralentit le processus de
+> développement. Entrée conservée comme **historique**.
+
+tag: `knowledges`
+
+Pour tester un champ fichier/image (`q-image-picker`, `q-file-picker`) sans boîte de
+dialogue, le CDP dépose de vrais fichiers dans un `<input type=file>` :
+
+1. obtenir une **référence d'objet** sur l'input (`Runtime.evaluate` avec
+   `returnByValue: false`) ;
+2. `DOM.setFileInputFiles({ objectId, files: [chemins absolus] })`.
+
+Pièges vérifiés :
+
+- **Chrome déclenche lui-même l'événement `change`** : en ajouter un second
+  (`dispatchEvent(new Event('change'))`) relance le gestionnaire avec un `input.files`
+  **vide** — le composant remet `input.value = ""` après lecture — et efface donc l'état
+  interne (message d'erreur de validation ✗). Symptôme typique : les vignettes sont bien là
+  mais l'erreur ne s'affiche jamais.
+- Le type MIME est déduit de l'extension par le navigateur : un `.txt` quelconque suffit à
+  tester un refus de type, un fichier volumineux (généré) un refus de taille — inutile de
+  fabriquer une vraie grosse image.
+- **Scoper les sondes** (`field.querySelector…`) : une requête `document.querySelectorAll`
+  ramène l'état de toutes les démos de la page et brouille la lecture (ex. deux journaux
+  d'événements fusionnés).
+
+## Champ formaté : symbole par `Intl`, curseur par comptage de chiffres — 2026-09-25
+
+tag: `knowledges` — `filename: packages/ui/lib/currency.ts`
+
+Deux techniques réutilisables pour tout champ qui **reformate sa valeur à la volée**
+(`q-input-currency`, masques, téléphone…), tirées de l'implémentation du champ montant :
+
+- **Place et espacement du symbole** : ne pas les coder en dur — `Intl.NumberFormat(locale,
+{ style: "currency", currency }).formatToParts(n)` donne une part `type: "currency"` dont
+  l'**index** dit si la devise passe avant (en-US) ou après (fr-FR), et le `literal` voisin
+  dit s'il y a une espace. `formatToParts(1234.5)` sur la locale nue donne aussi les
+  séparateurs décimal et de groupement (virgule/point, espace fine insécable en français).
+- **Curseur après reformatage** : mémoriser le **nombre de chiffres avant le curseur**
+  (`digitCountBefore`), reformater, puis replacer le curseur après le même nombre de chiffres
+  (`caretForDigitCount`). Un groupe inséré décale la chaîne mais pas le comptage de chiffres :
+  c'est la seule méthode qui survit à l'ajout d'un séparateur de milliers.
+- En corollaire : l'input doit être **réécrit à la main** (`el.value = formatted`) après
+  chaque frappe — s'en remettre au binding Vue ne suffit pas quand la valeur du modèle ne
+  change pas (frappe ignorée : lettres, séparateur en trop), le DOM garderait le texte tapé.
+- **Arrondi monétaire** : passer par la notation exponentielle (`Number(\`${value}e${n}\`)`,
+arrondi, puis `e-${n}`) — `Math.round(1.005 * 100)` vaut 100 à cause du binaire, ce qui
+  fait perdre un centime là où l'exponentielle donne 1,01.
+
+Et pour un test CDP : **vérifier l'hydratation** (`!!document.querySelector('#__nuxt')
+?.__vue_app__`) avant d'agir — attendre 7 s ne suffit pas si le serveur de dev recompilait,
+et les événements synthétiques partent alors dans le vide (aucun handler branché).
+
+## QR code : matrice → chemin SVG, et export PNG sans canvas côté serveur — 2026-09-25
+
+tag: `knowledges` — `filename: packages/ui/lib/qrcode.ts`, `packages/ui/components/QQrcode.vue`
+
+- **Encodage** : `qrcode` (déjà en dépendance, sans types → `declare module "qrcode"` dans
+  `shims.d.ts`) expose `create(text, { errorCorrectionLevel, version })` en **synchrone** →
+  `{ version, modules: { size, data: Uint8Array } }` (`data[y * size + x]`, 1 = module
+  sombre). `size` vaut `4 × version + 17` (21, 25, 29…). Une charge trop longue **jette**
+  (« The amount of data is too big… ») → toujours emballer dans un `try` et rendre
+  `undefined` (le composant se contente de ne rien afficher + `console.warn`).
+- **Rendu** : un QR est une grille de modules → un **seul `<path>`** avec une sous-forme par
+  **plage horizontale** (`M x y h largeur v1 h-largeur z`) est bien plus compact qu'un carré
+  par module (≈ 160 sous-formes pour un QR 25×25, contre 625 carrés) et reste net :
+  `shape-rendering="crispEdges"` + `viewBox` (le SVG se met à l'échelle depuis `width`, donc
+  `size="100%"` marche). L'encodage est du JS pur → le SVG est **dans le HTML SSR**.
+- **Zone de silence** : elle est _dans_ le `viewBox` (matrice + 2 × `margin` modules) — 4 par
+  défaut, c'est ce qu'attend un lecteur. Modules **sombres sur fond clair** : un QR inversé
+  n'est pas lu partout, d'où un fond blanc par défaut plutôt qu'un `background: transparent`.
+- **Export PNG** : dessiner la matrice sur un canvas module par module (pas besoin de
+  sérialiser le SVG ni de charger une image) ; attention, un canvas **ne résout pas**
+  `var(--token)` ni `currentColor` → passer par une sonde DOM (`getComputedStyle`) pour
+  obtenir une couleur calculée (`rgb(...)`) avant de la donner à `ctx.fillStyle`.
+- **Vérif navigateur** : attributs/`viewBox`, `getBoundingClientRect()` égal à `size`,
+  `fill` calculé du tracé, et la taille du PNG relue dans l'en-tête IHDR (octets 16-24) — un
+  contrôle précis sans dépendre d'un décodeur QR.
+
+## MDC — complément : vérifier l'équilibre des directives sur **toutes** les pages — 2026-09-25
+
+tag: `warnings` (complément de « un `::` de fermeture manquant avale la fin de la page »)
+
+Après toute retouche de contenu, lancer la boucle ci-dessous : elle ne signale que les pages
+**déficitaires** (elle ignore les autres directives, type `::prose-callout`, qui ajoutent
+elles aussi une fermeture — d'où la comparaison à `>` et non à `!=`).
+
+```sh
+cd docui/content/docs
+for f in $(find . -name "*.md"); do
+  sc=$(grep -c '::prose-show-case' "$f"); card=$(grep -c '::prose-card' "$f"); cl=$(grep -cE '^::$' "$f")
+  [ "$((sc + card))" -gt "$cl" ] && printf "MANQUE %-46s show=%s card=%s fermetures=%s\n" "$f" "$sc" "$card" "$cl"
+done
+```
+
+Trois blocs étaient encore ouverts le 2026-09-25 (`4.components/qrcode.md`, deux pages Maps
+plus tôt) : toutes les pages sont désormais équilibrées.
+
+## Inventaire composants — lacunes vs catalogue Quasar — 2026-09-28
+
+tag: `knowledges` — `namespace: dnax.ui` — `filename: packages/ui/index.ts`
+
+Environ 144 composants publics dans `packages/ui/components/` (hors `_QBtnActionsLegacy.vue`),
+confrontés au catalogue Quasar (skill `quasar`). **Absents, sans équivalent** :
+
+- **Formulaires (cluster principal)** : `QForm` (validation groupée), `QField` (wrapper de champ
+  custom), `QToggle` (interrupteur — `QSkeleton` prévoit déjà un type `QToggle` + CSS dédié),
+  `QOptionGroup`, `QRange` (double curseur), `QKnob`, `QColorPicker`.
+- **Données** : `QBanner`, `QMarkupTable` (table HTML stylée, distincte de `QTable`), `QTree`.
+- **Overlays / navigation** : `QMenu` (menu libre / contextuel — partiellement couvert par
+  `QBtnDropdown` + `QNavMenu`), `QPopupEdit`,
+  `QStepper` + `QStep` + `QStepperNavigation`, `QSlideTransition`, `QResponsive`, `QToolbarTitle`,
+  `QAjaxBar`.
+- **Directives manquantes** : `v-scroll`, `v-scroll-fire`, `v-mutation`, `v-morph`.
+- **Plugins manquants** : `$q.loadingBar`, `$q.cookies`, `$q.meta`, `$q.addressbarColor`,
+  `$q.appFullscreen`, `$q.appVisible`, `$q.lang`, utils `date` / `color`, `EventBus`.
+- **Implémentés le 2026-09-28** : `QTime`, `QTimeline` + `QTimelineEntry`, `QItemLabel`, `QPopupProxy`
+  (démos + pages de doc ; styles en `<style scoped>` dans chaque SFC).
+- **Hors-Quasar (ajout 2026-09-28)** : `QInputChat` — composer de chat (textarea auto-extensible +
+  bouton d'envoi, Entrée envoie / Maj+Entrée saute une ligne, safe-area bas).
+
+**Équivalences assumées** (ne pas re-signaler comme manquantes) : `QDrawer` → `QSidebar` ;
+`QPageScroller` → `QBackTop` ; `QPageSticky` → `QSticky` ; `QChatMessage` → `QBubble` ;
+`QExpansionItem` → `QAccordion` ; `QSlideItem` → `QSwipeCell` ; `QDate` → `QDatePicker` ;
+`QEditor` → `QTiptap`. `QVideo` a été supprimé volontairement (voir `decisions.md`).
+
+**Housekeeping** : `packages/ui/components/_QBtnActionsLegacy.vue` n'est pas exporté par
+`index.ts` — code mort à confirmer puis supprimer.
+
+## Onglet « Methods » de `<dnax-api>` : `defineExpose` en forme explicite — 2026-09-28
+
+tag: `knowledges` — `namespace: dnax.ui` — `filename: packages/ui/components/QTime.vue`,
+`docui/scripts/component-parse.ts`
+
+`methodsOf()` (`docui/scripts/component-parse.ts`) lit les méthodes exposées avec la regex
+`(?:^|[,;\n])\s*([A-Za-z_$][\w$]*)\s*:` — elle exige un **deux-points** après chaque nom.
+
+- Conséquence : la forme abrégée `defineExpose({ show, hide, toggle })` (utilisée par
+  `QPopupProxy`, `QSwipeCell`, `QRollingText`, `QCountDown`…) donne une liste **vide** →
+  l'onglet Methods de `<dnax-api>` n'apparaît pas.
+- Pour qu'elles soient documentées, écrire la forme explicite
+  `defineExpose({ show: show, hide: hide, toggle: toggle })` (fait pour `QTime`).
+- L'analyse ne lit pas le type : c'est le **nom de clé** qui compte, la valeur peut être une
+  fonction locale (`select: select`, `getItems: () => …`).
+
+## QItemLabel — libellé de la famille QItem — 2026-09-28
+
+tag: `knowledges` — `namespace: dnax.ui` — `filename: packages/ui/components/QItemLabel.vue`
+
+`QItemLabel` comble une lacune de la famille List (inventaire ci-dessus).
+
+- API Quasar : `<q-item-label overline caption header :lines="2" color="primary">`.
+  Props booléennes = modifiers **cumulables** ; `lines?: number` (0 = pas de clamp,
+  `-webkit-line-clamp`) ; `color?: string` via `colorValue()` ; `tag?: string` (défaut `"div"`).
+- Classes BEM `q-item__label` / `--caption` / `--overline` / `--header` / `--clamp`,
+  styles **scoped dans le composant** (jamais dans `styles/main.css`).
+- Ordre CSS imposé pour que les modifiers se cumulent proprement : `caption` → `overline`
+  → `header` (le dernier déclaré gagne en cas de conflit de taille/couleur).
+- Troncature pilotée par la var CSS `--q-item-label-lines` (posée inline quand `lines > 0`).
+- Démo `labels` dans `docui/app/components/demos/DnaxDemoList.vue` ; doc `## Item label`
+  - `:dnax-api{name="QItemLabel"}` dans `docui/content/docs/4.components/list.md`.
+
+## QInputChat — Entrée/IME, auto-extension et barre (options / « + ») — 2026-09-28
+
+tag: `knowledges` — `namespace: dnax.ui` — `filename: packages/ui/components/QInputChat.vue`
+
+- **Entrée** : `Enter` sans Shift/Alt/Ctrl/Meta → `send()` + `preventDefault()`. **Jamais**
+  pendant une composition IME : flag `composing` (compositionstart/compositionend) **et**
+  `KeyboardEvent.isComposing`. Sinon confirmer un candidat chinois/japonais avec Entrée
+  enverrait le message.
+- **Auto-extension** : hauteur remise à `auto` **avant** de mesurer `scrollHeight`, puis
+  `height = min(scrollHeight, cap)` ; `cap = lineHeight * maxRows + padding`, `lineHeight`
+  mesurée via `getComputedStyle` (jamais supposée). `overflow-y: auto` dès que le contenu
+  dépasse le plafond, `hidden` sinon. L'attribut `rows` fixe la hauteur de base (min =
+  `rows` lignes) ; `autogrow: false` → `rows` fixe.
+- **SSR** : `getComputedStyle` n'est appelé que côté client (`nativeEl` null en SSR → early
+  return) → pas de crash SSG.
+- **CSS scoped** : les règles globales `.q-input .q-field__native` sont scopées à `.q-input`
+  → recopier le nécessaire sous `.q-input-chat__native` (flex:1, min-width:0, border/outline
+  none, `font: inherit`). Mode sombre : motif du dépôt `.dark .q-input-chat__native` (+ classe
+  `--dark` pour la prop `dark`), **pas** `:global(.dark)` (cf. warnings).
+- **Hauteur d'une ligne** : portée par `--q-input-chat-field-height` /
+  `--q-input-chat-field-padding` déclarées sur la racine `.q-input-chat` et lues par
+  `.q-input-chat__native` (`min-height`/`padding`, `line-height: 20px` constant). Valeurs :
+  **44px/12px** par défaut (le champ « basic » s'assied un peu plus haut qu'un champ simple à
+  40px), **38px/9px** quand la prop `padding` est fournie (classe interne
+  `q-input-chat--custom-padding` : le contrôle porte la hauteur du plein composeur, le textarea
+  revient à la hauteur standard), **32px/6px** avec `dense`. `min-height` et `padding` restent
+  appariés (`20px + 2×padding`) pour centrer la ligne — `box-sizing: border-box` global.
+- **Bouton d'envoi « inline »** (mode basic, sans barre : `.q-input-chat__control
+.q-input-chat__send`) : ramené à **30px** (`--q-btn-h`, même échelle que `.q-btn--dense` et
+  les pastilles) + `font-size: 12px` (icône `.q-btn__icon` = 1.2em = 14,4px), sinon le `round`
+  de 36px par défaut remplit la hauteur du champ d'une ligne et mange la largeur du texte. Le
+  sélecteur à **2 classes** est nécessaire : `.q-btn`/`.q-btn--md` redéclarent `--q-btn-h` et
+  `font-size` **sur l'élément** (l'héritage ne suffit pas — cf. entrée QBtnActions) ;
+  `flex: none` empêche la compression ; `align-self: flex-start` + `margin-top:
+calc((var(--q-input-chat-field-height) - 32px) / 2)` l'ancre **en haut** : centré sur la
+  première ligne quand il n'y en a qu'une, **en haut à droite** quand le textarea grandit
+  (autogrow) au lieu de descendre avec lui (0 en `dense`). La **copie de la barre** est elle
+  aussi à 30px (`.q-input-chat__tools .q-input-chat__send`) pour s'aligner sur les pastilles
+  et les outils, sans marge (centrée par `align-items: center` de `.q-input-chat__tools`).
+  `#prepend`/`#append` inline sont centrés dans la ligne (`align-items: center` du contrôle).
+- **Barre** : `.q-input-chat__toolbar` rendue si `options.length || #options || actions.length
+|| #actions || #tools || attach` ; le bouton d'envoi est alors rendu dans
+  `.q-input-chat__tools` (sinon inline dans le contrôle). Options à gauche (avant le « + »),
+  outils + envoi à droite. Padding de la barre : `6px 0 10px` (options collées au bord
+  gauche, 6px de tête), `gap: 0`. Prop `padding-options` : valeur CSS → `--q-input-chat-options-padding`,
+  appliquée en `padding-inline` (gauche/droite) de `.q-input-chat__toolbar` (pastilles + envoi).
+  Séparateur `|` (`.q-input-chat__toolbar-separator`) rendu entre pastilles et « + » seulement
+  si les deux zones sont présentes (`showOptionsSeparator`).
+- **Options** : état interne `localOptions` synchronisé sur la prop par `watch` → le composant
+  marche avec **ou sans** `v-model:options` ; au clic il émet `update:options` avec un
+  **nouveau tableau** (toggle `active`, option retrouvée par `_id` sinon par index) + `option`.
+- **Menu du « + »** : `menuActions` = entrée attach (valeur sentinelle `ATTACH_VALUE`) +
+  actions mappées ; chaque entrée porte `__chatAction` pour retrouver le `ChatAction`
+  d'origine au `@select-action` de QBtnActions (qui renvoie `value`, sinon l'entrée
+  elle-même).
+- **Styler un `QBtnActions` imbriqué depuis un parent scoped** : l'héritage de `--q-btn-bg`
+  **ne suffit pas** — `.q-btn`/`.q-btn--primary` **redéclarent** ces variables sur le trigger
+  lui-même, écrasant la valeur héritée. Cibler le trigger :
+  `.q-input-chat__add :deep(.q-btn-actions__trigger)` (le sélecteur porteur de
+  l'attribut de scope est le **nœud racine** de QBtnActions, qui reçoit l'attribut du
+  parent ; le trigger est descendu en `:deep`). Côté démo :
+  `.vibe-model :deep(.q-btn-actions__trigger)`. Rappel : un style scoped parent ne cible
+  pas le contenu de slot → c'est la démo qui style ses propres boutons de `#prepend`/`#append`.
+- **`QBtnActions` ne transmet PAS `aria-label` à son trigger** : les attributs en trop
+  (dont `aria-label`) tombent sur la **div racine** `.q-btn-actions` (mono-racine), pas sur
+  le `<q-btn>` interne — qui n'a donc pas de nom accessible (icône `aria-hidden`,
+  `aria-haspopup`/`aria-expanded` seulement). Passer `:aria-label` reste documenté côté
+  QInputChat (`actionsLabel`) mais l'effet réel est limité ; corriger vraiment suppose de
+  toucher `QBtnActions` (interdit ici).
+- Démo `DnaxDemoInputChat.vue` (`basic`, `variants`, `states`, `slots`, `autogrow`,
+  `options`, `files`, `actions`, `deepseek`, `vibe`, `tools`) ; page
+  `docui/content/docs/4.components/input-chat.md`.
+
+## Porte d'hydratation **non mutante** pour piloter une page Nuxt en CDP — 2026-09-28
+
+> ⛔ **NE PAS APPLIQUER** — le pilotage de navigateur headless / Puppeteer / CDP est **interdit**
+> dans ce projet depuis 2026-09-28 (voir la règle dans `AGENTS.md`) : il ralentit le processus de
+> développement. Entrée conservée comme **historique**.
+
+tag: `knowledges` — `namespace: dnax.ui` — `filename: .memory/knowledges.md`
+
+Pour tester une interaction au clic juste après le chargement d'une page Nuxt en headless : la
+détection habituelle (`document.querySelector('#__nuxt').__vue_app__`) est posée par `app.mount()`
+**avant** la fin de l'hydratation → le premier clic part dans le vide. La « porte » qui consistait à
+`el.click()` puis `Escape` en boucle **mute le DOM** et, si elle tourne pendant l'hydratation,
+produit un `[Vue warn] Hydration attribute mismatch` — faux positif d'outillage, pas un bug du
+composant (vu sur `textarea value="…"` avec `QInputChat`).
+
+**Solution retenue** : attendre un marqueur **non mutant**, p. ex. `el.__vueParentComponent` posé
+sur un élément du composant (absent du HTML SSR) :
+
+```js
+await waitFor(
+  () => !!document.querySelector(".q-input-chat__native")?.__vueParentComponent,
+);
+```
+
+puis seulement les vrais `Input.dispatchMouseEvent` / `dispatchKeyEvent`. Plus aucune alerte
+d'hydratation, et les tests d'interaction restent fiables.

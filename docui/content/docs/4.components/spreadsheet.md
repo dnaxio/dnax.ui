@@ -1,26 +1,93 @@
 ---
 title: Spreadsheet
 description: An Excel-like editable grid — typed cells, A1 formulas, filters,
-  freeze panes, multi-sheet workbooks and CSV/JSON export.
+  freeze panes, change tracking, multi-sheet workbooks and CSV/JSON export.
 navigation:
   icon: lucide:table
 seo:
   title: Spreadsheet (QSpreadsheet)
-  description: QSpreadsheet — an Excel-like editable grid with A1 formulas, typed cells, filters and multi-sheet workbooks.
+  description: QSpreadsheet — an Excel-like editable grid with A1 formulas, typed cells, filters, change tracking (dirty + added/updated/deleted rows & sheets) and multi-sheet workbooks.
 ---
 
 An Excel-like editable grid: cells are selected (click, `Shift`+click, drag),
 navigated with the keyboard and edited in place
 (`Enter`/`F2`/double-click/type-to-replace). Rows and columns can be added or
 removed from the toolbar, columns sorted and resized, and the content copied /
-pasted with `Ctrl`+`C` / `Ctrl`+`V` (with undo / redo). Cells are typed:
-`string` / `text`, `number`, `integer`, `email`, `url`, `date`, `datetime`,
-`boolean` (checkbox) and `select` — the latter renders as **colored badges** and
-edits through a filterable option list. Cells also support **A1 formulas**
-(`=SUM(D1:D4)`, `=B1*C1`, `$D$5` absolutes) with a live-recalculated value, an
-in-cell monospace formula editor and an **fx bar** above the grid. Pass
-`v-model:sheets` for a **multi-sheet workbook** (tabs, rename, per-sheet state)
-and use `toJSON()` / `exportCsv()` to serialize it.
+pasted with `Ctrl`+`C` / `Ctrl`+`V` (with undo / redo). Every column declares a
+**cell type**, which drives its editor, the value stored in `rows` and the way it is
+displayed — all of them are listed in the table at the top of this page. Cells also
+support **A1 formulas** (`=SUM(D1:D4)`, `=B1*C1`, `$D$5` absolutes) with a
+live-recalculated value, an in-cell monospace formula editor and an **fx bar** above
+the grid. Pass `v-model:sheets` for a **multi-sheet workbook** (tabs, rename,
+per-sheet state) and use `toJSON()` / `exportCsv()` to serialize it.
+
+## Cell types
+
+A column declares its `type` — optional, since a missing one behaves like `string`. The table
+below is the **complete list** of cell types: the editor each one opens, the value it stores in
+`rows`, and how it is displayed. The worked examples come after it.
+
+| `type` | Editor | Stored value | Rendering / notes |
+| --- | --- | --- | --- |
+| `string` · default | text input | string — `"Ada"` | left aligned; `format` applies |
+| `text` | text input | string (may hold newlines) | alias of `string`; wraps once the row is wrapped (`Wrap text`) |
+| `number` | numeric input (`inputmode="decimal"`) | number — `18.5` | right aligned; use `format` for `$` / `%` |
+| `integer` | numeric input (`inputmode="numeric"`) | number, truncated (`Math.trunc`) — `39` | right aligned |
+| `email` | native `type="email"` | string — `"ada@dnax.dev"` | mobile keyboard / native hint |
+| `url` | native `type="url"` | string — `"https://dnax.dev"` | mobile keyboard / native hint |
+| `boolean` | checkbox — a click on the cell toggles it | `true` / `false` | no text editor (`Enter` / typing don't open one) |
+| `date` | native date picker | ISO string — `"2026-12-31"` | stored ISO; display it through `format` |
+| `datetime` | native `datetime-local` picker | ISO string — `"2026-09-07T09:30"` | stored ISO; display it through `format` |
+| `select` | filterable option list (`options`) | the option `value` — `"tea"` | a colored badge with `chip: true`, else its label |
+| `multiselect` | checkbox option list (`options`) | an **array** of `value`s — `["tea","beer"]` (`[]` when empty) | one badge per value with `chip: true`, else the labels joined with `, ` |
+
+Two rules hold for **every** type:
+
+- A value starting with `=` is a **formula** whatever the type (except `boolean`, `select` and
+  `multiselect`): `rows` keeps the source (`"=B1*C1"`) and the cell shows the computed result.
+- An empty cell is stored as `null` (an empty `multiselect` as `[]`).
+
+`options` only applies to `select` / `multiselect` (detailed in **Single & multiple choice**
+below), and `chip` only changes how they render. `format`, `align`, `cellClass` /
+`cellBackground` and `validation` are **orthogonal** to the type — they change the display or
+reject the input, never the stored value (see **Columns — the schema** further down).
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="types"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const columns = [
+  { name: "product", label: "Product", width: 150 },
+  { name: "category", label: "Category", type: "select", chip: true, options: [ /* … */ ] },
+  { name: "price", label: "Price", type: "number", format: (v) => (v == null ? "" : "$" + Number(v).toFixed(2)) },
+  { name: "stock", label: "Stock", type: "integer" },
+  { name: "inStock", label: "In stock", type: "boolean" },
+  { name: "bestBefore", label: "Best before", type: "date" },
+  { name: "lastCheck", label: "Last check", type: "datetime", format: (v) => (v ? new Date(v).toLocaleString() : "") },
+]
+
+const rows = ref([
+  { product: "Chai", category: "tea", price: 18, stock: 39, inStock: true, bestBefore: "2026-12-31", lastCheck: "2026-09-07T09:30" },
+  // …
+])
+</script>
+
+<template>
+  <q-spreadsheet
+    v-model:rows="rows"
+    :columns="columns"
+    height="250px"
+    bordered
+    default-col-width="120"
+  />
+</template>
+```
+::
 
 ## Inline editing
 
@@ -119,21 +186,24 @@ const rows = ref([
 ```
 ::
 
-## Cell types
+## Single & multiple choice
 
-The editor adapts to the column `type`: `string` / `text` and `email` / `url`
-open dedicated inputs (mobile keyboards, native hints), `number` (decimals,
-`step="any"`) and `integer` (whole numbers, coerced with `Math.trunc`) use a
-numeric input and align right, `date` opens the native date picker, `datetime`
-the native `datetime-local` picker, `boolean` renders a checkbox and
-`select` + `chip` shows colored badges (pass `options` with `label` / `value` /
-`color` — a token like `"positive"` or any CSS color). `format` customizes the
-displayed value without touching the stored one (here: prices as `$`,
-timestamps localized). For real validation (required / regex / range) add
-`validation` on the column.
+Both types render the `options` you declared in the **Cell types** table (`{ value, label,
+color? }`), and in both cases the stored value is the option **`value`**, never its label. The
+difference is **how many values a cell holds** and **how you pick them**:
+
+- **`select` — one value.** The editor is a type-to-filter list: `↑` / `↓` move the highlight,
+  `Enter` picks the highlighted option **and closes** the editor.
+- **`multiselect` — several values** (an array). The editor is a checkbox list: every tick is
+  written to `v-model:rows` **straight away**, so the editor stays open while you pick (one
+  `cell-change` per tick). `Enter` closes it when the filter is empty and ticks the highlighted
+  match while you are narrowing the list; `Esc` / clicking away also closes it.
+
+With `chip: true` each value renders as a **colored badge** (they wrap inside the cell for a
+`multiselect`); without it the labels are joined with `, `.
 
 ::prose-show-case
-:dnax-demo-spreadsheet{demo="types"}
+:dnax-demo-spreadsheet{demo="choice"}
 
 #code
 
@@ -142,32 +212,48 @@ timestamps localized). For real validation (required / regex / range) add
 import { ref } from "vue"
 
 const columns = [
-  { name: "product", label: "Product", width: 150 },
-  { name: "category", label: "Category", type: "select", chip: true, options: [ /* … */ ] },
-  { name: "price", label: "Price", type: "number", format: (v) => (v == null ? "" : "$" + Number(v).toFixed(2)) },
-  { name: "stock", label: "Stock", type: "integer" },
-  { name: "inStock", label: "In stock", type: "boolean" },
-  { name: "bestBefore", label: "Best before", type: "date" },
-  { name: "lastCheck", label: "Last check", type: "datetime", format: (v) => (v ? new Date(v).toLocaleString() : "") },
+  { name: "task", label: "Task" },
+  {
+    name: "priority",
+    label: "Priority",
+    type: "select",
+    chip: true,
+    options: [
+      { value: "low", label: "Low", color: "#dcfce7" },
+      { value: "high", label: "High", color: "#fee2e2" },
+    ],
+  },
+  {
+    name: "tags",
+    label: "Tags",
+    type: "multiselect",
+    chip: true,
+    options: [
+      { value: "design", label: "Design", color: "#ede9fe" },
+      { value: "backend", label: "Backend", color: "#dcfce7" },
+    ],
+  },
 ]
 
 const rows = ref([
-  { product: "Chai", category: "tea", price: 18, stock: 39, inStock: true, bestBefore: "2026-12-31", lastCheck: "2026-09-07T09:30" },
-  // …
+  { task: "Landing hero", priority: "high", tags: ["design", "backend"] },
 ])
 </script>
 
 <template>
-  <q-spreadsheet
-    v-model:rows="rows"
-    :columns="columns"
-    height="250px"
-    bordered
-    default-col-width="120"
-  />
+  <q-spreadsheet v-model:rows="rows" :columns="columns" height="230px" bordered />
+  <!-- stored: priority "high" · tags ["design","backend"] -->
+  <p>{{ JSON.stringify(rows[0]?.priority) }} · {{ JSON.stringify(rows[0]?.tags) }}</p>
 </template>
 ```
 ::
+
+Opening a `multiselect` cell shows a filter box and the full list, the current values already
+ticked. Each tick is written straight into `v-model:rows` (one `cell-change` per toggle, so
+you can pick several in a row); `Enter` closes the editor when the filter is empty and ticks
+the highlighted match when you are narrowing the list, while `Esc` / clicking away closes it.
+Filtering, sorting, copy / CSV export and find all read the **labels**, while the underlying
+array keeps the option `value`s.
 
 ## Formulas (A1)
 
@@ -611,7 +697,9 @@ recalculate live, can be edited by clicking a chip and are part of `toJSON()`.
 `required` (empty rejected), `list` (allowed values), `message`; plus the
 `validators` prop for **cell ranges**: `[{ r0, c0, r1, c1, validation }]`.
 Invalid input is rejected, the cell turns red and the message shows as a
-tooltip. Try typing `150` in Score here.
+tooltip. Try typing `150` in Score here. On a `multiselect` the rules apply **per
+value** (each one must be allowed) and an empty array counts as empty, so
+`required` rejects it.
 
 ::prose-show-case
 :dnax-demo-spreadsheet{demo="layout"}
@@ -768,21 +856,10 @@ const rows = ref([
 
 ### Rows — how values are stored
 
-`rows` is an array of plain objects, one per row. Keys are the **column
-names**; the value shape depends on the column `type`:
-
-| Column type | Stored value | Example |
-| --- | --- | --- |
-| `string` / `text` | string | `"Ada"` |
-| `number` | number | `18.5` |
-| `integer` | whole number (truncated on input) | `39` |
-| `email` / `url` | string | `"ada@dnax.dev"` |
-| `boolean` | true / false | `true` |
-| `date` | ISO `YYYY-MM-DD` | `"2026-12-31"` |
-| `datetime` | ISO `YYYY-MM-DDTHH:mm` | `"2026-09-07T09:30"` |
-| `select` | the option `value` (not its label) | `"tea"` |
-| any | formula source when it starts with `=` (displayed = result) | `"=B1*C1"` |
-| empty | `null` | `null` |
+`rows` is an array of plain objects, one per row; the **keys are the column names**. The shape of
+each value is the one given by its column `type` — the **Cell types** table at the top of this
+page lists them all, with the two rules that apply everywhere (an empty cell is `null`, a value
+starting with `=` is a formula source).
 
 ```ts
 const rows = [
@@ -828,11 +905,11 @@ follow the array order).
 | `label` | string | Header text (defaults to `name`) |
 | `width` | number · string | Column width (px or CSS) — draggable on the header |
 | `minWidth` / `maxWidth` | number | Resize bounds (60 / 600 default) |
-| `type` | `string`, `text`, `number`, `integer`, `email`, `url`, `date`, `datetime`, `boolean`, `select` | Editor & stored format (see table above) |
+| `type` | `string`, `text`, `number`, `integer`, `email`, `url`, `date`, `datetime`, `boolean`, `select`, `multiselect` | Editor, stored value & rendering — see the **Cell types** table |
 | `editable` | boolean · default `true` | `false` locks the column |
 | `align` | `left` / `center` / `right` | Text alignment (numbers right by default) |
-| `options` | `{ value, label, color? }[]` | For `select` — chips with `chip: true` |
-| `chip` | boolean | Renders `select` values as colored badges |
+| `options` | `{ value, label, color? }[]` | For `select` / `multiselect` — chips with `chip: true` |
+| `chip` | boolean | Renders `select` / `multiselect` values as colored badges |
 | `validation` | `{ min?, max?, integer?, pattern?, message? }` | Input validation (rejects & marks the cell red) |
 | `format` | `(value, row) => any` | Display formatter (stored value untouched) |
 | `cellClass` / `cellBackground` | `(value, row) => …` | Per-cell class / background |
@@ -862,6 +939,75 @@ plus `required` / `list`). **Sheets** (`v-model:sheets`) is an array of
 `version: 1`, `active` and per-sheet `formats` / `widths` / `rowHeights` /
 `filters` / `rules` (conditional formatting) / `merges` / `hiddenRows` /
 `hiddenCols`.
+
+## Change tracking — `dirty` & `changes`
+
+Besides the document itself, the grid can tell you **what changed** since a reference point (the
+document you loaded, or the last save): `v-model:dirty` is the indicator, `v-model:changes` the
+delta.
+
+- **`dirty`** — `true` as soon as the document (`toJSON()`) differs from the reference, formatting
+  and layout included. Wire it to a save button, or to a “leave without saving?” guard.
+- **`changes`** — the delta, organised by **level** like the data model itself:
+
+| Level | Arrays | Identity |
+| --- | --- | --- |
+| `rows` | `added` · `updated` · `deleted` | the row `_key` |
+| `sheets` | `added` · `updated` · `deleted` | the sheet `key` |
+| `extras` | `["formats", "widths", "filters", …]` | which other parts of the document changed |
+
+An `updated` row is `{ sheet, key, before, row, columns }` — `columns` naming what actually
+changed; an `added` / `deleted` row is `{ sheet, key, row }`. `count` totals the touched rows and
+sheets, handy for a badge.
+
+The delta is **computed by comparing** two snapshots of the document, never by logging
+operations. So it stays right whatever path the change took (typing, paste, autofill, sort,
+reorder, CSV import, undo/redo, a programmatic `loadDocument()`…) and it reports the **net**
+state — re-typing a cell's original value, or adding a row then deleting it again, leaves the
+grid clean. A sheet added carries its rows in `sheets.added` (they are not repeated under
+`rows`), and switching the active tab is never a change.
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="changes"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref, useTemplateRef } from "vue"
+import type { QSpreadsheetChanges } from "@dnax/ui"
+
+const rows = ref([ /* … */ ])
+const dirty = ref(false)
+const changes = ref<QSpreadsheetChanges>()
+const grid = useTemplateRef<{ acceptChanges: () => void }>("grid")
+
+const save = async () => {
+  await api.save({ rows: rows.value })
+  grid.value?.acceptChanges() // the current state becomes the new reference
+}
+</script>
+
+<template>
+  <q-spreadsheet
+    ref="grid"
+    v-model:rows="rows"
+    v-model:dirty="dirty"
+    v-model:changes="changes"
+    :columns="columns"
+  />
+
+  <q-btn :disable="!dirty" label="Save" @click="save" />
+  <!-- changes.rows.updated[0] → { sheet, key, before, row, columns } -->
+</template>
+```
+::
+
+`acceptChanges()` makes the current state the new reference (call it after a successful save);
+`revertChanges()` goes back to the reference — it reloads the document, so the undo history is
+reset; `getChanges()` returns the delta on demand. `show-changes` (on by default) draws the
+indicator in the status bar: a count with the breakdown in its tooltip — `:show-changes="false"`
+hides it while keeping both models active.
 
 ## API
 

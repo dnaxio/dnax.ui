@@ -779,7 +779,7 @@ SUPPRESSION (`minus` / `x`) n'ont pas été touchés (hors demande).
 
 ## Fermeture au clic extérieur : listeners en phase de CAPTURE — 2026-09-10
 
-`filename: packages/ui/components/{QBtnActions,QSelect,QAutocomplete,QDatePicker,QCountryPicker,QNavMenu,QFab,QSwipeCell,QSpreadsheet,QTiptap}.vue`
+`filename: packages/ui/components/{QBtnActions,QSelect,QAutocomplete,QDatePicker,QCountryPicker,QNavMenu,QFab,QSwipeCell,QSpreadsheet,QTiptap (supprimé le 2026-09-28)}.vue`
 
 Demande : « si on clique outside le popup ou le bouton ça doit fermer » pour
 `q-btn-actions` / `q-btn-dropdown`, `q-select`, `q-autocomplete`, `q-date-picker`
@@ -795,7 +795,7 @@ avant les `stopPropagation` de la bulle, donc la fermeture fonctionne aussi dans
 Ops concernés (de nature identique, traités en un lot) : `QBtnActions` (→
 `QBtnDropdown`), `QSelect`, `QAutocomplete`, `QDatePicker`, `QCountryPicker`,
 `QNavMenu`, `QFab`, `QSwipeCell`, `QSpreadsheet` (menu contextuel / filtre /
-suggestions) et `QTiptap` (palette de couleurs).
+suggestions) et `QTiptap` (supprimé le 2026-09-28 ; palette de couleurs).
 
 Vérif : `bun run generate` → 0 erreur ; `diagnostics` projet → 0 erreur /
 0 warning ; `bun test packages/ui/lib` → 41/41. Le comportement (fermeture) se
@@ -1475,6 +1475,7 @@ la **jointure** reste par **mark** (`link`) — deux questions différentes.
 - À ne pas réintroduire sans demande : les données Editor.js sont du **JSON**
   (`{ time?, blocks: [{ type, data }], version? }`), pas du HTML — incompatible avec le
   `v-model` HTML de `QTiptap`, et le seul composant qui portait ce format.
+  Mise à jour (2026-09-28) : QTiptap lui-même a été supprimé — le design system ne propose plus d'éditeur riche (voir l'entrée dédiée).
 
 ## QDatePicker : mode `popover` (+ `today-btn`, `month-dropdown`) — 2026-09-17
 
@@ -1635,5 +1636,817 @@ Ajout du conteneur de page Quasar, pour que le markup Quasar fonctionne tel quel
   utilise désormais le conteneur.
 - Vérif : `bun run generate` → 140 exports (QPageContainer ajouté) ; `bun test
 packages/ui/lib` 162/162 ; `curl /docs/layouts/page` et `/docs/layouts/app-layout` →
-  200, `class="q-page-container"` rendu (aucune balise non résolue) ; `diagnostics`
+  `class="q-page-container"` rendu (aucune balise non résolue) ; `diagnostics`
   QPageContainer → 0 erreur.
+
+## QMap — cartes MapTiler, section docs « Maps » — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QMap.vue`, `packages/ui/lib/map.ts`
+
+Nouveau composant **`<q-map>`** : carte interactive basée sur le **SDK JS MapTiler v4**
+(MapLibre GL JS), sur le modèle de `<q-chart>` (props → helpers purs → instance).
+
+- **API** : `provider` (`maptiler` par défaut, `openstreetmap` = raster sans clé — alias
+  `osm` / `openstreet` résolus par `providerOf`, valeur inconnue → `maptiler` + avertissement
+  `isKnownProvider`), `api-key`,
+  `map-style` (nom court `streets`, `dataviz`, `outdoor`… → `MapStyle.<KEY>` + variante
+  `.DARK`), `center` (`[lng, lat]`, `"lng,lat"` ou `{ lng, lat }`), `zoom`, `height`
+  (nombre = px), `marks`, contrôles (`navigation`, `geolocate`, `scale`, `fullscreen`),
+  `terrain`, `projection`, `dark`, `label`, `options` (options brutes du SDK, fusionnées
+  en **dernier**). Events `ready`, `pick`, `error` ; expose `map` + `refresh()`.
+- **Marks** = objets littéraux plats (comme les marks de `<q-chart>`) : `type`
+  `marker` | `popup`, `position`/`lng`+`lat`, `label` (échappé) ou `html` (brut),
+  `color` (token dnax ou couleur CSS, normalisée par `lib/color.ts`), `open`, `offset`,
+  `draggable`. Une marque sans position valide est ignorée.
+- **Clé d'API** : prop `api-key` ou globalement `componentProps.QMap.apiKey` du
+  `QConfigProvider` ; sans clé, repli **assumé** sur le raster OpenStreetMap +
+  `console.warn` (le cadre n'est jamais vide) ; la doc utilise
+  `NUXT_PUBLIC_MAPTILER_API_KEY` (déclarée dans `runtimeConfig.public` de `docui`).
+- **Thème** : variante sombre du style suivie via la classe `.dark` du document
+  (MutationObserver), bulles et contrôles rethémés par les tokens dans
+  `styles/main.css` (`.q-map__popup .maplibregl-popup-content`, les 8 ancrages de la
+  pointe, `.maplibregl-ctrl-group`, icônes SVG inversées en sombre).
+- **CSS du SDK** : `@import "@maptiler/sdk/style.css"` en tête de `styles/main.css`
+  (inliné au build — choisi plutôt qu'un `import()` dynamique de CSS, non vérifiable ici).
+- **Docs** : nouvelle section `docui/content/docs/6.maps/` (`index.md` + `.navigation.yml`)
+  → `6.plugins` devient `7.plugins` et `7.directives` devient `8.directives` (les routes
+  `/docs/plugins/*`, `/docs/directives/*` sont inchangées, seul l'ordre change) ; démo
+  `docui/app/components/demos/DnaxDemoMap.vue` (`basic`, `marks`). **Écart assumé** avec la
+  règle des charts : la table des marques est écrite à la main dans `index.md` (pas de
+  `mark-parse`/`:dnax-mark-api` généralisé pour un seul composant).
+- Dépendance : `@maptiler/sdk@^4.1.0` (`bun install` racine **nécessaire** : `maplibre-gl`
+  et `@maptiler/client` ont été résolus à l'installation).
+- Vérif : `bun run generate` → 141 exports ; `bun test packages/ui/lib` 181/181 ;
+  `diagnostics` QMap → 0 erreur ; **rendu réel** en Chromium headless (cf.
+  `knowledges.md`) → `maplibregl-canvas`, 4 `maplibregl-marker`, 2 bulles
+  `q-map__popup` ouvertes, attribution « OpenStreetMap », aucune surcouche d'erreur,
+  aucun `[q-map]` dans la console.
+
+## Maps — sous-menu par fournisseur + clé MapTiler de la doc — 2026-09-25
+
+tag: `decisions` — `filename: docui/content/docs/6.maps/`, `docui/nuxt.config.ts`
+
+La section **Maps** devient un menu à sous-pages, une par fournisseur :
+
+- `6.maps/index.md` (vue d'ensemble : `q-map`, marks, deux cartes `::prose-card` vers les
+  fournisseurs, styles/dark en résumé, API) ;
+- `6.maps/01.maptiler.md` → **MapTiler** (fournisseur par défaut) : clé d'API et usage par
+  session, tableau complet des styles nommés + variantes, styles personnalisés (ID/URL),
+  terrain 3D et projection globe **réactifs**, contrôles, APIs clientes du SDK ;
+- `6.maps/02.openstreetmap.md` → **OpenStreetMap** (`provider="openstreetmap"`, sans clé,
+  repli automatique) : ce qu'on perd, l'attribution et la politique d'usage des tuiles.
+- Démos ajoutées dans `DnaxDemoMap.vue` : `styles` (bascule live du style), `terrain`
+  (terrain + globe), `openstreetmap`.
+
+**Clé d'API** : `runtimeConfig.public.maptilerApiKey` de `docui/nuxt.config.ts` porte la clé
+de démo (surchargée par `NUXT_PUBLIC_MAPTILER_API_KEY`). C'est une clé de **navigateur** :
+elle part dans chaque requête de tuiles, donc dans le bundle client quoi qu'il arrive → à
+restreindre par domaine dans la console MapTiler plutôt qu'à cacher (documenté dans
+01.maptiler.md). `docui/.gitignore` couvre désormais `.env` (le dépôt ne suivait que
+`.env.example`).
+
+- Vérif : `/docs/maps`, `/docs/maps/maptiler`, `/docs/maps/openstreetmap` → 200 ; sous-menu
+  présent dans la sidebar (Maps → MapTiler → OpenStreetMap) ; Chromium headless : les deux
+  démos de la page MapTiler chargent le style MapTiler (`© MapTiler` ×2, canvas, 0 erreur
+  console) ; `bun test packages/ui/lib` 181/181 ; `diagnostics` QMap / DnaxDemoMap → 0 erreur.
+- **`map-style` et non `style`** : la prop de style de carte a été renommée après un échec
+  de vérification de types (`style` est un attribut réservé par Vue — cf. `warnings.md`).
+  L'option du SDK garde son nom (`style`) dans `lib/map.ts`.
+
+## QMap — moteurs interchangeables : MapTiler + Leaflet, props `tiles` — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/lib/mapEngine.ts`, `packages/ui/lib/mapLeaflet.ts`
+
+`<q-map>` devient multi-moteurs : `provider` choisit un **moteur** derrière un contrat
+commun (`lib/mapEngine.ts`), et le composant ne connaît plus que ce contrat.
+
+- Contrat `MapEngine` : `native`, `setView`, `setStyle(style, dark?)`, `setRaster?`,
+  `setMarks`, `setTerrain`, `setProjection`, `resize`, `destroy`, `onReady`. Ce qu'un
+  moteur ne sait pas faire est un **no-op** (Leaflet : pas de style vectoriel, de relief
+  ni de projection).
+- Moteurs : `lib/mapMaptiler.ts` (SDK MapTiler v4 — sert `maptiler` **et**
+  `openstreetmap` ; c'est lui qui résout les noms courts en `MapStyle`, variante `.DARK`
+  comprise) et `lib/mapLeaflet.ts` (Leaflet 1.9). `createMapEngine()` importe le moteur
+  **à la demande** : une carte Leaflet ne charge jamais le SDK MapTiler, et inversement.
+- Dépendance : `leaflet@^1.9.4` (+ CSS `leaflet/dist/leaflet.css` en `@import` de
+  `styles/main.css`). Le paquet ne publie pas de types → `declare module "leaflet"` dans
+  `shims.d.ts` (le moteur le manipule en `any`, comme le SDK MapTiler).
+- Nouveaux props **`tiles`** (gabarit XYZ) et **`attribution`** : utiles aux deux
+  fournisseurs raster (`openstreetmap` et `leaflet`), défaut = tuiles OpenStreetMap.
+- Leaflet : coordonnées en **`[lat, lng]`** converties par le moteur (`toLeaflet`),
+  épingles en `divIcon` **SVG** (`q-map__pin`) pour honorer `color` (l'icône par défaut
+  est une image), `options` → `L.map()`, `options.tileLayer` → `L.tileLayer()`.
+- Robustesse (constatée au navigateur) : une erreur signalée **par le moteur** en cours de
+  route (tuile manquante, quota…) n'affiche plus « Carte indisponible » — elle est
+  journalisée (première seulement) et émise via `@error` ; la surcouche « Chargement… »
+  tombe au plus tard après 8 s (`READY_TIMEOUT`) pour ne jamais bloquer un cadre. Seul
+  l'échec de **construction** passe par la surcouche d'erreur.
+- Docs : `6.maps/03.leaflet.md` + carte `::prose-card` dans `index.md` + démo
+  `demo="leaflet"` ; `tiles`/`attribution` documentés dans `02.openstreetmap.md`.
+- Vérif : `bun test packages/ui/lib` 194/194 ; `diagnostics` 0 erreur (hors
+  `lib/chart.ts`, pré-existant) ; Chromium headless sur les 3 pages → aucune surcouche
+  bloquée, `© MapTiler` sur la page MapTiler, tuiles + **3 épingles SVG** + bulle
+  `q-map__popup` sur la page Leaflet, un seul avertissement console (non fatal) côté
+  OpenStreetMap.
+
+## QMap — provider `maplibre` (MapLibre GL JS seul) — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/lib/mapMaplibre.ts`
+
+Quatrième moteur : `provider="maplibre"` monte **MapLibre GL JS** directement
+(`maplibre-gl@^5.24.0` en dépendance directe de `packages/ui` — même version que celle
+amenée par le SDK MapTiler, donc un seul exemplaire installé).
+
+- **Styles** : ni catalogue ni clé → `map-style` accepte `demotiles` (défaut, style de
+  démonstration MapLibre), `openstreetmap` (le raster d'`osmStyle()`, `tiles`/`attribution`
+  compris), une URL de style ou un objet ; un nom court inconnu (`topo`…) retombe sur le
+  style de démo **avec un avertissement** (`maplibreStyle()` renvoie `known: false`), tandis
+  que `streets` (défaut du design system) y retombe sans bruit.
+- **Contrôles** : MapLibre n'en monte aucun de lui-même → le moteur les ajoute depuis
+  `input.controls` (`navigation` et `geolocate` par défaut, `scale`/`fullscreen` sur
+  demande). C'est pourquoi `MapEngineInput` porte désormais `controls`, avec
+  `controlPosition()` partagé (`lib/mapEngine.ts`).
+- **Partage de code** : `buildMapLibreMarks()` (`lib/mapEngine.ts`) construit les marques —
+  le SDK MapTiler et `maplibre-gl` exposent les mêmes `Marker`/`Popup` : les deux moteurs
+  l'utilisent (plus de duplication).
+- **Capacités** : `projection` → `setProjection({ type })` ✔ ; `terrain` sans effet (pas de
+  source DEM par défaut : `options.terrain` au constructeur). Les moteurs décident
+  maintenant eux-mêmes de ce qu'ils savent faire (`setTerrain`/`setProjection` des moteurs
+  raster sont des no-op) et le composant les appelle sans condition.
+- **CSS** : pas de second `@import` — `@maptiler/sdk/style.css` **concatène déjà**
+  `maplibre-gl/dist/maplibre-gl.css` (mêmes classes `.maplibregl-*`, même version).
+- Docs : `6.maps/04.maplibre.md` + carte dans l'index + démo `demo="maplibre"` (globe +
+  style de démonstration).
+- Vérif : `bun test packages/ui/lib` 200/200 ; `tsc --noEmit` (packages/ui) → aucune erreur
+  dans `lib/mapMaplibre.ts` / `mapEngine.ts` / `mapLeaflet.ts` ; Chromium headless sur
+  `/docs/maps/maplibre` → canvas MapLibre, 24 groupes de contrôles, marqueur, attributions
+  « MapLibre »/« OpenStreetMap », **aucune erreur console** (le `load` du style de démo peut
+  être lent en headless : la surcouche tombe alors par `READY_TIMEOUT`, comportement prévu).
+
+## QBottomSheet — points d'ancrage (`breakpoints`, style Ionic) — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QBottomSheet.vue`, `packages/ui/lib/bottomSheet.ts`
+
+Le panneau peut se poser sur **plusieurs hauteurs** : `:breakpoints="[0.25, 0.5, 0.75]"`
+(fractions de la hauteur de vue, comme le sheet modal d'Ionic), avec
+`v-model:breakpoint` pour le point d'ancrage courant.
+
+- Calculs purs dans `lib/bottomSheet.ts` (+ `bottomSheet.test.ts`, 16 tests) :
+  `normalizeBreakpoints` (trie, dédoublonne, écarte `0` et le hors-bornes, accepte aussi
+  `"0.25,0.5"`), `nearestBreakpoint`, `stepBreakpoint`, `clampRatio`,
+  `ratioFromDrag(start, dy, hauteurDeVue)`, `releaseBreakpoint(ratio, liste, seuil)`.
+- **On pilote la hauteur, pas un `translateY`** : le drag écrit la fraction courante
+  (`--q-bs-breakpoint` → `height: calc(var(--q-bs-breakpoint) * 100dvh)`), le contenu se
+  réagence et **reste défilable à chaque point d'ancrage** (c'est le `expandToScroll:
+false` d'Ionic — seul comportement ici, donc pas de prop). Le drag n'agit que sur la
+  **poignée** : le scroll ne déplace jamais le panneau.
+- Le mode historique (sans `breakpoints`) est **inchangé** : `translateY` + fermeture
+  au-delà de `drag-threshold`. `height` est ignoré en mode breakpoints.
+- Fermeture : relâché à `0`, ou à plus de `dragThreshold` px sous le plus bas point
+  d'ancrage → le panneau se ferme (Ionic, lui, désactive le swipe-to-close quand `0` n'est
+  pas dans la liste — écart assumé, documenté).
+- `v-model:breakpoint` passe par `applyBreakpoint()`, qui ne réémet que si la valeur
+  **communiquée** change (`committedRatio`) — sans ça, un drag tombant pile sur un point
+  d'ancrage ne prévenait pas le parent (bug trouvé au test navigateur).
+- Poignée accessible quand `breakpoints` est utilisé : `role="button"`, `tabindex`,
+  Entrée/Espace (Maj = cran précédent) ; `setBreakpoint()`, `stepBreakpoint()` et
+  `breakpoint` sont exposés.
+- `setPointerCapture` est tenté dans un **try/catch** (un pointeur déjà relâché faisait
+  jeter le gestionnaire).
+- Docs : `4.components/bottom-sheet.md` (§ Breakpoints) + démo `demo="breakpoints"`
+  (liste longue, pour montrer le scroll à chaque point d'ancrage).
+- Vérif : `bun test packages/ui/lib` 216/216 ; **pilotage CDP** (chrome-headless-shell +
+  WebSocket bun, cf. `knowledges.md`) sur `/docs/components/bottom-sheet` : ouverture à
+  0.25 (250 px pour 1000 px de vue), drag → hauteur qui suit le doigt (500 px), snap 0.5
+  puis 0.75, description du parent suivant `v-model:breakpoint`, drag sous le plus bas →
+  panneau fermé.
+
+## QBottomSheet — prop `seamless` (panneau sans backdrop) — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QBottomSheet.vue`
+
+`seamless` rend le panneau **sans backdrop** : `background-color: transparent` sur
+l'overlay et `pointer-events: none` (le panneau repasse en `auto`). Le fond n'est donc ni
+assombri ni bloqué, et — conséquence logique — **le clic à côté ne ferme plus** le
+panneau : le `@click` de l'overlay est neutralisé par la prop. Échap, le bouton « retour »
+(via `useOverlayBack`), le `v-model` et le bouton de fermeture restent les moyens de le
+fermer (combinable avec `persistent`).
+
+C'est le panneau **non modal** : barre de recherche, mini-lecteur, formulaire posé sur une
+carte — à combiner avec `breakpoints` pour un panneau redimensionnable pendant que la page
+reste vivante.
+
+- Docs : paragraphe « Seamless (no backdrop) » + démo `demo="seamless"` (pleine largeur,
+  coins carrés, `q-input` dans le corps).
+- Vérif : `bun test packages/ui/lib` 216/216 ; **CDP** sur la page bottom-sheet →
+  seamless : `background: rgba(0, 0, 0, 0)`, `pointer-events: none`, hit-test renvoyant un
+  élément de la page (`hitIsOverlay: false`), panneau **toujours ouvert** après un clic
+  extérieur ; témoin (mode normal) : `rgba(0, 0, 0, 0.5)`, hit-test sur l'overlay, panneau
+  **fermé** par le même clic.
+
+## QImagePicker — exemples « réels » de la doc + prop `capture` — 2026-09-25
+
+tag: `decisions` — `filename: docui/content/docs/4.components/image-picker.md`,
+`docui/app/components/demos/DnaxDemoImagePicker.vue`
+
+La page Image Picker n'avait **qu'un exemple statique sans `v-model`** : on pouvait choisir
+un fichier, rien ne s'affichait (le champ ne conserve rien par lui-même). Elle est refaite
+autour de cinq démos vivantes et d'une section « Recipes » :
+
+- **Single image (avatar)** — `v-model` simple + aperçu (URL d'objet créée/révoquée côté
+  app), valeur du modèle affichée, `avatar = null` pour vider.
+- **Gallery (multiple)** — `max-files`, compteur, `@add` / `@remove` / `@rejected` dans un
+  journal, et vignettes cliquables ouvrant `$q.imagePreview` (les vignettes du champ ne sont
+  pas cliquables : la visionneuse se construit à côté).
+- **Validation** — `max-file-size` + `accept` + `max-files` : le refus n'entre jamais dans le
+  modèle, il apparaît en message interne **et** via `@rejected (file, reason)`.
+- **Camera (mobile)** — `capture="environment" | "user"`.
+- **States** — `readonly` / `disable` avec un modèle pré-rempli de `File` fabriqués en SVG.
+- **Recipes** — envoi `FormData`, images déjà en ligne (URLs) à afficher à côté du champ,
+  règle « une URL d'objet, un propriétaire ».
+
+Composant, deux ajouts que ces exemples rendaient nécessaires :
+
+- **prop `capture`** (`boolean | "user" | "environment"`) → attribut `capture` de l'input
+  (appareil photo sur mobile) ;
+- **garde-fou** : si aucun `v-model` ni écouteur `@update:model-value` n'est fourni
+  (`getCurrentInstance().vnode.props`), un `console.warn` explique que les fichiers choisis
+  ne seront pas conservés — c'est exactement le piège de l'ancien exemple.
+
+Vérif : `bun test packages/ui/lib` 216/216 ; `bun run generate` 141 exports ; **CDP** (dépôt
+réel de fichiers dans les inputs, cf. `knowledges.md`) → avatar (1 vignette, `pixel.png ·
+70 B`), galerie (`2/5 selected`, journal, 2 vignettes cliquables), validation (0 vignette,
+« Type de fichier non accepté » + refus journalisés pour `.txt` et 1,4 Mo), capture
+(`environment` → `user` après bascule), états (`readonly` : 2 vignettes, 0 bouton de
+retrait ; `disable` : champ atténué, pas de tuile d'ajout).
+
+## QInputCurrency — champ montant formaté, `v-model` numérique — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QInputCurrency.vue`,
+`packages/ui/lib/currency.ts`, `docui/content/docs/4.components/input-currency.md`
+
+Nouveau champ **`<q-input-currency>`** : le montant est formaté à la volée (groupement des
+milliers, séparateur et décimales de la locale) et le `v-model` porte un **nombre**
+(`number | null`) — jamais la chaîne affichée, jamais de parsing côté application.
+
+- Calculs purs dans `lib/currency.ts` (+ `currency.test.ts`, 21 tests) :
+  `currencyFormat` (séparateurs, décimale de la devise via `Intl`, **place du symbole** par
+  `formatToParts`), `parseAmount` (brouillon : signe/entiers/décimales, l'autre séparateur
+  accepté s'il est sans ambiguïté — coller `"$1,234.56"` en fr-FR ou `"1.234,56 €"` en en-US
+  donne le bon montant), `draftValue`, `draftFromValue`, `formatDraft` (conserve le
+  séparateur final pendant la frappe), `formatAmount`, `roundTo` (arrondi par exposant
+  décimal — `1.005 → 1.01`), `applyLimits`, `stepValue`, `digitCountBefore` /
+  `caretForDigitCount`.
+- **Locale** : celle de la langue de `QConfigProvider` par défaut (`fr` → `fr-FR`,
+  `en` → `en-US`) ; `currency` par défaut `"EUR"` ; `decimals` par défaut : celles de la
+  devise (JPY → 0).
+- **Le symbole est un décor** (`.q-field__currency--before|after`) : la valeur reste
+  éditable et la place du symbole suit le marché (« 9 999,50 € », « $US 9 999,50 » en
+  français, « €1,234.56 » en anglais).
+- Bornes `min`/`max` et arrondi appliqués **au blur** (la frappe n'est jamais interrompue) ;
+  `↑`/`↓` avancent de `step` (Maj ×10) ; `allow-negative` ouvre les avoirs.
+- Un `name` ajoute un **input caché** avec la valeur brute : le formulaire envoie un nombre
+  (`FormData.get("amount") === "49.9"`), pas un montant formaté.
+- Docs : page `4.components/input-currency.md` (4 démos : basic, devise/locale, bornes,
+  formulaire & états) + `DnaxDemoInputCurrency.vue`.
+- Vérif : `bun test packages/ui/lib` 237/237 ; `bun run generate` 142 exports ; **CDP** →
+  frappe `9876.54` → « 9,876.54 » (curseur après le 6ᵉ chiffre), `12abc3456` → 123456,
+  `-12.34567` en 3 décimales → -12.345, ✕ → `null`, `5000` non borné pendant la frappe puis
+  `1 000,00` au blur, `↓` → 990, USD → « $US » (convention fr-FR), JPY → « 10 000 » + modèle
+  ramené à 10 000, FormData `amount = "49.9"`, états readonly/disable/error corrects.
+
+## QBottomSheet — ombre paramétrable, adoucie en `seamless` — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QBottomSheet.vue`
+
+Sans backdrop, l'ombre par défaut du panneau (`0 -4px 24px rgb(0 0 0 / 0.2)`) dessinait une
+bande sombre sous la feuille : en `seamless` elle passe à `0 -2px 12px rgb(0 0 0 / 0.08)`.
+
+- Nouvelle prop **`shadow`** (même forme que `rounded`) : `true` (défaut — le CSS choisit
+  normal ou adouci selon `seamless`), `false` (aucune ombre), ou une valeur CSS telle quelle.
+- Elle est posée en variable **`--q-bs-shadow`** (inline, avant `contentStyle` — surchargeable
+  par l'application, en prop ou en CSS) et consommée par `box-shadow: var(--q-bs-shadow,
+<défaut>)` ; le défaut « seamless » vit donc dans une seule règle CSS.
+- Docs : la section « Seamless (no backdrop) » explique l'adoucissement et la prop, et la
+  démo `demo="seamless"` propose **default / softer / none / strong**.
+- Vérif : CDP sur `/docs/components/bottom-sheet` → seamless défaut
+  `rgba(0,0,0,0.08) 0px -2px 12px`, `:shadow="false"` → `none`, valeur CSS → appliquée,
+  panneau normal → `rgba(0,0,0,0.2) 0px -4px 24px` (défaut conservé).
+
+## QQrcode — code QR en SVG, export PNG/SVG — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QQrcode.vue`, `packages/ui/lib/qrcode.ts`,
+`docui/content/docs/4.components/qrcode.md`
+
+Nouveau composant **`<q-qrcode>`** : encode n'importe quelle chaîne (URL, texte, vCard, wifi)
+et la rend en **un seul chemin SVG**, encodable côté serveur.
+
+- **Aucune dépendance ajoutée** : `qrcode@1.5.4` était déjà dans `packages/ui` (inutilisée) —
+  elle fournit `create()` (matrice de modules, synchrone) et **rien d'autre** : le rendu, la
+  mise à l'échelle, les couleurs et l'export sont ceux de dnax.ui. Types absents →
+  `declare module "qrcode"` dans `shims.d.ts` (même situation que Leaflet).
+- Pur dans `lib/qrcode.ts` (+ `qrcode.test.ts`, 12 tests) : `encodeQr` (jamais d'exception →
+  `undefined`), `isDark`, `qrPath` (une sous-forme par plage horizontale), `qrTotalSize`,
+  `qrViewBox`, `qrSize`, `svgEscape`, `qrSvg` (SVG sérialisé).
+- Props : `value`, `size` (nombre → px, ou longueur CSS), `ecc` (`L|M|Q|H`, défaut `M`),
+  `margin` (zone de silence en modules, **4** par défaut), `color` (`#000`), `background`
+  (`#fff` — un QR doit être sombre sur clair), `label` (a11y, `role="img"`). Valeur vide ou
+  trop longue → rien n'est rendu (+ `console.warn`).
+- Expose **`svg()`** (markup complet : téléchargement, presse-papier, `img src`) et
+  **`toDataURL({ pixelSize })`** (PNG dessiné depuis la matrice, navigateur uniquement).
+- Docs : page `4.components/qrcode.md` (5 démos : contenu, tailles/zone de silence, couleurs,
+  correction d'erreur + logo au centre, export) + `DnaxDemoQrcode.vue`, et une section
+  « Recipes » (vCard/wifi, valeur réactive, a11y, impression).
+- Vérif : `bun test packages/ui/lib` 249/249 ; `bun run generate` 143 exports ; **CDP** →
+  `viewBox 0 0 33 33` pour un QR version 3 avec `margin=4`, rendu à exactement 160 px,
+  `role="img"` + `aria-label`, 162 sous-formes, `fill` calculé au clic d'une couleur, `svg()`
+  de 2 409 caractères, `toDataURL({ pixelSize: 4 })` → PNG **132 × 132** (IHDR relu) et
+  l'aperçu `<img>` du SVG à 33 px de côté.
+
+## QBottomSheet — prop `glass` (et `translucent` réparé) — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QBottomSheet.vue`
+
+`glass` applique la recette glassmorphism du design system (celle de `q-header` / `q-footer` /
+`q-card`) au panneau : fond `rgb(255 255 255 / 0.14)`, flou **20px** `saturate(1.6)` et
+bordure claire `rgb(255 255 255 / 0.22)` (3 côtés — le bas de la feuille touche l'écran) ;
+variante sombre `rgb(255 255 255 / 0.07)` + bordure `0.12`.
+
+- Elle **prime sur `translucent`** (ordre des règles dans la section bottom-sheet) ; les
+  deux sont réglables en CSS (`--q-glass-bg`, `--q-glass-blur`, `--q-translucent-bg`,
+  `--q-translucent-blur`) — via `content-style`, puisque le panneau est téléporté.
+- **`translucent` était cassé** : sa règle vivait dans le bloc partagé du haut de feuille,
+  donc écrasée par `.q-bottom-sheet__panel { background-color: #fff }` (cf. `warnings.md`).
+  Corrigé pour le bottom sheet **et** le `q-country-picker` (même piège).
+- Docs : la section « Sizing & look » documente les trois surfaces (plain / translucent /
+  glass) ; la démo `demo="variants"` propose un sélecteur plain / translucent / glass.
+- Vérif : CDP sur `/docs/components/bottom-sheet` → plain `rgb(255,255,255)` + `backdrop: none` ;
+  translucent `color(srgb 1 1 1 / 0.7)` + `blur(12px) saturate(1.4)` (donc **appliqué**) ;
+  glass `rgba(255,255,255,0.14)` + `blur(20px) saturate(1.6)` + bordure `1px rgba(255,255,255,0.22)`.
+
+## QNumericKeyboard — pavé numérique à l'écran — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QNumericKeyboard.vue`,
+`packages/ui/lib/numericKeyboard.ts`, `docui/content/docs/4.components/numeric-keyboard.md`
+
+Nouveau composant **`<q-numeric-keyboard>`** : pavé 3 × 4 (configurable) pour un code PIN, un
+montant ou un numéro. La `v-model` est une **chaîne** — c'est ce qui garde les zéros de tête
+d'un code (`0406`) et évite les arrondis flottants d'un montant ; l'affichage reste à
+l'application (points d'un code, montant formaté…).
+
+- Pur dans `lib/numericKeyboard.ts` (+ `numericKeyboard.test.ts`, 18 tests) : `keypadLayout`
+  (les 12 touches, avec la case libre, la touche `C` ou le séparateur), `pressKey`/`pressKeys`
+  (règles de saisie), `digitCount`, `decimalCount`.
+- **Règles** : `maxLength` compte les **chiffres** (le séparateur ne compte pas) ;
+  `maxDecimals` borne l'après-séparateur ; le séparateur ne s'insère qu'une fois (et « 0, »
+  sur un champ vide, jamais en mode `numeric`) ; un `0` seul est **conservé** en `numeric`
+  (code, téléphone) mais **remplacé** en `decimal` (façon calculatrice).
+- Props : `modelValue`, `mode` (`numeric` | `decimal`), `maxLength`, `maxDecimals`,
+  `decimalSeparator`, `clearable`, `columns`, `dense`, `dark`, `disable`, `label` (a11y).
+  Events : `update:modelValue`, `press(key)` (chiffre, `separator`, `backspace`, `clear`),
+  `complete(value)` (déclenché quand `maxLength` est atteint — validation automatique d'un
+  code). Expose `press()`, `backspace()`, `clear()`, `value` (pour brancher un clavier
+  physique ou une saisie programmée).
+- `columns` passe par la variable `--q-nk-columns` (grid) ; les touches sont de vrais
+  boutons (focus visible, état pressé, `touch-action: manipulation`, `aria-label` sur ⌫ et
+  C) ; icône `backspace` ajoutée à `lib/icons.ts` (`lucide:delete`).
+- La touche « tout effacer » n'apparaît que si une case est libre : en mode `decimal` le
+  séparateur l'occupe (documenté — utiliser `clear()` ou un bouton à côté de l'affichage).
+- Docs : page `4.components/numeric-keyboard.md` (3 démos : code PIN avec points et
+  `@complete`, montant avec affichage `Intl`, variantes colonnes/dense/dark/disable) + une
+  section Recipes (clavier physique via `press()`, accessibilité, touches mélangées).
+- Vérif : `bun test packages/ui/lib` 267/267 ; `bun run generate` 144 exports ; **CDP** →
+  6 touches → `040612` (zéro de tête conservé) + `@complete` « Code complet : 040612 », 7e
+  touche ignorée, `1 2 , 5 0` → `12,50` (+ `⌫` → `12,5`), 4 colonnes → grille de 4 et la
+  touche C vide la valeur, `dense` 42 px / normal 52 px, `dark` `rgb(31,31,31)`,
+  `disable` → toutes les touches désactivées, séparateur « . ».
+
+## QNumericKeyboard — points de progression (`show-dots`) & disposition aléatoire — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QNumericKeyboard.vue`,
+`packages/ui/lib/numericKeyboard.ts`, `docui/content/docs/4.components/numeric-keyboard.md`
+
+Deux ajouts au pavé :
+
+- **`show-dots`** : rangée de points **au-dessus des touches** (dans la grille, `grid-column:
+1 / -1`). Le total vient de, dans l'ordre : `dots` (nombre explicite) → `maxLength` → le
+  nombre de chiffres saisis (« champ masqué » qui grandit). Chaque point qui se remplit joue
+  un « pop » (classe `--pop` appliquée par un `watch` sur le remplissage, retirée après
+  340 ms ; `prefers-reduced-motion` la neutralise). Les points sont `aria-hidden` ; une
+  région `aria-live` (`.q-numeric-keyboard__sr`, masquée à l'œil) annonce « 3 sur 6 ».
+- **`random`** : disposition aléatoire des **chiffres** — les touches d'édition (`separator`,
+  `C`, `⌫`) ne bougent pas ; chaque touche insère toujours le chiffre qu'elle affiche.
+  L'ordre est tiré **au montage côté client** et reste **stable** (jamais re-tiré à chaque
+  touche, sinon la saisie serait impossible) ; `shuffle()` (exposé) en retire un nouveau
+  (pattern : après `@complete` ou un bouton). Pur dans `lib/numericKeyboard.ts` :
+  `shuffledDigits(rng?)` (Fisher–Yates, `rng` injectable) + `applyDigitOrder(keys, order)`.
+- Variables CSS : `--q-nk-dot-size` (12 px, 10 px en `dense`) ; styles ajoutés **dans la
+  section QNumericKeyboard** de `main.css` (pas de bloc partagé — cf. `warnings`).
+- Docs : la page passe à 5 démos (`pin`, `dots`, `random`, `amount`, `states`) ; la recette
+  « Shuffled keys » (qui disait « le composant n'a pas de prop `random` ») est remplacée par
+  « Fresh layout per attempt » (`shuffle()`).
+- Vérif : `bun test packages/ui/lib` **272/272** (+5 tests `disposition aléatoire`) ;
+  **CDP** → 4 rangées de points (6 / 4 rempli 2 / 4 rempli 4 / 4 rempli 0) ; pavé `random`
+  → `4687930215` (permutation, case 9 `empty`, case 11 `backspace`) ; « Mélanger » →
+  ordre changé ; 4 touches → `@complete` → **ordre re-tiré** + annonce « 4 sur 4 » ; 3 clics
+  sur le PIN → 3 points remplis + `--pop` ×3 + « 3 sur 6 » ; `aria-live=polite`, points
+  `aria-hidden`, `sr` `clip-path: inset(50%)`, taille de point 12 px.
+
+## QSpreadsheet — type `multiselect` (choix multiples, en plus de `select`) — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QSpreadsheet.vue`,
+`docui/content/docs/4.components/spreadsheet.md`,
+`docui/app/components/demos/DnaxDemoSpreadsheet.vue`
+
+`QSpreadsheetCellType` gagne **`multiselect`** à côté de `select`. Réponses aux questions
+récurrentes : « le `select`, c'est quoi ? » → **choix unique** rendu par une liste d'`options`
+(éventuellement en badges `chip`) ; « comment sont stockées les valeurs ? » → dans la ligne,
+clé = `column.name`, et la **forme dépend du `type`** :
+
+| Type                                | Valeur stockée                                                              |
+| ----------------------------------- | --------------------------------------------------------------------------- |
+| `string` / `text` / `email` / `url` | string                                                                      |
+| `number` / `integer`                | number (entier tronqué pour `integer`)                                      |
+| `boolean`                           | true / false                                                                |
+| `date` / `datetime`                 | ISO `YYYY-MM-DD` / `YYYY-MM-DDTHH:mm`                                       |
+| `select`                            | le **`value`** d'une option (jamais le libellé) — `"high"`                  |
+| `multiselect`                       | un **tableau** de `value`s — `["design","backend"]`, `[]` si vide           |
+| toute                               | la **source** de la formule si elle commence par `=` (affichage = résultat) |
+
+- Décision : `multiselect` stocke un **tableau** (et non une chaîne séparée par des virgules)
+  → tableau vide = « vide » (pour `clearCell` / `clearSelection` / `required`), et le filtre
+  peut compter **une valeur par élément** (ligne retenue si au moins une est autorisée).
+- Lecture unique des libellés par `choiceText(col, raw)` + `multiValues` / `multiLabels` :
+  copie (TSV), export CSV, find/replace, tri, `title`, filtre et affichage restent cohérents
+  et montrent toujours les **libellés**, jamais les `value`s stockés.
+- Édition : réutilise le panneau de `select` (`--select` + `--multi`) mais **chaque clic coche
+  et écrit tout de suite** (l'éditeur reste ouvert, un `cell-change` par bascule) ;
+  `commitEdit` **ne re-coerce pas** un `multiselect` (le champ n'est qu'une recherche).
+- Docs : nouvelle section « Single & multiple choice » (démo `choice` : `select` + `multiselect`
+  avec chip + `multiselect` sans chip) et tableaux « Data model » complétés.
+- Vérif : `bun test packages/ui/lib` 272/272 (aucun test unitaire ajouté — le composant n'en a
+  pas) ; **CDP** → voir `knowledges.md` (badges, coche/décoche live, `Enter`, scalaire du
+  `select`, filtre par valeur).
+
+## QNumericKeyboard — `dots-size`, `error` / `error-message`, retour à l'état initial — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QNumericKeyboard.vue`,
+`docui/content/docs/4.components/numeric-keyboard.md`,
+`docui/app/components/demos/DnaxDemoNumericKeyboard.vue`
+
+- **`dots-size`** : nombre → px, chaîne prise telle quelle (`"1.2rem"`), publiée en
+  `--q-nk-dot-size` **en style inline sur la racine** → prioritaire sur `dense` (qui pose 10 px
+  par classe), le défaut (12 px) restant en CSS. `rootStyle` remplace l'ancien `:style` inline.
+- **`error` + `error-message`** : classe `--error` sur la racine + `aria-invalid="true"`, points
+  pleins en `var(--negative)` (bordures des points vides : `color-mix(negative 45%, transparent)`)
+  et message en `role="alert"` **sous** le pavé (`grid-column: 1 / -1`, `color: var(--negative)`).
+  Les règles d'erreur sont déclarées **après** les variantes `--dark` : à spécificité égale
+  (0,2,0), l'ordre du fichier décide — l'erreur doit gagner (cf. `warnings`).
+- **Retour à l'état initial** : l'erreur est remise à zéro **quand l'utilisateur vide le pavé**
+  (`next === ""` dans `onKey`, donc aussi via `backspace()` / `clear()` exposés) → `errorReset`
+  masque points rouges + message **sans dépendre du parent**, et `update:error(false)` est émis
+  pour `v-model:error`. Une **nouvelle** erreur (la prop repasse à vrai) remet `errorReset` à faux.
+  Décision : le reset se fait sur l'**effacement par l'utilisateur**, pas sur un changement de
+  `modelValue` — un parent qui pose `error = true` **et** vide la valeur dans le même tick ne voit
+  donc pas son erreur disparaître aussitôt.
+- Docs : section « Error state » (démo `error` avec `v-model:error`) + `dots-size` documenté dans
+  « Progress dots » ; la page passe à **6 démos**.
+- Vérif : `bun test packages/ui/lib` 272/272 (le composant n'a pas de test unitaire) ; **CDP** →
+  largeurs de points observées 12 / 18 / 10 (dense) / 16 px ; mauvais code → `--error`,
+  `aria-invalid="true"`, message `role="alert"`, points `rgb(193, 0, 21)` (= `--negative`) ;
+  tout effacer → plus de `--error`, message absent, `error = false` (via `v-model:error`) ;
+  2ᵉ erreur → re-affichée ; `123456` → aucune erreur.
+
+## Doc QSpreadsheet — tableau exhaustif des « Cell types » en tête de page — 2026-09-25
+
+tag: `decisions` — `filename: docui/content/docs/4.components/spreadsheet.md`
+
+Consigne utilisateur : « les cell types doivent être **tous** listés dans un tableau **avant** de
+passer aux exemples ».
+
+- La section `## Cell types` a été **remontée juste après l'intro** (elle est désormais la 1ʳᵉ
+  section H2 de la page) et commence par un **tableau exhaustif** des 11 valeurs de
+  `QSpreadsheetCellType` : `type` · **Editor** · **Stored value** · **Rendering / notes**.
+  Deux règles transverses le suivent (valeur `=` = formule sauf `boolean` / `select` /
+  `multiselect` ; cellule vide = `null`, `multiselect` vide = `[]`), puis la démo `types`
+  d'origine, **déplacée avec la section** (un seul `demo="types"` dans la page).
+- Le tableau « Column type | Stored value | Example » de « Data model → Rows » a été
+  **supprimé** au profit d'un renvoi au tableau des types : une seule table de référence, pas de
+  doublon (règle : une info, un endroit). Idem dans « Single & multiple choice » : son petit
+  tableau redondant a été remplacé par deux puces qui apportent l'info **complémentaire** —
+  l'éditeur (`select` : filtre + `Entrée` choisit et ferme ; `multiselect` : cases à cocher,
+  écriture immédiate, `Entrée` ferme si le filtre est vide).
+- L'intro n'énumère plus les types (elle renvoie au tableau) ; la ligne `type` du schéma des
+  colonnes y renvoie aussi ; la doc de validation précise que sur un `multiselect` les règles
+  s'appliquent **par valeur** et que `[]` vaut vide.
+- Vérif (CDP, page réelle) : H2 dans l'ordre — Cell types, Inline editing, …, API ;
+  `cellTypesIsFirstSection: true` ; en-têtes du tableau = `type, Editor, Stored value,
+Rendering / notes` ; **11 lignes** = string, text, number, integer, email, url, boolean, date,
+  datetime, select, multiselect ; la démo suit le tableau (10 colonnes) ; **aucune erreur
+  console`. MDC équilibré (15 `::prose-show-case`/ 15`::`) ; le seul `<table>` restant dans la
+  section « Single & multiple choice » est celui de la **grille** (QSpreadsheet est un tableau
+  HTML) — aucun tableau Markdown.
+
+## QSpreadsheet — suivi des modifications (`dirty` + `changes`) — 2026-09-25
+
+tag: `decisions` — `filename: packages/ui/components/QSpreadsheet.vue`,
+`packages/ui/lib/spreadsheetChanges.ts`, `docui/content/docs/4.components/spreadsheet.md`
+
+**Concept** : un **delta** entre un état de **référence** (« chargé / enregistré ») et l'état
+courant — `v-model:dirty` (l'indicateur) + `v-model:changes` (le détail, organisé en lignes et
+feuilles ajoutées / modifiées / supprimées).
+
+- **Architecture : diff de deux photographies, jamais un journal d'opérations.** Le composant
+  photographie le document avec `buildDocument()` (exactement ce que renvoie `toJSON()`) et
+  `diffDocuments()` (pur, `lib/spreadsheetChanges.ts`, 23 tests) le compare à la référence.
+  Conséquences voulues : juste quels que soient les chemins de mutation (édition, collage,
+  recopie, tri, réordonnancement, import CSV, `loadDocument`…) ; état **net** rapporté (retaper la
+  valeur d'origine ⇒ rien) ; et « modifié » = littéralement « `toJSON()` a changé ».
+- **Organisation par niveau** (comme le modèle de données) : `rows` (identité = `_key`) et
+  `sheets` (identité = `key`), chacun en `added` / `updated` / `deleted`, plus `extras`
+  (`formats`, `widths`, `rowHeights`, `filters`, `rules`, `merges`, `hiddenRows`, `hiddenCols`).
+  Une feuille ajoutée **emporte ses lignes** dans `sheets.added` (pas de doublon dans `rows`) ;
+  `active` (onglet courant) et `version` sont ignorés ; `count` = lignes + feuilles, **+1** si
+  `extras` (l'indicateur reste parlant pour une mise en forme seule).
+- **Règles de comparaison** : `null` / `undefined` / `""` équivalents (« vide ») ⇒ ajouter une
+  colonne vide ne marque aucune ligne ; seules les colonnes du **schéma courant** sont comparées
+  ⇒ supprimer une colonne ne produit pas une modification par ligne (c'est
+  `sheets.updated[].changed = ["columns"]`) ; les tableaux (`multiselect`) sont comparés élément
+  par élément.
+- **Cycle de vie de la référence** : posée à `onMounted` ; **reposée** quand `rows` / `columns` /
+  `sheets` sont remplacés **de l'extérieur** (le test d'écho existant `v !== state.value`,
+  `v !== cols.value`, `v === localSheets.value` distingue un nouveau document de notre propre
+  emit) et après `loadDocument()`. Méthodes exposées : `acceptChanges()` (nouvelle référence,
+  après un save), `revertChanges()` (revient à la référence via `loadDocument` — l'historique
+  undo/redo est donc réinitialisé), `getChanges()`.
+- **Déclencheur** : un `watch` à `flush: "post"` sur `[state, cols, localSheets, cellFmt,
+colWidths, rowHeights, filters, condRules, merges, hiddenRows, hiddenCols]` (tous **remplacés**,
+  jamais mutés en place) ⇒ un seul diff par cycle, même pour un collage de 100 cellules. Le
+  renommage de feuille (`s.name = …`, mutation en place) appelle `recomputeChanges()`
+  explicitement. ⚠ `sheetMeta` est volontairement **hors** de la liste : `buildDocument()` le
+  réécrit (`sheetMeta.value = {…}`) ⇒ boucle infinie sinon.
+- Props `showChanges` (défaut **true** — indicateur dans la barre d'état), `dirty`, `changes` ;
+  events `update:dirty` / `update:changes` ; i18n `modified` / `rowsAdded|Updated|Deleted` /
+  `sheetsAdded|Updated|Deleted` / `formatted`. Types ré-exportés par le SFC et par
+  `packages/ui/index.ts`.
+- Vérif : `bun test packages/ui/lib` **295/295** (+23) ; **CDP** → édition → « 1 modified » /
+  « 1 row(s) updated » ; retaper la valeur d'origine → éteint (état net) ; gras →
+  `extras: ["formats"]` + « 1 modified » ; `acceptChanges()` → éteint ; éditer puis
+  `revertChanges()` → valeur restaurée + éteint ; classeur → +1 feuille « 1 sheet(s) added »,
+  renommage « · 1 sheet(s) updated », suppression « 1 sheet(s) updated » (aucun faux positif) ;
+  aucune erreur console.
+
+## Doc Heatmap — trois exemples (dont un `visualMap` personnalisé) — 2026-09-28
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: docui/content/docs/5.charts/08.heatmap.md`,
+`docui/app/components/demos/DnaxDemoChart.vue`
+
+Demande : « pour la heatmap fait 3 exemples dans la doc ».
+
+- La démo `demo="heatmap"` devient un empilement `demo-chart demo-stack` de **3 cartes** (même jeu
+  `temps`), reflété à l'identique dans le bloc `#code` de `08.heatmap.md` :
+  1. `fill` numérique (`'temp'`) + `labels: true` → rampe = palette des séries, valeur imprimée ;
+  2. `fill` constant (`'primary'`) → grille unie (`visualMap` caché), la valeur passe par un canal
+     `title` (`(d) => \`${d.temp} °C\``) ;
+  3. échelle personnalisée via l'échappatoire `:options="{ visualMap: […] }"`.
+- La section « The value — `fill` » précise désormais que l'échappatoire `options` **remplace**
+  l'échelle émise (fusion superficielle — voir `warnings.md`) et que la mise en page complète doit
+  être fournie. Une phrase sous la démo annonce les trois variantes.
+- Piège associé : le commentaire du composant de démo ne doit pas nommer le moteur de rendu
+  (règle « vocabulaire de la doc ») — un « ECharts » y avait fui, corrigé en « le moteur de rendu ».
+- **4ᵉ exemple dédié** : « A contribution calendar » (`demo="heatmap-github"`) — 20 semaines ×
+  7 jours, `visualMap` `piecewise` à 5 paliers façon GitHub, tooltip par cellule. Données
+  **déterministes** (hash entier — pas de `Math.random()` au rendu, cf. `warnings.md`) : même
+  rendu serveur/client. Colonnes = lundi de chaque semaine ; `QChartAxis` n'ayant pas d'option
+  pour masquer les libellés, l'axe les élague via `hideOverlap`.
+
+## Doc Dot — nuage de points + droite de régression — 2026-09-28
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: docui/content/docs/5.charts/04.dot.md`,
+`docui/app/components/demos/DnaxDemoChart.vue`
+
+Demande : « dans dot ajoute aussi un exemple de type scatter pour une régression linéaire ».
+
+- Nouvelle démo `demo="dot-trend"` + section « A trend line » dans `04.dot.md` : un `dot`
+  (scatter, `r: 4`) et un second mark `line` (deux points = les extrémités de la droite),
+  ajustement **moindres carrés** calculé dans le script.
+- Données **déterministes** (hash entier `noise`, pas de `Math.random()`) — cf. `warnings.md`.
+- Piège documenté : dès qu'un mark `line` est présent, l'info-bulle devient **d'axe**
+  (`axisTooltip` dans `chart.ts`), donc le `title` par point d'un `dot` n'est pas utilisé — les
+  séries sont nommées (`name`) pour la légende.
+- À savoir : le mark `line` dessine ses **extrémités** comme marqueurs (`symbolSize` 5, non
+  débrayable) — visible sur une droite de régression à deux points.
+
+## QTime — champ heure (`v-model`), panneau `placePopover` — 2026-09-28
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/components/QTime.vue`,
+`docui/app/components/demos/DnaxDemoTime.vue`, `docui/content/docs/4.components/time.md`
+
+Nouveau composant `QTime` (absent du catalogue jusqu'ici, cf. `knowledges.md`
+« Inventaire composants »), à l'API Quasar `<q-time v-model="t" format24h now-btn />`.
+
+- **Format de valeur = toujours 24 h** : `"HH:MM"`, ou `"HH:MM:SS"` si `withSeconds`.
+  `format24h` (défaut `true`) ne change **que** l'affichage et la saisie (`h:mm AM/PM`) —
+  comme Quasar. Un suffixe AM/PM tapé (`2:30 PM`) ou présent dans `modelValue` est converti.
+- **Placement = `lib/datePicker.ts` (`placePopover`)**, comme le mode `popover` de
+  QDatePicker ; mesure `getBoundingClientRect` (ancre = bas du **champ**, pas de la racine,
+  pour ignorer la zone hint/erreur) + `window.innerWidth/Height`, appelé **après** `nextTick`
+  (largeur réelle), repositionné sur `resize` / `scroll` (capture).
+- `position` (`bottom-start` | `bottom-end` | `top-start` | `top-end`, défaut `bottom-start`) :
+  le côté demandé est honoré quand la place le permet (≥ 120 px), sinon la **bascule
+  automatique** du helper reprend la main (contrairement à QSelect où `top`/`bottom` forcent
+  sans bascule) ; le suffixe `-start`/`-end` règle l'ancrage **horizontal** du panneau.
+  Dernier emplacement conservé à la fermeture (l'animation de sortie en dépend).
+- **Colonnes** : heures (`hourStep`) / minutes (`minuteStep`) / secondes (si `withSeconds`).
+  Pas de 4ᵉ colonne meridian : en 12 h la colonne heures liste **1–12** et un basculeur
+  **AM/PM** vit dans le pied du panneau (la spec demandait exactement 3 colonnes).
+  Les **secondes suivent `minuteStep`** (aucune prop `second-step` dans l'API demandée).
+  Item courant `aria-selected="true"`, colonne remise sur l'item courant
+  (`scrollIntoView({ block: "nearest" })`) à l'ouverture et après chaque sélection.
+- **Fermeture** : clic extérieur en **phase de CAPTURE** + `Échap` (cf. `decisions.md`).
+  Choix documenté : **la sélection d'un item NE ferme PAS le panneau** (l'utilisateur règle
+  heures puis minutes avant de cliquer dehors) ; `Entrée` valide la saisie **et** ferme.
+  Le panneau porte `@mousedown.prevent` pour ne pas voler le focus du champ.
+- **Saisie clavier** : parseur tolérant (`9:5`, `09:05`, `09h05`, `9.5`, `9 05`, `2:30 PM`) —
+  valeurs **bornées** (`h` 0–23, `m`/`s` 0–59) ; une saisie illisible est **ignorée** (retour à
+  la valeur courante). Flèches ↑/↓ (champ focus, panneau **fermé**) : ± `minuteStep`, ± 1 h
+  avec `Shift` (rebouclage 24 h).
+- `disable`/`readonly` : ni ouverture ni modification ; `aria-haspopup="dialog"`,
+  `aria-expanded`, `aria-disabled`. Emits `update:modelValue` / `open` / `close` ; méthodes
+  exposées `show` / `hide` / `toggle` ; slot unique `#label`.
+- **Sombre** : `--dark` sur la racine **et** ancêtre `.dark` (`.dark .q-time__x` en scoped).
+  Le panneau est **téléporté** → il porte sa propre classe `q-time__panel--dark`.
+- **Survol des items = `var(--muted)`**, pas `var(--accent)` : le thème des docs
+  (`docui/app/assets/css/main.css`) ne définit pas `--accent`, qui vaut donc le **violet
+  Material** de dnax.ui (`#9c27b0`) — exactement le piège déjà noté dans `main.css`
+  (« `--accent` ≠ surface de survol shadcn »).
+- **À FAIRE (hors périmètre de la tâche)** : `bun run generate` pour exporter `QTime` dans
+  `packages/ui/index.ts` — sinon l'onglet **Props** de `<dnax-api name="QTime">` reste vide
+  (le runtime ne résout pas `QTime`). Le module Nuxt auto-importe en revanche `<q-time>`
+  (scan du dossier `components`), donc la démo fonctionne sans ce build.
+- Vérif : `diagnostics` sur `QTime.vue` et `DnaxDemoTime.vue` → **0 erreur / 0 warning**.
+  Les erreurs restantes du projet (`chart.ts`, `DnaxDemoChart.vue`, `QDatePicker.vue`,
+  `tsconfig.json`) sont **préexistantes**, non touchées.
+
+## QTimeline + QTimelineEntry — frise chronologique verticale — 2026-09-28
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/components/QTimeline.vue`,
+`packages/ui/components/QTimelineEntry.vue`
+
+Famille ajoutée (lacune du catalogue, cf. `knowledges.md`). Deux composants,
+conventions shadcn-vue / API Quasar.
+
+- **QTimeline** = conteneur `tag` (défaut `ul`, `role="list"`) : `color` (défaut `primary`),
+  `dark`, `layout` (`dense|comfortable|loose`, défaut `comfortable`). Il **dessine le rail**
+  (`::before` 1px, centré à 50 %) et pose les variables CSS `--q-timeline-color`,
+  `--q-timeline-color-foreground`, `--q-timeline-gap`.
+- **QTimelineEntry** = `li` (`role="listitem"`) : `heading`, `tag`, `side`, `icon`, `avatar`
+  (`avatar` > `icon`), `title`, `subtitle`, `color`, `dark`. Slots `#default`, `#title`,
+  `#subtitle`, `#icon` (remplace le **contenu** de la pastille, le cercle est conservé).
+- **Alternance automatique** : sans `side`, l'entrée reçoit `q-timeline__entry--auto` et le CSS
+  de **son propre** `<style scoped>` la place à gauche sur `:nth-child(odd)`, à droite sur
+  `:nth-child(even)` (impair → gauche). Un `heading` (aussi `li`) **compte** dans l'alternance,
+  comme Quasar. `side="left|right"` fige le côté (classe `--left`/`--right`).
+- **Couleur héritée** : `QTimeline` pose `--q-timeline-color` sur sa racine ; la pastille de
+  l'entrée la lit (`background: var(--q-timeline-color, var(--primary))`). En plus du CSS,
+  `provide`/`inject` d'une clé **locale** `qTimelineKey` (`Symbol("q-timeline")`) transmet
+  `{ color, layout }` (un `ComputedRef<TimelineContext>`) — repli `color ?? "primary"`,
+  `layout ?? "comfortable"` si l'entrée est hors conteneur. Le `layout` pilote `--q-timeline-gap`
+  (12/26/42 px).
+- **`dark`** : pose des variables (`--q-timeline-fg`/`-muted`/`-surface`) en **inline**, donc
+  héritées à travers la frontière de slot (un style `scoped` du conteneur ne peut pas cibler le
+  contenu du slot) ; le mode sombre **ambiant** est déjà couvert par les jetons.
+- **Suivi** : les deux composants **ne sont pas encore exportés** par `packages/ui/index.ts`
+  (interdit dans cette tâche) → lancer `bun run generate` (ou `cd packages/ui && bun run generate`)
+  pour que `@dnax/ui/runtime` les expose (nécessaire à la table Props de `:dnax-api`).
+  Les démos et l'auto-import Nuxt (scan du dossier `components/`) fonctionnent sans ça.
+- Docs : `docui/content/docs/4.components/timeline.md` (+ `DnaxDemoTimeline.vue` : `basic`,
+  `heading`, `icons`). Diagnostics propres (aucun build lancé).
+
+## QPopupProxy — panneau ancré ↔ dialogue selon la largeur — 2026-09-28
+
+tag: `decisions` — `namespace: dnax.ui` — `filename:
+packages/ui/components/QPopupProxy.vue`, `docui/content/docs/4.components/popup-proxy.md`,
+`docui/app/components/demos/DnaxDemoPopupProxy.vue`
+
+Demande : créer `QPopupProxy` (proxy de popup à la Quasar) : **même contenu, même API**,
+rendu en **panneau ancré au parent** (`position: fixed`, téléporté dans `<body>`) sur grand
+écran, et dans un **`QDialog` centré** sous `breakpoint` (défaut `599`).
+
+- **Pas de déclencheur propre** : comme `QTooltip`, une ancre `<span>` invisible
+  (`display:none`, `aria-hidden`) est rendue DANS la cible ; `anchorEl.value.parentElement`
+  retrouve l'élément parent même après le Teleport (qui couperait le lien DOM). Ouverture
+  programmatique via `show()` / `hide()` / `toggle()` (`defineExpose`).
+- **`v-model` optionnel** : détecté par `getCurrentInstance()?.vnode.props` (une prop Boolean
+  non passée vaut `false`, pas `undefined` — cf. `QTooltip`) ; sinon état interne.
+- **Positionnement** : reprise de `placePanel` de `QBtnActions` (point d'ancrage +
+  `translate` en %, cf. `knowledges.md`), avec clamp viewport calculé sur `offsetWidth/Height`
+  mesurés (2ᵉ passage après `nextTick`).
+- **Bascule live** : `windowWidth` initialisé à `1024` (identique serveur/client → aucun
+  mismatch d'hydratation, cf. `warnings.md`) puis mis à jour au montage ; `isWide =
+windowWidth >= breakpoint` choisit le rendu, un `watch(isWide)` re-ancre et re-focus.
+- **Focus** : premier élément focusable (ou le panneau `tabindex="-1"`) à l'ouverture,
+  restauration du focus de départ à la fermeture.
+- **Fermeture** : `mousedown` document en **phase de CAPTURE** (cf. `decisions.md` — sinon un
+  `@mousedown.stop` parent bloque) + `Échap`, sauf `persistent` ; en mode étroit c'est
+  `QDialog` qui gère backdrop/Échap (`persistent` transmis).
+- **Styles scoped** dans le SFC (pas de `main.css`) : `--card`/`--border`/`--foreground`,
+  `--q-z-menu` (3200), `--radius`/`--q-radius` ; dark via `.dark .q-popup-proxy__panel` et
+  `.q-popup-proxy__panel.dark` (panneau téléporté hors du conteneur du provider).
+- **Hors périmètre (assumé)** : `packages/ui/index.ts` non modifié (consigne) — la page
+  `:dnax-api{name="QPopupProxy"}` n'aura donc pas l'onglet **Props** tant que l'export n'est
+  pas ajouté (`bun scripts/generate-exports.ts`) ; les onglets Slots/Events/Methods, eux,
+  viennent de l'analyse statique du SFC (`docui/scripts/dnax-ui-meta.ts`).
+
+## QTiptap supprimé du design system — 2026-09-28
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/index.ts`
+
+Demande : « supprime q-tiptap ». L'éditeur de texte riche est retiré (déjà plus fourni du
+tout : `QEditorJs` avait été supprimé le 2026-09-17). Aucun remplacement.
+
+- Fichiers supprimés : `components/QTiptap.vue`, `components/internal/QTiptap{Table,TaskItem}View.vue`,
+  `lib/tiptap-{table,task-list}.ts`, `docui/.../demos/DnaxDemoTiptap.vue`,
+  `docui/content/docs/4.components/tiptap.md`.
+- `packages/ui/index.ts` régénéré (`bun scripts/generate-exports.ts`) ; toutes les dépendances
+  `@tiptap/*` retirées de `packages/ui/package.json` ; règles `.q-tiptap*` retirées de
+  `styles/main.css`.
+- Pièges à ne pas réintroduire : `EditorContent` v3 ne propage pas les attributs (d'où le
+  conteneur `.q-tiptap__editor` + `min-height: inherit`) ; l'extension `FontSize` doit être
+  **enregistrée** (`@tiptap/extension-text-style`) sinon `setFontSize` échoue en silence ;
+  `isActive("table")` est faux au curseur dans une cellule (remonter les ancêtres `$from.node(depth)`).
+
+## QInputChat — composer de chat (textarea, options, fichiers, menu « + ») — 2026-09-28
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/components/QInputChat.vue`
+
+Champ « chat » : textarea multiligne auto-extensible, bouton d'envoi intégré, pastilles
+d'options activables (`v-model:options`), bouton « + » à menu (actions + pièce jointe) et
+fichiers joints (`v-model:files`). Périmètre : composant, démo `DnaxDemoInputChat.vue`, page
+`4.components/input-chat.md`.
+
+- Racine `.q-input-chat` + modifiers `q-field--outlined|filled|borderless|dense|error|rounded`
+  (modèle QInputTag) ; à l'intérieur `.q-field__control` / `.q-field__native` /
+  `.q-field__bottom`, textarea `class="q-field__native q-input-chat__native"` ; styles
+  **scoped dans le composant** (jamais `styles/main.css`).
+- Types exportés (bloc `<script lang="ts">`, comme QTimeline) : `ChatOption` (`label`
+  requis, `icon?`, `value?`, `_id?`, `active?`, `disable?`) et `ChatAction` (`label?`,
+  `icon?`, `iconRight?`, `value?`, `disable?`, `separator?`, `title?`, `onClick?` — mêmes
+  champs que `BtnAction` de `QBtnActions`, mappage direct). **`side` et `active` retirés de
+  `ChatAction`** : la sélection est le rôle d'`options`, les actions vivent dans le menu du
+  « + ».
+- Props : message, placeholder, label, hint, error, errorMessage, counter, maxlength,
+  rows (1), maxRows (6), autogrow (true), sendIcon, sendLabel (`Send`), sendColor,
+  sendOnEnter (true), clearOnSend (true), disableSendWhenEmpty (true), loading,
+  **options** ([]), **actions** ([]), **actionsIcon** (`lucide:plus`), **actionsLabel**
+  (`More actions`), **files** ([]), **accept**, **multiple** (true), **attach**
+  (`true|string` ; défaut effectif = activé si `accept` fourni, libellé `Add file`),
+  **showFiles** (true), padding, outlined/filled/borderless/dense, radius, dark, disable,
+  readonly, safeArea (true → safe-area basse, chaîne 0 → constant() → env()).
+- Emits : `update:message`, `update:options` (**nouveau tableau**), `update:files`,
+  `option` (`{ option, active }`), `send` (texte trimé), `clear`, `action`
+  (`{ action, value }`), `focus`, `blur`.
+- Slots : `prepend`/`append` (inline), `options` (remplace les pastilles), `files`
+  (remplace les chips de fichiers), `actions` (remplace le « + » et son menu), `tools`
+  (droite, avant l'envoi), `send`, `hint`, `error`.
+- **Options** : état interne `localOptions` synchronisé sur la prop par `watch` (fonctionne
+  **avec ou sans** `v-model:options`) ; au clic, `map` + toggle de `active` (option retrouvée
+  par `_id`, sinon par index), puis `update:options` (nouveau tableau) + `option`.
+  `disable` → ignoré.
+- **Fichiers** : `<input type="file" hidden :accept :multiple>` interne ; l'entrée
+  « joindre » du menu du « + » l'ouvre. Au `change`, ajout aux fichiers courants avec
+  déduplication `name+size+lastModified`, puis `input.value = ''` (re-choisir le même
+  fichier) ; émission `update:files`. Chips retirables (nom + taille Ko/Mo, ✕ → retire).
+  État interne `localFiles` synchronisé (`watch`).
+- **Menu du « + »** : `<q-btn-actions>` (`flat`, `dense`, `round`, `no-caps`,
+  `dropdownIcon` chevron-bas) ; `:actions` = [entrée attach (si activée) + actions mappées].
+  Entrée attach marquée par une **valeur sentinelle** (`ATTACH_VALUE`) ; les entrées portent
+  une référence `__chatAction` pour retrouver le `ChatAction` d'origine au `@select-action`
+  (QBtnActions renvoie `value`, sinon l'entrée elle-même). `onClick` local puis
+  `emit('action', …)`.
+- Barre (`.q-input-chat__toolbar`) rendue si `options.length || #options || actions.length ||
+#actions || #tools || attach` : options à gauche, puis le « + » ; à droite `#tools` +
+  envoi. Sans barre, le bouton d'envoi reste inline dans le contrôle.
+- Prop `padding?: string` : valeur CSS posée en `--q-input-chat-padding` sur le contrôle.
+- Prop `paddingOptions?: string` (`padding-options`) : valeur CSS posée en
+  `--q-input-chat-options-padding`, lue en `padding-inline` (gauche/droite) de
+  `.q-input-chat__toolbar`.
+- **Hauteur d'une ligne du textarea** : variables `--q-input-chat-field-height` /
+  `--q-input-chat-field-padding` sur la racine — 44px/12px par défaut (champ « basic » plus haut
+  qu'un champ simple), 38px/9px si `padding` fourni (`q-input-chat--custom-padding`), 32px/6px en
+  `dense`.
+- **Envoi inline (mode basic / autogrow)** : `.q-input-chat__control .q-input-chat__send`
+  à 30px (`--q-btn-h`) + `font-size: 12px`, `flex: none`, `align-self: flex-start` +
+  `margin-top` = demi-différence avec la ligne → centré sur une ligne, **en haut à droite**
+  quand le textarea grandit. La **copie de la barre** (`.q-input-chat__tools .q-input-chat__send`)
+  est aussi à 30px (alignée sur les pastilles/outils), sans marge.
+- Methods (`defineExpose` forme explicite) : `focus`, `blur`, `clear`, `send`. Bouton
+  d'envoi = `<q-btn round type="button">`, désactivé si disable/readonly/loading ou
+  (`disableSendWhenEmpty` && trim vide).
+- Démo `DnaxDemoInputChat.vue` : `options`, `files`, `actions`, `deepseek`, `vibe`, `tools`
+  (+ `basic`/`variants`/`states`/`slots`/`autogrow`) ; maquettes DeepSeek/Vibe sur conteneur
+  arrondi sombre (classe `dark`) + composer `borderless` (le « + » vient du composant ;
+  `#append` porte le menu « Rapide ⌄ » + micro pour Vibe).
+- **Hors périmètre (assumé)** : `styles/main.css` non modifié ; `QInputChat` exporté par
+  `packages/ui/index.ts`. `docs/public/llms.txt` et `docui/app/data/menu.ts`
+  (`bun scripts/gen-menu.ts`) restent à mettre à jour.

@@ -203,6 +203,37 @@ of 8px.
 ```
 ::
 
+## Item label
+
+`<q-item-label>` renders the text of a section. The modifiers stack: `overline`
+turns it into small uppercase, letter-spaced text, `caption` gives secondary
+(muted) text and `header` styles a section heading. `lines` clamps the text after
+N lines (`-webkit-line-clamp`, ellipsis), and `color` overrides the text colour
+with a design token (`primary`, `positive`…) or any CSS colour.
+
+::prose-show-case
+:dnax-demo-list{demo="labels"}
+
+#code
+
+```vue
+<q-list bordered separator class="list">
+  <q-item>
+    <q-item-section>
+      <q-item-label overline>Overline</q-item-label>
+      <q-item-label>Default label</q-item-label>
+      <q-item-label caption>A caption with secondary text</q-item-label>
+      <q-item-label header>Header label</q-item-label>
+      <q-item-label :lines="2">
+        A long label truncated after two lines: lorem ipsum dolor sit amet, consectetur
+        adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna.
+      </q-item-label>
+    </q-item-section>
+  </q-item>
+</q-list>
+```
+::
+
 ## QList
 
 :dnax-api{name="QList"}
@@ -214,3 +245,7 @@ of 8px.
 ## QItemSection
 
 :dnax-api{name="QItemSection"}
+
+## QItemLabel
+
+:dnax-api{name="QItemLabel"}

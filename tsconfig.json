@@ -35,11 +35,11 @@
     // (« Failed to resolve import source "#app" »).
     "paths": {
       "#app": [
-        "./docd/node_modules/nuxt/dist/app",
+        "docd_delete/node_modules/nuxt/dist/app",
         "./node_modules/nuxt/dist/app",
       ],
       "#app/*": [
-        "./docd/node_modules/nuxt/dist/app/*",
+        "docd_delete/node_modules/nuxt/dist/app/*",
         "./node_modules/nuxt/dist/app/*",
       ],
     },

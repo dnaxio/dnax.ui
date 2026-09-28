@@ -2,7 +2,8 @@
 // QImagePicker — API Quasar : <q-image-picker v-model="files" multiple label="Photos" max-file-size="5242880" />
 // Sélection d'images via input file masqué, avec aperçu en grille (object URLs),
 // suppression par tuile et validation (type, taille, nombre).
-import { computed, onBeforeUnmount, reactive, ref, watch } from "vue"
+// `capture` ouvre directement l'appareil photo sur mobile.
+import { computed, getCurrentInstance, onBeforeUnmount, reactive, ref, watch } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
@@ -18,6 +19,9 @@ interface Props {
   maxFileSize?: number
   /** Nombre max de fichiers (0 = illimité) */
   maxFiles?: number
+  /** Ouvre l'appareil photo sur mobile : `true` (appareil par défaut), `"user"` (frontale)
+   *  ou `"environment"` (arrière) — attribut `capture` de l'input */
+  capture?: boolean | "user" | "environment"
   /** Label du champ */
   label?: string
   /** Texte de la tuile d'ajout (défaut : "Ajouter une image" / "Ajouter des images") */
@@ -38,6 +42,7 @@ const props = withDefaults(defineProps<Props>(), {
   accept: "image/*",
   maxFileSize: 0,
   maxFiles: 0,
+  capture: false,
   label: "",
   addLabel: "",
   hint: "",
@@ -122,6 +127,26 @@ const effectiveErrorMessage = computed(() => props.errorMessage || internalError
 // — Sélection —
 const inputEl = ref<HTMLInputElement | null>(null)
 
+/** Attribut `capture` de l'input : `false` (défaut) → absent, `true` → appareil par
+ *  défaut (`capture="true"`, tout navigateur y voit une demande de capture), sinon la
+ *  valeur donnée (`user` / `environment`). */
+const captureAttr = computed(() => (props.capture === false ? undefined : props.capture))
+
+/** Garde-fou : sans écouteur `update:modelValue`, les fichiers choisis ne sont jamais
+ *  conservés (la grille reste vide) — piège fréquent de ce champ. */
+const instance = getCurrentInstance()
+let warnedNoModel = false
+const warnIfNotBound = () => {
+  if (warnedNoModel) return
+  if (!instance?.vnode.props?.["onUpdate:modelValue"]) {
+    warnedNoModel = true
+    console.warn(
+      "[q-image-picker] aucun `v-model` (ni écouteur `@update:model-value`) : les images " +
+        "choisies ne sont pas conservées",
+    )
+  }
+}
+
 const pick = () => {
   if (props.disable || props.readonly) return
   inputEl.value?.click()
@@ -159,6 +184,7 @@ const addFiles = (incoming: File[]) => {
   for (const file of overflow) rejections.push({ file, reason: "count" })
 
   if (accepted.length > 0) {
+    warnIfNotBound()
     const next = props.multiple ? [...current, ...accepted] : accepted[0]!
     emit("update:modelValue", next)
     for (const file of accepted) emit("add", file)
@@ -242,6 +268,7 @@ const containerClasses = computed(() => cn("q-image-picker", props.disable && "q
       class="q-image-picker__input"
       :accept="accept"
       :multiple="multiple"
+      :capture="captureAttr"
       @change="onInputChange"
     />
   </div>

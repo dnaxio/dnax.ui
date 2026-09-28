@@ -1,3 +1,16 @@
+/* Feuille de style du SDK MapTiler (nécessaire au canvas, aux contrôles et aux bulles
+   de `q-map`) — inlinée par Vite au build, aucun chargement à l'exécution. */
+@import "@maptiler/sdk/style.css";
+
+/* Feuille de style de Leaflet (provider `leaflet` : tuiles, contrôles, bulles,
+   épingles) — inlinée par Vite, qui résout aussi les `url()` des images de marqueur. */
+@import "leaflet/dist/leaflet.css";
+
+/* Feuille de style de MapLibre (provider `maplibre`) : elle est déjà incluse dans
+   `@maptiler/sdk/style.css` (le SDK concatène `maplibre-gl/dist/maplibre-gl.css` à la
+   sienne — mêmes classes `.maplibregl-*`, même version de MapLibre) : pas de second
+   import, sinon les règles seraient dupliquées. */
+
 /* ===== Reset global (Preflight Tailwind) =====
    box-sizing: border-box partout : width:100% + padding (q-container, q-btn
    stretch, q-toolbar…) ne débordent plus du viewport (scroll horizontal).
@@ -42,7 +55,7 @@ body {
      3500        popup inline de QSelect (téléporté dans <body> : il doit passer
                  au-dessus d'un overlay quand le champ est dans un dialog/sheet)
                  → --q-z-popup
-     4000        palettes tiptap · 7000 loading global · 9999 tooltip ·
+     7000        loading global · 9999 tooltip ·
                  10000 image preview
    Surchargez --q-z-menu ou --q-z-popup si votre application a un overlay plus haut. */
 :root {
@@ -1650,14 +1663,14 @@ html.dark body {
   height: 55%;
 }
 
-/* ===== Translucide (frosted glass) — partagé header/footer/back-header/bottom-sheet =====
+/* ===== Translucide (frosted glass) — partagé header/footer/back-header =====
    translucent="70" → 70% opaque + flou derrière (backdrop-filter).
-   Les composants posent --q-translucent-opacity (défaut 70%) et la classe --translucent. */
+   Les composants posent --q-translucent-opacity (défaut 70%) et la classe --translucent.
+   Les feuilles (bottom sheet, country picker) ont leur propre règle dans leur section :
+   leur fond de base est déclaré **après** ce bloc, donc plus loin dans le fichier. */
 .q-header--translucent,
 .q-footer--translucent,
-.q-back-header--translucent,
-.q-bottom-sheet__panel--translucent,
-.q-country-picker__sheet--translucent {
+.q-back-header--translucent {
   background-color: color-mix(
     in srgb,
     var(--q-translucent-bg, #fff) var(--q-translucent-opacity, 70%),
@@ -5181,6 +5194,20 @@ a.q-breadcrumbs__el:hover {
   background-color: rgb(0 0 0 / 0.5);
 }
 
+/* Mode « seamless » : pas de backdrop — le fond n'est pas assombri et les clics le
+   traversent (le panneau reste interactif, le clic à côté ne ferme plus).
+   L'ombre est adoucie : sans fond assombri derrière, une ombre forte ferait une bande
+   noire sous le panneau. `--q-bs-shadow` reste surchargeable (prop `shadow`). */
+.q-bottom-sheet__overlay--seamless {
+  background-color: transparent;
+  pointer-events: none;
+}
+
+.q-bottom-sheet__overlay--seamless .q-bottom-sheet__panel {
+  pointer-events: auto;
+  --q-bs-shadow: 0 -2px 12px rgb(0 0 0 / 0.08);
+}
+
 .q-bottom-sheet__panel {
   display: flex;
   flex-direction: column;
@@ -5190,7 +5217,8 @@ a.q-breadcrumbs__el:hover {
   background-color: #fff;
   color: inherit;
   border-radius: 16px 16px 0 0;
-  box-shadow: 0 -4px 24px rgb(0 0 0 / 0.2);
+  /* Ombre paramétrable : prop `shadow` (« none », valeur CSS) ou `--q-bs-shadow` */
+  box-shadow: var(--q-bs-shadow, 0 -4px 24px rgb(0 0 0 / 0.2));
   transition: transform 0.25s ease;
   padding-bottom: 0;
   padding-bottom: constant(safe-area-inset-bottom);
@@ -5207,6 +5235,50 @@ a.q-breadcrumbs__el:hover {
 }
 
 .q-bottom-sheet__panel--dragging {
+  transition: none;
+}
+
+/* Surfaces translucides du panneau : déclarées **après** `.q-bottom-sheet__panel` — à
+   spécificité égale, c'est l'ordre du fichier qui tranche (elles doivent gagner sur
+   `background-color: #fff`). `glass` vient en dernier : il prime sur `translucent`. */
+.q-bottom-sheet__panel--translucent {
+  background-color: color-mix(
+    in srgb,
+    var(--q-translucent-bg, #fff) var(--q-translucent-opacity, 70%),
+    transparent
+  );
+  backdrop-filter: blur(var(--q-translucent-blur, 12px)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--q-translucent-blur, 12px)) saturate(1.4);
+}
+
+.q-bottom-sheet__panel--glass {
+  --q-glass-bg: rgb(255 255 255 / 0.14);
+  --q-glass-blur: 20px;
+  background-color: var(--q-glass-bg);
+  border: 1px solid rgb(255 255 255 / 0.22);
+  border-bottom: 0;
+  -webkit-backdrop-filter: blur(var(--q-glass-blur)) saturate(1.6);
+  backdrop-filter: blur(var(--q-glass-blur)) saturate(1.6);
+}
+
+.dark .q-bottom-sheet__panel--glass {
+  --q-glass-bg: rgb(255 255 255 / 0.07);
+  border-color: rgb(255 255 255 / 0.12);
+}
+
+/* Mode « points d'ancrage » : la hauteur vient du point d'ancrage courant — une fraction
+   de la hauteur de vue posée en variable par le composant. Le contenu se réagence à chaque
+   changement et reste défilable (`__body`), y compris sur un petit point d'ancrage. */
+.q-bottom-sheet__panel--breakpoints {
+  max-height: none;
+  height: calc(var(--q-bs-breakpoint, 1) * 100vh);
+  height: calc(var(--q-bs-breakpoint, 1) * 100dvh);
+  transition:
+    height 0.25s ease,
+    transform 0.25s ease;
+}
+
+.q-bottom-sheet__panel--breakpoints.q-bottom-sheet__panel--dragging {
   transition: none;
 }
 
@@ -5234,6 +5306,7 @@ a.q-breadcrumbs__el:hover {
 .q-bottom-sheet__body {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto; /* remplit le panneau (points d'ancrage) — inerte sinon */
   min-height: 0;
   overflow-y: auto;
 }
@@ -6060,6 +6133,17 @@ a.q-breadcrumbs__el:hover {
 .dark .q-country-picker__sheet--dark {
   background-color: var(--card);
   color: var(--foreground);
+}
+
+/* Translucide : après le fond de base (même spécificité → l'ordre tranche) */
+.q-country-picker__sheet--translucent {
+  background-color: color-mix(
+    in srgb,
+    var(--q-translucent-bg, #fff) var(--q-translucent-opacity, 70%),
+    transparent
+  );
+  backdrop-filter: blur(var(--q-translucent-blur, 12px)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--q-translucent-blur, 12px)) saturate(1.4);
 }
 
 /* poignée de drag (mode sheet) : swipe vers le bas pour fermer */
@@ -9086,644 +9170,6 @@ a.q-breadcrumbs__el:hover {
   }
 }
 
-/* ===== QTiptap ===== */
-.q-tiptap {
-  --q-tiptap-bg: #fff;
-  --q-tiptap-toolbar-bg: #f6f7f9;
-  --q-tiptap-border: var(--border, rgb(0 0 0 / 0.12));
-  --q-tiptap-text: var(--foreground, #1d1d1d);
-  /* ⚠ --muted est un token de FOND (bg grisé shadcn), pas une couleur de texte
-     → icônes/secondary en gris texte explicite */
-  --q-tiptap-muted: #8b93a1;
-  --q-tiptap-primary: var(--primary, #1976d2);
-  --q-tiptap-radius: var(--q-radius, 12px);
-  --q-tiptap-code-bg: rgb(0 0 0 / 0.06);
-  --q-tiptap-quote-bg: rgb(25 118 210 / 0.07);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--q-tiptap-border);
-  border-radius: var(--q-tiptap-radius);
-  background-color: var(--q-tiptap-bg);
-  color: var(--q-tiptap-text);
-}
-.dark .q-tiptap {
-  --q-tiptap-bg: #1e1e22;
-  --q-tiptap-toolbar-bg: #27272c;
-  --q-tiptap-border: rgb(255 255 255 / 0.12);
-  --q-tiptap-text: #ececef;
-  --q-tiptap-muted: #9aa2b1;
-  --q-tiptap-code-bg: rgb(255 255 255 / 0.08);
-  --q-tiptap-quote-bg: rgb(25 118 210 / 0.18);
-}
-.q-tiptap--filled {
-  --q-tiptap-bg: #f6f7f9;
-  --q-tiptap-toolbar-bg: transparent;
-  border-color: transparent;
-  box-shadow: inset 0 0 0 1px var(--q-tiptap-border);
-}
-.dark .q-tiptap--filled {
-  --q-tiptap-bg: #26262b;
-  --q-tiptap-toolbar-bg: transparent;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
-}
-.q-tiptap--square {
-  border-radius: 0;
-}
-.q-tiptap--disable {
-  opacity: 0.7;
-}
-.q-tiptap--disable .q-tiptap__body {
-  pointer-events: none;
-}
-
-/* — barre d'outils — */
-.q-tiptap__toolbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 2px;
-  padding: 4px 6px;
-  background-color: var(--q-tiptap-toolbar-bg);
-  border-bottom: 1px solid var(--q-tiptap-border);
-}
-.q-tiptap__group {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-.q-tiptap__group + .q-tiptap__group {
-  margin-left: 6px;
-  padding-left: 6px;
-  border-left: 1px solid var(--q-tiptap-border);
-}
-.q-tiptap__tool {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--q-tiptap-muted);
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-}
-.q-tiptap__tool svg {
-  width: 17px;
-  height: 17px;
-}
-/* Hover : jamais sur un bouton actif (même règle que QSidebarMenuButton — sans le
-   `:not(...)`, `:hover` (0,2,0) écrasait `.q-tiptap__tool--active` (0,1,0) : le bouton
-   actif perdait son fond et sa couleur primaire au survol). */
-.q-tiptap__tool:hover:not(:disabled):not(.q-tiptap__tool--active) {
-  background-color: rgb(0 0 0 / 0.06);
-  color: var(--q-tiptap-text);
-}
-.dark .q-tiptap__tool:hover:not(:disabled):not(.q-tiptap__tool--active) {
-  background-color: rgb(255 255 255 / 0.08);
-}
-.q-tiptap__tool--active {
-  background-color: rgb(25 118 210 / 0.14);
-  background-color: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
-  color: var(--q-tiptap-primary);
-}
-.q-tiptap__tool:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.q-tiptap--dense .q-tiptap__tool {
-  width: 26px;
-  height: 26px;
-}
-
-/* — zone d'édition — */
-.q-tiptap__body {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-}
-.q-tiptap__editor {
-  position: relative;
-  z-index: 1;
-  min-height: 180px;
-}
-.q-tiptap__editor > div,
-.q-tiptap__editor .ProseMirror {
-  min-height: inherit;
-}
-.q-tiptap__editor .ProseMirror {
-  padding: var(--q-tiptap-content-padding, 5%);
-  outline: none;
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--q-tiptap-text);
-  caret-color: var(--q-tiptap-primary);
-  word-wrap: break-word;
-}
-
-/* placeholder (visible quand le document est vide) — aligné sur le padding
-   par défaut (5% sur les 4 côtés) */
-.q-tiptap__placeholder {
-  position: absolute;
-  z-index: 0;
-  top: 5%;
-  left: 5%;
-  right: 5%;
-  font-style: italic;
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--q-tiptap-muted);
-  pointer-events: none;
-  white-space: pre-wrap;
-}
-
-/* — typographie du contenu édité (ProseMirror) — */
-.q-tiptap__editor .ProseMirror p {
-  margin: 0 0 0.6em;
-}
-.q-tiptap__editor .ProseMirror h1,
-.q-tiptap__editor .ProseMirror h2,
-.q-tiptap__editor .ProseMirror h3 {
-  margin: 0.8em 0 0.4em;
-  color: var(--q-tiptap-text);
-  font-weight: 700;
-  line-height: 1.3;
-}
-.q-tiptap__editor .ProseMirror h1 {
-  font-size: 1.55em;
-}
-.q-tiptap__editor .ProseMirror h2 {
-  font-size: 1.3em;
-}
-.q-tiptap__editor .ProseMirror h3 {
-  font-size: 1.1em;
-}
-.q-tiptap__editor .ProseMirror > *:first-child {
-  margin-top: 0;
-}
-.q-tiptap__editor .ProseMirror ul,
-.q-tiptap__editor .ProseMirror ol {
-  margin: 0 0 0.8em;
-  /* listes décalées d'un retrait (margin-left) ; petit padding pour les
-     marqueurs (puces / numéros) */
-  margin-left: 1.5em;
-  padding-left: 0.4em;
-}
-/* listes imbriquées : retrait réduit pour rester lisible */
-.q-tiptap__editor .ProseMirror ul ul,
-.q-tiptap__editor .ProseMirror ul ol,
-.q-tiptap__editor .ProseMirror ol ul,
-.q-tiptap__editor .ProseMirror ol ol {
-  margin-left: 0.75em;
-}
-/* Tailwind preflight met ul/ol { list-style: none } → restaurer les marqueurs */
-.q-tiptap__editor .ProseMirror ul {
-  list-style-type: disc;
-}
-.q-tiptap__editor .ProseMirror ol {
-  list-style-type: decimal;
-}
-.q-tiptap__editor .ProseMirror ul ul {
-  list-style-type: circle;
-}
-.q-tiptap__editor .ProseMirror ul ul ul {
-  list-style-type: square;
-}
-.q-tiptap__editor .ProseMirror li {
-  margin: 0.15em 0;
-}
-.q-tiptap__editor .ProseMirror li p {
-  margin: 0;
-}
-.q-tiptap__editor .ProseMirror blockquote {
-  margin: 0.6em 0;
-  padding: 6px 12px;
-  border-left: 3px solid var(--q-tiptap-primary);
-  border-radius: 0 8px 8px 0;
-  background: var(--q-tiptap-quote-bg);
-}
-.q-tiptap__editor .ProseMirror blockquote p {
-  margin: 0;
-}
-.q-tiptap__editor .ProseMirror pre {
-  margin: 0.6em 0;
-  padding: 10px 12px;
-  overflow-x: auto;
-  border: 1px solid var(--q-tiptap-border);
-  border-radius: 8px;
-  background: var(--q-tiptap-code-bg);
-  font-size: 0.92em;
-}
-.q-tiptap__editor .ProseMirror pre code {
-  background: none;
-  padding: 0;
-  font-size: 1em;
-}
-.q-tiptap__editor .ProseMirror code {
-  padding: 0.1em 0.35em;
-  border-radius: 4px;
-  background: var(--q-tiptap-code-bg);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.92em;
-}
-.q-tiptap__editor .ProseMirror a {
-  color: var(--q-tiptap-primary);
-  text-decoration: underline;
-  cursor: pointer;
-}
-.q-tiptap__editor .ProseMirror hr {
-  margin: 0.8em 0;
-  border: none;
-  border-top: 1px solid var(--q-tiptap-border);
-}
-.q-tiptap__editor .ProseMirror img {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 0.6em auto;
-  border-radius: 8px;
-  box-shadow: 0 0 0 1px var(--q-tiptap-border);
-}
-.q-tiptap__editor .ProseMirror .ProseMirror-selectednode {
-  outline: 2px solid var(--q-tiptap-primary);
-  border-radius: 4px;
-}
-
-/* — couleur de texte (toolbar + palette popover) — */
-.q-tiptap__tool--color {
-  position: relative;
-}
-.q-tiptap__color-bar {
-  position: absolute;
-  right: 7px;
-  bottom: 4px;
-  left: 7px;
-  height: 3px;
-  border-radius: 2px;
-  pointer-events: none;
-}
-.q-tiptap__tool--disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.q-tiptap__tool--color:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--q-tiptap-primary);
-}
-.q-tiptap__palette {
-  position: fixed;
-  z-index: 4000;
-  width: 224px;
-  padding: 10px;
-  background: var(--q-tiptap-bg);
-  border: 1px solid var(--q-tiptap-border);
-  border-radius: 12px;
-  box-shadow: 0 14px 34px rgb(0 0 0 / 0.18);
-}
-.q-tiptap__palette-title {
-  margin: 0 2px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--q-tiptap-muted);
-}
-.q-tiptap__palette-swatches {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-}
-.q-tiptap__swatch {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  padding: 0;
-  border: 1px solid var(--q-tiptap-border);
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-  transition: transform 0.1s ease;
-}
-.q-tiptap__swatch:hover {
-  transform: scale(1.12);
-}
-.q-tiptap__swatch--active {
-  box-shadow:
-    0 0 0 2px var(--q-tiptap-bg),
-    0 0 0 4px var(--q-tiptap-primary);
-}
-.q-tiptap__swatch--none {
-  background: #fff;
-  background-image: linear-gradient(
-    to top right,
-    transparent calc(50% - 1px),
-    #e5484d calc(50% - 1px),
-    #e5484d calc(50% + 1px),
-    transparent calc(50% + 1px)
-  );
-}
-.q-tiptap__palette-custom {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--q-tiptap-border);
-  font-size: 12px;
-  color: var(--q-tiptap-muted);
-  cursor: pointer;
-}
-.q-tiptap__palette-custom input[type="color"] {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 1px solid var(--q-tiptap-border);
-  border-radius: 6px;
-  background: none;
-  cursor: pointer;
-}
-.q-tiptap__palette-custom input[type="color"]::-webkit-color-swatch-wrapper {
-  padding: 2px;
-}
-.q-tiptap__palette-custom input[type="color"]::-webkit-color-swatch {
-  border: none;
-  border-radius: 4px;
-}
-
-/* — mentions (@) : puce dans le document + popup de suggestion — */
-.q-tiptap__editor .ProseMirror span[data-type="mention"] {
-  display: inline-block;
-  padding: 0 5px;
-  margin: 0 1px;
-  border-radius: 6px;
-  background: rgb(25 118 210 / 0.12);
-  background: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
-  color: var(--q-tiptap-primary);
-  font-weight: 500;
-  white-space: nowrap;
-}
-.q-tiptap__mention-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 220px;
-  max-height: 240px;
-  overflow-y: auto;
-  padding: 4px;
-  background: var(--q-tiptap-bg);
-  border: 1px solid var(--q-tiptap-border);
-  border-radius: 10px;
-  box-shadow: 0 12px 28px rgb(0 0 0 / 0.18);
-}
-.q-tiptap__mention-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--q-tiptap-text);
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.q-tiptap__mention-item:hover,
-.q-tiptap__mention-item--active {
-  background: rgb(25 118 210 / 0.12);
-  background: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
-  color: var(--q-tiptap-primary);
-}
-.q-tiptap__mention-empty {
-  padding: 8px 10px;
-  font-size: 13px;
-  color: var(--q-tiptap-muted);
-}
-
-/* — bubble menu : barre contextuelle de formatage (sélection) — */
-.q-tiptap__bubble {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  width: max-content;
-  padding: 4px;
-  background: var(--q-tiptap-bg);
-  border: 1px solid var(--q-tiptap-border);
-  border-radius: 12px;
-  box-shadow: 0 10px 28px rgb(0 0 0 / 0.16);
-}
-.q-tiptap__bubble-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--q-tiptap-muted);
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-}
-.q-tiptap__bubble-btn svg {
-  width: 15px;
-  height: 15px;
-}
-/* Idem : un bouton de bulle actif garde son apparence au survol */
-.q-tiptap__bubble-btn:hover:not(:disabled):not(.q-tiptap__bubble-btn--active) {
-  background-color: rgb(0 0 0 / 0.06);
-  color: var(--q-tiptap-text);
-}
-.dark .q-tiptap__bubble-btn:hover:not(:disabled):not(.q-tiptap__bubble-btn--active) {
-  background-color: rgb(255 255 255 / 0.08);
-}
-.q-tiptap__bubble-btn--active {
-  background-color: rgb(25 118 210 / 0.14);
-  background-color: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
-  color: var(--q-tiptap-primary);
-}
-.q-tiptap__bubble-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.q-tiptap__bubble-sep {
-  width: 1px;
-  height: 16px;
-  margin: 0 3px;
-  background: var(--q-tiptap-border);
-}
-.q-tiptap__bubble .q-tiptap__color-bar {
-  right: 6px;
-  bottom: 3px;
-  left: 6px;
-}
-
-/* — drag handle : poignée de déplacement des blocs — */
-.q-tiptap__drag-handle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  /* espace minimum entre l'icône et l'élément dragué (≥ 5% de la largeur de
-     l'éditeur, relatif au conteneur positionné .q-tiptap__body) */
-  margin-right: 5%;
-  color: var(--q-tiptap-muted);
-  cursor: grab;
-  border-radius: 6px;
-  transition: color 0.15s ease, background-color 0.15s ease;
-}
-.q-tiptap__drag-handle:hover {
-  color: var(--q-tiptap-primary);
-  background: rgb(25 118 210 / 0.12);
-  background: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
-}
-.q-tiptap__drag-handle:active {
-  cursor: grabbing;
-}
-.q-tiptap__drag-handle svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Les popups (mentions, palette, bubble) sont montés HORS de .q-tiptap
-   (Teleport / body via props.mount) → ils n'héritent PAS de --q-tiptap-*.
-   On leur redéfinit leurs variables localement : fond blanc en light
-   (--card), sombre via html.dark. */
-.q-tiptap__mention-list,
-.q-tiptap__palette,
-.q-tiptap__bubble,
-.q-tiptap__table-menu {
-  --q-tiptap-bg: var(--card, #ffffff);
-  --q-tiptap-border: var(--border, rgb(0 0 0 / 0.12));
-  --q-tiptap-text: var(--foreground, #1d1d1d);
-  --q-tiptap-muted: #8b93a1;
-  --q-tiptap-primary: var(--primary, #1976d2);
-}
-.dark .q-tiptap__mention-list,
-.dark .q-tiptap__palette,
-.dark .q-tiptap__bubble,
-.dark .q-tiptap__table-menu {
-  --q-tiptap-bg: #1e1e22;
-  --q-tiptap-border: rgb(255 255 255 / 0.12);
-  --q-tiptap-text: #ececef;
-  --q-tiptap-muted: #9aa2b1;
-  --q-tiptap-primary: var(--primary, #1976d2);
-}
-
-/* — sélecteur de taille de police (toolbar, q-select) — */
-.q-tiptap__size {
-  display: inline-flex;
-  align-items: center;
-  margin: 0 2px;
-}
-.q-tiptap__font-size {
-  width: 100px;
-  font-size: 12px;
-}
-.q-tiptap__font-size .q-select__display {
-  font-size: 12px;
-}
-.q-tiptap__font-size.q-field--dense .q-select__arrow {
-  width: 14px;
-  height: 14px;
-}
-/* Popup inline téléporté dans <body> : impossible de le styler depuis le parent — on
-   passe par la classe du popup (`inline-options.class`) ; la largeur, elle, vient de
-   `inline-options.width` (l'inline posé par positionPopup() prime sur ce CSS). */
-.q-tiptap__font-size-popup {
-  min-width: 100px;
-}
-.q-tiptap__font-size-popup .q-select__option-label {
-  font-size: 12px;
-}
-
-/* — tableaux : rendu dans le document + popup d'actions — */
-.q-tiptap__editor .ProseMirror .tableWrapper {
-  overflow-x: auto;
-}
-.q-tiptap__editor .ProseMirror table {
-  width: 100%;
-  margin: 0.6em 0;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-.q-tiptap__editor .ProseMirror th,
-.q-tiptap__editor .ProseMirror td {
-  position: relative;
-  min-width: 60px;
-  padding: 6px 10px;
-  border: 1px solid var(--q-tiptap-border);
-  vertical-align: top;
-}
-.q-tiptap__editor .ProseMirror th {
-  background: var(--q-tiptap-toolbar-bg);
-  font-weight: 600;
-  text-align: left;
-}
-.q-tiptap__editor .ProseMirror .selectedCell::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: rgb(25 118 210 / 0.14);
-  background: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
-  pointer-events: none;
-}
-.q-tiptap__editor .ProseMirror .column-resize-handle {
-  position: absolute;
-  top: 0;
-  right: -3px;
-  bottom: 0;
-  width: 5px;
-  background: var(--q-tiptap-primary);
-  cursor: col-resize;
-}
-.q-tiptap__editor .ProseMirror td p,
-.q-tiptap__editor .ProseMirror th p {
-  margin: 0 0 0.2em;
-}
-.q-tiptap__table-menu {
-  position: fixed;
-  z-index: 4000;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 212px;
-  padding: 5px;
-  background: var(--q-tiptap-bg);
-  border: 1px solid var(--q-tiptap-border);
-  border-radius: 10px;
-  box-shadow: 0 12px 28px rgb(0 0 0 / 0.18);
-}
-.q-tiptap__table-action {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--q-tiptap-text);
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-}
-.q-tiptap__table-action:hover {
-  background: rgb(25 118 210 / 0.12);
-  background: color-mix(in srgb, var(--q-tiptap-primary) 14%, transparent);
-  color: var(--q-tiptap-primary);
-}
-
 /* ===== QBar ===== */
 .q-bar {
   display: flex;
@@ -9754,81 +9200,6 @@ a.q-breadcrumbs__el:hover {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-}
-
-/* NodeView Vue de la table : wrapper + table + tbody (contentDOM) */
-.q-tiptap__editor .ProseMirror .q-tiptap__table-wrapper {
-  position: relative;
-  overflow-x: auto;
-  margin: 0.6em 0;
-}
-.q-tiptap__editor .ProseMirror .q-tiptap__table-wrapper table {
-  margin: 0;
-  width: 100%;
-  table-layout: fixed;
-}
-/* Poignées de redimensionnement des colonnes (NodeView Vue) */
-.q-tiptap__resize-handle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  z-index: 2;
-  width: 7px;
-  margin-left: -3.5px;
-  cursor: col-resize;
-  touch-action: none;
-}
-.q-tiptap__resize-handle::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 2.5px;
-  width: 2px;
-  border-radius: 2px;
-  background: transparent;
-  transition: background-color 0.15s ease;
-}
-.q-tiptap__resize-handle:hover::after,
-.q-tiptap__resize-handle:active::after {
-  background: var(--q-tiptap-primary);
-}
-
-/* — dialog image / lien (saisie URL) — */
-.q-tiptap__dialog {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 300px;
-  padding: 14px 16px;
-}
-
-/* — task list (NodeView Vue → q-checkbox dnax.ui) — */
-.q-tiptap__editor .ProseMirror ul[data-type="taskList"] {
-  padding-left: 0;
-  list-style: none;
-}
-.q-tiptap__editor .ProseMirror ul[data-type="taskList"] li[data-node-view-wrapper] {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  list-style: none;
-}
-.q-tiptap__task-check {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  margin-top: 2px;
-  cursor: pointer;
-  user-select: none;
-}
-.q-tiptap__task-content {
-  flex: 1;
-  min-width: 0;
-}
-.q-tiptap__task-content--checked {
-  color: var(--q-tiptap-muted);
-  text-decoration: line-through;
 }
 
 /* ===== QSpreadsheet (tableur type Excel) ===== */
@@ -10142,7 +9513,7 @@ a.q-breadcrumbs__el:hover {
   font-size: 12px;
 }
 
-/* ─── Badges (type select + chip) ─── */
+/* ─── Badges (types select / multiselect + chip) ─── */
 .q-spreadsheet__badge {
   display: inline-block;
   max-width: 100%;
@@ -10154,6 +9525,15 @@ a.q-breadcrumbs__el:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+/* Choix multiples : un badge par valeur, qui passent à la ligne dans une cellule étroite */
+.q-spreadsheet__badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-width: 100%;
   vertical-align: middle;
 }
 
@@ -10219,6 +9599,23 @@ a.q-breadcrumbs__el:hover {
   height: 12px;
   border-radius: 3px;
   border: 1px solid var(--q-spreadsheet-border);
+}
+
+/* Choix multiples : coche de sélection, largeur réservée même décochée (libellés alignés) */
+.q-spreadsheet__option-check {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 12px;
+  color: var(--primary, #1976d2);
+}
+
+/* Liste un peu plus haute : on coche plusieurs valeurs d'affilée */
+.q-spreadsheet__editor--multi .q-spreadsheet__options {
+  max-height: 210px;
 }
 
 /* ─── Barre de formule (fx) ─── */
@@ -10940,6 +10337,28 @@ a.q-breadcrumbs__el:hover {
   background: rgb(25 118 210 / 0.12);
   color: var(--primary, #1976d2);
 }
+
+/* Indicateur « modifié » : le document diffère de la référence (rien d'enregistré depuis) */
+.q-spreadsheet__status-changes {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgb(242 192 55 / 0.16);
+  background: color-mix(in srgb, var(--warning, #f2c037) 18%, transparent);
+  color: var(--warning, #f2c037);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.q-spreadsheet__changes-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
 .q-spreadsheet__status-spacer {
   flex: 1;
 }
@@ -11215,4 +10634,359 @@ a.q-breadcrumbs__el:hover {
   transition:
     transform 0.225s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== QMap — carte MapTiler (SDK JS, MapLibre GL) =====
+   Le cadre et les surcouches sont de dnax.ui ; le canvas, les contrôles et les bulles
+   sont rendus par le SDK — d'où les sélecteurs `.maplibregl-*` rethémés ici : aucun
+   blanc/gris fixe du SDK ne doit survivre en mode sombre. */
+.q-map {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--q-radius, 0);
+  background: var(--muted, #f5f6f8);
+}
+
+.q-map__canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* Surcouche de chargement / d'erreur — le cadre garde sa hauteur (pas de saut de page).
+   `z-index` au-dessus des panes du SDK (2) et de Leaflet (400-800). */
+.q-map__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  text-align: center;
+  background: var(--muted, #f5f6f8);
+  color: var(--muted-foreground, #5b6472);
+}
+
+.q-map__note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* — Contrôles (zoom, boussole, géolocalisation, plein écran) — */
+.q-map .maplibregl-ctrl-group {
+  background: var(--card, #fff);
+  border: 1px solid var(--border, rgb(0 0 0 / 0.1));
+}
+.q-map .maplibregl-ctrl-group:not(:empty) {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+}
+.q-map .maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--border, rgb(0 0 0 / 0.08));
+}
+/* Les icônes du SDK sont des SVG gris foncé en `background-image` : inversées en sombre */
+.dark .q-map .maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1.7);
+}
+
+/* — Bulles (`className: "q-map__popup"` posé par QMap) — */
+.q-map__popup .maplibregl-popup-content {
+  background: var(--card, #fff);
+  color: var(--foreground, #1d1d1d);
+  border: 1px solid var(--border, rgb(0 0 0 / 0.1));
+  border-radius: var(--q-radius, 8px);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.14);
+}
+.q-map__popup .maplibregl-popup-close-button {
+  padding: 0 6px;
+  border-radius: var(--q-radius, 8px) 0 0 0;
+  color: var(--muted-foreground, #5b6472);
+  font-size: 16px;
+}
+/* La pointe suit la surface de la bulle (8 ancrages du SDK, blancs par défaut) */
+.q-map__popup.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.q-map__popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.q-map__popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+  border-bottom-color: var(--card, #fff);
+}
+.q-map__popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.q-map__popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.q-map__popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+  border-top-color: var(--card, #fff);
+}
+.q-map__popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: var(--card, #fff);
+}
+.q-map__popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: var(--card, #fff);
+}
+
+/* ─── Leaflet (provider « leaflet ») ───────────────────────────────────────────
+   Leaflet impose un fond gris, sa police et des contrôles blancs : on les ramène aux
+   tokens du thème, comme pour le SDK MapTiler. */
+.q-map .leaflet-container {
+  background: var(--muted, #f5f6f8);
+  color: var(--foreground, inherit);
+  font: inherit;
+  font-size: 13px;
+}
+
+/* Épingle maison (divIcon SVG) : annule le carré blanc `.leaflet-div-icon` */
+.q-map .q-map__pin,
+.q-map .leaflet-div-icon {
+  background: none;
+  border: 0;
+}
+
+/* Zoom / contrôles */
+.q-map .leaflet-bar {
+  border: 1px solid var(--border, rgb(0 0 0 / 0.1));
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+}
+.q-map .leaflet-bar a,
+.q-map .leaflet-bar a:hover {
+  background: var(--card, #fff);
+  color: var(--foreground, #1d1d1d);
+  border-bottom-color: var(--border, rgb(0 0 0 / 0.1));
+}
+.q-map .leaflet-control-attribution {
+  background: rgb(255 255 255 / 0.75);
+  color: #333;
+  font-size: 11px;
+}
+
+/* Bulles (`className: "q-map__popup"` posé par le moteur Leaflet) */
+.q-map__popup .leaflet-popup-content-wrapper {
+  background: var(--card, #fff);
+  color: var(--foreground, #1d1d1d);
+  border: 1px solid var(--border, rgb(0 0 0 / 0.1));
+  border-radius: var(--q-radius, 8px);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.14);
+}
+.q-map__popup .leaflet-popup-content {
+  margin: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.q-map__popup .leaflet-popup-tip {
+  background: var(--card, #fff);
+}
+.q-map__popup a.leaflet-popup-close-button {
+  color: var(--muted-foreground, #5b6472);
+}
+
+/* ===== QInputCurrency — le symbole est un décor, la valeur reste éditable =====
+   Place et espacement du symbole viennent d'`Intl` (« 1 234,56 € » / « $1,234.56 ») : le
+   composant pose `.q-field__currency--before|after` autour de l'input. */
+.q-field__currency {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground, rgb(0 0 0 / 0.55));
+}
+
+.q-field__currency--before {
+  margin-right: 3px;
+}
+
+.q-field__currency--after {
+  margin-left: 3px;
+}
+
+/* Chiffres alignés (montants comparables d'une ligne à l'autre) */
+.q-input-currency .q-field__native {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== QQrcode — code QR en un seul chemin SVG =====
+   Le viewBox porte la zone de silence : le SVG se met à l'échelle depuis `size` (ou depuis
+   la largeur CSS) sans jamais flouter les modules (`shape-rendering: crispEdges`). */
+.q-qrcode {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* ===== QNumericKeyboard — pavé numérique à l'écran =====
+   Grille de touches (3 colonnes par défaut, `columns` la change). Les touches sont de vrais
+   boutons : focus visible, état pressé, désactivation — et la hauteur suit `dense`. */
+.q-numeric-keyboard {
+  --q-nk-columns: 3;
+  --q-nk-key-h: 52px;
+  --q-nk-gap: 8px;
+  --q-nk-dot-size: 12px;
+
+  display: grid;
+  grid-template-columns: repeat(var(--q-nk-columns), minmax(0, 1fr));
+  gap: var(--q-nk-gap);
+  width: 100%;
+  max-width: 360px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.q-numeric-keyboard--dense {
+  --q-nk-key-h: 42px;
+  --q-nk-gap: 6px;
+  --q-nk-dot-size: 10px;
+}
+
+.q-numeric-keyboard__key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--q-nk-key-h);
+  border: 1px solid var(--border, rgb(0 0 0 / 0.1));
+  border-radius: var(--q-radius, 10px);
+  background-color: var(--card, #fff);
+  color: var(--foreground, inherit);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 500;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 0.15s ease,
+    transform 0.08s ease;
+}
+
+.q-numeric-keyboard__key:hover:not(:disabled) {
+  background-color: var(--muted, #f5f6f8);
+}
+
+.q-numeric-keyboard__key:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.q-numeric-keyboard__key:focus-visible {
+  outline: 2px solid var(--primary, #1976d2);
+  outline-offset: 2px;
+}
+
+/* Touches d'édition : plus discrètes, mais au même endroit dans la grille */
+.q-numeric-keyboard__key--backspace,
+.q-numeric-keyboard__key--clear,
+.q-numeric-keyboard__key--separator {
+  color: var(--muted-foreground, rgb(0 0 0 / 0.55));
+  font-size: 18px;
+}
+
+/* Case libre : occupe sa cellule sans exister visuellement */
+.q-numeric-keyboard__key--empty {
+  border-color: transparent;
+  background: none;
+  pointer-events: none;
+}
+
+.q-numeric-keyboard__key:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.q-numeric-keyboard--dark .q-numeric-keyboard__key {
+  border-color: rgb(255 255 255 / 0.12);
+  background-color: #1f1f1f;
+  color: #fff;
+}
+
+.q-numeric-keyboard--dark .q-numeric-keyboard__key:hover:not(:disabled) {
+  background-color: #2a2a2a;
+}
+
+/* Rangée de points : progression d'un code (`show-dots`). Points vides = pastilles creuses,
+   points remplis = couleur primaire, avec un « pop » au remplissage (voir l'index déclaré sur
+   le composant, qui ne rejoue l'animation que pour les points qui viennent de se remplir). */
+.q-numeric-keyboard__dots {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: calc(var(--q-nk-dot-size) + 4px);
+  padding-bottom: 2px;
+}
+
+.q-numeric-keyboard__dot {
+  width: var(--q-nk-dot-size);
+  height: var(--q-nk-dot-size);
+  border: 1.5px solid var(--border, rgb(0 0 0 / 0.25));
+  border-radius: 999px;
+  background-color: transparent;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.q-numeric-keyboard__dot--filled {
+  border-color: var(--primary, #1976d2);
+  background-color: var(--primary, #1976d2);
+}
+
+@keyframes q-nk-dot-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.45);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.q-numeric-keyboard__dot--pop {
+  animation: q-nk-dot-pop 0.34s ease-out;
+}
+
+/* Thème sombre : le contour des points vides doit rester visible sur fond noir */
+.q-numeric-keyboard--dark .q-numeric-keyboard__dot {
+  border-color: rgb(255 255 255 / 0.3);
+}
+
+.q-numeric-keyboard--dark .q-numeric-keyboard__dot--filled {
+  border-color: var(--primary, #1976d2);
+}
+
+/* État d'erreur : les points passent en rouge (vides et pleins) + message sous le pavé.
+   Déclaré après les variantes `--dark` : à spécificité égale, l'erreur doit gagner. */
+.q-numeric-keyboard--error .q-numeric-keyboard__dot {
+  border-color: rgb(193 0 21 / 0.45);
+  border-color: color-mix(in srgb, var(--negative, #c10015) 45%, transparent);
+}
+
+.q-numeric-keyboard--error .q-numeric-keyboard__dot--filled {
+  border-color: var(--negative, #c10015);
+  background-color: var(--negative, #c10015);
+}
+
+.q-numeric-keyboard__error {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--negative, #c10015);
+}
+
+/* « 3 sur 6 » : annonce lecteur d'écran, invisible à l'œil */
+.q-numeric-keyboard__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-numeric-keyboard__dot--pop {
+    animation: none;
+  }
 }

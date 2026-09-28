@@ -1,5 +1,6 @@
 // Normalisation des couleurs CSS → une forme que **zrender** (le moteur d'ECharts) sait
 // relire : `#rrggbb`, `rgb(a,b,c)`, `rgba(a,b,c,a)`, `hsl(h,s%,l%)` ou un nom CSS.
+// (`<q-map>` s'en sert aussi : la couleur d'un marqueur part dans un attribut SVG.)
 //
 // Pourquoi c'est vital : au survol, ECharts **recalcule** la couleur de l'élément —
 //   `emphasisStyle.fill = liftColor(fromFill)`   (`echarts/lib/util/states.js`)
@@ -15,6 +16,18 @@
 
 /** Sentinelles : une couleur invalide laisse `fillStyle` inchangé */
 const SENTINELS = ["#010203", "#040506"]
+
+/** Canvas 2D de 1×1 px, mémoïsé : le support de `normalizeCssColor` (créé au premier
+ *  besoin, `null` hors navigateur). Un seul canvas pour toute l'application. */
+let probe: CanvasRenderingContext2D | null | undefined
+export function probeContext(): CanvasRenderingContext2D | null {
+  if (probe !== undefined) return probe
+  if (typeof document === "undefined") return (probe = null)
+  const canvas = document.createElement("canvas")
+  canvas.width = canvas.height = 1
+  probe = canvas.getContext("2d")
+  return probe
+}
 
 /** Octets sRGB → CSS relisible par zrender : `#rrggbb` si opaque, sinon `rgba(…)` */
 export function rgbaFromBytes(r: number, g: number, b: number, a: number): string {

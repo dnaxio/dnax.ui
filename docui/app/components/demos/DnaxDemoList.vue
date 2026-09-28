@@ -5,7 +5,7 @@ import { ref } from "vue"
 
 defineProps<{
   /** Identifiant de la démo à afficher */
-  demo: "container" | "basic" | "clickable" | "thumbnail" | "alignment" | "states"
+  demo: "container" | "basic" | "clickable" | "thumbnail" | "alignment" | "states" | "labels"
 }>()
 
 // — Démos —
@@ -108,6 +108,21 @@ const thumbnail = "https://images.unsplash.com/photo-1501785888041-af3ef285b470?
     </q-item>
     <q-item disable>
       <q-item-section>Disabled item</q-item-section>
+    </q-item>
+  </q-list>
+
+  <q-list v-else-if="demo === 'labels'" bordered separator class="demo-list">
+    <q-item>
+      <q-item-section>
+        <q-item-label overline>Overline</q-item-label>
+        <q-item-label>Default label</q-item-label>
+        <q-item-label caption>A caption with secondary text</q-item-label>
+        <q-item-label header>Header label</q-item-label>
+        <q-item-label :lines="2">
+          A long label truncated after two lines: lorem ipsum dolor sit amet, consectetur
+          adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna.
+        </q-item-label>
+      </q-item-section>
     </q-item>
   </q-list>
 </template>

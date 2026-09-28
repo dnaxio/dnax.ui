@@ -4,7 +4,10 @@
 // édition en place (Entrée / F2 / double-clic / frappe directe),
 // lignes & colonnes (ajouter / insérer / supprimer),
 // tri, copier/coller, undo/redo, et cellules typées
-// (texte, nombre, entier, booléen, date, datetime, select avec badges colorés).
+// (texte, nombre, entier, booléen, date, datetime, select / multiselect avec badges colorés).
+// Suivi des modifications : `v-model:dirty` (état) + `v-model:changes` (delta lignes / feuilles
+// ajoutées, modifiées, supprimées), calculé en comparant le document à une **référence**
+// (`lib/spreadsheetChanges.ts`).
 export type QSpreadsheetCellType =
   | "string"
   | "text"
@@ -16,6 +19,7 @@ export type QSpreadsheetCellType =
   | "date"
   | "datetime"
   | "select"
+  | "multiselect"
 
 export interface QSpreadsheetCellOption {
   /** Valeur stockée dans la cellule */
@@ -44,9 +48,9 @@ export interface QSpreadsheetColumn {
   type?: QSpreadsheetCellType
   /** La cellule est éditable (Entrée / double-clic / frappe) */
   editable?: boolean
-  /** Pour type "select" : options (badges colorés) */
+  /** Pour type "select" / "multiselect" : options (badges colorés) */
   options?: QSpreadsheetCellOption[]
-  /** Pour type "select" : rend l'option active en badge coloré (sinon texte) */
+  /** Pour type "select" / "multiselect" : rend les options actives en badge coloré (sinon texte) */
   chip?: boolean
   /** Validation à la saisie : { min, max, integer?, pattern?, message? } */
   validation?: QSpreadsheetValidation
@@ -122,6 +126,18 @@ export interface QSpreadsheetDocument {
     filters?: Record<string, string[] | null>
   })[]
 }
+
+// Suivi des modifications (delta référence → état courant) — défini dans `lib/spreadsheetChanges.ts`
+// (pur, testé) et ré-exporté ici pour les consommateurs du composant.
+export type {
+  QSpreadsheetChanges,
+  QSpreadsheetExtraPart,
+  QSpreadsheetRowRef,
+  QSpreadsheetRowsDelta,
+  QSpreadsheetRowUpdate,
+  QSpreadsheetSheetUpdate,
+  QSpreadsheetSheetsDelta,
+} from "../lib/spreadsheetChanges"
 </script>
 
 <script setup lang="ts">
@@ -145,6 +161,11 @@ import {
   deriveCols,
   parseCsv,
 } from "../lib/spreadsheet"
+import {
+  DEFAULT_ROW_KEY,
+  diffDocuments,
+  type QSpreadsheetChanges,
+} from "../lib/spreadsheetChanges"
 
 interface Props {
   /** Lignes (v-model:rows) — un objet par ligne, clés = noms de colonnes */
@@ -193,6 +214,12 @@ interface Props {
   readonly?: boolean
   /** Désactive tout (lecture seule + grisée) */
   disable?: boolean
+  /** Affiche l'indicateur « modifié » dans la barre d'état (dès que le document diffère de la référence) */
+  showChanges?: boolean
+  /** État « modifié » (`v-model:dirty`) — vrai dès que le document diffère de la référence */
+  dirty?: boolean
+  /** Delta des modifications (`v-model:changes`) — lignes & feuilles ajoutées / modifiées / supprimées */
+  changes?: QSpreadsheetChanges
   /** Coins arrondis (échelle xs|sm|md|lg ou none) — défaut : composantProps */
   radius?: RadiusProp
 }
@@ -221,6 +248,9 @@ const props = withDefaults(defineProps<Props>(), {
   dark: false,
   readonly: false,
   disable: false,
+  showChanges: true,
+  dirty: false,
+  changes: undefined,
 })
 
 // ─── i18n (en | fr) ───
@@ -293,6 +323,14 @@ const I18N = {
     statusSheets: "{n} sheets",
     addSheet: "Add sheet",
     removeSheet: "Remove sheet",
+    modified: "{n} modified",
+    rowsAdded: "{n} row(s) added",
+    rowsUpdated: "{n} row(s) updated",
+    rowsDeleted: "{n} row(s) deleted",
+    sheetsAdded: "{n} sheet(s) added",
+    sheetsUpdated: "{n} sheet(s) updated",
+    sheetsDeleted: "{n} sheet(s) deleted",
+    formatted: "formatting",
     empty: "…",
   },
   fr: {
@@ -363,6 +401,14 @@ const I18N = {
     statusSheets: "{n} feuilles",
     addSheet: "Ajouter une feuille",
     removeSheet: "Supprimer la feuille",
+    modified: "{n} modification(s)",
+    rowsAdded: "{n} ligne(s) ajoutée(s)",
+    rowsUpdated: "{n} ligne(s) modifiée(s)",
+    rowsDeleted: "{n} ligne(s) supprimée(s)",
+    sheetsAdded: "{n} feuille(s) ajoutée(s)",
+    sheetsUpdated: "{n} feuille(s) modifiée(s)",
+    sheetsDeleted: "{n} feuille(s) supprimée(s)",
+    formatted: "mise en forme",
     empty: "…",
   },
 } as const
@@ -385,6 +431,8 @@ const emit = defineEmits<{
   "cell-edit-end": [payload: { row: number; column: string; canceled: boolean }]
   "selection-change": [value: QSpreadsheetSelection | null]
   "structure-change": [payload: { rows: Record<string, any>[]; columns: QSpreadsheetColumn[]; reason: string }]
+  "update:dirty": [value: boolean]
+  "update:changes": [value: QSpreadsheetChanges]
 }>()
 
 // ─── Clés de ligne (`_key`) ───
@@ -395,7 +443,13 @@ const emit = defineEmits<{
  * `toJSON()` / `loadDocument()`. Le CSV et le presse-papiers ne l'exportent pas
  * (ils n'itèrent que sur les colonnes déclarées).
  */
-const ROW_KEY = "_key"
+const ROW_KEY = DEFAULT_ROW_KEY
+
+/**
+ * Le suivi des modifications ne « rebase » qu'**après le montage** : les watchers de props
+ * tournent avant eux (`immediate`) et n'ont pas encore de référence à comparer.
+ */
+let trackReady = false
 
 /** uuid v4 si le contexte le permet, sinon repli horodaté (SSR, http non sécurisé…) */
 const newRowKey = (): string => {
@@ -429,6 +483,8 @@ watch(
       // état interne partagent les mêmes `_key`.
       ensureRowKeys(v)
       state.value = v.map((r) => ({ ...r }))
+      // Lignes **externes** (nouveau document) → nouvelle référence de comparaison
+      if (trackReady) acceptChanges()
     }
   },
   { immediate: true },
@@ -443,7 +499,11 @@ const cols = ref<QSpreadsheetColumn[]>([])
 watch(
   () => props.columns,
   (v) => {
-    if (v && v !== cols.value) cols.value = v.map((c) => ({ ...c }))
+    if (v && v !== cols.value) {
+      cols.value = v.map((c) => ({ ...c }))
+      // Colonnes **externes** (nouveau schéma) → nouvelle référence de comparaison
+      if (trackReady) acceptChanges()
+    }
   },
   { immediate: true },
 )
@@ -455,6 +515,38 @@ const pushCols = (next: QSpreadsheetColumn[]) => {
 const colIndex = (name: string) => cols.value.findIndex((c) => c.name === name)
 const colNameAt = (i: number) => cols.value[i]?.name ?? ""
 const colOf = (name: string) => cols.value.find((c) => c.name === name)
+
+// ─── Cellules à choix (select = une valeur, multiselect = un tableau de valeurs) ───
+/**
+ * Valeurs d'une cellule à choix multiples, toujours sous forme de liste : un tableau est
+ * repris tel quel, une valeur nue (`null`, `"it"`…) devient `[valeur]` (ou `[]` si vide).
+ * C'est ce qui permet de lire indifféremment un `select` (scalaire) et un `multiselect`.
+ */
+const multiValues = (raw: any): any[] => {
+  if (Array.isArray(raw)) return raw
+  return isBlankValue(raw) ? [] : [raw]
+}
+
+/** Libellés d'une cellule à choix multiples (le `value` brut si l'option est inconnue) */
+const multiLabels = (col: QSpreadsheetColumn | undefined, raw: any): string[] =>
+  multiValues(raw).map((v) => {
+    const opt = col?.options?.find((o) => o.value === v)
+    return String(opt?.label ?? v)
+  })
+
+/**
+ * Texte d'une cellule `select` / `multiselect` : les **libellés** (jamais le `value`
+ * stocké), pour la copie, le CSV, la recherche, le filtre et les info-bulles.
+ */
+const choiceText = (col: QSpreadsheetColumn | undefined, raw: any): string => {
+  if (col?.type === "multiselect") return multiLabels(col, raw).join(", ")
+  if (isBlankValue(raw)) return ""
+  if (col?.type === "select") {
+    const opt = col.options?.find((o) => o.value === raw)
+    if (opt?.label !== undefined) return String(opt.label)
+  }
+  return String(raw)
+}
 
 // ─── Sélection (ancre + plage) ───
 const sel = ref<QSpreadsheetSelection | null>(null)
@@ -635,7 +727,7 @@ const cellText = (row: number, column: string): string => {
   const col = colOf(column)
   const ev = evalAt(row, column)
   if (isError(ev)) return ev.toString()
-  if (col?.type === "select") return "" // rendu via badge / label
+  if (col?.type === "select" || col?.type === "multiselect") return "" // rendu via badge / label
   let out: any = ev === null || ev === undefined ? "" : ev
   // Apostrophe littérale (paste values) : affichée sans le préfixe
   if (typeof out === "string" && out.startsWith("'")) out = out.slice(1)
@@ -648,11 +740,10 @@ const cellTitle = (row: number, column: string): string | undefined => {
   const col = colOf(column)
   const v = state.value[row]?.[column]
   if (isFormulaRaw(v)) return String(v)
-  if (col?.type === "select") {
-    const opt = col.options?.find((o) => o.value === v)
-    // `label` peut être un nombre → `:title` attend une string
-    if (opt?.label !== undefined) return String(opt.label)
-    return v === null || v === undefined ? undefined : String(v)
+  if (col?.type === "select" || col?.type === "multiselect") {
+    // `label` peut être un nombre → `:title` attend une string ; liste → libellés joints
+    const text = choiceText(col, v)
+    return text === "" ? undefined : text
   }
   return undefined
 }
@@ -696,13 +787,22 @@ const columnOf = (name: string) => colOf(name)
 const editingIsFormula = computed(() => {
   if (!editing.value) return false
   const col = colOf(editing.value.column)
-  if (!col || col.type === "boolean" || col.type === "select") return false
+  if (!col || col.type === "boolean" || col.type === "select" || col.type === "multiselect")
+    return false
   return String(draft.value ?? "").trim().startsWith("=")
 })
+/** Colonne `select` (choix unique) en cours d'édition */
 const editingIsSelect = computed(() => {
   const col = editing.value ? colOf(editing.value.column) : undefined
   return col?.type === "select"
 })
+/** Colonne `multiselect` (choix multiples) en cours d'édition */
+const editingIsMulti = computed(() => {
+  const col = editing.value ? colOf(editing.value.column) : undefined
+  return col?.type === "multiselect"
+})
+/** L'une ou l'autre des colonnes à choix : panneau d'options, flèches, recherche */
+const editingIsChoice = computed(() => editingIsSelect.value || editingIsMulti.value)
 const draftLines = computed(() =>
   Math.min(5, Math.max(1, String(draft.value ?? "").split("\n").length)),
 )
@@ -746,6 +846,10 @@ const startEdit = (row: number, column: string, initial?: string) => {
     // `label` peut être un nombre (options numériques) : `draft` alimente un
     // <input>/<textarea> et sert à `.trim()` / `.toLowerCase()` → toujours une string.
     draft.value = String(initial ?? opt?.label ?? "")
+  } else if (col?.type === "multiselect") {
+    // Le champ fait office de **recherche** : vide à l'ouverture (toutes les options
+    // visibles, les valeurs courantes cochées), ou le caractère tapé pour filtrer direct.
+    draft.value = String(initial ?? "")
   } else {
     let rawStr = String(raw ?? "")
     if (rawStr.startsWith("'")) rawStr = rawStr.slice(1)
@@ -781,7 +885,7 @@ const positionEditor = () => {
   nextTick(() => {
     const el = editingIsFormula.value ? editAreaEl.value : editInputEl.value
     el?.focus({ preventScroll: true })
-    if (!editingIsSelect.value) el?.select()
+    if (!editingIsChoice.value) el?.select()
   })
 }
 
@@ -807,9 +911,10 @@ const coerceValue = (col: QSpreadsheetColumn | undefined, text: unknown, old: an
   const raw = String(text ?? "")
   const t = raw.trim()
   if (t === "") return null
-  // Formule A1 : conservée brute dans la cellule (booléen/select exclus)
+  // Formule A1 : conservée brute dans la cellule (booléen/choix exclus)
   if (t.startsWith("=")) {
-    if (col?.type === "boolean" || col?.type === "select") return old
+    if (col?.type === "boolean" || col?.type === "select" || col?.type === "multiselect")
+      return old
     return raw
   }
   if (col?.type === "number") {
@@ -827,6 +932,20 @@ const coerceValue = (col: QSpreadsheetColumn | undefined, text: unknown, old: an
     const opt = col.options?.find((o) => String(o.label ?? "") === raw || String(o.value) === raw)
     return opt ? opt.value : old
   }
+  // `multiselect` : collage / saisie « a, b » → tableau de valeurs d'option
+  if (col?.type === "multiselect") {
+    const parts = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s !== "")
+    if (!parts.length) return null
+    return parts.map((part) => {
+      const opt = col.options?.find(
+        (o) => String(o.label ?? "") === part || String(o.value) === part,
+      )
+      return opt ? opt.value : part
+    })
+  }
   return raw
 }
 
@@ -836,7 +955,9 @@ const commitEdit = async () => {
   const col = colOf(column)
   const old = state.value[row]?.[column]
   const text = draft.value
-  const next = coerceValue(col, text, old)
+  // `multiselect` : la valeur est posée au fil des cases à cocher (le champ n'est
+  // qu'une recherche) — on ne la réécrit donc pas au moment de fermer l'éditeur.
+  const next = col?.type === "multiselect" ? old : coerceValue(col, text, old)
   editing.value = null
   emit("cell-edit-end", { row, column, canceled: false })
   nextTick(() => focusCell(row, column))
@@ -855,7 +976,7 @@ const clearCell = (row: number, column: string) => {
   const col = colOf(column)
   if (col?.editable === false || props.readonly || props.disable) return
   const old = state.value[row]?.[column]
-  if (old === null || old === undefined || old === "") return
+  if (isBlankValue(old) || (Array.isArray(old) && old.length === 0)) return
   setCellValue(row, column, old, null)
 }
 
@@ -876,7 +997,8 @@ const clearSelection = () => {
       const col = cols.value[c]
       if (!col || col.editable === false || props.readonly || props.disable) continue
       const v = state.value[r]?.[col.name]
-      if (v !== null && v !== undefined && v !== "") changed.push({ row: r, column: col.name })
+      if (!isBlankValue(v) && !(Array.isArray(v) && v.length === 0))
+        changed.push({ row: r, column: col.name })
     }
   }
   if (!changed.length) return
@@ -1121,10 +1243,9 @@ const sortByColumn = (column?: string, desc = false) => {
     }
     if (col?.type === "number" || col?.type === "integer") return Number(ev) || 0
     if (col?.type === "boolean") return ev ? 1 : 0
-    if (col?.type === "select") {
-      const opt = col.options?.find((o) => o.value === raw)
-      // `label` peut être numérique → toString avant comparaison
-      return String(opt?.label ?? ev ?? "").toLowerCase()
+    if (col?.type === "select" || col?.type === "multiselect") {
+      // `label` peut être numérique → toString avant comparaison ; liste → libellés joints
+      return choiceText(col, raw).toLowerCase()
     }
     return String(ev).toLowerCase()
   }
@@ -1157,9 +1278,8 @@ const copySelection = async () => {
       const col = colOf(name)
       const raw = state.value[r]?.[name]
       let text: string
-      if (col?.type === "select") {
-        const opt = col.options?.find((o) => o.value === raw)
-        text = opt ? String(opt.label ?? "") : raw === null || raw === undefined ? "" : String(raw)
+      if (col?.type === "select" || col?.type === "multiselect") {
+        text = choiceText(col, raw)
       } else {
         // Formules : copie la valeur AFFICHÉE (évaluée), comme Excel
         text = cellText(r, name)
@@ -1472,8 +1592,17 @@ const onEditKeydown = (e: KeyboardEvent) => {
   if (e.key === "Enter") {
     e.preventDefault()
     e.stopPropagation()
+    const query = String(draft.value ?? "").trim()
     if (editingIsSelect.value && selectOptions.value.length && activeOption.value) {
       pickOption(activeOption.value)
+    } else if (
+      editingIsMulti.value &&
+      query !== "" &&
+      selectOptions.value.length &&
+      activeOption.value
+    ) {
+      // Choix multiples : Entrée coche la suggestion quand on filtre, sinon ferme
+      toggleMultiOption(activeOption.value)
     } else {
       commitEdit()
       moveSelection(1, 0)
@@ -1493,7 +1622,7 @@ const onEditKeydown = (e: KeyboardEvent) => {
     moveSelection(0, e.shiftKey ? -1 : 1)
     return
   }
-  if (editingIsSelect.value && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+  if (editingIsChoice.value && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
     e.preventDefault()
     e.stopPropagation()
     const opts = selectOptions.value
@@ -1505,25 +1634,49 @@ const onEditKeydown = (e: KeyboardEvent) => {
   }
 }
 
-// ─── Éditeur "select" (liste d'options) ───
+// ─── Éditeur "select" / "multiselect" (liste d'options) ───
 const activeOption = ref<QSpreadsheetCellOption | null>(null)
 const selectOptions = computed<QSpreadsheetCellOption[]>(() => {
   if (!editing.value) return []
   const col = colOf(editing.value.column)
-  if (col?.type !== "select") return []
+  if (col?.type !== "select" && col?.type !== "multiselect") return []
   const q = String(draft.value ?? "").trim().toLowerCase()
   return (col.options ?? []).filter(
     (o) => !q || String(o.label ?? o.value ?? "").toLowerCase().includes(q),
   )
 })
 watch(selectOptions, () => {
-  if (editing.value && colOf(editing.value.column)?.type === "select") {
+  if (editing.value && editingIsChoice.value) {
     activeOption.value = selectOptions.value[0] ?? null
   }
 })
 const pickOption = (opt: QSpreadsheetCellOption) => {
   draft.value = String(opt.label ?? "")
   commitEdit()
+}
+
+/** Valeur courante (tableau) de la cellule à choix multiples en cours d'édition */
+const editingMultiValues = computed<any[]>(() => {
+  if (!editing.value) return []
+  return multiValues(state.value[editing.value.row]?.[editing.value.column])
+})
+
+/** L'option est-elle déjà cochée (choix multiples) ? */
+const multiSelected = (opt: QSpreadsheetCellOption) =>
+  editingMultiValues.value.some((v) => v === opt.value)
+
+/** Coche / décoche une option (la valeur est écrite **immédiatement**, l'éditeur reste ouvert) */
+const toggleMultiOption = (opt: QSpreadsheetCellOption) => {
+  if (!editing.value) return
+  const { row, column } = editing.value
+  const col = colOf(column)
+  if (col?.editable === false || props.readonly || props.disable) return
+  const old = state.value[row]?.[column]
+  const current = multiValues(old)
+  const next = multiSelected(opt)
+    ? current.filter((v) => v !== opt.value)
+    : [...current, opt.value]
+  validateAndSet(row, column, old, next)
 }
 
 // ─── Barre de formule (fx) ───
@@ -1543,7 +1696,13 @@ watch([sel, state], syncFx)
 const fxCanEdit = computed(() => {
   if (props.readonly || props.disable || !sel.value) return false
   const col = colOf(sel.value.column)
-  return !!col && col.editable !== false && col.type !== "boolean" && col.type !== "select"
+  return (
+    !!col &&
+    col.editable !== false &&
+    col.type !== "boolean" &&
+    col.type !== "select" &&
+    col.type !== "multiselect"
+  )
 })
 
 const commitFx = async () => {
@@ -1924,6 +2083,18 @@ const rownumInline = (ri: number) => (isFrozenRow(ri) ? { top: frozenTopOf(ri) +
 // ════════ Filtres par colonne ════════
 const FILTER_BLANK = "__q_spreadsheet_blank__"
 const filters = ref<Record<string, string[] | null>>({})
+/**
+ * Valeurs d'une cellule vues par le filtre : un tableau donne **une valeur par élément**
+ * (un `multiselect` compte donc dans chaque valeur qu'il contient), une cellule vide `[null]`.
+ */
+const filterValuesOf = (raw: any): any[] => {
+  if (Array.isArray(raw)) {
+    const values = raw.filter((v) => !isBlankValue(v))
+    return values.length ? values : [null]
+  }
+  return isBlankValue(raw) ? [null] : [raw]
+}
+const filterKeyOf = (value: any) => (isBlankValue(value) ? FILTER_BLANK : String(value))
 const activeFilterOf = (name: string) => filters.value[name] ?? null
 const hasFilterFor = (name: string) => {
   const v = filters.value[name]
@@ -1935,9 +2106,9 @@ const hasActiveFilters = computed(() =>
 const rowFilteredOut = (r: number) => {
   for (const [name, allowed] of Object.entries(filters.value)) {
     if (!allowed || !allowed.length) continue
-    const raw = state.value[r]?.[name]
-    const key = isBlankValue(raw) ? FILTER_BLANK : String(raw)
-    if (!allowed.includes(key)) return true
+    const keys = filterValuesOf(state.value[r]?.[name]).map(filterKeyOf)
+    // Un `multiselect` retient la ligne si **au moins une** de ses valeurs est autorisée
+    if (!keys.some((k) => allowed.includes(k))) return true
   }
   return false
 }
@@ -2120,22 +2291,22 @@ interface FilterValueItem {
 const filterValueItems = (name: string): FilterValueItem[] => {
   const col = colOf(name)
   const map = new Map<string, { blank: boolean; raw: any; count: number }>()
+  // Une cellule à choix multiples alimente une entrée **par valeur** qu'elle contient
   for (const row of state.value) {
-    const raw = row?.[name]
-    const key = isBlankValue(raw) ? FILTER_BLANK : String(raw)
-    const found = map.get(key)
-    if (found) found.count++
-    else map.set(key, { blank: isBlankValue(raw), raw, count: 1 })
+    for (const value of filterValuesOf(row?.[name])) {
+      const key = filterKeyOf(value)
+      const found = map.get(key)
+      if (found) found.count++
+      else map.set(key, { blank: isBlankValue(value), raw: value, count: 1 })
+    }
   }
   const allowed = activeFilterOf(name)
+  const isChoice = col?.type === "select" || col?.type === "multiselect"
   const items: FilterValueItem[] = [...map.entries()].map(([key, info]) => {
     let label: string
     if (info.blank) label = t("blanks")
-    else if (col?.type === "select") {
-      const opt = col.options?.find((o) => o.value === info.raw)
-      // `label` peut être numérique → normalisé (label.localeCompare plus bas)
-      label = opt?.label === undefined ? String(info.raw) : String(opt.label)
-    } else label = String(info.raw)
+    else if (isChoice && col) label = choiceText(col, info.raw)
+    else label = String(info.raw)
     return { key, blank: info.blank, label, count: info.count, active: allowed ? allowed.includes(key) : true }
   })
   items.sort((a, b) => a.label.localeCompare(b.label))
@@ -2331,6 +2502,18 @@ const badgeOf = (col: QSpreadsheetColumn | undefined, val: any) => {
   const opt = col.options?.find((o) => o.value === val)
   if (!opt) return undefined
   return { label: opt.label, style: badgeStyle(opt) }
+}
+
+/** Badges d'une cellule `multiselect` + `chip` : un badge coloré par valeur sélectionnée */
+const multiBadges = (col: QSpreadsheetColumn | undefined, val: any) => {
+  if (col?.type !== "multiselect" || !col.chip) return []
+  return multiValues(val).map((v) => {
+    const opt = col.options?.find((o) => o.value === v)
+    return {
+      label: String(opt?.label ?? v),
+      style: badgeStyle(opt ?? { value: v, label: String(v) }),
+    }
+  })
 }
 
 // ════════ Autofill (poignée de recopie en bas-droite) ════════
@@ -2642,6 +2825,9 @@ const onFilterSearch = (e: Event) => {
 }
 
 onMounted(() => {
+  // Référence initiale : à partir d'ici, toute différence avec elle = « modifié »
+  trackReady = true
+  acceptChanges()
   window.addEventListener("pointerup", onPointerUpGlobal)
   // Phase de CAPTURE : un `@pointerdown.stop` parent bloque sinon l'événement
   // avant `window` → menu contextuel / filtre jamais fermé au clic extérieur.
@@ -2683,9 +2869,9 @@ const rootClasses = computed(() =>
 
 const cellContent = (row: number, col: QSpreadsheetColumn) => {
   const v = state.value[row]?.[col.name]
-  if (col.type === "select") {
-    const opt = col.options?.find((o) => o.value === v)
-    if (opt) return opt.label
+  if (col.type === "select" || col.type === "multiselect") {
+    const text = choiceText(col, v)
+    if (text !== "") return text
   }
   return cellText(row, col.name)
 }
@@ -2788,6 +2974,19 @@ const loadSheetIntoEngine = (idx: number) => {
   redoStack.length = 0
   if (scrollEl.value) scrollEl.value.scrollTop = 0
 }
+/**
+ * Forme **canonique** d'un descripteur de colonne — celle que manipule le moteur (type par
+ * défaut, options, largeur résolue). Normaliser dès l'entrée évite qu'une feuille inactive paraisse
+ * « modifiée » à son premier chargement (le moteur normalise en sortant de `localSheets`).
+ */
+const canonicalColumns = (columns: QSpreadsheetColumn[] | undefined): QSpreadsheetColumn[] =>
+  (columns ?? []).map((c) => ({
+    ...c,
+    type: c.type ?? "text",
+    options: c.options ?? [],
+    width: c.width ?? props.defaultColWidth,
+  }))
+
 watch(
   () => props.sheets,
   (v) => {
@@ -2801,12 +3000,15 @@ watch(
     localSheets.value = v.map((s) => {
       const key = s.key ?? "sheet-" + n
       n++
+      // Clés injectées sur les objets du parent (comme pour `rows`) : chaque feuille est
+      // identifiable avant même d'être ouverte
+      ensureRowKeys(s.rows)
       return {
         ...s,
         key,
         name: s.name ?? sheetName(n),
         rows: (s.rows ?? []).map((r) => ({ ...r })),
-        columns: s.columns ? s.columns.map((c) => ({ ...c })) : undefined,
+        columns: s.columns ? canonicalColumns(s.columns) : undefined,
       }
     })
     let idx = localSheets.value.findIndex((s) => s.key === prevKey)
@@ -2815,6 +3017,8 @@ watch(
     switching.value = true
     loadSheetIntoEngine(idx)
     switching.value = false
+    // Classeur **externe** (nouveau document) → nouvelle référence de comparaison
+    if (trackReady) acceptChanges()
   },
   { immediate: true },
 )
@@ -2840,6 +3044,8 @@ const commitSheetRename = () => {
     if (s) {
       s.name = sheetRename.value.val.trim() || s.name
       emit("update:sheets", localSheets.value)
+      // Renommage : mutation « en place » d'une feuille → delta recalculé explicitement
+      recomputeChanges()
     }
     sheetRename.value = null
   }
@@ -2962,10 +3168,12 @@ const loadDocument = (doc: QSpreadsheetDocument | string) => {
   for (const s of d.sheets) {
     const key = s.key ?? "sheet-" + n
     n++
+    // Un document chargé peut venir d'ailleurs : on garantit `_key` et la forme canonique
+    ensureRowKeys(s.rows)
     local.push({
       key,
       name: s.name ?? sheetName(n),
-      columns: s.columns ? s.columns.map((c) => ({ ...c })) : undefined,
+      columns: s.columns ? canonicalColumns(s.columns) : undefined,
       rows: (s.rows ?? []).map((r) => ({ ...r })),
     })
     meta[key] = {
@@ -2988,6 +3196,8 @@ const loadDocument = (doc: QSpreadsheetDocument | string) => {
   loadSheetIntoEngine(idx)
   switching.value = false
   emit("update:sheets", localSheets.value)
+  // Un document chargé devient la nouvelle **référence** (rien de « modifié » juste après)
+  if (trackReady) acceptChanges()
 }
 const downloadBlob = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob)
@@ -2997,6 +3207,88 @@ const downloadBlob = (blob: Blob, filename: string) => {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+// ════════ Suivi des modifications (référence → état courant) ════════
+// Le delta est **comparé**, jamais journalisé : on photographie le document (`buildDocument()`,
+// exactement ce que renvoie `toJSON()`) et on le confronte à la référence. Conséquences utiles :
+// « modifié » veut littéralement dire « le document à enregistrer a changé », et revenir à l'état
+// de départ (re-saisie à l'identique, ajout puis suppression…) ramène l'indicateur à zéro.
+const baseline = ref<QSpreadsheetDocument | null>(null)
+const changes = ref<QSpreadsheetChanges>(diffDocuments(null, null))
+/** Dernier `dirty` diffusé : évite de réémettre la même valeur */
+let lastDirty: boolean | null = null
+
+const recomputeChanges = () => {
+  const next = diffDocuments(baseline.value, buildDocument())
+  changes.value = next
+  emit("update:changes", next)
+  if (lastDirty !== next.dirty) {
+    lastDirty = next.dirty
+    emit("update:dirty", next.dirty)
+  }
+}
+
+/** Fige l'état courant comme nouvelle **référence** : l'indicateur repasse à zéro */
+const acceptChanges = () => {
+  baseline.value = buildDocument()
+  recomputeChanges()
+}
+
+/**
+ * Revient à la référence (abandonne tout depuis le dernier `acceptChanges`).
+ * Comme `loadDocument()`, l'opération **réinitialise l'historique** undo/redo.
+ */
+const revertChanges = () => {
+  const ref0 = baseline.value
+  if (!ref0) return
+  loadDocument(JSON.parse(JSON.stringify(ref0)) as QSpreadsheetDocument)
+  if (!multiMode.value) {
+    // En mode simple, `loadDocument` ne diffuse que `update:sheets` : on prévient aussi le parent
+    pushCols(cols.value)
+    pushRows(state.value)
+  }
+}
+
+// Recalcul après chaque mutation. `flush: "post"` : on lit un état stable (la feuille courante a
+// été persistée dans le classeur) et on ne recalcule **qu'une fois par cycle**, même quand une
+// action touche des dizaines de cellules (collage, recopie, import, sélection vidée…).
+watch(
+  [
+    state,
+    cols,
+    localSheets,
+    cellFmt,
+    colWidths,
+    rowHeights,
+    filters,
+    condRules,
+    merges,
+    hiddenRows,
+    hiddenCols,
+  ],
+  () => recomputeChanges(),
+  { flush: "post" },
+)
+
+/** Delta courant, à la demande (aussi disponible en `v-model:changes`) */
+const getChanges = () => changes.value
+
+const changesLabel = computed(() => fmt("modified", { n: changes.value.count }))
+
+/** Détail de l'indicateur (info-bulle) : lignes puis feuilles, ajoutées / modifiées / supprimées */
+const changesTitle = computed(() => {
+  const c = changes.value
+  const parts: string[] = []
+  if (c.rows.added.length) parts.push(fmt("rowsAdded", { n: c.rows.added.length }))
+  if (c.rows.updated.length) parts.push(fmt("rowsUpdated", { n: c.rows.updated.length }))
+  if (c.rows.deleted.length) parts.push(fmt("rowsDeleted", { n: c.rows.deleted.length }))
+  if (c.sheets.added.length) parts.push(fmt("sheetsAdded", { n: c.sheets.added.length }))
+  if (c.sheets.updated.length) parts.push(fmt("sheetsUpdated", { n: c.sheets.updated.length }))
+  if (c.sheets.deleted.length) parts.push(fmt("sheetsDeleted", { n: c.sheets.deleted.length }))
+  if (c.extras.length) parts.push(t("formatted"))
+  return parts.join(" · ")
+})
+
 const getCsv = (opts: { delimiter?: string; includeHeaders?: boolean } = {}): string => {
   const delim = opts.delimiter ?? ","
   const lines: string[] = []
@@ -3006,13 +3298,9 @@ const getCsv = (opts: { delimiter?: string; includeHeaders?: boolean } = {}): st
     lines.push(
       cols.value
         .map((c) => {
-          if (c.type === "select") {
-            const opt = c.options?.find((o) => o.value === state.value[r]?.[c.name])
-            const raw = state.value[r]?.[c.name]
-            return csvEscape(
-              opt?.label ?? (raw === null || raw === undefined ? "" : String(raw)),
-              delim,
-            )
+          if (c.type === "select" || c.type === "multiselect") {
+            // Libellés (une liste = libellés joints) — jamais les `value` stockés
+            return csvEscape(choiceText(c, state.value[r]?.[c.name]), delim)
           }
           return csvEscape(cellText(r, c.name), delim)
         })
@@ -3037,14 +3325,10 @@ const findInputEl = ref<HTMLInputElement | null>(null)
 
 const findTextOf = (r: number, ci: number): string => {
   const col = cols.value[ci]
-  const raw = state.value[r]?.[col?.name ?? ""]
   if (!col) return ""
-  if (col?.type === "select") {
-    const opt = col.options?.find((o) => o.value === raw)
-    // `label` peut être un nombre : findScan fait `.toLowerCase()` sur le retour
-    if (opt?.label !== undefined) return String(opt.label)
-    return raw === null || raw === undefined ? "" : String(raw)
-  }
+  const raw = state.value[r]?.[col.name]
+  // `label` peut être un nombre : findScan fait `.toLowerCase()` sur le retour
+  if (col.type === "select" || col.type === "multiselect") return choiceText(col, raw)
   return raw === null || raw === undefined ? "" : String(raw)
 }
 const findScan = () => {
@@ -3592,10 +3876,17 @@ const guardValidation = async (
   }
   const check = async (v: QSpreadsheetValidation | undefined): Promise<string | null> => {
     if (!v) return null
-    const blank = value === null || value === undefined || value === ""
+    const multi = Array.isArray(value)
+    const blank =
+      value === null || value === undefined || value === "" || (multi && value.length === 0)
     if (v.required && blank) return v.message ?? "Required"
     if (blank) return null // champ vide autorisé (sauf required)
-    if (v.list && !v.list.some((x) => String(x) === String(value))) return v.message ?? "Not in the allowed list"
+    if (v.list) {
+      // Choix multiples : chacune des valeurs doit être dans la liste
+      const values = multi ? value : [value]
+      if (values.some((x) => !v.list!.some((y) => String(y) === String(x))))
+        return v.message ?? "Not in the allowed list"
+    }
     if (v.integer && typeof value === "number" && !Number.isInteger(value))
       return v.message ?? "Integer required"
     if (typeof value === "number") {
@@ -3652,7 +3943,8 @@ const tdTitle = (r: number, col: QSpreadsheetColumn): string => {
   const t = cellTitle(r, col.name)
   if (t) return t
   const raw = cellValue(r, col.name)
-  return col.type === "select" && raw !== null && raw !== undefined ? String(raw) : ""
+  if (col.type !== "select" && col.type !== "multiselect") return ""
+  return choiceText(col, raw)
 }
 const extraCellStyle = (r: number, c: number, name: string) => {
   const st: Record<string, string> = {}
@@ -3812,6 +4104,9 @@ const onColDragEnd = () => {
 }
 
 defineExpose({
+  acceptChanges,
+  revertChanges,
+  getChanges,
   select,
   selectRow,
   selectCol,
@@ -4327,6 +4622,19 @@ defineExpose({
                 {{ badgeOf(col, cellValue(ri, col.name))!.label }}
               </span>
 
+              <!-- multiselect : une série de badges colorés -->
+              <span
+                v-else-if="col.type === 'multiselect' && multiBadges(col, cellValue(ri, col.name)).length"
+                class="q-spreadsheet__badges"
+              >
+                <span
+                  v-for="(badge, bi) in multiBadges(col, cellValue(ri, col.name))"
+                  :key="bi"
+                  class="q-spreadsheet__badge"
+                  :style="badge.style"
+                >{{ badge.label }}</span>
+              </span>
+
               <!-- valeur -->
               <span
                 v-else
@@ -4369,7 +4677,8 @@ defineExpose({
         v-if="editing && editingCol"
         class="q-spreadsheet__editor"
         :class="{
-          'q-spreadsheet__editor--select': editingCol.type === 'select',
+          'q-spreadsheet__editor--select': editingIsChoice,
+          'q-spreadsheet__editor--multi': editingIsMulti,
           'q-spreadsheet__editor--formula': editingIsFormula,
         }"
         :style="editorStyle"
@@ -4392,11 +4701,11 @@ defineExpose({
           class="q-spreadsheet__editor-input"
           :type="editorInputType"
           :inputmode="editorInputMode"
-          :placeholder="editingCol.type === 'select' ? 'Type to filter…' : ''"
+          :placeholder="editingIsSelect ? 'Type to filter…' : editingIsMulti ? 'Filter options…' : ''"
           @keydown="onEditKeydown"
           @blur="commitEdit"
         />
-        <div v-if="editingCol.type === 'select' && selectOptions.length" class="q-spreadsheet__options">
+        <div v-if="editingIsChoice && selectOptions.length" class="q-spreadsheet__options">
           <button
             v-for="opt in selectOptions"
             :key="String(opt.value)"
@@ -4404,8 +4713,15 @@ defineExpose({
             class="q-spreadsheet__option"
             :class="{ 'q-spreadsheet__option--active': optionIsActive(opt) }"
             @mousedown.prevent
-            @click="pickOption(opt)"
+            @click="editingIsMulti ? toggleMultiOption(opt) : pickOption(opt)"
           >
+            <Icon
+              v-if="editingIsMulti && multiSelected(opt)"
+              :icon="icons.check"
+              class="q-spreadsheet__option-check q-spreadsheet__option-check--on"
+              aria-hidden="true"
+            />
+            <span v-else-if="editingIsMulti" class="q-spreadsheet__option-check" aria-hidden="true" />
             <span class="q-spreadsheet__option-swatch" :style="badgeStyle(opt)" />
             {{ opt.label }}
           </button>
@@ -4489,6 +4805,16 @@ defineExpose({
       </span>
       <span v-if="hasActiveFilters || hiddenRows.length" class="q-spreadsheet__status-chip">
         {{ statusRowInfo }}
+      </span>
+      <span
+        v-if="showChanges && changes.dirty"
+        class="q-spreadsheet__status-changes"
+        role="status"
+        :title="changesTitle"
+        :aria-label="changesTitle"
+      >
+        <span class="q-spreadsheet__changes-dot" aria-hidden="true" />
+        {{ changesLabel }}
       </span>
       <span class="q-spreadsheet__status-spacer" />
       <span v-if="multiMode" class="q-spreadsheet__status-item">{{ statusSheets }}</span>
