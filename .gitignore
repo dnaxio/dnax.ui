@@ -6,7 +6,7 @@ AGENTS.md
 out
 dist
 *.tgz
-bun.lock
+#bun.lock
 .tmp-docdv
 .output
 

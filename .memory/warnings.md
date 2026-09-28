@@ -1230,3 +1230,29 @@ ajout de composant. **Constat mesuré (2026-09-28)** : `scripts/gen-menu.ts`, `d
 → Ajouter un composant = créer le SFC + (pour le barrel) `bun scripts/generate-exports.ts` +
 la page `docui/content/docs/4.components/<slug>.md` + la démo. Rien d'autre.
 La section « llms.txt » de `AGENTS.md` reste à réécrire (proposé, non fait).
+
+## Build production « Failed to resolve import source "#app" » — layer Docd + Nuxt 4.5/Vite 8 — 2026-09-28
+
+tag: `warning` — `namespace: dnax.ui` — `filename: docui/nuxt.config.ts` (déclencheur : `@baybreezy/docd@0.3.6`)
+
+**Symptôme** : `nuxt build` (prod) échoue sur
+`[@vue/compiler-sfc] Failed to resolve import source "#app"` dans
+`@baybreezy/docd/app/components/content/prose/ProseA.global.vue` (et 8 autres prose + `Ui/Button.vue`).
+
+**Cause** : ces fichiers font `import type { NuxtLinkProps } from "#app"` dans un bloc `<script>`
+et l'utilisent dans `defineProps`. À l'extraction des types, `@vue/compiler-sfc` résout `#app` via
+`fs.resolveId` de `@vitejs/plugin-vue` ; sous Nuxt 4.5.x (Vite 8 / Rolldown) cette résolution renvoie
+null pour l'alias **virtuel** `#app` → erreur. **Pas lié à nos composants** ; c'est la combinaison
+layer Docd + toolchain Nuxt/Vite qui régresse (l'import existe depuis docd 0.2.0, cf. unpkg).
+
+**Piège vérifié** : ne PAS tenter `vite.resolve.alias['#app'] → nuxt/dist/app/index.js` : l'app
+importe massivement des sous-chemins `#app/types`, `#app/config`, `#app/composables/*` (voir
+`docui/.nuxt/imports.d.ts`), un alias fichier les casserait. L'alias répertoire existe déjà côté Nuxt.
+
+**Pistes de correction** (non appliquées, à valider en prod `/apps/dnax.ui`) :
+
+1. Bloquer le lockfile : commit `bun.lock` + `bun install --frozen-lockfile` en prod (le hash `.bun`
+   de prod diffère du local → dérive transitive probable).
+2. Épingler la toolchain (transitive) via `overrides`/`resolutions` : `vite`, `@vitejs/plugin-vue`,
+   `@vue/compiler-sfc`, `rolldown` aux versions avec lesquelles Nuxt 4.5.2 est sorti/testé.
+3. Signaler upstream (docd et/ou nuxt).
