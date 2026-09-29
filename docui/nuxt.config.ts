@@ -24,9 +24,8 @@ export default defineNuxtConfig({
     domain: process.env.NUXT_SITE_URL || "http://localhost:3000",
     title: process.env.NUXT_SITE_NAME || "My Docs",
     description: "A starter documentation site powered by Docd.",
-    full: {
-      title: process.env.NUXT_SITE_NAME || "My Docs",
-      description: "A starter documentation site powered by Docd.",
-    },
+    // Pas de `full` : la génération de /llms-full.txt re-sérialise tout le contenu MDC
+    // en markdown via remark-mdc → `Maximum call stack size exceeded` (récursion infinie
+    // dans le handler `strong`). Bug tiers (@nuxt/content / @nuxtjs/mdc), cf. .memory/warnings.md.
   },
 });

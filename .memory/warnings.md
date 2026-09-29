@@ -1286,10 +1286,12 @@ mdast-util-to-markdown 2.1.3 (résolues par `@baybreezy/docd@0.3.2` → `@nuxt/c
 `@nuxtjs/mdc@0.22.2`) boucle sur un nœud `strong` (arbre cyclique) au moment de la sérialisation.
 **Indépendant** de l'erreur `#app` : préexistant, masqué jusque-là par l'échec de compilation.
 
-**Pistes (non appliquées)** :
+**Pistes** :
 
-1. Désactiver la variante `full` de la clé `llms` de `docui/nuxt.config.ts` (garde `/llms.txt`,
-   supprime `/llms-full.txt`) — correctif le moins invasif.
+1. ~~Désactiver la variante `full`~~ — **appliqué (2026-09-29)** : retrait de la clé `full` de
+   `docui/nuxt.config.ts`. `/llms.txt` (index standard) reste généré ; `/llms-full.txt` n'est plus
+   prérndu. `bun run build` → **EXIT 0**, 3 routes prérndues sans erreur.
 2. Épingler/promouvoir la chaîne `@nuxtjs/mdc` / `remark-mdc` / `mdast-util-to-markdown` /
-   `@nuxt/content` à une combinaison qui ne boucle pas (via `overrides` dans `package.json`).
+   `@nuxt/content` à une combinaison qui ne boucle pas (via `overrides` dans `package.json`),
+   si `/llms-full.txt` redevient nécessaire.
 3. Signaler upstream (docd / nuxt-llms / remark-mdc).
