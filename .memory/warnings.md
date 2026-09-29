@@ -928,6 +928,13 @@ qui plante** (aucun install/build lancé ici — règle projet + réseau requis)
 dans `bindings/resvg/node-dev.js`) ; si `@takumi-rs/core` et `@takumi-rs/wasm` sont tous
 deux présents, le module alerte sur un écart de version majeure.
 
+**Complément (2026-09-29)** : après le renommage `docd` → `docui`, la dépendance avait
+été **perdue** (`docui/package.json` ne déclarait plus `@takumi-rs/core` → plus de
+hoisting vers le CWD). Réappliqué : `"@takumi-rs/core": "^2.14.0"` dans les
+`dependencies` de `docui/package.json` + `bun install` → `docui/node_modules/@takumi-rs/core`
+créé. Vérifié sans navigateur : `bun -e` + `createRequire(process.cwd()+'/').resolve('@takumi-rs/core')`
+→ `node_modules/.bun/@takumi-rs+core@2.14.0+…/node_modules/@takumi-rs/core/dist/export.cjs`.
+
 ## docui — `@dnax/ui` dans `extends` → « Unknown file extension ".vue" » — 2026-09-24
 
 tag: `warnings` — `filename: docui/nuxt.config.ts`
@@ -1261,3 +1268,28 @@ entrée `docd_delete/…` supprimée. `nuxt/dist/app/index.d.ts` exporte `type N
 **Piège (à ne pas retenter)** : `vite.resolve.alias['#app'] → nuxt/dist/app/index.js` est inutile ici
 (le compilateur résout via TS/`paths`) et casserait les sous-chemins `#app/types`, `#app/config`,
 `#app/composables/*` massivement importés par l'app (`docui/.nuxt/imports.d.ts`).
+
+## Build production — `Maximum call stack size exceeded` au prerender de `/llms-full.txt` — 2026-09-29
+
+tag: `warning` — `namespace: dnax.ui` — `filename: docui/nuxt.config.ts` (clé `llms` / layer Docd)
+
+Une fois l'erreur `#app` corrigée (2026-09-29), `nuxt build` va jusqu'au prerender puis échoue sur
+`/llms-full.txt` (et `/llms.txt` passe) avec `[500]` et
+`Maximum call stack size exceeded`. La stack est une **récursion infinie** dans le handler `strong` :
+`mdast-util-to-markdown@2.1.3` (`handle/strong.js` → `containerPhrasing`) appelé par
+`remark-mdc@3.11.1` (`dist/index.mjs:527`, `defaultHandlers.strong(...) + attributes(...)`).
+
+**Cause probable** : la génération « full » de l'index LLM (nuxt-llms) re-sérialise **tout** le
+contenu en markdown via remark-mdc. Les pages utilisent massivement des composants MDC inline
+(`:dnax-demo-*{demo="…"}`) et `::prose-show-case` ; la combinaison remark-mdc 3.11.1 +
+mdast-util-to-markdown 2.1.3 (résolues par `@baybreezy/docd@0.3.2` → `@nuxt/content@3.15.2`,
+`@nuxtjs/mdc@0.22.2`) boucle sur un nœud `strong` (arbre cyclique) au moment de la sérialisation.
+**Indépendant** de l'erreur `#app` : préexistant, masqué jusque-là par l'échec de compilation.
+
+**Pistes (non appliquées)** :
+
+1. Désactiver la variante `full` de la clé `llms` de `docui/nuxt.config.ts` (garde `/llms.txt`,
+   supprime `/llms-full.txt`) — correctif le moins invasif.
+2. Épingler/promouvoir la chaîne `@nuxtjs/mdc` / `remark-mdc` / `mdast-util-to-markdown` /
+   `@nuxt/content` à une combinaison qui ne boucle pas (via `overrides` dans `package.json`).
+3. Signaler upstream (docd / nuxt-llms / remark-mdc).
