@@ -1231,28 +1231,33 @@ ajout de composant. **Constat mesuré (2026-09-28)** : `scripts/gen-menu.ts`, `d
 la page `docui/content/docs/4.components/<slug>.md` + la démo. Rien d'autre.
 La section « llms.txt » de `AGENTS.md` reste à réécrire (proposé, non fait).
 
-## Build production « Failed to resolve import source "#app" » — layer Docd + Nuxt 4.5/Vite 8 — 2026-09-28
+## Build production « Failed to resolve import source "#app" » — layer Docd (paths tsconfig périmés) — 2026-09-28
 
-tag: `warning` — `namespace: dnax.ui` — `filename: docui/nuxt.config.ts` (déclencheur : `@baybreezy/docd@0.3.6`)
+tag: `warning` — `namespace: dnax.ui` — `filename: tsconfig.json` (déclencheur : `@baybreezy/docd`)
 
 **Symptôme** : `nuxt build` (prod) échoue sur
 `[@vue/compiler-sfc] Failed to resolve import source "#app"` dans
-`@baybreezy/docd/app/components/content/prose/ProseA.global.vue` (et 8 autres prose + `Ui/Button.vue`).
+`@baybreezy/docd/app/components/content/prose/ProseA.global.vue` (idem `Ui/Button.vue` via
+`#app/components`).
 
-**Cause** : ces fichiers font `import type { NuxtLinkProps } from "#app"` dans un bloc `<script>`
-et l'utilisent dans `defineProps`. À l'extraction des types, `@vue/compiler-sfc` résout `#app` via
-`fs.resolveId` de `@vitejs/plugin-vue` ; sous Nuxt 4.5.x (Vite 8 / Rolldown) cette résolution renvoie
-null pour l'alias **virtuel** `#app` → erreur. **Pas lié à nos composants** ; c'est la combinaison
-layer Docd + toolchain Nuxt/Vite qui régresse (l'import existe depuis docd 0.2.0, cf. unpkg).
+**Cause vérifiée (2026-09-29)** — c'est la résolution TypeScript de la note du 2026-09-23, pas un
+`fs.resolveId` de `@vitejs/plugin-vue`. Dans `@vue/compiler-sfc@3.5.43` (`script/resolveType.ts`,
+`importSourceToScope`), toute source **non relative** (`#app`) passe par `resolveWithTS()` →
+`ts.findConfigFile(fichierCompilé)` puis `ts.resolveModuleName()` avec les `paths` du tsconfig trouvé ;
+si rien ne résout → `ctx.error('Failed to resolve import source "#app".')`. Depuis
+`node_modules/.bun/@baybreezy+docd@…/…`, le seul tsconfig découvrable est celui de la **racine** du
+monorepo. `@baybreezy/docd/package.json` ne déclare **aucun** `imports` → pas d'autre voie.
 
-**Piège vérifié** : ne PAS tenter `vite.resolve.alias['#app'] → nuxt/dist/app/index.js` : l'app
-importe massivement des sous-chemins `#app/types`, `#app/config`, `#app/composables/*` (voir
-`docui/.nuxt/imports.d.ts`), un alias fichier les casserait. L'alias répertoire existe déjà côté Nuxt.
+**Cause racine réelle** : les `paths` du tsconfig racine pointaient vers
+`docd_delete/node_modules/nuxt/dist/app` (dossier supprimé) et `./node_modules/nuxt/dist/app`
+(`nuxt` n'est **pas** hoisté à la racine : il vit dans `docui/node_modules/nuxt`). Les deux entrées
+mortes → résolution nulle. Ce n'est **pas** une régression toolchain (Nuxt 4.5.2 / Vite 8 /
+plugin-vue 6.0.9), juste un chemin périmé après le renommage `docd` → `docui`.
 
-**Pistes de correction** (non appliquées, à valider en prod `/apps/dnax.ui`) :
+**Correctif appliqué (2026-09-29)** : `paths` racine → `./docui/node_modules/nuxt/dist/app` (+ `/ *`),
+entrée `docd_delete/…` supprimée. `nuxt/dist/app/index.d.ts` exporte `type NuxtLinkProps` et
+`nuxt/dist/app/components/index.d.ts` aussi → couvre `#app` **et** `#app/components`.
 
-1. Bloquer le lockfile : commit `bun.lock` + `bun install --frozen-lockfile` en prod (le hash `.bun`
-   de prod diffère du local → dérive transitive probable).
-2. Épingler la toolchain (transitive) via `overrides`/`resolutions` : `vite`, `@vitejs/plugin-vue`,
-   `@vue/compiler-sfc`, `rolldown` aux versions avec lesquelles Nuxt 4.5.2 est sorti/testé.
-3. Signaler upstream (docd et/ou nuxt).
+**Piège (à ne pas retenter)** : `vite.resolve.alias['#app'] → nuxt/dist/app/index.js` est inutile ici
+(le compilateur résout via TS/`paths`) et casserait les sous-chemins `#app/types`, `#app/config`,
+`#app/composables/*` massivement importés par l'app (`docui/.nuxt/imports.d.ts`).

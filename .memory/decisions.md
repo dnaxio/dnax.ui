@@ -1510,8 +1510,9 @@ tag: `decisions` — `filename: tsconfig.json`
 
 Suite au build de production cassé (`Failed to resolve import source "#app"`, cf. l'avertissement
 détaillé dans `warnings.md`) : le tsconfig racine porte désormais les `paths`
-`"#app"` / `"#app/*"` → `./docd/node_modules/nuxt/dist/app(/ *)`, avec repli
-`./node_modules/nuxt/dist/app(/ *)` (les deux layouts de hoisting bun).
+`"#app"` / `"#app/*"` → `./docui/node_modules/nuxt/dist/app(/ *)`, avec repli
+`./node_modules/nuxt/dist/app(/ *)` (les deux layouts de hoisting bun). Corrigé le 2026-09-29 :
+après le renommage `docd` → `docui`, le chemin `./docd/…` d'origine était périmé.
 
 - Pourquoi **là** et pas dans `docd/tsconfig.json` : `@vue/compiler-sfc` résout les types avec
   `ts.findConfigFile(fichierCompilé)` ; les composants de la couche sont dans `node_modules`, donc le

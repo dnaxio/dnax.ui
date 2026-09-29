@@ -4,7 +4,7 @@ node_modules
 AGENTS.md
 # output
 out
-#dist
+dist
 *.tgz
 #bun.lock
 .tmp-docdv

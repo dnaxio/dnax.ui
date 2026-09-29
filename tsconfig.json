@@ -31,15 +31,17 @@
     // dans node_modules et importent `NuxtLinkProps` via `#app` / `#app/components` ;
     // @vue/compiler-sfc résout ces imports de types avec TypeScript **et le tsconfig le
     // plus proche du fichier**. Depuis node_modules, le seul découvrable est celui-ci :
-    // sans ces `paths`, le build de production de docd échoue
+    // sans ces `paths`, le build de production de docui échoue
     // (« Failed to resolve import source "#app" »).
+    // `nuxt` n'est pas hoisté à la racine : il vit dans `docui/node_modules/nuxt`.
+    // (le chemin « docd/… » d'origine est périmé depuis le renommage docd → docui.)
     "paths": {
       "#app": [
-        "docd_delete/node_modules/nuxt/dist/app",
+        "./docui/node_modules/nuxt/dist/app",
         "./node_modules/nuxt/dist/app",
       ],
       "#app/*": [
-        "docd_delete/node_modules/nuxt/dist/app/*",
+        "./docui/node_modules/nuxt/dist/app/*",
         "./node_modules/nuxt/dist/app/*",
       ],
     },
