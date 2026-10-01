@@ -2451,3 +2451,93 @@ fichiers joints (`v-model:files`). Périmètre : composant, démo `DnaxDemoInput
 - **Hors périmètre (assumé)** : `styles/main.css` non modifié ; `QInputChat` exporté par
   `packages/ui/index.ts`. `docs/public/llms.txt` et `docui/app/data/menu.ts`
   (`bun scripts/gen-menu.ts`) restent à mettre à jour.
+
+## QSelect `use-search` — comportement de la recherche + section doc — 2026-09-29
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/components/QSelect.vue`,
+`docui/content/docs/4.components/select.md`, `docui/app/components/demos/DnaxDemoSelect.vue`
+
+Demande : il n'y avait pas d'exemple de `<q-select use-search>`, et le champ de recherche
+devait s'effacer (1) à la sélection d'un élément et (2) au clic extérieur sans sélection.
+
+- **Comportement** : dans `select()` (branche simple), après `closePopup()` la `query` est
+  vidée (`query=""` + `emit("update:inputValue", "")`) → le champ d'affichage reprend le label
+  de la sélection, plus le filtre. Dans `closePopup()`, si `query !== ""` **et** `!hasValue`,
+  la recherche est abandonnée (clic extérieur, backdrop, Échap, ×) — garde `!hasValue` pour
+  ne pas toucher au cas « on change une valeur déjà sélectionnée » (là c'est la branche
+  `select()` qui nettoie, car `props.modelValue` n'est pas encore à jour dans le même tick).
+  En `multiple`, la recherche **reste** (on continue de filtrer pour sélectionner d'autres).
+- **Doc** : nouvelle section « Search (`use-search`) » dans `select.md` + démo
+  `demo="search"` de `DnaxDemoSelect.vue` (liste de villes, fuzzy fuse.js). Le `ref<string>`
+  de la démo `direction` était un `SelectPopupPosition` → typé explicitement (erreur TS
+  préexistante corrigée au passage).
+
+## QDatePicker popover — cercles de dates plus petits, calendrier resserré — 2026-09-29
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/styles/main.css`,
+`packages/ui/lib/datePicker.ts`
+
+Demande : en mode `popover`, trop d'espace entre les dates et cercles trop gros.
+
+- **Cause racine** : `.q-date-calendar__day` est `width: 100%` + `aspect-ratio: 1` dans une
+  grille `repeat(7, 1fr)` → le cercle grandit avec la largeur du panneau (popover 360px →
+  cercles ~46px). Correction : **plafond `max-width: 34px`** + `justify-self: center` — la
+  pastille ne dépend plus de la largeur (protège aussi le mode `inline` sur conteneur large).
+- `.q-date-calendar` : `padding` 12→10px, `gap` 8→6px. `.q-date-calendar__weekdays` reçoit le
+  même `gap: 2px` que les semaines (les libellés s'alignent sur les colonnes des jours).
+- Panneau popover : `width` 360→**300px** (`.q-date-picker__sheet--popover`) et
+  `POPOVER_FALLBACK_WIDTH` 360→**300** (largeur de repli du 1er rendu, `lib/datePicker.ts`).
+- Vérif : `bun test lib/datePicker.test.ts lib/chart.test.ts` → **90 pass / 0 fail**
+  (le test de repli utilise la constante, pas la valeur). Diagnostics propres. Aucun build lancé.
+
+## Entrées du package @dnax/ui : `./runtime` (léger) vs `./registry` (barrel) vs `.` — 2026-09-29
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/package.json`, `packages/ui/runtime.ts`,
+`packages/ui/module.ts`
+
+Contrat des sous-entrées, après le bug « `/runtime` = barrel → `qrcode` au boot » (cf. `warnings.md`) :
+
+- **`"."` → `index.ts`** — le barrel complet (tous les composants). Entrée des **consommateurs**
+  (`import { QBtn } from "@dnax/ui"`). ⚠️ **Interdite en interne** : Nuxt bloque l'import de l'entrée
+  d'un module depuis le code de l'app (`null:import-protection` / impound).
+- **`"./runtime"` → `runtime.ts`** — entrée **légère** des **plugins/directives** : API
+  overlay/directive, composables `$q` (`usePlugin`, `useDialogPluginComponent`…), et les **providers**
+  `$q` montés au boot. **Ne réexporte jamais `index.ts`.** C'est ce qu'importent les templates de
+  `module.ts` et les plugins de l'app hôte.
+- **`"./registry"` → `index.ts`** — le barrel en accès **explicite/opt-in**, pour le code qui résout un
+  composant **par son nom** (`docui` : `DnaxApi.vue`, `useComponentDocs.ts`). Contourne la protection
+  d'import sans affaiblir `./runtime`.
+- **`"./module"` → `module.ts`** — le module Nuxt.
+
+Règle générale : **une sous-entrée _runtime/plugin_ ne doit jamais pointer sur `index.ts`** ; si du
+code a besoin du barrel, il prend `"./registry"` en connaissance de cause (coût : tout le graphe).
+
+## Thème : tokens de champ `--q-field-bg*`, `theme.vars`, et avertissement `componentProps` — 2026-09-29
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/styles/main.css`,
+`packages/ui/lib/{config,themeVars}.ts`, `packages/ui/components/QConfigProvider.vue`
+
+Demande : pouvoir donner une couleur de fond aux champs via le thème, et arrêter le piège de
+`componentProps` (clés silencieusement ignorées). Trois changements liés :
+
+1. **Tokens CSS** — `.q-field__control` lit désormais `var(--q-field-bg, …)` (fallbacks = valeurs
+   historiques : `#fff`, sombre `var(--muted)`, `outlined`/`borderless` `transparent`) et la variante
+   `filled` lit `var(--q-field-bg-filled, rgb(0 0 0 / 0.05))`. Un seul token re-skine **tous** les
+   champs (le contrôle est partagé par QInput/QSelect/QAutocomplete/QDatePicker/QInputTag…).
+2. **`theme.vars`** — nouveau champ `QTheme.vars?: Record<string, string>` : variables CSS libres
+   posées avec le thème (clé avec ou sans `--`), **en dernier** (elles peuvent surcharger `colors`).
+   Logique extraite dans le **pur** `lib/themeVars.ts` → `themeVars(theme)` (testé) +
+   `themeVarsStyle(computed)` (inchangé), partagé par `QConfigProvider.themeStyle` (qui perd son
+   `textColorFor` dupliqué) et les providers d'overlays téléportés.
+3. **Avertissement dev** — `QConfigProvider` `console.warn` (une fois par signature, client
+   uniquement) les clés de `componentProps.<Nom>` non lues. Registre : `EXTRA_COMPONENT_PROP_KEYS`
+   (`QMap: ["apiKey"]`) + `radius` générique.
+
+- **Choix assumé** : ne PAS câbler `componentProps.<Nom>.style` (spread générique) — ça ne
+  résoudrait pas les parties internes (racine ≠ `.q-field__control`) et ferait fuiter les clés
+  inconnues en attributs DOM. Une seule voie pour le style : **tokens CSS**.
+- **Doc** : `2.layouts/1.config-provider.md` (tableau des clés de `:theme` + section `vars` + démo
+  `vars`), `4.components/input.md` (section « Background & CSS variables » + démo `background`).
+- **Vérif** : `bun test lib` → **302 pass / 0 fail** (dont 7 nouveaux sur `themeVars`) ;
+  `cd docui && bun run build` → **EXIT 0** ; équilibre MDC 3/3 et 11/11 sur les deux pages ;
+  diagnostics propres. Aucun navigateur (règle projet).

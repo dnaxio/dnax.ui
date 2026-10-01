@@ -5,7 +5,7 @@ import { ref } from "vue"
 
 defineProps<{
   /** Demo identifier to render */
-  demo: "basic" | "customKeys" | "outlined" | "multiple" | "primitives" | "panel" | "offset" | "direction"
+  demo: "basic" | "customKeys" | "outlined" | "multiple" | "primitives" | "panel" | "offset" | "direction" | "search"
 }>()
 
 const colors = [
@@ -43,8 +43,21 @@ const offsetWide = ref<string | null>(null)
 const offsetZero = ref<string | null>(null)
 
 // — Direction du popup —
-const posDemo = ref<string>("auto")
+const posDemo = ref<"auto" | "bottom" | "bottom-start" | "bottom-end" | "top" | "top-start" | "top-end">("auto")
 const posVal = ref<string | null>(null)
+
+// — Recherche floue (use-search) —
+const cities = [
+  { value: "paris", label: "Paris" },
+  { value: "lyon", label: "Lyon" },
+  { value: "marseille", label: "Marseille" },
+  { value: "toulouse", label: "Toulouse" },
+  { value: "nice", label: "Nice" },
+  { value: "nantes", label: "Nantes" },
+  { value: "strasbourg", label: "Strasbourg" },
+  { value: "bordeaux", label: "Bordeaux" },
+]
+const city = ref<string | null>(null)
 </script>
 
 <template>
@@ -54,6 +67,7 @@ const posVal = ref<string | null>(null)
       :options="colors"
       label="Color"
       placeholder="Pick a color"
+      clearable
     />
   </div>
 
@@ -92,6 +106,7 @@ const posVal = ref<string | null>(null)
       emit-value
       clearable
     />
+    <p class="demo-p">Selected: <code>{{ multi.join(", ") || "—" }}</code></p>
   </div>
 
   <div v-else-if="demo === 'primitives'" class="demo-field demo-col">
@@ -165,6 +180,19 @@ const posVal = ref<string | null>(null)
     <p class="demo-p demo-p--value">
       Selected: <code>{{ posVal ?? "—" }}</code>
     </p>
+  </div>
+
+  <div v-else-if="demo === 'search'" class="demo-field">
+    <q-select
+      v-model="city"
+      :options="cities"
+      label="City"
+      use-search
+      emit-value
+      outlined
+      clearable
+    />
+    <p class="demo-p">Selected: <code>{{ city ?? "—" }}</code></p>
   </div>
 </template>
 

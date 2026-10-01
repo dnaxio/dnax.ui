@@ -50,6 +50,17 @@ export default defineNuxtModule<DnaxUiModuleOptions>({
       })
     }
 
+    // Dépendances CJS sans export ESM `default` explicite : esbuild doit les pré-bundler
+    // (interop) sinon, servies brutes, le navigateur échoue sur « does not provide an
+    // export named 'default' ». `leaflet` (lib/mapLeaflet.ts) est dans ce cas ; le code
+    // tolère déjà les deux formes (`default ?? module`), ceci est une ceinture-bretelles
+    // côté hôte. Ne pas pointer une sous-entrée sur `index.ts` (cf. warnings en mémoire).
+    nuxt.hook("vite:extendConfig", (config) => {
+      const optimizeDeps = ((config as any).optimizeDeps ||= {})
+      const include: string[] = (optimizeDeps.include ||= [])
+      if (!include.includes("leaflet")) include.push("leaflet")
+    })
+
     // « Retour » navigateur → ferme l'overlay ouvert (dialog, sheet, sidebar…)
     // addPluginTemplate : le template est compilé dans l'app (où #imports existe),
     // évitant une dépendance `nuxt` dans ce package pour les types du plugin.

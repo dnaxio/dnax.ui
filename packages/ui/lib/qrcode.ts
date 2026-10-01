@@ -1,11 +1,13 @@
-// qrcode — encodage QR et tracé SVG. Le moteur d'encodage est la dépendance `qrcode`
-// (déjà présente, sans types — cf. `shims.d.ts`) : elle fournit la matrice de modules, ce
-// module la traduit en **chemin SVG** (une suite de rectangles horizontaux, bien plus
-// compact qu'un carré par module) — d'où un rendu net à toutes les tailles, thémable et
-// rendable en SSR.
+// qrcode — encodage QR et tracé SVG. Le moteur d'encodage est `uqr` (ESM pur, sans
+// dépendance) : il fournit la matrice de modules, ce module la traduit en **chemin SVG**
+// (une suite de rectangles horizontaux, bien plus compact qu'un carré par module) — d'où
+// un rendu net à toutes les tailles, thémable et rendable en SSR.
+//
+// `uqr` est **ESM** (contrairement à l'ancien `qrcode`, CJS sans `default`, qui cassait le
+// bundle client — cf. `.memory/warnings.md`) : aucun interop esbuild, aucun `optimizeDeps`.
 //
 // Pur (aucun DOM) → testable hors navigateur, comme `lib/pagePadding.ts`.
-import QRCode from "qrcode"
+import { encode } from "uqr"
 
 /** Niveau de correction d'erreur : L (~7 %) → H (~30 %) */
 export type QrEcc = "L" | "M" | "Q" | "H"
@@ -39,10 +41,25 @@ export function encodeQr(value: string, options: QrEncodeOptions = {}): QrMatrix
   if (typeof value !== "string" || value === "") return undefined
 
   try {
-    const settings: Record<string, unknown> = { errorCorrectionLevel: options.ecc ?? "M" }
-    if (typeof options.version === "number") settings.version = options.version
+    const { size, data } = encode(value, {
+      ecc: options.ecc ?? "M",
+      // La zone de silence est gérée par dnax.ui (`margin`) : on demande la matrice nue.
+      border: 0,
+      // `uqr` raisonne en bornes de version, pas en version forcée.
+      ...(typeof options.version === "number"
+        ? { minVersion: options.version, maxVersion: options.version }
+        : {}),
+    })
 
-    return QRCode.create(value, settings).modules
+    // `uqr` renvoie un `boolean[][]` ; on l'aplatit au contrat `data[y * size + x]`
+    // (1 = module sombre) attendu par `isDark` et le tracé.
+    const flat = new Uint8Array(size * size)
+    let i = 0
+    for (const row of data) {
+      for (let x = 0; x < size; x++) flat[i++] = row[x] ? 1 : 0
+    }
+
+    return { size, data: flat }
   } catch {
     return undefined
   }

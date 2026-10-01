@@ -13,7 +13,10 @@ const props = defineProps<{
 
 // Import résolu pendant le setup (top-level await) : les tables d'API sont donc
 // présentes dès le prerender, sans état « Loading… » dans le HTML statique.
-const runtime = await import("@dnax/ui/runtime")
+// ⚠️ On résout un composant **par son nom** : il faut le barrel → `@dnax/ui/registry`.
+// (`@dnax/ui` seul est bloqué par la protection d'import Nuxt — c'est l'entrée du module ;
+// `@dnax/ui/runtime` est l'entrée **légère** des plugins, cf. `.memory/warnings.md`.)
+const runtime = await import("@dnax/ui/registry")
 
 const comp = computed(() => (runtime as Record<string, any>)[props.name] ?? null)
 const tag = computed(() => componentTag(props.name))

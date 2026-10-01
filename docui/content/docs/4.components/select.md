@@ -37,6 +37,7 @@ const color = ref(null)
     :options="colors"
     label="Color"
     placeholder="Pick a color"
+    clearable
   />
 </template>
 ```
@@ -143,6 +144,57 @@ const multi = ref([])
     multiple
     use-chips
     emit-value
+    clearable
+  />
+</template>
+```
+::
+
+Each selected value is a removable **chip**: the ✕ inside a chip removes only that
+value, while the field's own ✕ (from `clearable`) clears the whole selection.
+
+## Search (`use-search`)
+
+`use-search` enables **fuzzy search** (fuse.js) on the options: a dedicated search
+field appears at the top of the list (bottom in `sheet` mode) and filters as you
+type. It accepts `true` for the defaults, or an object `{ keys, threshold }` to
+target specific object keys and tune fuzziness (`threshold`: `0` exact → `1`
+everything, default `0.4`).
+
+Selecting an option (single selection) **clears the search** so the field shows the
+chosen value; clicking outside with nothing selected also discards the typed text.
+
+::prose-show-case
+:dnax-demo-select{demo="search"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const city = ref(null)
+
+const cities = [
+  { value: "paris", label: "Paris" },
+  { value: "lyon", label: "Lyon" },
+  { value: "marseille", label: "Marseille" },
+  { value: "toulouse", label: "Toulouse" },
+  { value: "nice", label: "Nice" },
+  { value: "nantes", label: "Nantes" },
+  { value: "strasbourg", label: "Strasbourg" },
+  { value: "bordeaux", label: "Bordeaux" },
+]
+</script>
+
+<template>
+  <q-select
+    v-model="city"
+    :options="cities"
+    label="City"
+    use-search
+    emit-value
+    outlined
     clearable
   />
 </template>

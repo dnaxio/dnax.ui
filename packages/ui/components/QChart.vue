@@ -100,6 +100,7 @@ const loadECharts = () => {
       components.GridComponent,
       components.TooltipComponent,
       components.LegendComponent,
+      components.TitleComponent, // titre (`title` prop)
       components.MarkLineComponent,
       components.VisualMapComponent, // échelle de couleurs des cartes de chaleur
       renderers.CanvasRenderer,

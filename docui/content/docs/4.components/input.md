@@ -245,6 +245,52 @@ const errorEmail = ref("")
 ```
 ::
 
+## Background & CSS variables
+
+The control background is driven by two **CSS variables**. They inherit, so set them
+on any ancestor — a wrapper, `<q-config-provider :style>` or `theme.vars` (which also
+reaches teleported overlays).
+
+| Variable | Applies to | Default |
+| --- | --- | --- |
+| `--q-field-bg` | default, `outlined`, `borderless` | `#fff` in light mode, `var(--muted)` in dark |
+| `--q-field-bg-filled` | `filled` | `rgb(0 0 0 / 0.05)` |
+
+The variable is shared by **every** field — `q-input`, `q-select`, `q-autocomplete`,
+`q-date-picker`, `q-country-picker`, `q-input-tag`, `q-input-otp`… — so one value
+re-skins them all.
+
+::prose-show-case
+:dnax-demo-input{demo="background"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const bg = ref("#eef7ee")
+</script>
+
+<template>
+  <div :style="{ '--q-field-bg': bg, '--q-field-bg-filled': bg }">
+    <q-input label="Email" placeholder="you@example.com" />
+    <q-input label="Filled" filled placeholder="--q-field-bg-filled" />
+  </div>
+</template>
+```
+::
+
+Set globally from the theme instead of a wrapper — see
+[Config Provider](/docs/layouts/config-provider):
+
+```js
+:theme="{ vars: { '--q-field-bg': '#eef7ee' } }"
+```
+
+> ⚠️ `theme.componentProps` cannot do this: `componentProps.QInput` only reads
+> `radius`, and a `style` put on the field root would not reach the inner control.
+
 ## API
 
 :dnax-api{name="QInput"}

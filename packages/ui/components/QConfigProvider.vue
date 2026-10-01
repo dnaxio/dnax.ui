@@ -13,7 +13,7 @@ import QBottomSheetProvider from "./QBottomSheetProvider.vue"
 import QImagePreviewProvider from "./QImagePreviewProvider.vue"
 import { qConfigKey, qProvidersKey } from "../lib/config"
 import type { QAppLang, QConfigContext, QTheme, ThemeMode } from "../lib/config"
-import { isRadiusScale, RADIUS_VALUES } from "../lib/useComponentProps"
+import { themeVars } from "../lib/themeVars"
 
 interface Props {
   /**
@@ -119,40 +119,51 @@ watch(
 
 provide<QConfigContext>(qConfigKey, { theme: mergedTheme, isDark, lang })
 
+// — Dev : `componentProps` n'est PAS un spread de props — une clé non lue est ignorée
+// silencieusement (cf. `.memory/knowledges.md`). On le signale, une fois par clé.
+/** Clés de `componentProps.<Nom>` réellement lues, en plus du `radius` générique. */
+const EXTRA_COMPONENT_PROP_KEYS: Record<string, readonly string[]> = { QMap: ["apiKey"] }
+
+const IS_DEV = !!((import.meta as any).env?.DEV ?? (import.meta as any).dev)
+if (IS_DEV) {
+  const warned = new Set<string>()
+  watch(
+    mergedTheme,
+    (theme) => {
+      if (typeof document === "undefined") return // pas de bruit au SSR/build
+      for (const [name, entry] of Object.entries(theme.componentProps ?? {})) {
+        if (!entry || typeof entry !== "object") continue
+        const allowed = new Set<string>(["radius", ...(EXTRA_COMPONENT_PROP_KEYS[name] ?? [])])
+        const ignored = Object.keys(entry).filter((key) => !allowed.has(key))
+        if (!ignored.length) continue
+        const signature = `${name}:${ignored.join(",")}`
+        if (warned.has(signature)) continue
+        warned.add(signature)
+        console.warn(
+          `[dnax/ui] componentProps.${name} : clé(s) ignorée(s) → ${ignored.map((k) => `"${k}"`).join(", ")}.\n` +
+            `  Ces clés sont lues pour ${name} : ${[...allowed].map((k) => `"${k}"`).join(", ")}.\n` +
+            `  Pour une couleur/un fond, passez par theme.vars (ex. { "--q-field-bg": "#eef7ee" }) ou du CSS.`,
+        )
+      }
+    },
+    { immediate: true, deep: true },
+  )
+}
+
 // Providers intégrés ($q.dialog + $q.notify) : rendus UNE fois par le
 // QConfigProvider le plus externe (les imbriqués ne re-rendent pas → pas de doublons)
 const hasProviders = inject(qProvidersKey, false)
 provide(qProvidersKey, true)
 const isProvidersRoot = computed(() => !hasProviders)
 
-/** Calcule un foreground lisible (blanc ou sombre) pour un fond donné. */
-const textColorFor = (bg: string): string => {
-  let hex = bg.trim().replace(/^#/, "")
-  if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("")
-  if (!/^[0-9a-f]{6}$/i.test(hex)) return "#ffffff"
-  const r = parseInt(hex.slice(0, 2), 16)
-  const g = parseInt(hex.slice(2, 4), 16)
-  const b = parseInt(hex.slice(4, 6), 16)
-  const luminance = 0.299 * r + 0.587 * g + 0.114 * b
-  return luminance > 150 ? "#1d1d1d" : "#ffffff"
-}
-
-const themeStyle = computed<Record<string, string>>(() => {
-  const style: Record<string, string> = {
-    "color-scheme": isDark.value ? "dark" : "light",
-  }
-  for (const [token, value] of Object.entries(mergedTheme.value.colors ?? {})) {
-    if (!value) continue
-    style[`--${token}`] = value
-    style[`--${token}-foreground`] = textColorFor(value)
-  }
-  // Arrondi global : composantProps.default.radius → --q-radius hérité par TOUS
-  // les composants dont le CSS utilise var(--q-radius). Une prop/override
-  // spécifique (useRadius) pose son propre --q-radius inline et prime.
-  const global = mergedTheme.value.componentProps?.default?.radius
-  if (isRadiusScale(global)) style["--q-radius"] = RADIUS_VALUES[global]
-  return style
-})
+/**
+ * Variables CSS du thème : `color-scheme` + couleurs, `--q-radius` et `vars` libres
+ * (logique partagée avec les providers d'overlays téléportés, cf. `themeVars`).
+ */
+const themeStyle = computed<Record<string, string>>(() => ({
+  "color-scheme": isDark.value ? "dark" : "light",
+  ...themeVars(mergedTheme.value),
+}))
 
 // Thème GLOBAL (provider racine) : pose aussi les variables sur <html> — les
 // overlays téléportés au body (dialogs $q.dialog, …) perdent l'héritage du div

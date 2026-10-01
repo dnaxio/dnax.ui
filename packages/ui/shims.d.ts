@@ -7,19 +7,13 @@ declare module "*.css?raw" {
 
 // Leaflet ne publie pas de types (ils vivent dans `@types/leaflet`, un paquet séparé) :
 // le moteur `lib/mapLeaflet.ts` le manipule donc en `any`, comme le SDK MapTiler.
+//
+// ⚠️ Ce `default` est une commodité de **typage** : au runtime `leaflet` est un UMD, sans
+// export ESM `default` garanti (selon la pré-bundlisation Vite). C'est pourquoi
+// `lib/mapLeaflet.ts` importe en **dynamique** puis prend `leaflet.default ?? leaflet` —
+// jamais un `import L from "leaflet"` statique (même piège que l'ancien `qrcode`, cf.
+// `.memory/warnings.md`).
 declare module "leaflet" {
   const leaflet: any
   export default leaflet
-}
-
-// Même situation pour `qrcode` (=`@types/qrcode` séparé) : seul `create()` est utilisé
-// (matrice de modules) — le rendu est fait par dnax.ui (`lib/qrcode.ts`).
-declare module "qrcode" {
-  const qrcode: {
-    create: (
-      text: string,
-      options?: { errorCorrectionLevel?: "L" | "M" | "Q" | "H"; version?: number },
-    ) => { modules: { size: number; data: ArrayLike<number> } }
-  }
-  export default qrcode
 }

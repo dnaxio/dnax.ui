@@ -16,6 +16,7 @@ defineProps<{
     | "iconProps"
     | "mask"
     | "hint"
+    | "background"
 }>()
 
 const text = ref("")
@@ -35,6 +36,15 @@ const errorEmail = ref("")
 const phone = ref("")
 const code = ref("")
 const birthDate = ref("")
+
+// — Fond des champs (`--q-field-bg`) —
+const fieldBgText = ref("")
+const fieldBg = ref("#eef7ee")
+const fieldBgs = [
+  { label: "mint", value: "#eef7ee" },
+  { label: "sand", value: "#f7f1e8" },
+  { label: "sky", value: "#eaf3fd" },
+]
 </script>
 
 <template>
@@ -108,6 +118,27 @@ const birthDate = ref("")
       <q-input v-model="errorEmail" label="Email" type="email" error error-message="Please enter a valid email address." />
     </div>
   </div>
+
+  <div v-else-if="demo === 'background'" class="demo-field">
+    <div class="demo-row">
+      <q-btn-group>
+        <q-btn
+          v-for="preset in fieldBgs"
+          :key="preset.value"
+          flat
+          no-caps
+          :color="fieldBg === preset.value ? 'primary' : ''"
+          :label="preset.label"
+          @click="fieldBg = preset.value"
+        />
+      </q-btn-group>
+      <span class="demo-swatch" :style="{ background: fieldBg }" />
+    </div>
+    <div class="demo-bg-fields" :style="{ '--q-field-bg': fieldBg, '--q-field-bg-filled': fieldBg }">
+      <q-input v-model="fieldBgText" label="Email" placeholder="you@example.com" />
+      <q-input v-model="fieldBgText" label="Filled" filled placeholder="--q-field-bg-filled" />
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -122,5 +153,20 @@ const birthDate = ref("")
   flex: 1 1 220px;
   min-width: 0;
   align-items: stretch;
+}
+
+.demo-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid rgb(0 0 0 / 0.14);
+}
+
+.demo-bg-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  margin-top: 14px;
 }
 </style>

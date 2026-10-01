@@ -5,7 +5,7 @@ import { ref } from "vue"
 
 defineProps<{
   /** Demo identifier to render */
-  demo: "shell" | "theme"
+  demo: "shell" | "theme" | "vars"
 }>()
 
 // — theme —
@@ -19,6 +19,14 @@ const RADII: { label: string; value: "none" | "sm" | "md" | "lg" }[] = [
   { label: "sm", value: "sm" },
   { label: "md", value: "md" },
   { label: "lg", value: "lg" },
+]
+
+// — theme.vars (variables CSS libres) —
+const fieldBgVar = ref("#eef7ee")
+const fieldBgPresets = [
+  { label: "mint", value: "#eef7ee" },
+  { label: "sand", value: "#f7f1e8" },
+  { label: "sky", value: "#eaf3fd" },
 ]
 </script>
 
@@ -93,6 +101,38 @@ const RADII: { label: string; value: "none" | "sm" | "md" | "lg" }[] = [
         <q-btn unelevated no-caps color="primary" label="Button" />
         <q-input label="Field" outlined dense placeholder="Type here…" />
         <q-chip icon="lucide:zap" label="Chip" color="secondary" outline removable />
+      </div>
+    </q-config-provider>
+  </div>
+
+  <div v-else-if="demo === 'vars'">
+    <div class="demo-row">
+      <q-btn-group>
+        <q-btn
+          v-for="preset in fieldBgPresets"
+          :key="preset.value"
+          flat
+          no-caps
+          :color="fieldBgVar === preset.value ? 'primary' : ''"
+          :label="preset.label"
+          @click="fieldBgVar = preset.value"
+        />
+      </q-btn-group>
+    </div>
+
+    <q-config-provider
+      :theme="{
+        mode,
+        colors: { primary: primaryColor },
+        vars: {
+          '--q-field-bg': fieldBgVar,
+          '--q-field-bg-filled': fieldBgVar,
+        },
+      }"
+    >
+      <div class="demo-stage demo-stage--theme">
+        <q-input label="Field" placeholder="--q-field-bg" />
+        <q-input label="Filled" filled placeholder="--q-field-bg-filled" />
       </div>
     </q-config-provider>
   </div>

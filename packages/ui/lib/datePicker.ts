@@ -16,7 +16,7 @@ export const POPOVER_GAP = 8
 export const POPOVER_MIN_SPACE = 220
 
 /** Largeur de repli tant que le panneau n'a pas été mesuré (1er rendu) */
-export const POPOVER_FALLBACK_WIDTH = 360
+export const POPOVER_FALLBACK_WIDTH = 300
 
 /** Marge minimale de la flèche avec les coins du panneau */
 export const POPOVER_CARET_INSET = 16

@@ -24,6 +24,14 @@ export interface QTheme {
   lang?: QAppLang
   /** Props par défaut par composant (clé = nom du composant, ex. "QBtn") */
   componentProps?: Record<string, Record<string, unknown>>
+  /**
+   * Variables CSS libres posées avec le thème, puis héritées par tout le sous-arbre
+   * (overlays téléportés compris : dialogs, bottom sheets). Clé avec ou sans `--`
+   * (ex. `{ "q-field-bg": "#eef7ee" }`). Appliquées **en dernier**, elles peuvent donc
+   * surcharger les tokens de `colors`. Utile pour ce qu'aucun token ne couvre
+   * (ex. le fond des champs, cf. `--q-field-bg`).
+   */
+  vars?: Record<string, string>
 }
 
 export interface QConfigContext {

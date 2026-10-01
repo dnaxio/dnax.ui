@@ -1295,3 +1295,64 @@ mdast-util-to-markdown 2.1.3 (résolues par `@baybreezy/docd@0.3.2` → `@nuxt/c
    `@nuxt/content` à une combinaison qui ne boucle pas (via `overrides` dans `package.json`),
    si `/llms-full.txt` redevient nécessaire.
 3. Signaler upstream (docd / nuxt-llms / remark-mdc).
+
+## `@dnax/ui` — deux bugs internes corrigés (import manquant + composant ECharts non enregistré) — 2026-09-29
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/components/QDatePicker.vue`, `packages/ui/components/QChart.vue`
+
+1. **QDatePicker** : le template utilisait `<ChevronDown>` sans l'importer → icône non rendue
+   (erreur de résolution de composant au runtime). La convention du design system est
+   `<Icon :icon="icons.chevronDown" />` (cf. QSelect / QAutocomplete / QCountryPicker) — `Icon` de
+   `@iconify/vue` + constantes `lib/icons.ts`. Corrigé en remplaçant le balisage brut par `<Icon>`.
+2. **QChart** : `chartToECharts` émet bien une option `title` (prop `title` de `<q-chart>`), mais
+   `TitleComponent` n'était **pas enregistré** dans `use([...])` de `loadECharts()` → l'option était
+   **ignorée silencieusement** (règle d'or du skill echarts : « un module non enregistré = une
+   option ignorée »). Ajout de `components.TitleComponent`.
+
+Vérif : `TitleComponent` exporté par `echarts/components` (`typeof === 'function'`) ;
+`bun test lib/chart.test.ts` → 80 pass / 0 fail. (Note : une erreur TS **préexistante** demeure sur
+`QDatePicker.vue` L153 — type du `computed` `popoverStyle`, sans rapport avec ces deux bugs.)
+
+## `@dnax/ui` — sous-entrée `/runtime` = barrel → dépendance CJS `qrcode` servie brute au client — 2026-09-29
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/package.json`, `packages/ui/module.ts`,
+`packages/ui/lib/qrcode.ts`
+
+**Symptôme** : `SyntaxError: The requested module '/@fs/…/@dnax/ui/lib/qrcode.ts' does not provide an
+export named 'default'` (aussi rapporté « …/lib/qrcode.ts » demandé par le navigateur) au **boot**,
+alors que l'app n'utilise aucun composant QR.
+
+**Deux bugs empilés** :
+
+1. `package.json` faisait `"./runtime": "./index.ts"`. Les plugins générés par `module.ts`
+   (`dnax-ui-*.mjs`) importent `@dnax/ui/runtime` → charger un plugin évalue **tout** le barrel
+   (`index.ts`, ~180 composants) donc leurs dépendances lourdes (echarts, @maptiler/sdk, shiki,
+   swiper, qrcode…), au boot.
+2. `lib/qrcode.ts` faisait `import QRCode from "qrcode"` — `qrcode@1.5.4` est **CJS pur**
+   (`browser: ./lib/browser.js`, `exports.create = …`, **pas de `default`**). Non pré-bundlé par Vite
+   (atteignable seulement depuis un fichier de `node_modules`, jamais par l'optimiseur) → servi brut,
+   pas d'enveloppe `export default`. `shims.d.ts` déclarait un `default` **fictif** qui masquait le
+   problème au typecheck. Le garde-fou existait pourtant ailleurs (`lib/mapLeaflet.ts` :
+   `await import("leaflet")` puis `leaflet.default ?? leaflet`) — impossible avec un import statique.
+
+**Correctifs appliqués** :
+
+- Fix 1 — nouveau `packages/ui/runtime.ts` (entrée `/runtime`) : API directive/overlay + composables
+  `$q` + les **5 providers** (`QDialogProvider`, `QBottomSheetProvider`, `QNotifyProvider`,
+  `QLoadingProvider`, `QImagePreviewProvider`). **Ne réexporte jamais `index.ts`.**
+- Fix 2 — `lib/qrcode.ts` passe à **`uqr`** (ESM pur, sans dépendance) ; `qrcode` retiré des
+  dépendances ; déclaration `qrcode` retirée de `shims.d.ts`. ⚠️ `uqr.encode()` renvoie
+  `data: boolean[][]` avec `border: 1` par défaut (≠ `qrcode` : plat + `errorCorrectionLevel`) : on
+  passe `border: 0` et on **aplatit** en `Uint8Array` (`data[y*size+x]`), `version` → `minVersion`/`maxVersion`.
+- Fix 3 — `module.ts` ajoute `leaflet` à `optimizeDeps.include` (hook `vite:extendConfig`), pour les
+  hôtes : CJS sans `default` → esbuild doit pré-bundler.
+
+**Conséquence côté app hôte (docui)** : la protection d'import Nuxt **interdit** `import "@dnax/ui"`
+(c'est l'entrée du module). Ajout d'une sous-entrée explicite **`"./registry": "./index.ts"`**
+(le barrel, opt-in) pour la résolution **par nom** (`DnaxApi.vue`, `useComponentDocs.ts`), distincte
+de `./runtime` (légère). Règle : une entrée _runtime/plugin_ ne doit **jamais** pointer sur `index.ts`.
+
+**Vérif (sans navigateur)** : `bun test lib` → **295 pass / 0 fail** (dont 12 sur les QR après bascule
+`uqr`) ; `cd docui && bun run build` → **EXIT 0** ; bundling de `runtime.ts` (`Bun.build` + metafile) →
+**23 modules**, aucun de `echarts|@maptiler|shiki|maplibre|swiper|uqr|qrcode|leaflet|embla` et
+`index.ts` **non atteint**.

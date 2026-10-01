@@ -400,7 +400,7 @@ html.dark body {
 }
 
 .dark .q-field__control {
-  background-color: var(--muted);
+  background-color: var(--q-field-bg, var(--muted));
   border-color: var(--border);
   color: var(--foreground);
 }
@@ -2021,7 +2021,11 @@ html.dark body {
   gap: 6px;
   min-height: 40px;
   padding: 0 12px;
-  background-color: #fff;
+  /* Fond du champ, partagé par TOUS les champs (QInput, QSelect, QAutocomplete,
+     QDatePicker, QCountryPicker, QInputTag, QInputOtp…). Surchargeable globalement via
+     `--q-field-bg` (héritée par le sous-arbre) — `theme.vars: { "--q-field-bg": "…" }` —
+     ou localement par CSS. La variante `filled` lit `--q-field-bg-filled`. */
+  background-color: var(--q-field-bg, #fff);
   border: 1px solid rgb(0 0 0 / 0.22);
   border-radius: var(--q-radius);
   transition:
@@ -2031,18 +2035,18 @@ html.dark body {
 }
 
 .q-field--outlined .q-field__control {
-  background-color: transparent;
+  background-color: var(--q-field-bg, transparent);
 }
 
 .q-field--filled .q-field__control {
-  background-color: rgb(0 0 0 / 0.05);
+  background-color: var(--q-field-bg-filled, rgb(0 0 0 / 0.05));
   border-color: transparent;
   border-bottom: 1px solid rgb(0 0 0 / 0.3);
   border-radius: var(--q-radius) var(--q-radius) 0 0;
 }
 
 .q-field--borderless .q-field__control {
-  background-color: transparent;
+  background-color: var(--q-field-bg, transparent);
   border-color: transparent;
 }
 
@@ -5790,7 +5794,7 @@ a.q-breadcrumbs__el:hover {
 }
 
 .q-date-picker__sheet--popover {
-  width: 360px;
+  width: 300px;
   max-width: calc(100vw - 16px);
   border: 1px solid rgb(0 0 0 / 0.08);
   box-shadow: 0 10px 32px rgb(0 0 0 / 0.16);
@@ -5809,8 +5813,8 @@ a.q-breadcrumbs__el:hover {
 .q-date-calendar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px;
   user-select: none;
 }
 
@@ -5885,6 +5889,8 @@ a.q-breadcrumbs__el:hover {
 .q-date-calendar__weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  /* Même gap que les semaines : les libellés s'alignent sur les colonnes des jours */
+  gap: 2px;
 }
 
 .q-date-calendar__weekday {
@@ -5912,7 +5918,12 @@ a.q-breadcrumbs__el:hover {
   align-items: center;
   justify-content: center;
   width: 100%;
+  /* La colonne est en `1fr` : sans plafond le cercle grandit avec la largeur du
+     panneau (popover 300px → cercles ~38px, inline large → bien plus). On borne
+     la pastille et on la centre. */
+  max-width: 34px;
   aspect-ratio: 1;
+  justify-self: center;
   padding: 0;
   border: none;
   border-radius: 50%;

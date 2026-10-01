@@ -2006,3 +2006,61 @@ await waitFor(
 
 puis seulement les vrais `Input.dispatchMouseEvent` / `dispatchKeyEvent`. Plus aucune alerte
 d'hydratation, et les tests d'interaction restent fiables.
+
+## `theme.componentProps` — ce qui est réellement lu (et ce qui ne l'est pas) — 2026-09-29
+
+tag: `knowledges` — `namespace: dnax.ui` — `filename: packages/ui/lib/useComponentProps.ts`,
+`packages/ui/components/QConfigProvider.vue`
+
+`componentProps` est un `Record<string, Record<string, unknown>>` indexé par **nom d'export**
+(`"QInput"`, jamais `"q-input"`) + la clé spéciale `"default"`.
+
+- **Propagation** : `QConfigProvider` fusionne le thème du parent (`mergeComponentProps`, le plus
+  proche gagne **par prop**) puis `provide(qConfigKey)`. Les providers imbriqués fusionnent pareil.
+- **Lecture** : **aucune application automatique**. Chaque composant lit ce qu'il veut. Aujourd'hui
+  exactement **deux** lectures existent :
+  1. **`radius`** (générique) — `useRadius(name, own)` : priorité
+     `prop explicite > componentProps[Name].radius > componentProps.default.radius`, rendu en
+     `--q-radius` inline (`radiusStyle`). Et `componentProps.default.radius` **seul** est aussi posé
+     globalement par `QConfigProvider` (et sur `<html>` pour le provider racine) → hérité par tout
+     composant dont le CSS lit `var(--q-radius)`.
+  2. **`QMap.apiKey`** (ad hoc) — `QMap` lit `useComponentProps("QMap").value.apiKey` en repli de sa
+     prop `api-key`. Seul consommateur non-`radius`.
+- **Conséquence** : toute autre clé est fusionnée puis **jamais appliquée**. Ex.
+  `componentProps: { QInput: { style: { background: 'red' } } }` → **aucun effet**.
+- **Garde-fou (2026-09-29)** : `QConfigProvider` avertit en **dev** (`console.warn`, une fois par
+  signature de clé, client uniquement) quand une clé de `componentProps.<Nom>` n'est pas lue. Le
+  registre des clés lues hors `radius` est `EXTRA_COMPONENT_PROP_KEYS` (`QMap: ["apiKey"]`) — à
+  compléter si un composant se met à lire autre chose.
+- **Bonne voie pour styler** : les **tokens CSS** via `theme.vars` (cf. ci-dessous) ou du CSS ;
+  `radius` reste le seul levier « prop » générique. Ne PAS câbler un spread générique de
+  `componentProps` : il ferait fuiter les clés inconnues dans `$attrs` (attributs DOM parasites) et
+  ne résoudrait pas les parties internes (la racine ≠ `.q-field__control`).
+
+## Fond des champs : tokens `--q-field-bg` / `--q-field-bg-filled` — 2026-09-29
+
+tag: `knowledges` — `namespace: dnax.ui` — `filename: packages/ui/styles/main.css`
+
+- **Tokens introduits le 2026-09-29** (fallbacks = valeurs historiques → **zéro régression
+  visuelle**) : `.q-field__control` → `var(--q-field-bg, #fff)` ; sombre →
+  `var(--q-field-bg, var(--muted))` ; `outlined` **et** `borderless` → `var(--q-field-bg, transparent)` ;
+  `filled` → `var(--q-field-bg-filled, rgb(0 0 0 / 0.05))`.
+- **Pourquoi un token et pas une prop** : la variable est **héritée** → elle atteint la partie
+  interne (`.q-field__control`) et **tous** les champs, alors qu'un `style` posé sur la racine
+  `<q-input>` ne les atteint pas (cf. piège ci-dessous).
+- **Comment le poser** :
+  `theme.vars: { '--q-field-bg': '#eef7ee' }` (cf. `QConfigProvider` — propagé aussi aux overlays
+  téléportés via `themeVarsStyle`), `:style="{ '--q-field-bg': … }"` sur un wrapper, ou CSS global.
+- **Spécificité** : `outlined` / `borderless` sont re-ciblés par des règles `0,2,0` — une règle
+  utilisateur `.q-field__control` seule (`0,1,0`) est **écrasée** ; cibler
+  `.q-field--outlined .q-field__control` (même spécificité, plus bas dans la cascade) ou plus fort.
+  En scoped, `.wrap :deep(.q-field__control)` (spécificité `0,3,0`) bat les variantes.
+- **Piège conservé** : les attrs posés sur `<q-input>` (dont `style`) tombent sur la **racine**
+  `.q-input` (fallthrough), **pas** sur `.q-field__control` → un `background` sur la racine est
+  invisible (le contrôle est opaque par-dessus).
+- `.q-field__control` est **partagé** par QInput, QSelect, QAutocomplete, QDatePicker,
+  QCountryPicker, QInputTag, QInputOtp… → un seul token les re-skine tous.
+- **Gap connu (non corrigé)** : `QLoadingProvider` / `QImagePreviewProvider` n'appliquent pas
+  `themeVarsStyle` (contrairement à `QDialogProvider` / `QBottomSheetProvider`) → le `theme` d'un
+  provider **imbriqué** ne les atteint pas (le provider **racine** couvre le cas via `<html>`).
+  Idem pour les couleurs, pas seulement `vars` : préexistant.

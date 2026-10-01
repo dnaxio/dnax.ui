@@ -268,7 +268,7 @@ onBeforeUnmount(() => {
         >
           <Icon :icon="icons.x" aria-hidden="true" />
         </button>
-        <ChevronDown class="q-select__arrow" :class="{ 'q-select__arrow--rotated': open }" aria-hidden="true" />
+        <Icon :icon="icons.chevronDown" class="q-select__arrow" :class="{ 'q-select__arrow--rotated': open }" aria-hidden="true" />
       </div>
       <div class="q-field__bottom">
         <div v-if="error" class="q-field__error">{{ errorMessage }}</div>

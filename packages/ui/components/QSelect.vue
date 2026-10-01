@@ -397,6 +397,12 @@ const select = (opt: any) => {
   else {
     if (!isSelected(opt)) emit("update:modelValue", value)
     closePopup()
+    // Après une sélection (simple), on efface la recherche pour laisser place à
+    // l'élément choisi : le champ d'affichage reprend le label, plus le filtre.
+    if (query.value !== "") {
+      query.value = ""
+      emit("update:inputValue", "")
+    }
   }
 }
 
@@ -520,6 +526,12 @@ const openPopup = () => {
 
 const closePopup = () => {
   open.value = false
+  // Fermeture sans sélection (clic extérieur, backdrop, Échap, ×) : on abandonne la
+  // recherche saisie pour ne pas laisser un filtre fantôme au prochain affichage.
+  if (query.value !== "" && !hasValue.value) {
+    query.value = ""
+    emit("update:inputValue", "")
+  }
 }
 
 const togglePopup = () => (open.value ? closePopup() : openPopup())

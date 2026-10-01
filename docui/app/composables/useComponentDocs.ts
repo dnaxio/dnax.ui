@@ -84,7 +84,8 @@ export const useComponent = (exportName: () => string | undefined) => {
     comp.value = null
     const name = exportName()
     if (!name) return
-    const mod = await import("@dnax/ui/runtime")
+    // Barrel (et non `/runtime`, volontairement léger) : on résout par nom.
+    const mod = await import("@dnax/ui/registry")
     comp.value = (mod as any)[name] ?? null
   })
   return comp
