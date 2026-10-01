@@ -2573,3 +2573,41 @@ au lieu d'un objet `{ min, max }`.
   `"… & >= 0"` (l'ancien exemple de la JSDoc) jette un `ParseError`.
 - **Vérif** : `bun test lib` → **323 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0** ;
   équilibre MDC 16/16 ; diagnostics propres.
+
+## QSpreadsheet : `options` brutes d'API via `optionLabel` / `optionValue` — 2026-09-29
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/lib/spreadsheetOptions.ts`,
+`packages/ui/components/QSpreadsheet.vue`
+
+Demande : utiliser directement des objets d'API (`{ _id, name }`, `{ _id, name, value }`) en
+options d'une colonne `select` / `multiselect`, sans mapping manuel.
+
+- **API** : `QSpreadsheetColumn.optionLabel?` / `optionValue?: QSpreadsheetOptionAccessor`
+  (`string | ((opt) => any)`) — vocabulaire **identique à `<q-select>`**. Défauts `"label"` /
+  `"value"` → une colonne déjà écrite `{ value, label, color? }` n'est **pas** modifiée
+  (rétro-compatible). `QSpreadsheetColumn.options` passe à `any[]` (n'importe quelle forme — un
+  `interface` utilisateur n'est pas assignable à `Record<string, any>`, d'où le `any[]`).
+- **Normalisation unique** — le point de conception décisif : `lib/spreadsheetOptions.ts` (pur,
+  testé) expose `normalizeCellOptions(options, optionLabel, optionValue)` → `{ value, label,
+color? }[]` (garde `Array.isArray`, primitives acceptées, repli label → `String(value)`,
+  `color` transmis tel quel). Le composant la met en cache **par nom de colonne** (`cellOptionsOf`,
+  cache déclaré dans `<script setup>` donc **par instance** — jamais au niveau module, sinon
+  collision entre deux grilles) et les 8 sites (`multiLabels`, `choiceText`, `startEdit`,
+  `coerceValue` ×2, `selectOptions`, `badgeOf`, `multiBadges`) lisent la forme normalisée.
+  ⚠️ **Ne pas appliquer les accesseurs site par site** : badge `_id` + tooltip « Ada » — le tri,
+  le filtre, le CSV et les info-bulles passent tous par `choiceText`.
+- **Qui lit quoi** (vérifié) : `label` → cellule, badge, tooltip, éditeur, **tri, filtre,
+  copier/coller + CSV** (`choiceText`) ; `value` → `rows` / `toJSON()` uniquement. Stocker un
+  `_id` n'apparaît donc **jamais** dans l'UI ni dans le CSV exporté.
+- **Contraintes** : `optionValue` **primitive et unique** (comparaison `===`, sérialisation
+  `toJSON`), `label` absent → repli `String(value)`, `color` décoré côté app (pas d'`optionColor` :
+  la couleur est une décision de présentation). La saisie/collage matche le **label ou la valeur**
+  → taper « Ada Lovelace » stocke `u_8f3a`. `canonicalColumns` (feuilles) préserve les accesseurs
+  via `{ ...c }`.
+- **Doc** : `4.components/spreadsheet.md` — sous-section « Options from an API — `option-label` /
+  `option-value` » (tableau « qui lit quoi », les 3 règles, exemple), lignes `optionLabel` /
+  `optionValue` ajoutées au tableau du schéma de colonne, renvoi depuis les types
+  `select`/`multiselect` ; démo `rawOptions` (`DnaxDemoSpreadsheet.vue`, forme `{ _id, name, value }`).
+- **Vérif** : `bun test lib` → **335 pass / 0 fail** (12 nouveaux) ; `cd docui && bun run build`
+  → **EXIT 0** ; équilibre MDC 17/17 ; diagnostics propres (`QSpreadsheet.vue`, démo, lib) ;
+  `grep col.options` → ne reste que le helper `cellOptionsOf`.

@@ -10,6 +10,7 @@ const props = defineProps<{
     | "people"
     | "types"
     | "choice"
+    | "rawOptions"
     | "changes"
     | "formulas"
     | "power"
@@ -214,6 +215,41 @@ const choiceRows = ref([
   { task: "Docs rewrite", priority: "low", tags: ["docs", "design"], reviewers: [] },
   { task: "Hotfix payment", priority: "high", tags: ["backend", "urgent"], reviewers: ["ada", "edsger"] },
   { task: "Design tokens", priority: "medium", tags: ["design", "docs"], reviewers: ["grace"] },
+])
+
+// — Options brutes d'API mappées par `optionLabel` / `optionValue` —
+// (forme `{ _id, name, value }` : le libellé affiché est `name`, la valeur stockée `_id`)
+const rawUsers = [
+  { _id: "u_8f3a", name: "Ada Lovelace", value: "ADA" },
+  { _id: "u_1b2c", name: "Alan Turing", value: "ALAN" },
+  { _id: "u_7d11", name: "Grace Hopper", value: "GRACE" },
+  { _id: "u_5e90", name: "Edsger Dijkstra", value: "EDSGER" },
+]
+const rawColumns = [
+  { name: "task", label: "Task", width: 200 },
+  {
+    name: "owner",
+    label: "Owner",
+    type: "select" as const,
+    chip: true,
+    width: 160,
+    options: rawUsers,
+    optionLabel: "name",
+    optionValue: "_id",
+  },
+  {
+    name: "reviewers",
+    label: "Reviewers",
+    type: "multiselect" as const,
+    options: rawUsers,
+    optionLabel: "name",
+    optionValue: "_id",
+  },
+]
+const rawRows = ref([
+  { task: "Landing hero", owner: "u_8f3a", reviewers: ["u_1b2c", "u_7d11"] },
+  { task: "Checkout API", owner: "u_1b2c", reviewers: ["u_5e90"] },
+  { task: "Docs rewrite", owner: "u_7d11", reviewers: [] },
 ])
 
 // — Suivi des modifications (dirty + delta) —
@@ -533,6 +569,20 @@ onMounted(() => {
       stored → <code>priority</code>: {{ JSON.stringify(choiceRows[0]?.priority) }} ·
       <code>tags</code>: {{ JSON.stringify(choiceRows[0]?.tags) }} ·
       <code>reviewers</code>: {{ JSON.stringify(choiceRows[0]?.reviewers) }}
+    </p>
+  </div>
+
+  <div v-else-if="demo === 'rawOptions'">
+    <q-spreadsheet
+      v-model:rows="rawRows"
+      :columns="rawColumns"
+      height="230px"
+      bordered
+    />
+    <p class="demo-p demo-log">
+      stored → <code>owner</code>: {{ JSON.stringify(rawRows[0]?.owner) }} ·
+      <code>reviewers</code>: {{ JSON.stringify(rawRows[0]?.reviewers) }} — the grid shows the
+      <code>name</code>s, <code>rows</code> keeps the <code>_id</code>s.
     </p>
   </div>
 

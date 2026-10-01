@@ -9,10 +9,18 @@
 // ajoutées, modifiées, supprimées), calculé en comparant le document à une **référence**
 // (`lib/spreadsheetChanges.ts`).
 import type {
+  QSpreadsheetCellOption,
+  QSpreadsheetOptionAccessor,
+} from "../lib/spreadsheetOptions"
+import type {
   QSpreadsheetValidation,
   QSpreadsheetValidationRule,
 } from "../lib/spreadsheetValidation"
 
+export type {
+  QSpreadsheetCellOption,
+  QSpreadsheetOptionAccessor,
+} from "../lib/spreadsheetOptions"
 export type {
   QSpreadsheetValidation,
   QSpreadsheetValidationRule,
@@ -31,18 +39,9 @@ export type QSpreadsheetCellType =
   | "select"
   | "multiselect"
 
-export interface QSpreadsheetCellOption {
-  /** Valeur stockée dans la cellule */
-  value: any
-  /**
-   * Libellé affiché. Les nombres sont acceptés (`{ value: 1, label: 1 }` pour une
-   * note, un niveau…) : le composant les normalise en string partout où il fait des
-   * opérations de chaîne (recherche, filtre, tri, éditeur).
-   */
-  label: string | number
-  /** Couleur du badge (token ou hex, ex. "positive", "#22c55e") */
-  color?: string
-}
+// `QSpreadsheetCellOption` (option **normalisée**) et `QSpreadsheetOptionAccessor` vivent dans
+// `lib/spreadsheetOptions.ts` — source unique, testée hors navigateur — et sont ré-exportés en
+// tête de ce bloc.
 
 export interface QSpreadsheetColumn {
   /** Clé de la propriété dans la ligne */
@@ -58,8 +57,23 @@ export interface QSpreadsheetColumn {
   type?: QSpreadsheetCellType
   /** La cellule est éditable (Entrée / double-clic / frappe) */
   editable?: boolean
-  /** Pour type "select" / "multiselect" : options (badges colorés) */
-  options?: QSpreadsheetCellOption[]
+  /**
+   * Pour type `select` / `multiselect` : les options. Forme par défaut
+   * `{ value, label, color? }` — ou **n'importe quelle forme d'objet** (ex. `[{ _id, name }]`
+   * renvoyé par une API) dès que `optionLabel` / `optionValue` sont fournis.
+   */
+  options?: any[]
+  /**
+   * Pour type `select` / `multiselect` : clé (ou fonction) du **libellé** dans une option —
+   * défaut `"label"`. Ex. `option-label="name"`. Vocabulaire de `<q-select>`.
+   */
+  optionLabel?: QSpreadsheetOptionAccessor
+  /**
+   * Pour type `select` / `multiselect` : clé (ou fonction) de la **valeur stockée** dans la
+   * cellule — défaut `"value"`. Doit être **primitive** (string / number / bool) et unique.
+   * Ex. `option-value="_id"`.
+   */
+  optionValue?: QSpreadsheetOptionAccessor
   /** Pour type "select" / "multiselect" : rend les options actives en badge coloré (sinon texte) */
   chip?: boolean
   /** Validation à la saisie : objet `{ min, max, … }` ou expression ArkType (`"number < 4"`) */
@@ -157,6 +171,7 @@ import {
   parseCsv,
 } from "../lib/spreadsheet"
 import { checkValidation, type ArkCheck } from "../lib/spreadsheetValidation"
+import { normalizeCellOptions } from "../lib/spreadsheetOptions"
 import {
   DEFAULT_ROW_KEY,
   diffDocuments,
@@ -514,6 +529,38 @@ const colOf = (name: string) => cols.value.find((c) => c.name === name)
 
 // ─── Cellules à choix (select = une valeur, multiselect = un tableau de valeurs) ───
 /**
+ * Options d'une colonne, **normalisées une seule fois** vers `{ value, label, color? }` —
+ * `optionLabel` / `optionValue` y sont appliqués (défauts `"label"` / `"value"`). C'est ce qui
+ * garantit que badge, info-bulle, éditeur, tri, filtre et copie/CSV lisent tous la même forme :
+ * un accesseur oublié quelque part donnerait un badge `_id` et un tooltip « Ada ».
+ * Mémoïsé par nom de colonne (le cache vit dans l'instance du composant).
+ */
+const optionsCache = new Map<
+  string,
+  { opts: QSpreadsheetCellOption[]; options: unknown; label: unknown; value: unknown }
+>()
+const cellOptionsOf = (col: QSpreadsheetColumn | undefined): QSpreadsheetCellOption[] => {
+  if (!col) return []
+  const hit = optionsCache.get(col.name)
+  if (
+    hit &&
+    hit.options === col.options &&
+    hit.label === col.optionLabel &&
+    hit.value === col.optionValue
+  ) {
+    return hit.opts
+  }
+  const opts = normalizeCellOptions(col.options, col.optionLabel, col.optionValue)
+  optionsCache.set(col.name, {
+    opts,
+    options: col.options,
+    label: col.optionLabel,
+    value: col.optionValue,
+  })
+  return opts
+}
+
+/**
  * Valeurs d'une cellule à choix multiples, toujours sous forme de liste : un tableau est
  * repris tel quel, une valeur nue (`null`, `"it"`…) devient `[valeur]` (ou `[]` si vide).
  * C'est ce qui permet de lire indifféremment un `select` (scalaire) et un `multiselect`.
@@ -526,7 +573,7 @@ const multiValues = (raw: any): any[] => {
 /** Libellés d'une cellule à choix multiples (le `value` brut si l'option est inconnue) */
 const multiLabels = (col: QSpreadsheetColumn | undefined, raw: any): string[] =>
   multiValues(raw).map((v) => {
-    const opt = col?.options?.find((o) => o.value === v)
+    const opt = cellOptionsOf(col).find((o) => o.value === v)
     return String(opt?.label ?? v)
   })
 
@@ -538,7 +585,7 @@ const choiceText = (col: QSpreadsheetColumn | undefined, raw: any): string => {
   if (col?.type === "multiselect") return multiLabels(col, raw).join(", ")
   if (isBlankValue(raw)) return ""
   if (col?.type === "select") {
-    const opt = col.options?.find((o) => o.value === raw)
+    const opt = cellOptionsOf(col).find((o) => o.value === raw)
     if (opt?.label !== undefined) return String(opt.label)
   }
   return String(raw)
@@ -838,7 +885,7 @@ const startEdit = (row: number, column: string, initial?: string) => {
   if (col?.editable === false || col?.type === "boolean") return
   const raw = state.value[row]?.[column]
   if (col?.type === "select") {
-    const opt = col.options?.find((o) => o.value === raw)
+    const opt = cellOptionsOf(col).find((o) => o.value === raw)
     // `label` peut être un nombre (options numériques) : `draft` alimente un
     // <input>/<textarea> et sert à `.trim()` / `.toLowerCase()` → toujours une string.
     draft.value = String(initial ?? opt?.label ?? "")
@@ -925,7 +972,9 @@ const coerceValue = (col: QSpreadsheetColumn | undefined, text: unknown, old: an
     return raw === "true" ? true : raw === "false" ? false : old
   }
   if (col?.type === "select") {
-    const opt = col.options?.find((o) => String(o.label ?? "") === raw || String(o.value) === raw)
+    const opt = cellOptionsOf(col).find(
+      (o) => String(o.label ?? "") === raw || String(o.value) === raw,
+    )
     return opt ? opt.value : old
   }
   // `multiselect` : collage / saisie « a, b » → tableau de valeurs d'option
@@ -936,7 +985,7 @@ const coerceValue = (col: QSpreadsheetColumn | undefined, text: unknown, old: an
       .filter((s) => s !== "")
     if (!parts.length) return null
     return parts.map((part) => {
-      const opt = col.options?.find(
+      const opt = cellOptionsOf(col).find(
         (o) => String(o.label ?? "") === part || String(o.value) === part,
       )
       return opt ? opt.value : part
@@ -1637,7 +1686,7 @@ const selectOptions = computed<QSpreadsheetCellOption[]>(() => {
   const col = colOf(editing.value.column)
   if (col?.type !== "select" && col?.type !== "multiselect") return []
   const q = String(draft.value ?? "").trim().toLowerCase()
-  return (col.options ?? []).filter(
+  return cellOptionsOf(col).filter(
     (o) => !q || String(o.label ?? o.value ?? "").toLowerCase().includes(q),
   )
 })
@@ -2495,7 +2544,7 @@ const badgeStyle = (opt: QSpreadsheetCellOption) => {
 
 const badgeOf = (col: QSpreadsheetColumn | undefined, val: any) => {
   if (col?.type !== "select" || !col.chip) return undefined
-  const opt = col.options?.find((o) => o.value === val)
+  const opt = cellOptionsOf(col).find((o) => o.value === val)
   if (!opt) return undefined
   return { label: opt.label, style: badgeStyle(opt) }
 }
@@ -2504,7 +2553,7 @@ const badgeOf = (col: QSpreadsheetColumn | undefined, val: any) => {
 const multiBadges = (col: QSpreadsheetColumn | undefined, val: any) => {
   if (col?.type !== "multiselect" || !col.chip) return []
   return multiValues(val).map((v) => {
-    const opt = col.options?.find((o) => o.value === v)
+    const opt = cellOptionsOf(col).find((o) => o.value === v)
     return {
       label: String(opt?.label ?? v),
       style: badgeStyle(opt ?? { value: v, label: String(v) }),

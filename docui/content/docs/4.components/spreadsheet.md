@@ -38,8 +38,8 @@ below is the **complete list** of cell types: the editor each one opens, the val
 | `boolean` | checkbox — a click on the cell toggles it | `true` / `false` | no text editor (`Enter` / typing don't open one) |
 | `date` | native date picker | ISO string — `"2026-12-31"` | stored ISO; display it through `format` |
 | `datetime` | native `datetime-local` picker | ISO string — `"2026-09-07T09:30"` | stored ISO; display it through `format` |
-| `select` | filterable option list (`options`) | the option `value` — `"tea"` | a colored badge with `chip: true`, else its label |
-| `multiselect` | checkbox option list (`options`) | an **array** of `value`s — `["tea","beer"]` (`[]` when empty) | one badge per value with `chip: true`, else the labels joined with `, ` |
+| `select` | filterable option list (`options`) | the option `value` (see `option-value`) — `"tea"` | a colored badge with `chip: true`, else its label |
+| `multiselect` | checkbox option list (`options`) | an **array** of values (see `option-value`) — `["tea","beer"]` (`[]` when empty) | one badge per value with `chip: true`, else the labels joined with `, ` |
 
 Two rules hold for **every** type:
 
@@ -189,8 +189,9 @@ const rows = ref([
 ## Single & multiple choice
 
 Both types render the `options` you declared in the **Cell types** table (`{ value, label,
-color? }`), and in both cases the stored value is the option **`value`**, never its label. The
-difference is **how many values a cell holds** and **how you pick them**:
+color? }` — or **any object shape**, see **Options from an API** below). The value written to
+`rows` is the option **`value`** by default (`option-value` changes which key is stored), never
+its label. The difference is **how many values a cell holds** and **how you pick them**:
 
 - **`select` — one value.** The editor is a type-to-filter list: `↑` / `↓` move the highlight,
   `Enter` picks the highlighted option **and closes** the editor.
@@ -254,6 +255,87 @@ you can pick several in a row); `Enter` closes the editor when the filter is emp
 the highlighted match when you are narrowing the list, while `Esc` / clicking away closes it.
 Filtering, sorting, copy / CSV export and find all read the **labels**, while the underlying
 array keeps the option `value`s.
+
+### Options from an API — `option-label` / `option-value`
+
+`options` does not have to be shaped `{ value, label }`: pass your **raw objects** and point
+`option-label` / `option-value` at the right keys — a **name** or a **function**, exactly like
+`<q-select>`.
+
+```js
+const users = await api.users()   // [{ _id: "u_8f3a", name: "Ada Lovelace", value: "ADA" }]
+
+const columns = [
+  {
+    name: "owner",
+    label: "Owner",
+    type: "select",
+    chip: true,
+    options: users,
+    optionLabel: "name",   // displayed everywhere
+    optionValue: "_id",    // stored in `rows`
+  },
+]
+// rows: [{ owner: "u_8f3a" }]
+```
+
+```js
+// …or with accessor functions:
+{ options: users, optionLabel: (u) => u.name, optionValue: (u) => u._id }
+```
+
+What the two accessors drive:
+
+| Read path | Uses |
+| --- | --- |
+| cell text, badge, tooltip | `label` |
+| editor (list, search, checkbox) | `label` |
+| **sort**, **filter**, **copy / CSV export** | `label` |
+| `rows` / `toJSON()` — the document | **`value`** |
+
+Storing an `_id` therefore never leaks into the UI or the CSV: the document keeps the stable id
+while everything the user reads shows the label. Three rules:
+
+- **`optionValue` must be primitive and unique** (string / number / boolean) — values are matched
+  with `===` and the document is serialized by `toJSON()`. Never an object.
+- **A missing label falls back to `String(value)`.**
+- **`color` passes through untouched** — decorate on your side when the API has no color:
+  `options: users.map((u) => ({ ...u, color: palette[u.value] }))`.
+
+Typing or pasting text matches **either** the label or the value, so pasting `Ada Lovelace` into
+a cell stores the `_id`. `optionLabel` / `optionValue` also work on the columns of a `sheets`
+entry.
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="rawOptions"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const users = [
+  { _id: "u_8f3a", name: "Ada Lovelace", value: "ADA" },
+  { _id: "u_1b2c", name: "Alan Turing", value: "ALAN" },
+  { _id: "u_7d11", name: "Grace Hopper", value: "GRACE" },
+]
+
+const columns = [
+  { name: "task", label: "Task" },
+  { name: "owner", label: "Owner", type: "select", chip: true, options: users, optionLabel: "name", optionValue: "_id" },
+  { name: "reviewers", label: "Reviewers", type: "multiselect", options: users, optionLabel: "name", optionValue: "_id" },
+]
+
+const rows = ref([{ task: "Landing hero", owner: "u_8f3a", reviewers: ["u_1b2c"] }])
+</script>
+
+<template>
+  <q-spreadsheet v-model:rows="rows" :columns="columns" height="230px" bordered />
+  <!-- stored: owner "u_8f3a" · reviewers ["u_1b2c"] — the grid shows the names -->
+</template>
+```
+::
 
 ## Formulas (A1)
 
@@ -955,7 +1037,9 @@ follow the array order).
 | `type` | `string`, `text`, `number`, `integer`, `email`, `url`, `date`, `datetime`, `boolean`, `select`, `multiselect` | Editor, stored value & rendering — see the **Cell types** table |
 | `editable` | boolean · default `true` | `false` locks the column |
 | `align` | `left` / `center` / `right` | Text alignment (numbers right by default) |
-| `options` | `{ value, label, color? }[]` | For `select` / `multiselect` — chips with `chip: true` |
+| `options` | `{ value, label, color? }[]` · any object array | For `select` / `multiselect` — chips with `chip: true`. Raw shapes need `optionLabel` / `optionValue` |
+| `optionLabel` | string · `(opt) => any` · default `"label"` | Key/accessor of the displayed label (cell, badge, editor, sort, filter, CSV) |
+| `optionValue` | string · `(opt) => any` · default `"value"` | Key/accessor of the value stored in `rows` — must be **primitive and unique** |
 | `chip` | boolean | Renders `select` / `multiselect` values as colored badges |
 | `validation` | object `{ min?, max?, integer?, pattern?, required?, list?, message?, schema? }` · ArkType string | Input validation — object or expression (`"number < 4"`); rejects & marks the cell red |
 | `format` | `(value, row) => any` | Display formatter (stored value untouched) |
