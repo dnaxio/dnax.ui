@@ -11,6 +11,7 @@ const props = defineProps<{
     | "types"
     | "choice"
     | "rawOptions"
+    | "locked"
     | "changes"
     | "formulas"
     | "power"
@@ -251,6 +252,37 @@ const rawRows = ref([
   { task: "Checkout API", owner: "u_1b2c", reviewers: ["u_5e90"] },
   { task: "Docs rewrite", owner: "u_7d11", reviewers: [] },
 ])
+
+// — Verrouillage de cellules (`lockedRanges` + `cellReadonly`) —
+const lockCols = [
+  { name: "task", label: "Task", width: 220 },
+  {
+    name: "total",
+    label: "Total",
+    type: "number" as const,
+    width: 110,
+    // Verrouillée dès qu'elle porte une valeur — une cellule **vide** reste éditable.
+    cellReadonly: (val: any) => val !== null && val !== undefined && val !== "",
+  },
+  {
+    name: "status",
+    label: "Status",
+    type: "select" as const,
+    width: 130,
+    options: [
+      { value: "todo", label: "To do" },
+      { value: "doing", label: "Doing" },
+      { value: "done", label: "Done" },
+    ],
+  },
+]
+const lockRows = ref([
+  { task: "Row 0 is locked by lockedRanges — even the empty cells", total: "", status: "" },
+  { task: "Editable row", total: "", status: "todo" },
+  { task: "Locked by cellReadonly (has a value)", total: 128, status: "done" },
+])
+// Bloc verrouillé (en-tête, totaux…) : lignes/colonnes 0-based, comme `validators`.
+const lockRanges = [{ r0: 0, c0: 0, r1: 0, c1: 2 }]
 
 // — Suivi des modifications (dirty + delta) —
 const changeColumns = [
@@ -583,6 +615,21 @@ onMounted(() => {
       stored → <code>owner</code>: {{ JSON.stringify(rawRows[0]?.owner) }} ·
       <code>reviewers</code>: {{ JSON.stringify(rawRows[0]?.reviewers) }} — the grid shows the
       <code>name</code>s, <code>rows</code> keeps the <code>_id</code>s.
+    </p>
+  </div>
+
+  <div v-else-if="demo === 'locked'">
+    <q-spreadsheet
+      v-model:rows="lockRows"
+      :columns="lockCols"
+      :locked-ranges="lockRanges"
+      height="230px"
+      bordered
+    />
+    <p class="demo-p demo-log">
+      <code>lockedRanges</code> locks row 0 — <strong>even its empty cells</strong> ·
+      <code>cellReadonly</code> locks the <code>total</code> column as soon as it holds a value.
+      Selecting and copying still work.
     </p>
   </div>
 

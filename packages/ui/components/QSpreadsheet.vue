@@ -84,6 +84,13 @@ export interface QSpreadsheetColumn {
   cellClass?: (val: any, row: Record<string, any>) => string | undefined
   /** Couleur de fond de la cellule (plan) */
   cellBackground?: (val: any, row: Record<string, any>) => string | undefined
+  /**
+   * Cellule **non modifiable** : édition, effacement, bascule booléenne, collage, remplissage et
+   * barre de formule sont refusés pour les lignes où le prédicat est vrai. Reçoit la valeur
+   * courante — donc verrouille aussi une cellule **vide** (`(v) => v !== null`, `(_, row) =>
+   * row.locked`…). Pour un bloc fixe, préférer `lockedRanges`.
+   */
+  cellReadonly?: (val: any, row: Record<string, any>) => boolean
   headerClass?: string
   headerStyle?: string
 }
@@ -91,6 +98,14 @@ export interface QSpreadsheetColumn {
 // `QSpreadsheetValidation` et `QSpreadsheetValidationRule` vivent dans
 // `lib/spreadsheetValidation.ts` (source unique, testée hors navigateur) et sont
 // ré-exportées en tête de ce bloc.
+
+/** Plage verrouillée (rows/cols 0-based) — les cellules couvertes ne sont pas modifiables */
+export interface QSpreadsheetRangeLock {
+  r0: number
+  c0: number
+  r1: number
+  c1: number
+}
 
 /** Validation par plage de cellules (rows/cols 0-based) */
 export interface QSpreadsheetRangeValidator {
@@ -207,6 +222,12 @@ interface Props {
   lang?: "en" | "fr"
   /** Validations par plage : [{ r0,c0,r1,c1, validation }] — s'ajoutent aux colonnes */
   validators?: QSpreadsheetRangeValidator[]
+  /**
+   * Cellules **verrouillées** par plage : `[{ r0, c0, r1, c1 }]` (0-based). Une cellule couverte
+   * n'est pas modifiable — **même vide** — et reste en lecture seule. S'ajoute à
+   * `columns[].cellReadonly` et aux props globales `readonly` / `disable`.
+   */
+  lockedRanges?: QSpreadsheetRangeLock[]
   /** Affiche le numéro de ligne (colonne de gauche) */
   showRowNumbers?: boolean
   /** Affiche l'en-tête de colonne (lettre + label) */
@@ -791,6 +812,26 @@ const cellTitle = (row: number, column: string): string | undefined => {
   return undefined
 }
 
+/**
+ * La cellule est-elle **verrouillée** ? Une seule porte pour toutes les mutations : props
+ * globales (`readonly` / `disable`), colonne `editable: false`, prédicat `cellReadonly(val, row)`
+ * et plages `lockedRanges`. S'applique **même à une cellule vide** (il n'y a rien à effacer,
+ * mais on ne peut pas y écrire) — verrouiller n'est pas effacer.
+ */
+const isCellLocked = (row: number, column: string): boolean => {
+  if (props.readonly || props.disable) return true
+  const col = colOf(column)
+  if (!col) return false
+  if (col.editable === false) return true
+  const rowData = state.value[row] ?? {}
+  if (col.cellReadonly?.(rowData[column], rowData)) return true
+  const ci = colIndex(column)
+  if (ci === -1) return false
+  return (props.lockedRanges ?? []).some(
+    (z) => row >= z.r0 && row <= z.r1 && ci >= z.c0 && ci <= z.c1,
+  )
+}
+
 const cellClasses = (row: number, column: string) => {
   const col = colOf(column)
   const v = state.value[row]?.[column]
@@ -806,6 +847,9 @@ const cellClasses = (row: number, column: string) => {
     isActive(row, column) && "q-spreadsheet__cell--active",
     editing.value?.row === row && editing.value?.column === column && "q-spreadsheet__cell--editing",
     props.readonly && "q-spreadsheet__cell--readonly",
+    // Verrou **ciblé** (colonne, prédicat, plage) : affordance visuelle. Le verrou global
+    // (`readonly` / `disable`) n'ajoute rien — hacher toute la grille serait illisible.
+    isCellLocked(row, column) && !props.readonly && !props.disable && "q-spreadsheet__cell--locked",
   )
 }
 
@@ -880,9 +924,8 @@ const editorInputMode = computed(() => {
 })
 
 const startEdit = (row: number, column: string, initial?: string) => {
-  if (props.readonly || props.disable) return
   const col = colOf(column)
-  if (col?.editable === false || col?.type === "boolean") return
+  if (isCellLocked(row, column) || col?.type === "boolean") return
   const raw = state.value[row]?.[column]
   if (col?.type === "select") {
     const opt = cellOptionsOf(col).find((o) => o.value === raw)
@@ -1018,17 +1061,14 @@ const setCellValue = (row: number, column: string, old: any, next: any) => {
 }
 
 const clearCell = (row: number, column: string) => {
-  const col = colOf(column)
-  if (col?.editable === false || props.readonly || props.disable) return
+  if (isCellLocked(row, column)) return
   const old = state.value[row]?.[column]
   if (isBlankValue(old) || (Array.isArray(old) && old.length === 0)) return
   setCellValue(row, column, old, null)
 }
 
 const toggleBoolean = (row: number, column: string) => {
-  if (props.readonly || props.disable) return
-  const col = colOf(column)
-  if (col?.editable === false) return
+  if (isCellLocked(row, column)) return
   const old = !!state.value[row]?.[column]
   setCellValue(row, column, old, !old)
 }
@@ -1040,7 +1080,7 @@ const clearSelection = () => {
   for (let r = rect.r0; r <= rect.r1; r++) {
     for (let c = rect.c0; c <= rect.c1; c++) {
       const col = cols.value[c]
-      if (!col || col.editable === false || props.readonly || props.disable) continue
+      if (!col || isCellLocked(r, col.name)) continue
       const v = state.value[r]?.[col.name]
       if (!isBlankValue(v) && !(Array.isArray(v) && v.length === 0))
         changed.push({ row: r, column: col.name })
@@ -1363,7 +1403,7 @@ const pasteClip = async () => {
       const c = startCol + j
       if (r >= state.value.length || c >= cols.value.length) return
       const col = cols.value[c]!
-      if (col.editable === false) return
+      if (isCellLocked(r, col.name)) return
       const old = state.value[r]?.[col.name]
       const next = coerceValue(col, text, old)
       if (next !== old) setCellValue(r, col.name, old, next)
@@ -1458,10 +1498,11 @@ const fillDownKey = () => {
   for (let c = rect.c0; c <= rect.c1; c++) {
     const name = colNameAt(c)
     const col = colOf(name)
-    if (!col || col.editable === false) continue
+    if (!col) continue
     const src = rect.r0 - 1
     const sv = state.value[src]?.[name]
     for (let r = rect.r0; r <= rect.r1; r++) {
+      if (isCellLocked(r, name)) continue
       const old = state.value[r]?.[name]
       if (old !== sv) setCellValue(r, name, old, sv)
     }
@@ -1477,10 +1518,11 @@ const fillRightKey = () => {
     const src = rect.c0 - 1
     const sname = colNameAt(src)
     const col = colOf(sname)
-    if (!col || col.editable === false) continue
+    if (!col) continue
     const sv = state.value[r]?.[sname]
     for (let c = rect.c0; c <= rect.c1; c++) {
       const name = colNameAt(c)
+      if (isCellLocked(r, name)) continue
       const old = state.value[r]?.[name]
       if (old !== sv) setCellValue(r, name, old, sv)
     }
@@ -1596,7 +1638,7 @@ const onKeydown = (e: KeyboardEvent) => {
   // Frappe directe : remplace le contenu (comportement Excel)
   if (e.key.length === 1 && !mod && !e.altKey) {
     const col = colOf(sel.value.column)
-    if (col && col.editable !== false && col.type !== "boolean") {
+    if (col && col.type !== "boolean" && !isCellLocked(sel.value.row, sel.value.column)) {
       e.preventDefault()
       startEdit(sel.value.row, sel.value.column, e.key)
     }
@@ -1714,8 +1756,7 @@ const multiSelected = (opt: QSpreadsheetCellOption) =>
 const toggleMultiOption = (opt: QSpreadsheetCellOption) => {
   if (!editing.value) return
   const { row, column } = editing.value
-  const col = colOf(column)
-  if (col?.editable === false || props.readonly || props.disable) return
+  if (isCellLocked(row, column)) return
   const old = state.value[row]?.[column]
   const current = multiValues(old)
   const next = multiSelected(opt)
@@ -1739,11 +1780,12 @@ const syncFx = () => {
 watch([sel, state], syncFx)
 
 const fxCanEdit = computed(() => {
-  if (props.readonly || props.disable || !sel.value) return false
-  const col = colOf(sel.value.column)
+  if (!sel.value) return false
+  const { row, column } = sel.value
+  if (isCellLocked(row, column)) return false
+  const col = colOf(column)
   return (
     !!col &&
-    col.editable !== false &&
     col.type !== "boolean" &&
     col.type !== "select" &&
     col.type !== "multiselect"
@@ -2688,7 +2730,7 @@ const applyFill = () => {
       if (rr < 0 || rr >= state.value.length || cc < 0 || cc >= cols.value.length) continue
       const name = colNameAt(cc)
       const col = colOf(name)
-      if (!col || col.editable === false) continue
+      if (!col || isCellLocked(rr, name)) continue
 
       let val: any
       // Série numérique / dates (2 graines) vers le bas ou la droite (Ctrl = copie)
@@ -3421,8 +3463,7 @@ const findMarkClass = (r: number, ci: number) =>
   )
 const findReplaceCurrent = () => {
   const m = findMatches.value[findIdx.value]
-  if (!m || props.readonly || props.disable) return
-  const col = cols.value[m.ci]
+  if (!m || isCellLocked(m.r, m.name)) return
   const raw = state.value[m.r]?.[m.name]
   if (typeof raw !== "string" || !findQuery.value) return
   const next = findCase.value
@@ -3437,6 +3478,7 @@ const findReplaceAll = () => {
   pushHistory()
   const changed: { r: number; name: string; old: string; next: string }[] = []
   for (const m of findMatches.value) {
+    if (isCellLocked(m.r, m.name)) continue
     const raw = state.value[m.r]?.[m.name]
     if (typeof raw !== "string") continue
     const next = findCase.value
@@ -3575,7 +3617,7 @@ const pasteValues = async () => {
       const c = c0 + j
       if (r >= state.value.length || c >= cols.value.length) continue
       const col = cols.value[c]!
-      if (col.editable === false) continue
+      if (isCellLocked(r, col.name)) continue
       const old = state.value[r]?.[col.name]
       const next = coerceLiteral(col, lines[i]![j] ?? "", old)
       if (next !== old) setCellValue(r, col.name, old, next)
@@ -3636,7 +3678,7 @@ const pasteTransposed = async () => {
       const c = c0 + i
       if (r >= state.value.length || c >= cols.value.length) continue
       const col = cols.value[c]!
-      if (col.editable === false) continue
+      if (isCellLocked(r, col.name)) continue
       const old = state.value[r]?.[col.name]
       const next = coerceValue(col, lines[i]![j] ?? "", old)
       if (next !== old) setCellValue(r, col.name, old, next)
@@ -4641,7 +4683,7 @@ defineExpose({
                 type="button"
                 class="q-spreadsheet__checkbox"
                 :class="{ 'q-spreadsheet__checkbox--on': !!cellValue(ri, col.name) }"
-                :disabled="readonly || disable || col.editable === false"
+                :disabled="isCellLocked(ri, col.name)"
                 aria-label="Toggle"
                 @click.stop="toggleBoolean(ri, col.name)"
               >

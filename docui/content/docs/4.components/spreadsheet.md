@@ -855,6 +855,96 @@ column actually uses an expression. If it cannot be resolved, the message is
 For plain bounds the object form stays shorter and needs no dependency:
 `validation: { min: 0, max: 100, integer: true, message: "0–100" }`.
 
+## Locking cells
+
+A cell can be made **read-only — with or without a value**. A locked cell refuses every
+mutation: editing, typing, `Delete`, the boolean toggle, checkbox / multiselect ticks, paste
+(all variants), drag-fill, `Ctrl+D` / `Ctrl+R`, find & replace and the formula bar. **Selecting,
+copying and the CSV export still work** — the cell stays readable, it just can't be changed.
+
+Four mechanisms, from the broadest to the finest:
+
+| Mechanism | Scope |
+| --- | --- |
+| `readonly` / `disable` props | the whole grid |
+| `columns[].editable: false` | one column |
+| `columns[].cellReadonly(val, row)` | **per cell**, by predicate |
+| `lockedRanges: [{ r0, c0, r1, c1 }]` | a **block** of cells (0-based, like `validators`) |
+
+The predicate receives the current value **and** the row object, so it can lock empty cells too:
+
+```js
+const columns = [
+  {
+    name: "total",
+    label: "Total",
+    type: "number",
+    // locked once it holds a value — an empty cell stays editable
+    cellReadonly: (val) => val !== null && val !== "",
+  },
+  {
+    name: "status",
+    label: "Status",
+    // locked from a row field (your own business rule)
+    cellReadonly: (_val, row) => row?.locked === true,
+  },
+]
+
+// and/or a block (header, totals…). This is what locks cells **that are still empty**:
+const lockedRanges = [{ r0: 0, c0: 0, r1: 0, c1: 3 }]
+```
+
+A locally locked cell shows a light diagonal hatch and a default cursor. With `readonly` /
+`disable` the whole grid is locked and **no** hatch is drawn (only the cursor changes) — a fully
+hatched grid would be unreadable.
+
+> ⚠️ Locking is a **UI** guard, not a data one: the component still emits `update:rows` for
+> structural changes (rows / columns added, removed, sorted) and `toJSON()` serializes whatever
+> the document holds. Validate server-side if the data must be authoritative.
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="locked"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const columns = [
+  { name: "task", label: "Task", width: 220 },
+  {
+    name: "total",
+    label: "Total",
+    type: "number",
+    // locked as soon as it holds a value (empty cells stay editable)
+    cellReadonly: (val) => val !== null && val !== "",
+  },
+  { name: "status", label: "Status", type: "select", options: [ /* … */ ] },
+]
+
+const rows = ref([
+  { task: "Row 0 is locked by lockedRanges — even the empty cells", total: "", status: "" },
+  { task: "Editable row", total: "", status: "todo" },
+  { task: "Locked by cellReadonly (has a value)", total: 128, status: "done" },
+])
+
+// 0-based rows / columns, like `validators`
+const lockedRanges = [{ r0: 0, c0: 0, r1: 0, c1: 2 }]
+</script>
+
+<template>
+  <q-spreadsheet
+    v-model:rows="rows"
+    :columns="columns"
+    :locked-ranges="lockedRanges"
+    height="230px"
+    bordered
+  />
+</template>
+```
+::
+
 ## Events
 
 `cell-change` fires on every committed edit (with `oldValue`/`newValue`),
@@ -1044,6 +1134,7 @@ follow the array order).
 | `validation` | object `{ min?, max?, integer?, pattern?, required?, list?, message?, schema? }` · ArkType string | Input validation — object or expression (`"number < 4"`); rejects & marks the cell red |
 | `format` | `(value, row) => any` | Display formatter (stored value untouched) |
 | `cellClass` / `cellBackground` | `(value, row) => …` | Per-cell class / background |
+| `cellReadonly` | `(value, row) => boolean` | Per-cell **lock** — see **Locking cells** (receives the value, so it can lock an empty cell too) |
 | `headerClass` / `headerStyle` | string | Header styling |
 
 ```ts
