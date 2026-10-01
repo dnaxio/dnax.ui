@@ -9,6 +9,7 @@ import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 import { useOverlayBack } from "../lib/overlayBack"
+import { optionsOf } from "../lib/select"
 
 interface Props {
   /** Valeur sélectionnée */
@@ -230,18 +231,23 @@ const getLabel = (opt: any): string => {
   return v === undefined || v === null ? "" : String(v)
 }
 
+// `options` peut arriver `false` (v-if/&&, config non chargée) : sans cette coercition,
+// `.find` / `.filter` / `.some` jetteraient et le popup cesserait de se rendre
+// (même classe de bug que `q-select multiple` — cf. `.memory/knowledges.md`).
+const optionList = computed<any[]>(() => optionsOf(props.options))
+
 const selectedLabel = computed(() => {
   if (props.modelValue === undefined || props.modelValue === null) return ""
-  const opt = props.options.find((o) => getValue(o) === props.modelValue)
+  const opt = optionList.value.find((o) => getValue(o) === props.modelValue)
   return opt ? getLabel(opt) : String(props.modelValue)
 })
 
 // — Filtre client (sauté en mode serveur @filter) —
 const filtered = computed(() => {
-  if (hasFilter.value) return props.options
+  if (hasFilter.value) return optionList.value
   const q = query.value.trim().toLowerCase()
-  if (!q) return props.options
-  return props.options.filter((o) => getLabel(o).toLowerCase().includes(q))
+  if (!q) return optionList.value
+  return optionList.value.filter((o) => getLabel(o).toLowerCase().includes(q))
 })
 
 // — Affichage du champ —
@@ -323,7 +329,7 @@ const commit = () => {
   const q = query.value.trim()
   if (!q) return
   const label = q.toLowerCase()
-  const matches = props.options.some((o) => getLabel(o).toLowerCase() === label)
+  const matches = optionList.value.some((o) => getLabel(o).toLowerCase() === label)
   if (!matches) {
     query.value = ""
     emit("update:inputValue", "")

@@ -693,13 +693,28 @@ Three renders: **fill** (background), **data bar** (bar proportional to the
 column min/max), **color scale** (gradient between two colors). Rules
 recalculate live, can be edited by clicking a chip and are part of `toJSON()`.
 
-**Validation** — `columns.validation`: `min`, `max`, `integer`, `pattern`,
-`required` (empty rejected), `list` (allowed values), `message`; plus the
-`validators` prop for **cell ranges**: `[{ r0, c0, r1, c1, validation }]`.
-Invalid input is rejected, the cell turns red and the message shows as a
-tooltip. Try typing `150` in Score here. On a `multiselect` the rules apply **per
-value** (each one must be allowed) and an empty array counts as empty, so
-`required` rejects it.
+**Validation** — `columns.validation` takes an **object**, or an **ArkType expression**
+written directly:
+
+```js
+{ name: "age",      type: "integer", validation: { min: 0, max: 120 } }
+{ name: "priority", type: "number",  validation: "number < 4" }
+{ name: "score",    type: "integer", validation: "number.integer & number >= 0 & number <= 100" }
+{ name: "email",    type: "email",   validation: { required: true, schema: "string.email" } }
+```
+
+Object rules: `min`, `max`, `integer`, `pattern`, `required` (empty rejected), `list`
+(allowed values), `message`, `schema`. A **string** is shorthand for `{ schema: "…" }`,
+and both forms combine. The very same shape drives the `validators` prop for **cell
+ranges**: `[{ r0, c0, r1, c1, validation }]`.
+
+Rules run in order — `required` → `list` → `integer` → `min`/`max` → `pattern` →
+`schema` — and `message` overrides whichever one fails. An **empty** cell passes every
+rule except `required`. Invalid input is rejected, the cell turns red and the message
+shows as a tooltip. A malformed expression reports `Invalid ArkType schema: …` instead of
+breaking the editor. On a `multiselect` the rules apply **per value** and an empty array
+counts as empty, so `required` rejects it. Try typing `150` in Score, or `9` in Priority,
+below.
 
 ::prose-show-case
 :dnax-demo-spreadsheet{demo="layout"}
@@ -720,11 +735,43 @@ value** (each one must be allowed) and an empty array counts as empty, so
     drag a row number / column header to reorder.
   • Toolbar highlighter → Conditional formatting (fill / data bar / color scale,
     whole-column or formula rules).
-  • columns.validation + validators prop (ranges): min, max, integer, pattern,
-    required, list — invalid input is rejected and the cell turns red.
+  • columns.validation (object or ArkType expression, e.g. "number < 4") +
+    validators prop (ranges) — invalid input is rejected and the cell turns red.
 -->
 ```
 ::
+
+### ArkType expressions
+
+A `validation` written as a bare **string** is an ArkType expression — handy when the rule
+is a comparison rather than a range:
+
+| Expression | Accepts | Message on failure |
+| --- | --- | --- |
+| `"number < 4"` | numbers below 4 | `must be less than 4 (was 4)` |
+| `"number.integer & number >= 0 & number <= 100"` | integers in `[0, 100]` | `must be at most 100 (was 150)` |
+| `"number.integer >= 0 <= 100"` | same rule, chained form | `must be at most 100 (was 150)` |
+| `"string.email"` | e-mail addresses | `must be an email address (was "nope")` |
+| `"string >= 3"` | strings of at least 3 characters | `must be at least length 3 (was 2)` |
+
+> ⚠️ After `&` ArkType expects a **type**, never a bare operator:
+> `"number.integer & >= 0"` is a **syntax error**. Repeat the type →
+> `"number.integer & number >= 0"`.
+
+Three behaviours worth knowing:
+
+- **An empty cell passes.** `null`, `undefined`, `""` and `[]` short-circuit **every** rule
+except `required` — so `"number < 4"` does not force the cell to be filled. Require it
+explicitly: `validation: { required: true, schema: "number < 4" }`.
+- **A malformed expression never breaks the editor.** The cell shows
+`Invalid ArkType schema: …` (ArkType's parse message) and the value is rejected like any other
+failed rule.
+- **ArkType is loaded on demand** (dynamic import): it only enters the bundle the first time a
+column actually uses an expression. If it cannot be resolved, the message is
+`ArkType unavailable`.
+
+For plain bounds the object form stays shorter and needs no dependency:
+`validation: { min: 0, max: 100, integer: true, message: "0–100" }`.
 
 ## Events
 
@@ -910,7 +957,7 @@ follow the array order).
 | `align` | `left` / `center` / `right` | Text alignment (numbers right by default) |
 | `options` | `{ value, label, color? }[]` | For `select` / `multiselect` — chips with `chip: true` |
 | `chip` | boolean | Renders `select` / `multiselect` values as colored badges |
-| `validation` | `{ min?, max?, integer?, pattern?, message? }` | Input validation (rejects & marks the cell red) |
+| `validation` | object `{ min?, max?, integer?, pattern?, required?, list?, message?, schema? }` · ArkType string | Input validation — object or expression (`"number < 4"`); rejects & marks the cell red |
 | `format` | `(value, row) => any` | Display formatter (stored value untouched) |
 | `cellClass` / `cellBackground` | `(value, row) => …` | Per-cell class / background |
 | `headerClass` / `headerStyle` | string | Header styling |
@@ -919,6 +966,7 @@ follow the array order).
 const columns = [
   { name: "firstName", label: "First name", type: "string", width: 130 },
   { name: "age", label: "Age", type: "integer", validation: { min: 0, max: 120 } },
+  { name: "priority", label: "Priority", type: "number", validation: "number < 4" },
   { name: "email", label: "Email", type: "email" },
   { name: "dept", label: "Department", type: "select", chip: true,
     options: [
@@ -933,8 +981,8 @@ const columns = [
 
 **Selection** (`v-model:selected`) is `{ row, column, endRow, endColumn }` —
 rows are 0-based, columns are names. **Validation by range**: the `validators`
-prop takes `{ r0, c0, r1, c1, validation }[]` (same rules as column validation,
-plus `required` / `list`). **Sheets** (`v-model:sheets`) is an array of
+prop takes `{ r0, c0, r1, c1, validation }[]` — the same rule shape as a column
+(object or ArkType expression). **Sheets** (`v-model:sheets`) is an array of
 `{ key?, name?, columns?, rows? }`; the serialized document (`toJSON()`) adds
 `version: 1`, `active` and per-sheet `formats` / `widths` / `rowHeights` /
 `filters` / `rules` (conditional formatting) / `merges` / `hiddenRows` /

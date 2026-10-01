@@ -1356,3 +1356,35 @@ de `./runtime` (légère). Règle : une entrée _runtime/plugin_ ne doit **jamai
 `uqr`) ; `cd docui && bun run build` → **EXIT 0** ; bundling de `runtime.ts` (`Bun.build` + metafile) →
 **23 modules**, aucun de `echarts|@maptiler|shiki|maplibre|swiper|uqr|qrcode|leaflet|embla` et
 `index.ts` **non atteint**.
+
+## QSpreadsheet — une expression ArkType invalide faisait un échec **silencieux** — 2026-09-29
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/lib/spreadsheetValidation.ts`,
+`packages/ui/components/QSpreadsheet.vue`
+
+**Contexte** : la validation de colonne accepte un schéma ArkType (champ `schema`). L'exemple
+**documenté dans la JSDoc** était pourtant invalide — `"number.integer & >= 0 & <= 100"` :
+
+```
+THROW ParseError: Token '&' requires a right operand before '>= 0 & <= 100'
+```
+
+Après `&`, ArkType attend un **type**, pas un opérateur nu. Formes valides :
+`"number.integer & number >= 0 & number <= 100"`, `"number.integer >= 0 <= 100"`,
+`"0 <= number.integer <= 100"`, `"number < 4"`, `"string.email"`.
+
+**Aggravant (le vrai bug)** : `m.type(schema)` était appelé **hors try/catch**, dans une chaîne
+sans aucun rattrapage — `arkCheck` → `check` → `guardValidation` → `validateAndSet` →
+`commitEdit` (`await`) et `toggleMultiOption` (appel **sans `await`** → promesse flottante).
+Résultat : `ParseError` en **rejet non géré**, cellule **jamais validée ni commitée**, et
+**aucun message** affiché → panne silencieuse.
+
+**Correctif (2026-09-29)** : logique extraite dans `lib/spreadsheetValidation.ts` (pure, testée) ;
+`arkCheck` enveloppé d'un `try/catch` → message `Invalid ArkType schema: …` ; import ArkType
+mémoïsé **au niveau module** (avant : promesse recréée à chaque appel de `guardValidation`, donc à
+chaque édition de cellule) ; `toggleMultiOption` passe à `void validateAndSet(...)`.
+
+**Vérif** : `bun test lib` → **323 pass / 0 fail** (16 nouveaux) ; comportement ArkType réel
+confirmé (`number < 4` : `3` passe, `4` → « must be less than 4 (was 4) », `"abc"` →
+« must be a number (was a string) »). Rappel : une valeur **vide** court-circuite le schéma (elle
+passe, sauf `required`).

@@ -2541,3 +2541,35 @@ Demande : pouvoir donner une couleur de fond aux champs via le thème, et arrêt
 - **Vérif** : `bun test lib` → **302 pass / 0 fail** (dont 7 nouveaux sur `themeVars`) ;
   `cd docui && bun run build` → **EXIT 0** ; équilibre MDC 3/3 et 11/11 sur les deux pages ;
   diagnostics propres. Aucun navigateur (règle projet).
+
+## QSpreadsheet : `validation` accepte une **expression ArkType directe** — 2026-09-29
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/lib/spreadsheetValidation.ts`,
+`packages/ui/components/QSpreadsheet.vue`
+
+Demande : pouvoir écrire la contrainte **directement sur la colonne**, du type `"number < 4"`,
+au lieu d'un objet `{ min, max }`.
+
+- **API** : `QSpreadsheetColumn.validation` (et `QSpreadsheetRangeValidator.validation`) accepte
+  désormais `QSpreadsheetValidationRule = QSpreadsheetValidation | string`. Une **chaîne** est une
+  expression ArkType, c'est-à-dire le raccourci de `{ schema: "…" }` ; les deux formes se combinent
+  (`{ required: true, schema: "number < 4" }`).
+- **Source unique** : les types + la logique vivent dans `lib/spreadsheetValidation.ts` (pur,
+  **testé sans navigateur**), ré-exportés par le bloc `<script lang="ts">` du SFC (même pattern que
+  `lib/spreadsheetChanges.ts`). Le composant n'a plus qu'à fournir le pont ArkType :
+  `checkValidation(rule, value, arkCheck)` avec `arkCheck` injecté (`ArkCheck`) → testable avec un
+  faux ArkType (16 tests, dont l'ordonnancement des règles).
+- **Ordre** inchangé : `required` → vide toléré → `list` → `integer` → `min`/`max` → `pattern` →
+  `schema` ; `message` surcharge la règle qui échoue.
+- **Doc** : `4.components/spreadsheet.md` — section Validation (les 4 écritures + l'ordre des règles
+  - `Invalid ArkType schema`), **nouvelle sous-section `### ArkType expressions`** (tableau des
+    expressions vérifiées avec leur message d'échec, le piège du `&`, le comportement des cellules
+    vides, l'import à la demande), tableau des colonnes complété (`required`, `list`, `schema`) ; démo
+    `layout` (`DnaxDemoSpreadsheet.vue` : colonne `priority` en `validation: "number < 4"`).
+- **Vérif des expressions documentées** (ArkType installé, `arktype@2.2.6`), messages réels :
+  `"number < 4"` → `must be less than 4 (was 4)` ; `"number.integer & number >= 0 & number <= 100"`
+  → `must be at most 100 (was 150)` ; `"string.email"` → `must be an email address (was "nope")` ;
+  `"string >= 3"` → `must be at least length 3 (was 2)`. Toutes valides ; seul
+  `"… & >= 0"` (l'ancien exemple de la JSDoc) jette un `ParseError`.
+- **Vérif** : `bun test lib` → **323 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0** ;
+  équilibre MDC 16/16 ; diagnostics propres.

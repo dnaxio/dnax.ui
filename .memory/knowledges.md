@@ -2064,3 +2064,38 @@ tag: `knowledges` — `namespace: dnax.ui` — `filename: packages/ui/styles/mai
   `themeVarsStyle` (contrairement à `QDialogProvider` / `QBottomSheetProvider`) → le `theme` d'un
   provider **imbriqué** ne les atteint pas (le provider **racine** couvre le cas via `<html>`).
   Idem pour les couleurs, pas seulement `vars` : préexistant.
+
+## QSelect — `multiple` + modèle scalaire : `list.map is not a function` (popup mort) — 2026-09-29
+
+tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/components/QSelect.vue`,
+`packages/ui/lib/select.ts`
+
+**Symptôme** : `<q-select multiple>` avec un `v-model` **non-tableau** (typiquement `false` —
+défaut d'un `ref` booléen, retour d'un `&&`, config non chargée) →
+`TypeError: list.map is not a function`. Comme l'appel est dans un **`computed` du template**,
+**tout le popup cesse de se rendre**, sans message exploitable.
+
+**Cause** : `selectedOptions` faisait `list.map(...)` sans vérifier le type. Le garde existant
+(`modelValue === undefined || modelValue === null`) **n'attrape pas `false`**. Idem
+`normalizedOptions` : `props.options.map(...)` jette si `options` vaut `false`.
+
+**Correctif (2026-09-29)** — coercitions **pures** extraites dans `lib/select.ts` (testables
+sans navigateur, cf. règle projet) :
+
+- `optionsOf(value): any[]` — tableau ou `[]` (jamais de throw) ;
+- `selectionOf(value, multiple): any[]` — `null`/`undefined` → `[]` ; en `multiple`, un scalaire
+  vaut « rien de sélectionné » (et **non** une sélection de cette valeur : pas de chip fantôme) ;
+  en simple, emballe la valeur.
+
+Utilisées par `normalizedOptions` et `selectedOptions` ; `hasValue` passe à `Array.isArray(...)`.
+Test : `lib/select.test.ts` (5 cas, dont le `false` d'origine) → `bun test lib` **307 pass / 0 fail**.
+
+**Règle générale** : une prop mal formée dans un design system ne doit **jamais** tuer le rendu —
+coercer en entrée (dans le `computed`) plutôt que de supposer la forme.
+
+**Même classe de bug — `QAutocomplete`, corrigé le 2026-09-29** : `props.options.find(...)`
+(`selectedLabel`), `.filter(...)` (`filtered`) et `.some(...)` (`commit`) partaient de la prop brute.
+Remplacés par un `optionList = computed(() => optionsOf(props.options))` unique, utilisé par les
+trois (plus aucun `props.options` direct dans le fichier). `lib/select.ts` n'est donc plus
+« le module de QSelect » seul : son en-tête le documente comme partagé par les composants de
+sélection (QSelect, QAutocomplete).

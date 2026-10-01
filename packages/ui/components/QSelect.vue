@@ -60,6 +60,7 @@ import { radiusStyle, radiusValue, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 import { useOverlayBack } from "../lib/overlayBack"
 import { createSearcher } from "../lib/search"
+import { optionsOf, selectionOf } from "../lib/select"
 
 interface Props {
   /** Valeur sélectionnée : option, valeur (emit-value), ou tableau (multiple) */
@@ -337,7 +338,9 @@ watch([popupPlacement, popupOffset], onPopupViewportChange)
 const isObjectOption = (o: any): boolean => o !== null && typeof o === "object"
 
 const normalizedOptions = computed<any[]>(() =>
-  props.options.map((o) => {
+  // `options` peut arriver `false` (v-if/&&, config non chargée) : sans garde,
+  // `props.options.map` jetait et l'option par défaut ne s'affichait plus.
+  optionsOf(props.options).map((o) => {
     if (isObjectOption(o)) return o
     // Objet normalisé : garde la valeur d'origine (non-énumérable → invisible
     // pour l'affichage, la recherche fuse et les clés de rendu)
@@ -361,8 +364,9 @@ const getOptionLabel = (opt: any): string => {
 
 // — Sélection (dérivée du modèle) —
 const selectedOptions = computed<any[]>(() => {
-  if (props.modelValue === undefined || props.modelValue === null) return []
-  const list = props.multiple ? (props.modelValue as any[]) : [props.modelValue]
+  // En `multiple`, un modèle scalaire (ex. `false`) ne doit PAS faire jeter `list.map`
+  // (tout le popup cessait de se rendre) : `selectionOf` le traite comme vide.
+  const list = selectionOf(props.modelValue, props.multiple)
   return list
     .map((v) => {
       if (props.emitValue) return normalizedOptions.value.find((o) => getOptionValue(o) === v)
@@ -417,7 +421,9 @@ const clear = () => {
 }
 
 const hasValue = computed(() =>
-  props.multiple ? (props.modelValue as any[])?.length > 0 : props.modelValue !== undefined && props.modelValue !== null,
+  props.multiple
+    ? Array.isArray(props.modelValue) && props.modelValue.length > 0
+    : props.modelValue !== undefined && props.modelValue !== null,
 )
 
 // — Recherche floue (fuse.js) —

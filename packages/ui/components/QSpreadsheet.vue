@@ -8,6 +8,16 @@
 // Suivi des modifications : `v-model:dirty` (état) + `v-model:changes` (delta lignes / feuilles
 // ajoutées, modifiées, supprimées), calculé en comparant le document à une **référence**
 // (`lib/spreadsheetChanges.ts`).
+import type {
+  QSpreadsheetValidation,
+  QSpreadsheetValidationRule,
+} from "../lib/spreadsheetValidation"
+
+export type {
+  QSpreadsheetValidation,
+  QSpreadsheetValidationRule,
+} from "../lib/spreadsheetValidation"
+
 export type QSpreadsheetCellType =
   | "string"
   | "text"
@@ -52,8 +62,8 @@ export interface QSpreadsheetColumn {
   options?: QSpreadsheetCellOption[]
   /** Pour type "select" / "multiselect" : rend les options actives en badge coloré (sinon texte) */
   chip?: boolean
-  /** Validation à la saisie : { min, max, integer?, pattern?, message? } */
-  validation?: QSpreadsheetValidation
+  /** Validation à la saisie : objet `{ min, max, … }` ou expression ArkType (`"number < 4"`) */
+  validation?: QSpreadsheetValidationRule
   /** Formatteur de la valeur affichée */
   format?: (val: any, row: Record<string, any>) => any
   /** Classe CSS de la cellule (défaut : ) */
@@ -64,24 +74,9 @@ export interface QSpreadsheetColumn {
   headerStyle?: string
 }
 
-export interface QSpreadsheetValidation {
-  /** Valeur minimale (types numériques / entiers) */
-  min?: number
-  /** Valeur maximale (types numériques / entiers) */
-  max?: number
-  /** Exige un entier (si présent, valide les entiers) */
-  integer?: boolean
-  /** Expression régulière validée contre le texte */
-  pattern?: string
-  /** Champ obligatoire (vide refusé) */
-  required?: boolean
-  /** Valeurs autorisées (liste) */
-  list?: any[]
-  /** Message d'erreur affiché (sinon message générique) */
-  message?: string
-  /** Schéma ArkType (string) — ex. "number.integer & >= 0 & <= 100" (optionnel) */
-  schema?: string
-}
+// `QSpreadsheetValidation` et `QSpreadsheetValidationRule` vivent dans
+// `lib/spreadsheetValidation.ts` (source unique, testée hors navigateur) et sont
+// ré-exportées en tête de ce bloc.
 
 /** Validation par plage de cellules (rows/cols 0-based) */
 export interface QSpreadsheetRangeValidator {
@@ -89,7 +84,7 @@ export interface QSpreadsheetRangeValidator {
   c0: number
   r1: number
   c1: number
-  validation: QSpreadsheetValidation
+  validation: QSpreadsheetValidationRule
 }
 
 export interface QSpreadsheetSelection {
@@ -161,6 +156,7 @@ import {
   deriveCols,
   parseCsv,
 } from "../lib/spreadsheet"
+import { checkValidation, type ArkCheck } from "../lib/spreadsheetValidation"
 import {
   DEFAULT_ROW_KEY,
   diffDocuments,
@@ -1676,7 +1672,7 @@ const toggleMultiOption = (opt: QSpreadsheetCellOption) => {
   const next = multiSelected(opt)
     ? current.filter((v) => v !== opt.value)
     : [...current, opt.value]
-  validateAndSet(row, column, old, next)
+  void validateAndSet(row, column, old, next)
 }
 
 // ─── Barre de formule (fx) ───
@@ -3854,60 +3850,50 @@ const condStyleOf = (r: number, c: number, name: string) => {
   return Object.keys(st).length ? st : undefined
 }
 
-// ════════ Validation de colonne (min / max / entier / pattern) ════════
+// ════════ Validation de colonne (min / max / entier / pattern / ArkType) ════════
 const valErrors = ref<Record<string, string>>({})
 const valKey = (r: number, name: string) => r + ":" + name
+
+// ArkType : import **dynamique** (jamais dans le graphe du barrel) mémoïsé au niveau
+// module — une seule promesse pour toute la session, et non une par édition de cellule.
+let arkModule: Promise<any | null> | null = null
+const loadArk = (): Promise<any | null> => {
+  arkModule ??= import("arktype")
+    .then((m) => m as any)
+    .catch(() => null)
+  return arkModule
+}
+
+/**
+ * Vérifie une expression ArkType. Une expression **invalide** (faute de syntaxe) ne doit
+ * JAMAIS jeter : l'exception remonterait en rejet non géré et la cellule ne serait ni
+ * validée ni commitée, sans aucun message (cf. `.memory/knowledges.md`).
+ */
+const arkCheck: ArkCheck = async (schema, value) => {
+  const m = await loadArk()
+  if (!m) return "ArkType unavailable"
+  try {
+    const problems = m.type(schema)(value)
+    const p = Array.isArray(problems) ? problems[0] : undefined
+    return p?.message ?? null
+  } catch (e) {
+    return `Invalid ArkType schema: ${(e as Error)?.message ?? String(e)}`
+  }
+}
+
+/** Validation d'une cellule : règles de la colonne, puis celles des plages qui la couvrent. */
 const guardValidation = async (
   row: number,
   col: QSpreadsheetColumn | undefined,
   value: any,
 ): Promise<string | null> => {
-  let ark: Promise<{ type: (s: string) => (v: unknown) => { message?: string }[] } | null> | null = null
-  const arkCheck = async (schema: string): Promise<string | null> => {
-    if (!ark)
-      ark = import("arktype")
-        .then((m) => m as any)
-        .catch(() => null)
-    const m = await ark
-    if (!m) return "ArkType unavailable"
-    const problems = m.type(schema)(value)
-    const p = Array.isArray(problems) ? problems[0] : undefined
-    return p?.message ?? null
-  }
-  const check = async (v: QSpreadsheetValidation | undefined): Promise<string | null> => {
-    if (!v) return null
-    const multi = Array.isArray(value)
-    const blank =
-      value === null || value === undefined || value === "" || (multi && value.length === 0)
-    if (v.required && blank) return v.message ?? "Required"
-    if (blank) return null // champ vide autorisé (sauf required)
-    if (v.list) {
-      // Choix multiples : chacune des valeurs doit être dans la liste
-      const values = multi ? value : [value]
-      if (values.some((x) => !v.list!.some((y) => String(y) === String(x))))
-        return v.message ?? "Not in the allowed list"
-    }
-    if (v.integer && typeof value === "number" && !Number.isInteger(value))
-      return v.message ?? "Integer required"
-    if (typeof value === "number") {
-      if (v.min !== undefined && value < v.min) return v.message ?? "Value below minimum (" + v.min + ")"
-      if (v.max !== undefined && value > v.max) return v.message ?? "Value above maximum (" + v.max + ")"
-    }
-    if (v.pattern && typeof value === "string" && !new RegExp(v.pattern).test(value))
-      return v.message ?? "Value does not match the required format"
-    if (v.schema) {
-      const e = await arkCheck(v.schema)
-      if (e) return v.message ?? e
-    }
-    return null
-  }
-  const colErr = await check(col?.validation)
+  const colErr = await checkValidation(col?.validation, value, arkCheck)
   if (colErr) return colErr
   if (props.validators?.length && col) {
     const ci = colIndex(col.name)
     for (const rv of props.validators) {
       if (row >= rv.r0 && row <= rv.r1 && ci >= rv.c0 && ci <= rv.c1) {
-        const e = await check(rv.validation)
+        const e = await checkValidation(rv.validation, value, arkCheck)
         if (e) return e
       }
     }

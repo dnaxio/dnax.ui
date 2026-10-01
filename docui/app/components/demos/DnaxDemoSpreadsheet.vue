@@ -361,14 +361,16 @@ const CSV_SAMPLE = `code,label\nA1,Alpha\nB2,Beta\nC3,Gamma`
 const layoutCols = [
   { name: "task", label: "Task", width: 240 },
   { name: "score", label: "Score (0–100)", type: "integer" as const, width: 130, validation: { min: 0, max: 100, integer: true, message: "Score must be an integer between 0 and 100" } },
+  // Règle écrite **directement** : expression ArkType — équivalent de `{ schema: "number < 4" }`
+  { name: "priority", label: "Priority (< 4)", type: "number" as const, width: 130, validation: "number < 4" },
   { name: "owner", label: "Owner", width: 130 },
 ]
 const layoutRows = ref([
-  { task: "Write the release notes (long text to wrap on several lines when Wrap text is on)", score: 92, owner: "Ada" },
-  { task: "Run the regression suite", score: 78, owner: "Grace" },
-  { task: "Review pull requests", score: 101, owner: "Katherine" },
-  { task: "Update the changelog", score: 64, owner: "Margaret" },
-  { task: "Plan next sprint", score: 88, owner: "Ada" },
+  { task: "Write the release notes (long text to wrap on several lines when Wrap text is on)", score: 92, priority: 1, owner: "Ada" },
+  { task: "Run the regression suite", score: 78, priority: 2, owner: "Grace" },
+  { task: "Review pull requests", score: 101, priority: 4, owner: "Katherine" },
+  { task: "Update the changelog", score: 64, priority: 3, owner: "Margaret" },
+  { task: "Plan next sprint", score: 88, priority: 1, owner: "Ada" },
 ])
 
 // — Multi-sheet workbook & export —
