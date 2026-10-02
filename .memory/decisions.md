@@ -2611,3 +2611,105 @@ color? }[]` (garde `Array.isArray`, primitives acceptées, repli label → `Stri
 - **Vérif** : `bun test lib` → **335 pass / 0 fail** (12 nouveaux) ; `cd docui && bun run build`
   → **EXIT 0** ; équilibre MDC 17/17 ; diagnostics propres (`QSpreadsheet.vue`, démo, lib) ;
   `grep col.options` → ne reste que le helper `cellOptionsOf`.
+
+## QSpreadsheet : verrouillage de cellules (`cellReadonly` + `lockedRanges`) — 2026-09-29
+
+tag: `decisions` — `namespace: dnax.ui` — `filename: packages/ui/components/QSpreadsheet.vue`,
+`packages/ui/styles/main.css`
+
+Demande : pouvoir verrouiller des cellules en lecture seule — **avec ou sans valeur**.
+
+- **API** (du plus large au plus fin) : `readonly` / `disable` (grille) → `columns[].editable:
+false` (colonne, préexistant) → **`columns[].cellReadonly(val, row, rowIndex): boolean`** (par
+  cellule, reçoit la valeur **et** la ligne **et l'index de ligne** — 3ᵉ argument ajouté après
+  retour utilisateur pour éviter d'avoir à compter des colonnes : `(_v, _r, i) => i === 0`.
+  ⚠️ Signature à 3 arguments, contrairement à `cellClass` / `cellBackground` qui n'en ont que 2) →
+  **`lockedRanges`** (verrous par coordonnées).
+- **`lockedRanges` : forme LISIBLE, en noms de colonnes** (revu le 2026-09-29 après un retour
+  utilisateur — la première version `{ r0, c0, r1, c1 }` était illisible) :
+  `{ row: 2, column: "total" }` (une cellule) · `{ row: 0 }` (toute la ligne) ·
+  `{ column: "total" }` (toute la colonne) · `{ from: {...}, to: {...} }` (un bloc, bornes
+  incluses, dans n'importe quel ordre). Une **borne absente = non bornée** (ligne → toutes les
+  colonnes), un **nom inconnu est ignoré** (une faute de frappe ne verrouille jamais tout).
+  Traduction en rectangles d'index par `lib/spreadsheetZones.ts` (**pur, testé**) :
+  `lockRect()` / `lockRects()` / `inLockRect()` — la forme `{r0,c0,r1,c1}` est **abandonnée**
+  (jamais publiée). Le composant garde un `computed lockRectsResolved`.
+  Le bloc est ce qui verrouille des cellules **encore vides** (en-tête, zone de totaux).
+- **Une seule porte** : `isCellLocked(row, column)` centralise les 4 mécanismes (+ `col` absent →
+  `false` pour ne pas changer le comportement des colonnes non déclarées). Branchée sur **tous**
+  les points de mutation, y compris ceux **oubliés** au premier passage : `startEdit` (+ raccourci
+  de frappe au clavier), `clearCell`, `toggleBoolean`, `clearSelection`, `pasteClip`,
+  `fillDownKey`, `fillRightKey`, `applyFill` (drag-fill), `pasteValues`, `pasteTransposed`,
+  `findReplaceCurrent`, `findReplaceAll`, `toggleMultiOption`, `fxCanEdit` (barre de formule) et
+  la case à cocher `boolean` (`:disabled`).
+- **Affordance** : classe `q-spreadsheet__cell--locked` → `cursor: default` + hachures
+  diagonales **via `background-image` seulement** (la `background-color` du formatage conditionnel
+  / `cellBackground` reste intacte). Le verrou **global** (`readonly` / `disable`) ne hache rien
+  (tout hacher serait illisible) : il garde `--readonly`.
+- **Non gated volontairement** : les opérations **structurelles** (ajout/suppression de lignes ou
+  colonnes, tri, import, feuilles, undo/redo) restent régies par `readonly` / `disable` — ce ne
+  sont pas des éditions de cellule.
+- **Sélection et copie restent possibles** sur une cellule verrouillée (lecture seule ≠ désactivée).
+- **Doc** : `4.components/spreadsheet.md` — section « Locking cells » (tableau des 4 mécanismes,
+  **tableau « You write… / What it locks »** pour `lockedRanges`, exemples prédicat + coordonnées,
+  avertissement « UI guard, pas data guard »), ligne `cellReadonly` ajoutée au tableau du schéma de
+  colonne ; démo `locked` (`DnaxDemoSpreadsheet.vue`, `lockedRanges = [{ row: 0 }]`).
+- **Vérif** : `bun test lib` → **345 pass / 0 fail** (10 nouveaux sur `spreadsheetLocks`) ;
+  `cd docui && bun run build` → **EXIT 0** ; équilibre MDC 18/18 ; diagnostics propres ;
+  `grep 'editable === false'` → ne reste que `isCellLocked`.
+
+## QSpreadsheet : préremplissage de zones (`prefill`) — 2026-10-02
+
+Demande : « on doit pouvoir remplir aussi prefill des ligne ou colonne ou cellule ».
+
+- **`lib/spreadsheetLocks.ts` → `lib/spreadsheetZones.ts`** (+ `.test.ts`) : le module sert
+  désormais les **deux** usages (verrou **et** remplissage), le nom « locks » ne disait plus
+  tout. Imports réécrits dans `QSpreadsheet.vue`.
+- **API `prefill` — miroir exact de `lockedRanges`** : même vocabulaire (noms de colonnes,
+  jamais d'index), bornes **incluses**, `{ row }` / `{ column }` / `{ row, column }` /
+  `{ from, to }`, **plus** le contenu à écrire : `value` **et/ou** `fx`.
+  `interface QSpreadsheetFill extends QSpreadsheetLock { value?: any | ((ctx) => any); fx?: QSpreadsheetFillFormula }`.
+- **`value` = constante OU fonction `(ctx) => any`** (ajouté le 2026-10-02 après demande
+  utilisateur : « on peut aussi appliquer des formules, par ex. toute la somme de la colonne
+  effectif »). Contexte `QSpreadsheetFillContext` : `rowIndex`, `row` (réf. live), `column`,
+  `columnIndex`, `letter` (A1), `rowCount` (taille du document au fill), `letterOf(name)`.
+  ⚠️ Le moteur de formules n'accepte **pas** les colonnes entières `C:C` (`parseRefOnly` exige
+  des chiffres) ni `=SUM(C2:C)` : la plage doit être computed via `rowCount`, ou large et
+  « sûre » (`=SUM(C2:C1000)` — `SUM` ignore les vides).
+- **`fx` = formule, PRIORITAIRE sur `value`** (ajouté le 2026-10-02 — « on peut laisser value
+  et avoir fx qui applique/affiche sa dans la valeur de la cellule, le prefill fx est
+  prioritaire ») : `QSpreadsheetFillFormula = string | ((ctx) => string)`. Une chaîne sans `=`
+  initial est **normalisée** en `"=" + s` (`normalizeFormula` interne) → `fx: "SUM(B1:B2)"`
+  suffit. Un `fx` vide (ou blanc) ou non-chaîne **retombe** sur `value` ; ni `fx` ni `value` →
+  rien n'est posé. `prefill.ts` : `fillFormula(fill, ctx)` isole cette priorité.
+- **Formule aussi possible **directement dans `value`** (retenu le 2026-10-02 — « on laisse fx,
+  on peut appliquer la formule directement dans value ») : `value: "=SUM(B1:B2)"` ou une
+  `value` fonction renvoyant une chaîne `"=…"` → écrite telle quelle, évaluée par le tableur.
+  **Pas de normalisation du préfixe dans `value`** (contrairement à `fx`) : `value` peut être du
+  texte littéral (`"SUM(B1:B2)"` reste du texte), le `=` y est **exigé** pour une formule.
+- **Fonction pure `prefillForRow(fills, rowIndex, columnNames, env?) → Record<string, any>`** :
+  chaque zone qui couvre la ligne fournit son contenu (`fx` sinon `value` ; l'un ou l'autre peut
+  être une fonction appelée avec le contexte) ; le **dernier** gagne ; nom inconnu **ignoré** ;
+  `{}` si rien à poser (testable hors navigateur). `env` = `{ row?, rowCount? }` fourni par le
+  composant (`blankRow` : `rowCount = state.length + 1` ; `applyPrefill` : `rowCount = state.length`).
+  `colLetter` vient de `lib/spreadsheet.ts` (import direct, pur, pas de cycle).
+- **Deux applications distinctes** (choix assumé) :
+  1. `blankRow(at)` pose le préremplissage à la **naissance** d'une ligne (bouton « + »,
+     insertion). `at` = index d'insertion → **les 2 appels** (`addRow`, `insertRowAt`) passent
+     l'index, sinon le fill vise la mauvaise ligne.
+  2. `applyPrefill()` (méthode **exposée**) ne remplit que les cellules **vides** du document
+     courant — les données déjà chargées ne sont **jamais** réécrites au montage — et
+     **renvoie le nombre** de cellules remplies. Elle **n'écrase jamais** une valeur non vide
+     (garde `isBlankValue`).
+- **Gating** : `applyPrefill()` ne bloque que sur `disable` (composant inactif), pas sur
+  `readonly` — c'est un appel **programmatique** explicite du développeur, pas un geste
+  utilisateur (même esprit que `loadDocument()` / `importCsv()`).
+- **Doc** : section « Prefilling cells » (`4.components/spreadsheet.md`, après « Locking
+  cells ») — tableau « You write… / What it fills », les 2 modes d'application, la règle
+  « jamais d'écrasement », **sous-section « Values, formulas (`fx`) & dynamic values »**
+  (tableau `value`/`fx` + priorité, tableau du contexte `ctx`, exemple somme de colonne,
+  formule par ligne, avertissements « formule écrite une fois, pas de live-update » +
+  « pas de CYCLE sur soi-même ») ; démos `prefill` et `prefillFormula`
+  (`DnaxDemoSpreadsheet.vue`, cette dernière en `fx`).
+- **Vérif** : `bun test lib` → **360 pass / 0 fail** (dont la formule en `value` et `fx`) ;
+  `cd docui && bun run build` → **EXIT 0** ; équilibre MDC 20/20 ; diagnostics propres.

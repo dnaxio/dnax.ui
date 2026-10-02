@@ -2099,3 +2099,23 @@ Remplacés par un `optionList = computed(() => optionsOf(props.options))` unique
 trois (plus aucun `props.options` direct dans le fichier). `lib/select.ts` n'est donc plus
 « le module de QSelect » seul : son en-tête le documente comme partagé par les composants de
 sélection (QSelect, QAutocomplete).
+
+## Moteur de formules (`lib/formula.ts`) — pas de référence de **colonne entière** — 2026-10-02
+
+Constat en documentant `prefill` (somme d'une colonne) : les plages **doivent** être bornées en
+lignes. `parseRefOnly` (extrémité de plage) exige `digits.length > 0` → `C:C` lève
+`bad range` → la formule renvoie `#ERROR!` ; `C2:C` (fin ouverte) est également refusé. Seule la
+forme `C2:C10` est valide.
+
+Deux conséquences pratiques :
+
+- Pour « toute la colonne », soit calculer la borne avec le nombre de lignes (`=SUM(C1:Cn)`),
+  soit **sur-étendre** : `resolveCell` renvoyant `undefined` hors grille → la plage pousse
+  `null` → `FUNCTIONS.sum` filtre (`numbers()` ne garde que les `number`) → `=SUM(C2:C1000)`
+  est sûr même avec 3 lignes.
+- Ne jamais sommer une colonne **dans sa propre colonne** (cellule de total dans la colonne
+  sommée) : auto-référence → `#CYCLE!`.
+
+Le contexte `FormulaContext` (`row`, `resolveField`, `resolveCell`) ne transporte **aucune**
+borne de grille — c'est pourquoi une plage ouverte ne peut pas être résolue telle quelle ;
+l'ajouter serait un changement du moteur (séparé de `prefill`).

@@ -869,9 +869,10 @@ Four mechanisms, from the broadest to the finest:
 | `readonly` / `disable` props | the whole grid |
 | `columns[].editable: false` | one column |
 | `columns[].cellReadonly(val, row)` | **per cell**, by predicate |
-| `lockedRanges: [{ r0, c0, r1, c1 }]` | a **block** of cells (0-based, like `validators`) |
+| `lockedRanges: [{ row, column }]` | one cell, a whole row / column, or a block — written with **column names** |
 
-The predicate receives the current value **and** the row object, so it can lock empty cells too:
+The predicate receives the current value, the row object **and its index**, so it can lock empty
+cells too:
 
 ```js
 const columns = [
@@ -888,11 +889,31 @@ const columns = [
     // locked from a row field (your own business rule)
     cellReadonly: (_val, row) => row?.locked === true,
   },
+  {
+    name: "task",
+    label: "Task",
+    // locked on the first line only (row index, 0-based)
+    cellReadonly: (_val, _row, i) => i === 0,
+  },
 ]
 
-// and/or a block (header, totals…). This is what locks cells **that are still empty**:
-const lockedRanges = [{ r0: 0, c0: 0, r1: 0, c1: 3 }]
+// and/or by coordinates — this is what locks cells **that are still empty**
+// (a frozen header, a totals row…):
+const lockedRanges = [{ row: 0 }]
 ```
+
+`lockedRanges` has **no indices to count**: you write column **names** — the same keys as in
+`rows`.
+
+| You write… | What it locks |
+| --- | --- |
+| `{ row: 2, column: "total" }` | one cell |
+| `{ row: 0 }` | the whole row 0 (all columns) |
+| `{ column: "total" }` | the whole `total` column (all rows) |
+| `{ from: { row: 0, column: "task" }, to: { row: 2, column: "status" } }` | the block from `task` to `status`, rows 0 → 2 (bounds **included**, any order) |
+
+The list is a union: give several entries to lock several places. An **unknown column name is
+ignored** — a typo silently locks nothing rather than wrongly locking the whole grid.
 
 A locally locked cell shows a light diagonal hatch and a default cursor. With `readonly` /
 `disable` the whole grid is locked and **no** hatch is drawn (only the cursor changes) — a fully
@@ -929,8 +950,8 @@ const rows = ref([
   { task: "Locked by cellReadonly (has a value)", total: 128, status: "done" },
 ])
 
-// 0-based rows / columns, like `validators`
-const lockedRanges = [{ r0: 0, c0: 0, r1: 0, c1: 2 }]
+// written with column names — no indices to count
+const lockedRanges = [{ row: 0 }]
 </script>
 
 <template>
@@ -941,6 +962,208 @@ const lockedRanges = [{ r0: 0, c0: 0, r1: 0, c1: 2 }]
     height="230px"
     bordered
   />
+</template>
+```
+::
+
+## Prefilling cells
+
+`prefill` **fills** zones with a default value — the mirror image of `lockedRanges`:
+**exactly the same vocabulary** (column **names**, never indices) plus the content to write —
+a `value` (constant or function) and/or an `fx` (a **formula**, **priority over `value`**).
+
+| You write… | What it fills |
+| --- | --- |
+| `{ column: "status", value: "todo" }` | the whole `status` column (all rows) |
+| `{ row: 0, value: "—" }` | the whole row 0 (all columns) |
+| `{ row: 2, column: "total", value: 0 }` | one cell |
+| `{ row: 2, column: "total", fx: "SUM(B1:B2)" }` | one cell, as a **formula** (the `=` is added) |
+| `{ row: 2, column: "total", value: "=SUM(B1:B2)" }` | one cell, as a **formula directly in `value`** (the `=` is required) |
+| `{ from: { row: 0, column: "task" }, to: { row: 2, column: "status" }, value: false }` | the block from `task` to `status`, rows 0 → 2 (bounds **included**, any order) |
+
+Two ways a zone is applied:
+
+1. **A brand-new row is born pre-filled.** Every row added with the “+” button or
+   *Insert row above / below* already carries the values of the zones that cover it — the
+   user never has to retype a default.
+2. **Existing rows are untouched** at mount, so loading `rows` with real data never
+   silently rewrites it. To fill the **empty** cells of the current document, call the
+   exposed **`applyPrefill()`** method — it returns how many cells it filled.
+
+The rules, identical to locking: the list is a **union** (several entries fill several
+places), the **last** entry wins on overlap, an **unknown column name is ignored** (a typo
+fills nothing rather than the whole grid), and `applyPrefill()` **never overwrites a
+non-empty cell**.
+
+```js
+const prefill = [
+  { column: "status", value: "todo" },        // default status for every new row
+  { column: "total", value: 0 },              // totals start at 0
+  { row: 0, column: "owner", value: "—" },    // only row 0, only its `owner` cell
+]
+
+// Later, when you want the current (empty) cells filled too:
+spreadsheet.value?.applyPrefill()
+```
+
+> ℹ️ Prefilling is a **convenience**, not a validation: it only writes **empty** cells, so it
+> can never clobber a value the user has entered — no matter when it runs.
+
+### Values, formulas (`fx`) & dynamic values
+
+A zone carries its content in one of two keys — **`fx` wins over `value`** when both are given:
+
+| Key | What it holds |
+| --- | --- |
+| `value` | a **constant** (`0`, `"todo"`, `false`…) **or** a function `(ctx) => any` |
+| `fx` | a **formula** — a string (`"SUM(B1:B2)"`, the leading `=` is added if missing) **or** a function `(ctx) => string`; **priority over `value`** |
+
+Either form can be a **function**, run at fill time with a context — which is what makes
+**dynamic** values possible:
+
+| `ctx` key | Meaning |
+| --- | --- |
+| `rowIndex` | 0-based index of the row being filled |
+| `row` | the target row (live reference on `rows`) |
+| `column` / `columnIndex` | name / 0-based index of the column being filled |
+| `letter` | A1 letter of that column (`"C"`) |
+| `rowCount` | number of rows in the document **at fill time** |
+| `letterOf(name)` | A1 letter of a column by its **name** (`letterOf("effectif")` → `"C"`) |
+
+`fx` is the explicit way to write a formula. **The sum of a whole column** is the typical case —
+the range depends on the data, so it is built at fill time:
+
+```js
+// a totals row that sums the entire `effectif` column, whatever its length
+const prefill = [
+  { row: 2, column: "task", value: "Σ Total" }, // plain text
+  {
+    row: 2,
+    column: "total",
+    fx: ({ letterOf, rowCount }) => {          // fx = formula (wins over `value`)
+      const L = letterOf("effectif")
+      return `SUM(${L}1:${L}${rowCount - 1})`   // stored as "=SUM(B1:B2)" — the `=` is added
+    },
+  },
+]
+```
+
+A per-row formula works the same way — build the reference from `rowIndex`, so **every new
+row** gets its own:
+
+```js
+{ column: "net", fx: ({ rowIndex, letterOf }) => `${letterOf("gross")}${rowIndex + 1}*0.8` }
+```
+
+> ℹ️ **A formula can also go straight into `value`**: a `value` **string starting with `=`**
+> (`value: "=SUM(B1:B2)"`) — or a `value` **function** returning one — is stored and evaluated
+> as a formula, exactly like `fx`. The only difference is the `=` prefix, which `value` needs
+> (it may hold plain text such as `"SUM(B1:B2)"`) while `fx` adds it for you. When both are
+> present, `fx` wins.
+
+Two details worth knowing:
+
+- **Static formulas don't live-update.** A formula is written **once**, when the cell is
+  filled — so a totals row keeps the range it was born with. Re-call `applyPrefill()` (it
+  won't overwrite a non-empty cell, so re-computing a *live* total needs `format` or a
+  computed column instead) or reference a wide range such as `=SUM(C2:C1000)`: `SUM` ignores
+  blanks, so over-extending is harmless.
+- **Don't sum a column into itself** (a `total` cell inside the `effectif` column) — that's a
+  circular reference and shows `#CYCLE!`.
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="prefillFormula"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref, useTemplateRef } from "vue"
+
+const columns = [
+  { name: "task", label: "Task", width: 190 },
+  { name: "effectif", label: "Effectif", type: "number", width: 110 },
+  { name: "total", label: "Total", type: "number", width: 110 },
+]
+
+const rows = ref([
+  { task: "Alpha", effectif: 10, total: "" },
+  { task: "Bravo", effectif: 20, total: "" },
+  { task: "", effectif: "", total: "" }, // the totals row
+])
+
+const prefill = [
+  { row: 2, column: "task", value: "Σ Total" },
+  {
+    row: 2,
+    column: "total",
+    // `fx` = formula, computed from the row count (the `=` is added automatically)
+    fx: ({ letterOf, rowCount }) => {
+      const L = letterOf("effectif")
+      return `SUM(${L}1:${L}${rowCount - 1})`
+    },
+  },
+]
+
+const grid = useTemplateRef("grid")
+</script>
+
+<template>
+  <q-spreadsheet
+    ref="grid"
+    v-model:rows="rows"
+    :columns="columns"
+    :prefill="prefill"
+    height="230px"
+    bordered
+  />
+  <button @click="grid?.applyPrefill()">Fill empty cells</button>
+</template>
+```
+::
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="prefill"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref, useTemplateRef } from "vue"
+
+const columns = [
+  { name: "task", label: "Task", width: 210 },
+  { name: "owner", label: "Owner", width: 120 },
+  { name: "status", label: "Status", type: "select", options: [ /* … */ ] },
+  { name: "total", label: "Total", type: "number", width: 90 },
+]
+
+const rows = ref([
+  { task: "Existing row — empty cells get filled, filled ones are kept", owner: "", status: "", total: "" },
+  { task: "Second row (owner + status already set)", owner: "Ada", status: "doing", total: "" },
+])
+
+// One column, another column, and a single cell — written with column names.
+const prefill = [
+  { column: "status", value: "todo" },
+  { column: "total", value: 0 },
+  { row: 0, column: "owner", value: "—" },
+]
+
+const grid = useTemplateRef("grid")
+</script>
+
+<template>
+  <q-spreadsheet
+    ref="grid"
+    v-model:rows="rows"
+    :columns="columns"
+    :prefill="prefill"
+    height="230px"
+    bordered
+  />
+  <!-- a new row (“+”) is born pre-filled; this fills the existing empty cells -->
+  <button @click="grid?.applyPrefill()">Fill empty cells</button>
 </template>
 ```
 ::
@@ -1134,7 +1357,7 @@ follow the array order).
 | `validation` | object `{ min?, max?, integer?, pattern?, required?, list?, message?, schema? }` · ArkType string | Input validation — object or expression (`"number < 4"`); rejects & marks the cell red |
 | `format` | `(value, row) => any` | Display formatter (stored value untouched) |
 | `cellClass` / `cellBackground` | `(value, row) => …` | Per-cell class / background |
-| `cellReadonly` | `(value, row) => boolean` | Per-cell **lock** — see **Locking cells** (receives the value, so it can lock an empty cell too) |
+| `cellReadonly` | `(value, row, rowIndex) => boolean` | Per-cell **lock** — see **Locking cells** (receives the value, so it can lock an empty cell too) |
 | `headerClass` / `headerStyle` | string | Header styling |
 
 ```ts

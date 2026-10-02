@@ -8,6 +8,7 @@
 // Suivi des modifications : `v-model:dirty` (état) + `v-model:changes` (delta lignes / feuilles
 // ajoutées, modifiées, supprimées), calculé en comparant le document à une **référence**
 // (`lib/spreadsheetChanges.ts`).
+import type { QSpreadsheetFill, QSpreadsheetLock } from "../lib/spreadsheetZones"
 import type {
   QSpreadsheetCellOption,
   QSpreadsheetOptionAccessor,
@@ -17,6 +18,13 @@ import type {
   QSpreadsheetValidationRule,
 } from "../lib/spreadsheetValidation"
 
+export type {
+  QSpreadsheetFill,
+  QSpreadsheetFillContext,
+  QSpreadsheetFillFormula,
+  QSpreadsheetLock,
+  QSpreadsheetLockPoint,
+} from "../lib/spreadsheetZones"
 export type {
   QSpreadsheetCellOption,
   QSpreadsheetOptionAccessor,
@@ -87,10 +95,11 @@ export interface QSpreadsheetColumn {
   /**
    * Cellule **non modifiable** : édition, effacement, bascule booléenne, collage, remplissage et
    * barre de formule sont refusés pour les lignes où le prédicat est vrai. Reçoit la valeur
-   * courante — donc verrouille aussi une cellule **vide** (`(v) => v !== null`, `(_, row) =>
-   * row.locked`…). Pour un bloc fixe, préférer `lockedRanges`.
+   * courante, la ligne et son **index** — donc verrouille aussi une cellule **vide**
+   * (`(v) => v !== null`, `(_, row) => row.locked`, `(_, __, i) => i === 0`…).
+   * Pour désigner un bloc par ses coordonnées, préférer `lockedRanges`.
    */
-  cellReadonly?: (val: any, row: Record<string, any>) => boolean
+  cellReadonly?: (val: any, row: Record<string, any>, rowIndex: number) => boolean
   headerClass?: string
   headerStyle?: string
 }
@@ -99,13 +108,9 @@ export interface QSpreadsheetColumn {
 // `lib/spreadsheetValidation.ts` (source unique, testée hors navigateur) et sont
 // ré-exportées en tête de ce bloc.
 
-/** Plage verrouillée (rows/cols 0-based) — les cellules couvertes ne sont pas modifiables */
-export interface QSpreadsheetRangeLock {
-  r0: number
-  c0: number
-  r1: number
-  c1: number
-}
+// Les verrous (`QSpreadsheetLock`) et le préremplissage (`QSpreadsheetFill`) vivent dans
+// `lib/spreadsheetZones.ts` — forme **lisible** (noms de colonnes) traduite en rectangles
+// d'index par des fonctions pures, testées hors navigateur.
 
 /** Validation par plage de cellules (rows/cols 0-based) */
 export interface QSpreadsheetRangeValidator {
@@ -187,6 +192,7 @@ import {
 } from "../lib/spreadsheet"
 import { checkValidation, type ArkCheck } from "../lib/spreadsheetValidation"
 import { normalizeCellOptions } from "../lib/spreadsheetOptions"
+import { inLockRect, lockRects, prefillForRow } from "../lib/spreadsheetZones"
 import {
   DEFAULT_ROW_KEY,
   diffDocuments,
@@ -223,11 +229,41 @@ interface Props {
   /** Validations par plage : [{ r0,c0,r1,c1, validation }] — s'ajoutent aux colonnes */
   validators?: QSpreadsheetRangeValidator[]
   /**
-   * Cellules **verrouillées** par plage : `[{ r0, c0, r1, c1 }]` (0-based). Une cellule couverte
-   * n'est pas modifiable — **même vide** — et reste en lecture seule. S'ajoute à
-   * `columns[].cellReadonly` et aux props globales `readonly` / `disable`.
+   * Cellules **verrouillées**, écrites avec des **noms** (jamais d'index) :
+   * - `{ row: 2, column: "total" }` → la cellule « total » de la ligne 2 ;
+   * - `{ row: 0 }` → toute la ligne 0 ;
+   * - `{ column: "total" }` → toute la colonne « total » ;
+   * - `{ from: { row, column }, to: { row, column } }` → le bloc entre les deux coins.
+   *
+   * S'applique **même à une cellule vide**. S'ajoute à `columns[].cellReadonly` et aux props
+   * globales `readonly` / `disable`.
    */
-  lockedRanges?: QSpreadsheetRangeLock[]
+  lockedRanges?: QSpreadsheetLock[]
+  /**
+   * **Préremplit** des zones, écrites avec des **noms** de colonnes (jamais d'index) —
+   * même vocabulaire que `lockedRanges`, plus une `value` :
+   * - `[{ column: "status", value: "todo" }]` → toute la colonne « status » ;
+   * - `[{ row: 0, value: "—" }]` → toute la ligne 0 ;
+   * - `[{ row: 2, column: "total", value: 0 }]` → la cellule (ligne 2, colonne « total ») ;
+   * - `[{ from: { row: 0, column: "total" }, to: { row: 2, column: "status" }, value: false }]`
+   *   → le bloc entre les deux coins (bornes **incluses**).
+   *
+   * `value` est une **constante** *ou* une **fonction** `(ctx) => any` (ctx : `rowIndex`,
+   * `row`, `column`, `letter`, `rowCount`, `letterOf`) — pour une valeur **dynamique**.
+   *
+   * `fx` porte une **formule**, **prioritaire sur `value`** : une chaîne (`"SUM(B1:B2)"` — le `=`
+   * initial est ajouté s'il manque) ou une fonction `(ctx) => string`. C'est la façon explicite
+   * d'écrire une formule, p. ex. la somme d'une colonne :
+   * `{ row: 3, column: "net", fx: (c) => `SUM(${c.letterOf("effectif")}1:${c.letterOf("effectif")}${c.rowCount})` }`.
+   * (Une chaîne de `value` commençant par `"="` reste stockée comme formule, mais `fx` est
+   * préféré : il documente l'intention et n'exige pas le préfixe.)
+   *
+   * Une ligne **neuve** (bouton « + », insertion) naît déjà préremplie. Les données **déjà
+   * chargées** ne sont **jamais** modifiées automatiquement : appeler `applyPrefill()`
+   * (méthode exposée) pour combler les cellules **vides** — le dernier `prefill` gagne,
+   * les noms de colonnes inconnus sont ignorés.
+   */
+  prefill?: QSpreadsheetFill[]
   /** Affiche le numéro de ligne (colonne de gauche) */
   showRowNumbers?: boolean
   /** Affiche l'en-tête de colonne (lettre + label) */
@@ -812,10 +848,13 @@ const cellTitle = (row: number, column: string): string | undefined => {
   return undefined
 }
 
+/** Verrous de `lockedRanges`, traduits en rectangles d'index (noms de colonnes résolus). */
+const lockRectsResolved = computed(() => lockRects(props.lockedRanges, colIndex))
+
 /**
  * La cellule est-elle **verrouillée** ? Une seule porte pour toutes les mutations : props
  * globales (`readonly` / `disable`), colonne `editable: false`, prédicat `cellReadonly(val, row)`
- * et plages `lockedRanges`. S'applique **même à une cellule vide** (il n'y a rien à effacer,
+ * et verrous `lockedRanges`. S'applique **même à une cellule vide** (il n'y a rien à effacer,
  * mais on ne peut pas y écrire) — verrouiller n'est pas effacer.
  */
 const isCellLocked = (row: number, column: string): boolean => {
@@ -824,12 +863,10 @@ const isCellLocked = (row: number, column: string): boolean => {
   if (!col) return false
   if (col.editable === false) return true
   const rowData = state.value[row] ?? {}
-  if (col.cellReadonly?.(rowData[column], rowData)) return true
+  if (col.cellReadonly?.(rowData[column], rowData, row)) return true
   const ci = colIndex(column)
   if (ci === -1) return false
-  return (props.lockedRanges ?? []).some(
-    (z) => row >= z.r0 && row <= z.r1 && ci >= z.c0 && ci <= z.c1,
-  )
+  return lockRectsResolved.value.some((z) => inLockRect(z, row, ci))
 }
 
 const cellClasses = (row: number, column: string) => {
@@ -1225,11 +1262,48 @@ const redo = () => {
 }
 
 // ─── Lignes & colonnes ───
-const blankRow = (): Record<string, any> => {
+const blankRow = (at = state.value.length): Record<string, any> => {
   // `_key` posée dès la création : la ligne est identifiable sans attendre un emit
   const row: Record<string, any> = { [ROW_KEY]: newRowKey() }
   for (const col of cols.value) row[col.name] = col.type === "boolean" ? false : ""
+  // Une ligne neuve naît préremplie par les zones `prefill` qui la visent.
+  // `rowCount` compte la ligne en cours de création (le document l'aura).
+  Object.assign(
+    row,
+    prefillForRow(props.prefill, at, cols.value.map((c) => c.name), {
+      row,
+      rowCount: state.value.length + 1,
+    }),
+  )
   return row
+}
+
+/**
+ * Comble les cellules **vides** d'après `prefill` (sans jamais écraser une valeur
+ * existante) et renvoie le nombre de cellules remplies. Utile après avoir chargé
+ * `rows` : les données déjà présentes ne sont pas touchées à l'initialisation.
+ */
+const applyPrefill = (): number => {
+  const fills = props.prefill
+  if (!fills?.length || props.disable) return 0
+  const names = cols.value.map((c) => c.name)
+  let count = 0
+  const next = state.value.map((row, r) => {
+    const patch = prefillForRow(fills, r, names, { row, rowCount: state.value.length })
+    let out = row
+    for (const [name, value] of Object.entries(patch)) {
+      if (!isBlankValue(row[name])) continue
+      if (out === row) out = { ...row }
+      out[name] = value
+      count++
+    }
+    return out
+  })
+  if (!count) return 0
+  pushHistory()
+  state.value = next
+  emit("update:rows", next)
+  return count
 }
 
 const addRow = (at?: number) => {
@@ -1237,7 +1311,7 @@ const addRow = (at?: number) => {
   pushHistory()
   const idx = at ?? state.value.length
   const next = [...state.value]
-  next.splice(idx, 0, blankRow())
+  next.splice(idx, 0, blankRow(idx))
   state.value = next
   emit("update:rows", next)
   emit("structure-change", { rows: next, columns: cols.value, reason: "add-row" })
@@ -2537,7 +2611,7 @@ const insertRowAt = (pos: "above" | "below") => {
       : state.value.length
   const idx = Math.max(0, Math.min(state.value.length, at))
   const next = [...state.value]
-  next.splice(idx, 0, blankRow())
+  next.splice(idx, 0, blankRow(idx))
   state.value = next
   shiftRowKeys(idx, 1)
   emit("update:rows", next)
@@ -4193,6 +4267,7 @@ defineExpose({
   commitEdit,
   cancelEdit,
   addRow,
+  applyPrefill,
   insertRowAt,
   removeSelectedRows,
   addColumn,
