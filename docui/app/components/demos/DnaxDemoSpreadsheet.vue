@@ -14,6 +14,7 @@ const props = defineProps<{
     | "locked"
     | "prefill"
     | "prefillFormula"
+    | "rowLimit"
     | "changes"
     | "formulas"
     | "power"
@@ -286,7 +287,7 @@ const lockRows = ref([
 // Verrou d'une **ligne entière** — même ses cellules vides (`lockedRanges`)
 const lockRanges = [{ row: 0 }]
 
-// — Préremplissage (`prefill`) —
+// — Préremplissage (`prefill`) — appliqué **automatiquement** au chargement.
 const prefillCols = [
   { name: "task", label: "Task", width: 210 },
   { name: "owner", label: "Owner", width: 120 },
@@ -313,10 +314,10 @@ const prefillFills = [
   { column: "total", value: 0 },
   { row: 0, column: "owner", value: "—" },
 ]
-const prefillGrid = useTemplateRef<any>("prefillGrid")
-const prefillCount = ref(0)
-const runPrefill = () => {
-  prefillCount.value = prefillGrid.value?.applyPrefill?.() ?? 0
+// L'événement `prefill` signale l'application (auto ou manuelle) et le nombre de cellules.
+const prefillLog = ref("")
+const onPrefill = (e: { count: number; mode: string }) => {
+  prefillLog.value = `${e.count} cell(s) · ${e.mode}`
 }
 
 // — Préremplissage par **formule dynamique** (`prefill` + `value` fonction) —
@@ -343,11 +344,13 @@ const pfFills = [
     },
   },
 ]
-const pfGrid = useTemplateRef<any>("pfGrid")
-const pfCount = ref(0)
-const runPf = () => {
-  pfCount.value = pfGrid.value?.applyPrefill?.() ?? 0
-}
+
+// — Limite de lignes (`maxRows` / `minRows`) — feuille **figée** à une ligne —
+const limitCols = [
+  { name: "label", label: "Label", width: 180 },
+  { name: "qty", label: "Qty", type: "number" as const, width: 90 },
+]
+const limitRows = ref([{ label: "Only one row", qty: 1 }])
 
 // — Suivi des modifications (dirty + delta) —
 const changeColumns = [
@@ -700,38 +703,47 @@ onMounted(() => {
 
   <div v-else-if="demo === 'prefill'">
     <q-spreadsheet
-      ref="prefillGrid"
       v-model:rows="prefillRows"
       :columns="prefillCols"
       :prefill="prefillFills"
       height="230px"
       bordered
+      @prefill="onPrefill"
     />
-    <div class="demo-tools">
-      <button class="demo-btn" type="button" @click="runPrefill">Fill empty cells</button>
-      <span class="demo-p demo-log">
-        {{ prefillCount }} cell(s) filled — add a row with “+” to see a new row born pre-filled.
-        Existing values are never overwritten.
-      </span>
-    </div>
+    <p class="demo-p demo-log">
+      Applied <strong>automatically on load</strong> (empty cells only) — <code>@prefill</code>:
+      {{ prefillLog || "—" }}. Add a row with “+” to see a new row born pre-filled. Existing
+      values are never overwritten.
+    </p>
   </div>
 
   <div v-else-if="demo === 'prefillFormula'">
     <q-spreadsheet
-      ref="pfGrid"
       v-model:rows="pfRows"
       :columns="pfCols"
       :prefill="pfFills"
       height="230px"
       bordered
     />
-    <div class="demo-tools">
-      <button class="demo-btn" type="button" @click="runPf">Fill the totals row</button>
-      <span class="demo-p demo-log">
-        {{ pfCount }} cell(s) filled — <code>total</code> is born as a formula
-        <code>=SUM(B1:B2)</code> whose range comes from <code>rowCount</code>.
-      </span>
-    </div>
+    <p class="demo-p demo-log">
+      Filled <strong>automatically on load</strong> — the totals row gets the formula
+      <code>=SUM(B1:B2)</code>, whose range comes from <code>rowCount</code>.
+    </p>
+  </div>
+
+  <div v-else-if="demo === 'rowLimit'">
+    <q-spreadsheet
+      v-model:rows="limitRows"
+      :columns="limitCols"
+      :max-rows="1"
+      :min-rows="1"
+      height="120px"
+      bordered
+    />
+    <p class="demo-p demo-log">
+      <code>:max-rows="1" :min-rows="1"</code> freezes the sheet at one row — “+”, “Insert
+      row” and “Delete rows” are disabled.
+    </p>
   </div>
 
   <div v-else-if="demo === 'changes'">

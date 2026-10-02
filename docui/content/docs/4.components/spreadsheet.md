@@ -983,17 +983,21 @@ a `value` (constant or function) and/or an `fx` (a **formula**, **priority over 
 
 Two ways a zone is applied:
 
-1. **A brand-new row is born pre-filled.** Every row added with the “+” button or
+1. **Automatically on load** (default). As soon as the document is ready — and again when a new
+   `rows` or `columns` is set — the **empty** cells of the covered zones are filled and the
+   result is written back to `rows` (`update:rows`). No call needed. Pass `:auto-prefill="false"`
+   to opt out and only fill on an **explicit** call.
+2. **A brand-new row is born pre-filled.** Every row added with the “+” button or
    *Insert row above / below* already carries the values of the zones that cover it — the
    user never has to retype a default.
-2. **Existing rows are untouched** at mount, so loading `rows` with real data never
-   silently rewrites it. To fill the **empty** cells of the current document, call the
-   exposed **`applyPrefill()`** method — it returns how many cells it filled.
+
+The exposed **`applyPrefill()`** (re)applies on demand — it returns how many cells it filled
+and records an **undo** step, whereas the automatic pass is silent (no history, no “modified”
+flag).
 
 The rules, identical to locking: the list is a **union** (several entries fill several
 places), the **last** entry wins on overlap, an **unknown column name is ignored** (a typo
-fills nothing rather than the whole grid), and `applyPrefill()` **never overwrites a
-non-empty cell**.
+fills nothing rather than the whole grid), and prefill **never overwrites a non-empty cell**.
 
 ```js
 const prefill = [
@@ -1001,13 +1005,25 @@ const prefill = [
   { column: "total", value: 0 },              // totals start at 0
   { row: 0, column: "owner", value: "—" },    // only row 0, only its `owner` cell
 ]
+// → applied automatically on load; a new row is born pre-filled too.
 
-// Later, when you want the current (empty) cells filled too:
+// Optional explicit (re)apply from your own code — same effect, plus an undo step:
 spreadsheet.value?.applyPrefill()
 ```
 
 > ℹ️ Prefilling is a **convenience**, not a validation: it only writes **empty** cells, so it
 > can never clobber a value the user has entered — no matter when it runs.
+
+> ⚠️ **Prefilling writes to `rows`.** Because the filled defaults are sent back as
+> `update:rows`, bind the grid with **`v-model:rows`** (or listen to `@update:rows`) so your
+> data receives them. With a **one-way** `:rows` the grid still *displays* the defaults, but
+> **your array keeps the empty cells** — exactly like any edit you don't listen to. If the grid
+> must never write on its own, use `:auto-prefill="false"`.
+
+> ℹ️ **`@prefill`** fires whenever prefill actually wrote something, with `{ count, mode }`
+> (`mode` = `"auto"` for the load pass, `"manual"` for `applyPrefill()`). Handy to log,
+> refresh a total or show a “defaults applied” banner. New rows born pre-filled are signalled
+> by `structure-change` instead.
 
 ### Values, formulas (`fx`) & dynamic values
 
@@ -1063,11 +1079,10 @@ row** gets its own:
 
 Two details worth knowing:
 
-- **Static formulas don't live-update.** A formula is written **once**, when the cell is
-  filled — so a totals row keeps the range it was born with. Re-call `applyPrefill()` (it
-  won't overwrite a non-empty cell, so re-computing a *live* total needs `format` or a
-  computed column instead) or reference a wide range such as `=SUM(C2:C1000)`: `SUM` ignores
-  blanks, so over-extending is harmless.
+- **Formulas don't live-update.** A formula is written **once**, when the cell is filled — so
+  after the user adds rows, a totals row keeps the range it was born with (prefill never
+  overwrites a non-empty cell). For a *live* total use a **wide range** — `=SUM(C2:C1000)`,
+  which is safe because `SUM` ignores blanks — or a computed `format` / column instead.
 - **Don't sum a column into itself** (a `total` cell inside the `effectif` column) — that's a
   circular reference and shows `#CYCLE!`.
 
@@ -1078,7 +1093,7 @@ Two details worth knowing:
 
 ```vue
 <script setup lang="ts">
-import { ref, useTemplateRef } from "vue"
+import { ref } from "vue"
 
 const columns = [
   { name: "task", label: "Task", width: 190 },
@@ -1092,32 +1107,28 @@ const rows = ref([
   { task: "", effectif: "", total: "" }, // the totals row
 ])
 
+// The totals row is filled **automatically on load**: `fx` builds the SUM range from `rowCount`.
 const prefill = [
   { row: 2, column: "task", value: "Σ Total" },
   {
     row: 2,
     column: "total",
-    // `fx` = formula, computed from the row count (the `=` is added automatically)
     fx: ({ letterOf, rowCount }) => {
       const L = letterOf("effectif")
-      return `SUM(${L}1:${L}${rowCount - 1})`
+      return `SUM(${L}1:${L}${rowCount - 1})` // "=SUM(B1:B2)" — the `=` is added
     },
   },
 ]
-
-const grid = useTemplateRef("grid")
 </script>
 
 <template>
   <q-spreadsheet
-    ref="grid"
     v-model:rows="rows"
     :columns="columns"
     :prefill="prefill"
     height="230px"
     bordered
   />
-  <button @click="grid?.applyPrefill()">Fill empty cells</button>
 </template>
 ```
 ::
@@ -1129,7 +1140,7 @@ const grid = useTemplateRef("grid")
 
 ```vue
 <script setup lang="ts">
-import { ref, useTemplateRef } from "vue"
+import { ref } from "vue"
 
 const columns = [
   { name: "task", label: "Task", width: 210 },
@@ -1144,26 +1155,79 @@ const rows = ref([
 ])
 
 // One column, another column, and a single cell — written with column names.
+// Applied **automatically on load** (only the empty cells); a new row (“+”) is born pre-filled.
 const prefill = [
   { column: "status", value: "todo" },
   { column: "total", value: 0 },
   { row: 0, column: "owner", value: "—" },
 ]
 
-const grid = useTemplateRef("grid")
+// `@prefill` tells you a pass happened and how many cells it wrote.
+const log = ref("")
+const onPrefill = ({ count, mode }) => (log.value = `${count} cell(s) · ${mode}`)
 </script>
 
 <template>
   <q-spreadsheet
-    ref="grid"
     v-model:rows="rows"
     :columns="columns"
     :prefill="prefill"
     height="230px"
     bordered
+    @prefill="onPrefill"
   />
-  <!-- a new row (“+”) is born pre-filled; this fills the existing empty cells -->
-  <button @click="grid?.applyPrefill()">Fill empty cells</button>
+</template>
+```
+::
+
+## Row limits (`maxRows` / `minRows`)
+
+Pin how many rows a sheet may hold — cap it, floor it, or **freeze** it outright:
+
+| Prop | Effect |
+| --- | --- |
+| `maxRows` | Upper bound — the “+” button, *Insert row above / below* and the CSV import stop at this limit |
+| `minRows` | Lower bound — deleting the selected rows is **refused** if it would drop below |
+
+Give both the **same** value to **freeze** the row count:
+
+```vue
+<q-spreadsheet v-model:rows="rows" :columns="columns" :max-rows="1" :min-rows="1" />
+<!-- exactly one row: “+” / “Insert row” / “Delete rows” are disabled -->
+```
+
+- Only **user** operations are bounded — programmatic loads (`loadDocument`) are **not**
+  constrained (same line as `readonly` / `disable`).
+- The toolbar buttons and the context-menu items are **disabled** once the bound is reached.
+- Drag-fill, paste and the clipboard **never grow the grid**, so they are unaffected.
+- The CSV **import** is truncated to `maxRows` (the grid never ends up above the cap).
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="rowLimit"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const columns = [
+  { name: "label", label: "Label", width: 180 },
+  { name: "qty", label: "Qty", type: "number", width: 90 },
+]
+
+const rows = ref([{ label: "Only one row", qty: 1 }])
+</script>
+
+<template>
+  <q-spreadsheet
+    v-model:rows="rows"
+    :columns="columns"
+    :max-rows="1"
+    :min-rows="1"
+    height="120px"
+    bordered
+  />
 </template>
 ```
 ::
@@ -1171,8 +1235,9 @@ const grid = useTemplateRef("grid")
 ## Events
 
 `cell-change` fires on every committed edit (with `oldValue`/`newValue`),
-`selection-change` on every move (with the range size) and `structure-change`
-when rows or columns are added / removed / sorted (reason + `update:rows`). Try
+`selection-change` on every move (with the range size), `structure-change`
+when rows or columns are added / removed / sorted (reason + `update:rows`), and **`prefill`**
+whenever prefill wrote something (`{ count, mode }` — `mode` is `"auto"` or `"manual"`). Try
 the undo / redo buttons.
 
 ::prose-show-case

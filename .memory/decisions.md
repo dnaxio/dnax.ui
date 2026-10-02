@@ -2693,23 +2693,72 @@ Demande : « on doit pouvoir remplir aussi prefill des ligne ou colonne ou cellu
   `{}` si rien à poser (testable hors navigateur). `env` = `{ row?, rowCount? }` fourni par le
   composant (`blankRow` : `rowCount = state.length + 1` ; `applyPrefill` : `rowCount = state.length`).
   `colLetter` vient de `lib/spreadsheet.ts` (import direct, pur, pas de cycle).
-- **Deux applications distinctes** (choix assumé) :
-  1. `blankRow(at)` pose le préremplissage à la **naissance** d'une ligne (bouton « + »,
+- **Deux applications** (révisé le 2026-10-02 — « il faut faire applyPrefill d'abord, est-ce
+  qu'il y a moyen de apply de manière auto » → **l'auto est désormais le défaut**) :
+  1. **Automatique** : `autoPrefill()` (prop **`autoPrefill`**, défaut `true` via
+     `props.autoPrefill !== false`) est appelée **au montage** (dans `onMounted`, AVANT
+     `trackReady = true; acceptChanges()` → les défauts ne comptent **pas** comme
+     « modifié »), puis à chaque remplacement externe de `rows` / `columns`. Elle est
+     **silencieuse** (`runPrefill(false)` → pas de `pushHistory`). Un `watch` sur `prefill`
+     a été **écarté** (un tableau inline déclencherait à chaque rendu).
+  2. **Ligne neuve** : `blankRow(at)` pose le préremplissage à la **naissance** (bouton « + »,
      insertion). `at` = index d'insertion → **les 2 appels** (`addRow`, `insertRowAt`) passent
      l'index, sinon le fill vise la mauvaise ligne.
-  2. `applyPrefill()` (méthode **exposée**) ne remplit que les cellules **vides** du document
-     courant — les données déjà chargées ne sont **jamais** réécrites au montage — et
-     **renvoie le nombre** de cellules remplies. Elle **n'écrase jamais** une valeur non vide
-     (garde `isBlankValue`).
-- **Gating** : `applyPrefill()` ne bloque que sur `disable` (composant inactif), pas sur
-  `readonly` — c'est un appel **programmatique** explicite du développeur, pas un geste
-  utilisateur (même esprit que `loadDocument()` / `importCsv()`).
+  - **`applyPrefill()`** (méthode **exposée**) = appel **explicite** → `runPrefill(true)`
+    (avec historique). Elle ne remplit que les cellules **vides** et **renvoie le nombre**
+    rempli. Elle **n'écrase jamais** une valeur non vide (garde `isBlankValue`).
+  - `runPrefill` / `applyPrefill` / `autoPrefill` sont des **fonctions déclarées** (hoistées) :
+    les `watch` immédiats les référencent, et `autoPrefill` sort tôt tant que `prefillReady`
+    (drapeau `let`, déclaré avant les watch) est `false` → aucun accès à `pushHistory` en TDZ.
+- **Événement dédié `prefill`** (ajouté le 2026-10-02) : `emit("prefill", { count, mode })`
+  juste après `update:rows` dans `runPrefill`, **seulement si `count > 0`** ; `mode` =
+  `"auto"` (passe de chargement) | `"manual"` (`applyPrefill()`). Les **nouvelles lignes**
+  préremplies ne l'émettent pas (elles sont déjà signalées par `structure-change`).
+  `runPrefill(history)` est devenu `runPrefill(mode)` (l'historique se déduit de `mode`).
+- **Gating** : `runPrefill` bloque sur `disable` (composant inactif) mais pas sur `readonly`
+  (appel explicite du développeur). `autoPrefill` bloque en plus sur `props.autoPrefill === false`
+  et sur `!prefillReady` (avant montage).
 - **Doc** : section « Prefilling cells » (`4.components/spreadsheet.md`, après « Locking
-  cells ») — tableau « You write… / What it fills », les 2 modes d'application, la règle
-  « jamais d'écrasement », **sous-section « Values, formulas (`fx`) & dynamic values »**
-  (tableau `value`/`fx` + priorité, tableau du contexte `ctx`, exemple somme de colonne,
-  formule par ligne, avertissements « formule écrite une fois, pas de live-update » +
-  « pas de CYCLE sur soi-même ») ; démos `prefill` et `prefillFormula`
-  (`DnaxDemoSpreadsheet.vue`, cette dernière en `fx`).
-- **Vérif** : `bun test lib` → **360 pass / 0 fail** (dont la formule en `value` et `fx`) ;
+  cells ») — tableau « You write… / What it fills », les 2 modes (auto par défaut +
+  ligne neuve ; `applyPrefill()` explicite = avec undo), `:auto-prefill="false"`, la règle
+  « jamais d'écrasement », **callout ⚠️ « Prefilling writes to `rows` »** (l'auto émet
+  `update:rows` → utiliser `v-model:rows` ou écouter `@update:rows`, sinon la grille affiche
+  les défauts mais **le tableau du parent garde les cellules vides** — comme toute édition non
+  écoutée), **callout ℹ️ `@prefill`** (`{ count, mode }`), **sous-section « Values, formulas
+  (`fx`) & dynamic values »** (tableau `value`/`fx` + priorité, tableau du contexte `ctx`,
+  exemple somme de colonne, formule par ligne, notes « `value: "=…"` marche aussi » et
+  « formules non live-update ») ; **section Events** mise à jour ; démos `prefill` (affiche
+  `@prefill`) et `prefillFormula` **sans bouton** (l'auto se voit au chargement),
+  (`DnaxDemoSpreadsheet.vue`).
+- **Vérif** : `bun test lib` → **360 pass / 0 fail** ;
   `cd docui && bun run build` → **EXIT 0** ; équilibre MDC 20/20 ; diagnostics propres.
+
+## QSpreadsheet : limites de lignes (`minRows` / `maxRows`) — 2026-10-02
+
+Demande : « on doit pouvoir figer le nombre de lignes d'une sheet (ex. 1 ligne), après ça on ne
+peut plus ajouter ».
+
+- **Nouveau module pur `lib/spreadsheetRows.ts`** (+ `.test.ts`, 7 tests) : `rowRoom(current, max)`,
+  `canAddRows(current, count, max)`, `removalsAllowed(current, min)`,
+  `canRemoveRows(current, count, min)`, `clampRows(rows, max)` (renvoie la **même** référence si
+  rien à couper). `max`/`min` non fournis ou non finis (`Infinity`/`NaN`) = **pas de limite**.
+- **Props** `maxRows` / `minRows` (aucune limite par défaut). `maxRows` seul = plafond ; avec
+  `minRows` à la **même** valeur = **figé**.
+- **Périmètre = opérations UTILISATEUR** (même ligne que `readonly` / `disable`) :
+  - `addRow` et `insertRowAt` → **early return** si `!canAddRow.value` ;
+  - `removeSelectedRows` → **refus** (pas de suppression partielle) si
+    `!canRemoveRows(state.length, indexes.size, props.minRows)` ; `pushHistory()` /
+    `purgeMergesAndRules()` déplacés **après** les gardes ;
+  - `importCsv` → `data = clampRows(data, props.maxRows)` (jamais au-dessus du plafond) ;
+  - `loadDocument()` (programmatique) → **non borné**.
+- **Déjà bornés par construction** (donc rien à faire) : `applyFill` (drag-fill) et les collages
+  (`pasteClip` / `pasteValues` / `pasteTransposed`) — ils `continue`/`return` hors grille, ils
+  **ne grandissent jamais** les lignes.
+- **UI** : `computed canAddRow` / `canRemoveRow` ; désactivent le « + » et la corbeille de la
+  **toolbar** et les items « Insérer une ligne au-dessus/en dessous » / « Supprimer les lignes »
+  du **menu contextuel**.
+- **Doc** : nouvelle section « Row limits (`maxRows` / `minRows`) »
+  (`4.components/spreadsheet.md`, avant « Events ») + démo `rowLimit` (feuille figée à 1 ligne)
+  dans `DnaxDemoSpreadsheet.vue`.
+- **Vérif** : `bun test lib` → **367 pass / 0 fail** ;
+  `cd docui && bun run build` → **EXIT 0** ; équilibre MDC 21/21 ; diagnostics propres.

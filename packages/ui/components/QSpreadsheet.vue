@@ -193,6 +193,7 @@ import {
 import { checkValidation, type ArkCheck } from "../lib/spreadsheetValidation"
 import { normalizeCellOptions } from "../lib/spreadsheetOptions"
 import { inLockRect, lockRects, prefillForRow } from "../lib/spreadsheetZones"
+import { canAddRows, canRemoveRows, clampRows } from "../lib/spreadsheetRows"
 import {
   DEFAULT_ROW_KEY,
   diffDocuments,
@@ -264,6 +265,27 @@ interface Props {
    * les noms de colonnes inconnus sont ignorés.
    */
   prefill?: QSpreadsheetFill[]
+  /**
+   * Applique `prefill` **automatiquement** aux cellules **vides** dès que le document est prêt
+   * (chargement, remplacement de `rows` / `columns`) — sans avoir à appeler `applyPrefill()`.
+   * Le résultat est **écrit dans `rows`** (`update:rows`) : utiliser `v-model:rows` (ou écouter
+   * `@update:rows`) pour le recevoir. Sans historique ni marquage « modifié ». Une ligne
+   * **neuve** naît de toute façon préremplie. `false` → application sur appel explicite
+   * uniquement. (Défaut : `true`.)
+   */
+  autoPrefill?: boolean
+  /**
+   * Nombre **minimum** de lignes : impossible de descendre en dessous (la suppression des lignes
+   * sélectionnées est refusée si elle passerait sous le plancher). Combiné avec `maxRows` à la
+   * **même** valeur, le nombre de lignes est **figé**. (Défaut : aucune limite.)
+   */
+  minRows?: number
+  /**
+   * Nombre **maximum** de lignes : le bouton « + », l'insertion au curseur et l'import CSV
+   * s'arrêtent à cette limite (`:max-rows="1"` → feuille à **une seule** ligne). Les chargements
+   * programmatiques (`loadDocument`) ne sont pas bornés. (Défaut : aucune limite.)
+   */
+  maxRows?: number
   /** Affiche le numéro de ligne (colonne de gauche) */
   showRowNumbers?: boolean
   /** Affiche l'en-tête de colonne (lettre + label) */
@@ -499,6 +521,7 @@ const emit = defineEmits<{
   "cell-edit-end": [payload: { row: number; column: string; canceled: boolean }]
   "selection-change": [value: QSpreadsheetSelection | null]
   "structure-change": [payload: { rows: Record<string, any>[]; columns: QSpreadsheetColumn[]; reason: string }]
+  "prefill": [payload: { count: number; mode: "auto" | "manual" }]
   "update:dirty": [value: boolean]
   "update:changes": [value: QSpreadsheetChanges]
 }>()
@@ -542,6 +565,8 @@ const ensureRowKeys = (rows: Record<string, any>[] | undefined) => {
 }
 
 // ─── Données internes (copie éditable des rows) ───
+// Préremplissage : tant que `false`, toute application auto est ignorée (avant montage).
+let prefillReady = false
 const state = ref<Record<string, any>[]>([])
 watch(
   () => props.rows,
@@ -553,6 +578,8 @@ watch(
       state.value = v.map((r) => ({ ...r }))
       // Lignes **externes** (nouveau document) → nouvelle référence de comparaison
       if (trackReady) acceptChanges()
+      // Nouveau document → applique les défauts sur les cellules vides.
+      autoPrefill()
     }
   },
   { immediate: true },
@@ -571,6 +598,8 @@ watch(
       cols.value = v.map((c) => ({ ...c }))
       // Colonnes **externes** (nouveau schéma) → nouvelle référence de comparaison
       if (trackReady) acceptChanges()
+      // Les zones de `prefill` dépendent des noms de colonnes → (re)applique.
+      autoPrefill()
     }
   },
   { immediate: true },
@@ -579,6 +608,12 @@ const pushCols = (next: QSpreadsheetColumn[]) => {
   cols.value = next
   emit("update:columns", next)
 }
+
+// ─── Limites de lignes (`minRows` / `maxRows`) ───
+/** Peut-on encore ajouter une ligne ? (bouton « + », insertion au curseur) */
+const canAddRow = computed(() => canAddRows(state.value.length, 1, props.maxRows))
+/** Peut-on retirer au moins une ligne ? (plancher `minRows`) */
+const canRemoveRow = computed(() => canRemoveRows(state.value.length, 1, props.minRows))
 
 const colIndex = (name: string) => cols.value.findIndex((c) => c.name === name)
 const colNameAt = (i: number) => cols.value[i]?.name ?? ""
@@ -1279,11 +1314,11 @@ const blankRow = (at = state.value.length): Record<string, any> => {
 }
 
 /**
- * Comble les cellules **vides** d'après `prefill` (sans jamais écraser une valeur
- * existante) et renvoie le nombre de cellules remplies. Utile après avoir chargé
- * `rows` : les données déjà présentes ne sont pas touchées à l'initialisation.
+ * Cœur du préremplissage : ne remplit que les cellules **vides** et renvoie le nombre rempli.
+ * `mode` distingue l'application **automatique** (silencieuse) de l'appel **explicite**
+ * (avec historique). Émet `update:rows` (si quelque chose a changé) puis `prefill`.
  */
-const applyPrefill = (): number => {
+function runPrefill(mode: "auto" | "manual"): number {
   const fills = props.prefill
   if (!fills?.length || props.disable) return 0
   const names = cols.value.map((c) => c.name)
@@ -1300,14 +1335,35 @@ const applyPrefill = (): number => {
     return out
   })
   if (!count) return 0
-  pushHistory()
+  if (mode === "manual") pushHistory()
   state.value = next
   emit("update:rows", next)
+  emit("prefill", { count, mode })
   return count
+}
+
+/**
+ * Comble les cellules **vides** d'après `prefill` (jamais une valeur existante) et renvoie le
+ * nombre de cellules remplies. Appel **explicite** (avec historique) — l'application au
+ * chargement est automatique (cf. `autoPrefill`).
+ */
+function applyPrefill(): number {
+  return runPrefill("manual")
+}
+
+/**
+ * Application **automatique** (document prêt, nouveau document) : silencieuse — sans
+ * historique, pour ne pas polluer l'annulation ni marquer la grille « modifiée ». **Écrit le
+ * résultat dans `rows`** (`update:rows`). Désactivable via `:auto-prefill="false"`.
+ */
+function autoPrefill(): void {
+  if (!prefillReady || props.autoPrefill === false) return
+  runPrefill("auto")
 }
 
 const addRow = (at?: number) => {
   if (props.readonly || props.disable) return
+  if (!canAddRow.value) return
   pushHistory()
   const idx = at ?? state.value.length
   const next = [...state.value]
@@ -1320,12 +1376,14 @@ const addRow = (at?: number) => {
 
 const removeSelectedRows = () => {
   if (props.readonly || props.disable) return
-  pushHistory()
-  purgeMergesAndRules()
   const rect = selRect.value
   if (!rect || !state.value.length) return
   const indexes = new Set<number>()
   for (let r = rect.r0; r <= rect.r1; r++) indexes.add(r)
+  // Plancher `minRows` : on refuse si la suppression descendrait en dessous.
+  if (!canRemoveRows(state.value.length, indexes.size, props.minRows)) return
+  pushHistory()
+  purgeMergesAndRules()
   const sorted = [...indexes].sort((a, b) => b - a)
   const next = [...state.value]
   for (const i of sorted) next.splice(i, 1)
@@ -2591,6 +2649,7 @@ const doSortBy = (desc = false) => {
 // ─── Insertion au curseur (lignes / colonnes) ───
 const insertRowAt = (pos: "above" | "below") => {
   if (!canEdit.value) return
+  if (!canAddRow.value) return
   pushHistory()
   purgeMergesAndRules()
   if (!state.value.length) {
@@ -2986,6 +3045,10 @@ const onFilterSearch = (e: Event) => {
 }
 
 onMounted(() => {
+  // Préremplissage automatique en premier : la référence initiale ci-dessous doit
+  // l'inclure, sinon les défauts compteraient comme des « modifications ».
+  prefillReady = true
+  autoPrefill()
   // Référence initiale : à partir d'ici, toute différence avec elle = « modifié »
   trackReady = true
   acceptChanges()
@@ -3622,6 +3685,8 @@ const importCsv = (text: string, opts: { delimiter?: string; headers?: boolean }
     }))
     data = rows
   }
+  // Plafond `maxRows` : l'import ne crée pas plus de lignes que la limite.
+  data = clampRows(data, props.maxRows)
   const rowObjs = data.map((row) => {
     const obj: Record<string, any> = { [ROW_KEY]: newRowKey() }
     colsArr.forEach((c, ci) => {
@@ -4395,11 +4460,11 @@ defineExpose({
       </span>
 
       <span class="q-spreadsheet__tb-group">
-        <button class="q-spreadsheet__tool" type="button" :disabled="readonly || disable" title="Add row" aria-label="Add row" @click="addRow()">
+        <button class="q-spreadsheet__tool" type="button" :disabled="readonly || disable || !canAddRow" title="Add row" aria-label="Add row" @click="addRow()">
           <Icon :icon="icons.rows3" aria-hidden="true" />
           <Icon :icon="icons.plus" class="q-spreadsheet__tool-badge" aria-hidden="true" />
         </button>
-        <button class="q-spreadsheet__tool" type="button" :disabled="readonly || disable || !selRect" title="Remove selected row(s)" aria-label="Remove rows" @click="removeSelectedRows">
+        <button class="q-spreadsheet__tool" type="button" :disabled="readonly || disable || !selRect || !canRemoveRow" title="Remove selected row(s)" aria-label="Remove rows" @click="removeSelectedRows">
           <Icon :icon="icons.minus" aria-hidden="true" />
         </button>
         <button class="q-spreadsheet__tool" type="button" :disabled="readonly || disable" title="Add column" aria-label="Add column" @click="addColumn()">
@@ -5012,13 +5077,13 @@ defineExpose({
         </button>
 
         <div class="q-spreadsheet__sep" />
-        <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit" @click="insertRowAt('above')">
+        <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit || !canAddRow" @click="insertRowAt('above')">
           <Icon :icon="icons.arrowUp" aria-hidden="true" /> {{ t('insertRowAbove') }}
         </button>
-        <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit" @click="insertRowAt('below')">
+        <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit || !canAddRow" @click="insertRowAt('below')">
           <Icon :icon="icons.arrowDown" aria-hidden="true" /> {{ t('insertRowBelow') }}
         </button>
-        <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit || !selRect" @click="removeSelectedRows">
+        <button type="button" class="q-spreadsheet__mi" :disabled="!canEdit || !selRect || !canRemoveRow" @click="removeSelectedRows">
           <Icon :icon="icons.trash2" aria-hidden="true" /> {{ t('deleteRows') }}
         </button>
         <div class="q-spreadsheet__sep" />
