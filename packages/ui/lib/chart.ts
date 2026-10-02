@@ -1180,7 +1180,7 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
   const scaleBand = visualMaps.some((vm) => vm.show !== false) ? 30 : 0
   /** Bandeau du **nom d'axe** (nom de l'axe y au-dessus, nom de l'axe x en dessous) */
   const axisNameTop = config.y?.label ? 16 : 0
-  const axisNameBottom = config.x?.label ? 16 : 0
+  const axisNameBottom = config.x?.label ? 22 : 0
   const legendOption = !legendOn
     ? { show: false }
     : {
@@ -1241,22 +1241,36 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
     splitLine: { show: axis?.grid ?? true, lineStyle: { color: theme.grid } },
   })
 
+  // ─── Nom d'axe : placement **toujours dans le cadre** ───
+  // Axe **horizontal** : centré sous l'axe (`middle`). À la fin de l'axe (`end`, le défaut
+  // ECharts) le nom s'écrivait vers la droite, hors du cadre.
+  const axisNameX = { nameLocation: "middle" as const, nameGap: 32 }
+  // Axe **vertical** : ancré à **gauche** (`align: left`) sur la ligne d'axe, en haut.
+  // Un `nameGap` fixe ne peut pas convenir : un nom centré sur l'axe déborde à gauche, un nom
+  // rotaté au milieu recouvre/est rogné par les nombres (largeur variable : `1,000` vs
+  // `1,000,000`). Ancré à gauche, il s'étend vers la droite → jamais rogné, jamais superposé.
+  const axisNameY = {
+    nameLocation: "end" as const,
+    nameTextStyle: { ...axisLabel, align: "left" as const },
+  }
   // Orientation horizontale : catégories sur l'axe Y
   const hasBar = series.some((s) => s.type === "bar")
-  const xAxis = hasHeatmap
+  const xAxisBase = hasHeatmap
     ? categoryAxis(config.x, categories, true)
     : horizontal
       ? valueAxis(config.x, hasBar)
       : axisType === "category"
         ? categoryAxis(config.x)
         : valueAxis(config.x, false)
-  const yAxis = hasHeatmap
+  const yAxisBase = hasHeatmap
     ? categoryAxis(config.y, rowCategories, true)
     : horizontal
       ? axisType === "category"
         ? categoryAxis(config.y)
         : valueAxis(config.y, false)
       : valueAxis(config.y, hasBar)
+  const xAxis = config.x?.label ? { ...xAxisBase, ...axisNameX } : xAxisBase
+  const yAxis = config.y?.label ? { ...yAxisBase, ...axisNameY } : yAxisBase
 
   // Familles **hors axes** (`pie` seul) : ni grid ni xAxis/yAxis — sinon ECharts laisse
   // un cadre fantôme et décale le titre.
