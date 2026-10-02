@@ -1408,3 +1408,25 @@ Signalé par « pas d'exemple avec le nom de la feuille au lieu de Sheet/Feuille
 - **Vérif** : `bun test lib` → **367 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
   (Le nommage est du câblage composant, non couvert par un test pur — cf. la règle projet :
   extraire dans `lib/` si la logique devient non triviale.)
+
+## QChart — noms d'axes hors cadre (`nameLocation` par défaut d'ECharts) — 2026-10-02
+
+Signalé : « le nom de l'axe X est positionné à la fin de l'axe (à droite, hors du cadre) et le
+nom Y est rogné à gauche ».
+
+- **Cause racine** : `chartToECharts` posait `name: axis.label` **sans `nameLocation`** → défaut
+  ECharts `'end'` : le nom de l'axe horizontal s'écrit **vers la droite à partir de
+  l'extrémité** de l'axe (`text-anchor: start`), donc **hors cadre** ; le nom de l'axe vertical
+  est placé **centré sur la ligne d'axe** → un libellé large déborde **à gauche** (rogné).
+  Vérifié par rendu SVG SSR : `Month` à `translate(519 …)` dans un canevas de 520, `Revenue (k€)`
+  centré à `x=54` (débordant à gauche pour un libellé long).
+- **Piège mathématique** : un `nameGap` **fixe** pour un nom **rotaté au milieu** ne peut pas
+  convenir — il est mesuré depuis la ligne d'axe, donc doit dépasser la largeur des étiquettes
+  (`1,000` ≈ 30px vs `1,000,000` ≈ 60px). Trop petit → chevauchement des nombres ; trop grand →
+  nom rogné pour des étiquettes étroites. **Sans mesure des étiquettes, impossible.**
+- **Règle** : ne **jamais** laisser un `name` d'axe ECharts sans `nameLocation` explicite, et
+  préférer un placement **indépendant de la largeur des étiquettes** (ancre `start` / `end`
+  alignée) plutôt qu'un gap fixe.
+- **Vérif** : `lib/chart.axis.test.ts` (rend l'option en **SVG SSR ECharts**, sans navigateur,
+  et assert que la boîte du nom tient dans le cadre) ; `bun test lib` → **370 pass / 0 fail** ;
+  `cd docui && bun run build` → **EXIT 0**.

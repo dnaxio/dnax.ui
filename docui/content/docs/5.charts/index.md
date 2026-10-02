@@ -88,7 +88,7 @@ theme, or any CSS color. See [Line](/docs/charts/line) for the full table.
 | Prop      | Type             | Default          | Description                                                                   |
 | --------- | ---------------- | ---------------- | ----------------------------------------------------------------------------- |
 | `marks`   | `QChartMark[]`   | `[]`             | The layers of the chart.                                                      |
-| `x` / `y` | `QChartAxis`     | —                | **Axis** config: `type` (`band`/`linear`/`time`/`log`), `label`, `min`, `max`, `grid`, `margin` (gap between the numbers and the axis — 16 px by default on the value axis). |
+| `x` / `y` | `QChartAxis`     | —                | **Axis** config: `type` (`band`/`linear`/`time`/`log`), `label`, `min`, `max`, `grid`, `margin` (gap between the numbers and the axis — 16 px by default on the value axis). The `label` is always drawn **inside the frame**: the X name is **centred under** the axis, the Y name sits **top-left at the axis line** (so it is never clipped, whatever the tick width). |
 | `height`  | `number \| string` | `280`          | Container height (a number is read as pixels, otherwise a CSS value).          |
 | `title`   | `string`         | —                | Chart title.                                                                   |
 | `colors`  | `string[]`       | `--chart-1…6`    | Series palette, for marks without an explicit color.                           |

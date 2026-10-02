@@ -2780,3 +2780,26 @@ avoir **plusieurs** feuilles ».
 - **Doc** : section « Workbook (sheets) & export » enrichie — snippet **minimal** nommé
   (2 feuilles), puces explicites _Naming_ / _Several sheets_, callout « tabs require `sheets` »,
   commentaire du `#code` complété. Démo `sheets` (`wbSheets` = « Staff » / « Budget »).
+
+## QChart : placement des **noms d'axes** (`nameLocation`) — 2026-10-02
+
+Demande : « le nom de l'axe X est à la fin de l'axe (à droite, hors cadre), le nom Y est rogné
+à gauche — corrige le placement ».
+
+- **API retenue** (dans `lib/chart.ts`, `chartToECharts`) :
+  - axe **horizontal** (celui qui porte `config.x`) : `nameLocation: "middle"`, `nameGap: 32`
+    → nom **centré sous l'axe**, toujours dans le cadre ;
+  - axe **vertical** (celui qui porte `config.y`) : `nameLocation: "end"` **+**
+    `nameTextStyle.align: "left"` → nom **en haut, ancré à gauche sur la ligne d'axe**, donc il
+    s'étend vers la droite : jamais rogné, jamais superposé aux nombres (quelle que soit leur
+    largeur).
+- **Espace réservé** : `grid.bottom += 22` quand `config.x.label`, `grid.top += 16` quand
+  `config.y.label` (inchangé). Les bandeaux `axisNameTop` / `axisNameBottom` restent la source
+  unique des marges.
+- **`nameTextStyle`** : le nom de l'axe vertical surcharge `axisLabel` avec `align: "left"`
+  (couleur `--muted` conservée).
+- **Vérif** : `lib/chart.axis.test.ts` — **3 tests** qui rendent l'option en **SVG via l'SSR
+  d'ECharts** (JS pur, sans navigateur) et vérifient que la boîte du nom tient dans le cadre
+  (vertical / barres horizontales / petit canevas 300×160), que le nom X est centré sous la
+  zone de tracé et le nom Y en haut. `bun test lib` → **370 pass / 0 fail** ;
+  `cd docui && bun run build` → **EXIT 0**.
