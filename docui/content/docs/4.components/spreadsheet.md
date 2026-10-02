@@ -606,14 +606,29 @@ must stay visible.
 
 ## Workbook (sheets) & export
 
-Pass `v-model:sheets` (array of `{ key, name, columns?, rows? }`) to turn the
-component into a **multi-sheet workbook**: click a tab to switch, double-click
-to rename, `+` to add a sheet, `×` to remove one (keeps at least one). Tabs sit
-at the **top** by default; use `sheets-position="bottom"` to put them under the
-grid (Excel-style). The whole UI (context menu, find, filters, conditional
-formatting, status bar…) is localized with `lang="en"` (default) or
-`lang="fr"`. Each sheet keeps its own rows, columns, formatting, column widths,
-row heights and filters; undo history resets when switching.
+Pass `v-model:sheets` (array of `{ key?, name?, columns?, rows? }`) to turn the component into a
+**multi-sheet workbook** — each sheet gets its own **tab**:
+
+```js
+const sheets = ref([
+  // tab label = `name`
+  { name: "Staff", rows: [{ name: "Ada Lovelace", score: 9 }] },
+  { name: "Budget", rows: [{ item: "Servers", qty: 2 }] },
+])
+// `key` is optional (generated) — `columns` too (derived from the rows).
+```
+
+- **Naming** — the tab shows `name`; omit it and you get the **localized** default `Sheet 1`,
+  `Sheet 2`… (or `Feuille 1`… with `lang="fr"`). **Double-click a tab** to rename it in place.
+- **Several sheets** — click a tab to switch, `+` to add a sheet, `×` to remove one (at least one
+  is kept). Tabs sit at the **top**; use `sheets-position="bottom"` for Excel-style tabs under
+  the grid.
+- Each sheet keeps its own rows, columns, formatting, column widths, row heights and filters;
+  undo history resets when switching. The whole UI (context menu, find, filters, conditional
+  formatting, status bar…) is localized with `lang="en"` (default) or `lang="fr"`.
+
+> ℹ️ Tabs and naming require `sheets`; with plain `rows` / `columns` there is a **single**
+> unnamed sheet (no tab bar).
 
 ::prose-show-case
 :dnax-demo-spreadsheet{demo="sheets"}
@@ -674,7 +689,8 @@ const sheets = ref([
   />
 
   <!--
-    • Click a tab to switch sheets; double-click to rename; + adds one.
+    • `name` labels the tab (default: localized `Sheet N` / `Feuille N`); `key` is optional.
+    • Click a tab to switch sheets; double-click to rename in place; + adds one.
     • sheets-position="bottom" place les onglets sous la grille (style Excel).
     • Each sheet keeps its own rows, columns, formatting, widths, filters and
       row heights. Switching is live and undo history resets per sheet.

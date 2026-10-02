@@ -1388,3 +1388,23 @@ chaque édition de cellule) ; `toggleMultiOption` passe à `void validateAndSet(
 confirmé (`number < 4` : `3` passe, `4` → « must be less than 4 (was 4) », `"abc"` →
 « must be a number (was a string) »). Rappel : une valeur **vide** court-circuite le schéma (elle
 passe, sauf `required`).
+
+## QSpreadsheet — noms de feuilles **décalés de +1** (« Sheet 2 » pour la 1re) — 2026-10-02
+
+Signalé par « pas d'exemple avec le nom de la feuille au lieu de Sheet/Feuille ».
+
+- **Cause racine** : dans le `watch(() => props.sheets)`, le compteur était incrémenté **avant**
+  d'être lu pour le nom. `const key = s.key ?? "sheet-" + n; n++; … name: s.name ?? sheetName(n)`
+  → clé correcte (`sheet-1`) mais **nom** calculé avec `n` déjà à 2 → 1re feuille = « Sheet 2 »,
+  2ᵉ = « Sheet 3 »… (seules les feuilles **sans** `name` étaient touchées, d'où l'invisibilité
+  dans les démos qui nomment leurs feuilles — mais l'utilisateur le voyait en ajoutant des feuilles).
+- **Correctif** : `const num = n++` (capturé AVANT), puis `key: s.key ?? "sheet-" + num` et
+  `name: s.name ?? sheetName(num)` → même numéro pour les deux.
+- **Même classe** : deux libellés anglais **codés en dur** (`"Sheet 1"` à la création de la 1re
+  feuille dans `addSheet`, `"Sheet " + (i+1)` dans `activeSheetName`) → remplacés par
+  `sheetName(1)` / `sheetName(i + 1)` (**localisé** `lang="fr"` → « Feuille N »).
+- **Règle** : ne **jamais** construire une clé/un libellé par défaut à partir d'un compteur
+  **muté** dans la même expression — capturer l'index d'abord (ou utiliser l'index de `map`).
+- **Vérif** : `bun test lib` → **367 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+  (Le nommage est du câblage composant, non couvert par un test pur — cf. la règle projet :
+  extraire dans `lib/` si la logique devient non triviale.)

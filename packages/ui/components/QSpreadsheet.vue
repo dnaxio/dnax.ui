@@ -3222,15 +3222,16 @@ watch(
     const prevKey = localSheets.value[sheetIdx.value]?.key
     let n = 1
     localSheets.value = v.map((s) => {
-      const key = s.key ?? "sheet-" + n
-      n++
+      // `num` capturé AVANT l'incrément : clé **et** nom par défaut partagent le même numéro
+      // (sinon le 1er onglet s'appelait « Sheet 2 »).
+      const num = n++
       // Clés injectées sur les objets du parent (comme pour `rows`) : chaque feuille est
       // identifiable avant même d'être ouverte
       ensureRowKeys(s.rows)
       return {
         ...s,
-        key,
-        name: s.name ?? sheetName(n),
+        key: s.key ?? "sheet-" + num,
+        name: s.name ?? sheetName(num),
         rows: (s.rows ?? []).map((r) => ({ ...r })),
         columns: s.columns ? canonicalColumns(s.columns) : undefined,
       }
@@ -3255,7 +3256,7 @@ watch([state, cols], () => {
 
 const activeSheetName = computed(() => {
   const s = localSheets.value[sheetIdx.value]
-  if (s) return s.name ?? "Sheet " + (sheetIdx.value + 1)
+  if (s) return s.name ?? sheetName(sheetIdx.value + 1)
   return props.sheets?.[0]?.name ?? sheetName(1)
 })
 const sheetRename = ref<{ idx: number; val: string } | null>(null)
@@ -3288,7 +3289,7 @@ const addSheet = () => {
     // premier onglet (propriété sheets vide) — devient multi
     const first: QSpreadsheetSheet = {
       key: "sheet-1",
-      name: "Sheet 1",
+      name: sheetName(1),
       columns: cols.value.map((c) => ({ ...c })),
       rows: state.value.map((r) => ({ ...r })),
     }

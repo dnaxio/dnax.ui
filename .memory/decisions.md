@@ -2762,3 +2762,21 @@ peut plus ajouter ».
   dans `DnaxDemoSpreadsheet.vue`.
 - **Vérif** : `bun test lib` → **367 pass / 0 fail** ;
   `cd docui && bun run build` → **EXIT 0** ; équilibre MDC 21/21 ; diagnostics propres.
+
+## QSpreadsheet : nommage des feuilles & multi-feuilles (`v-model:sheets`) — 2026-10-02
+
+Demande : « pas d'exemple où on met le **nom** de la feuille au lieu de _Sheet_/_Feuille_, et
+avoir **plusieurs** feuilles ».
+
+- La fonctionnalité **existait déjà** (`v-model:sheets`, onglets, renommage double-clic, `+`/`×`)
+  mais deux bugs la rendaient trompeuse (cf. `warnings.md` : noms décalés de +1, libellés
+  anglais codés en dur) → **corrigés**.
+- **API retenue** (documentée) : `sheets: { key?, name?, columns?, rows? }[]`. `name` = libellé de
+  l'onglet ; absent → **défaut localisé** `sheetName(n)` = « Sheet N » / « Feuille N » selon
+  `lang`. `key` et `columns` optionnels (`columns` déduites des `rows`). Renommage en place par
+  **double-clic** sur l'onglet (`commitSheetRename`).
+- **Tabs + nommage ⇒ `sheets` obligatoire** ; en mode `rows` / `columns` il n'y a **qu'une**
+  feuille sans nom (pas de barre d'onglets).
+- **Doc** : section « Workbook (sheets) & export » enrichie — snippet **minimal** nommé
+  (2 feuilles), puces explicites _Naming_ / _Several sheets_, callout « tabs require `sheets` »,
+  commentaire du `#code` complété. Démo `sheets` (`wbSheets` = « Staff » / « Budget »).
