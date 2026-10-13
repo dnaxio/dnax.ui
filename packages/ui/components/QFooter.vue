@@ -1,13 +1,17 @@
 <script setup lang="ts">
 // QFooter — barre basse (safe-area bottom appliquée par styles/main.css : .q-app .q-footer)
-import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue"
+import { computed, inject, onBeforeUnmount, onMounted, ref, watchEffect } from "vue"
 import { useFixedBarOffset } from "../lib/fixedLayout"
-import { qLayoutKey } from "../lib/layout"
+import { barPin, qLayoutKey } from "../lib/layout"
 
 interface Props {
   /** Fixe la barre en bas de l'écran (sort du flux) */
   fixed?: boolean
-  /** Colle la barre en bas pendant le scroll (automatique dans un QLayout avec une lettre majuscule) */
+  /**
+   * Colle la barre **en fin de page** (rangée basse du grid). Dans le modèle scroll-document,
+   * la footer étant la **dernière rangée**, `F`/`f` sont **équivalents** et ce `sticky` n'a
+   * **pas d'effet visible**. Pour **épingler** la barre à l'écran, utiliser `fixed`.
+   */
   sticky?: boolean
   /** Ombre portée vers le haut */
   elevated?: boolean
@@ -38,10 +42,27 @@ const rootEl = ref<HTMLElement | null>(null)
 // par la casse de la lettre (F).
 const layout = inject(qLayoutKey, null)
 const zone = computed(() => layout?.zones.value.footer)
-const isSticky = computed(() => props.sticky || !!zone.value?.fixed)
+// Épinglage vs collage : contrat centralisé dans `barPin` (la lettre `F` ne fait que « coller »,
+// sans effet visible sur la dernière rangée).
+const pin = computed(() => barPin(props, !!zone.value?.fixed))
+const isSticky = computed(() => pin.value.sticky)
 const layoutStyle = computed<Record<string, string | undefined>>(() => ({
   gridArea: zone.value?.area,
 }))
+
+// Un `view` qui contient `F` (majuscule) laisse croire à un épinglage : la classe sticky est
+// posée mais reste **sans effet visible**. On le dit une fois plutôt que de le faire taire.
+let warnedNoopSticky = false
+watchEffect(() => {
+  if (warnedNoopSticky) return
+  if (zone.value?.fixed && !props.fixed) {
+    warnedNoopSticky = true
+    console.warn(
+      '[q-footer] `view` "…F…" rend la footer *sticky*, sans effet visible ' +
+        '(dernière rangée du grid + scroll document). Pour épingler : <q-footer fixed>.',
+    )
+  }
+})
 
 // Empilement : bottom = hauteur cumulée des footers fixed suivants (si fixed)
 useFixedBarOffset(rootEl, "bar-bottom", () => props.fixed)
@@ -80,7 +101,7 @@ onBeforeUnmount(() => {
     ref="rootEl"
     class="q-footer"
     :class="{
-      'q-footer--fixed': fixed,
+      'q-footer--fixed': pin.fixed,
       'q-footer--sticky': isSticky,
       'q-footer--elevated': props.elevated,
       'q-footer--bordered': props.bordered,

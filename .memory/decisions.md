@@ -2803,3 +2803,66 @@ Demande : « le nom de l'axe X est à la fin de l'axe (à droite, hors cadre), l
   (vertical / barres horizontales / petit canevas 300×160), que le nom X est centré sous la
   zone de tracé et le nom Y en haut. `bun test lib` → **370 pass / 0 fail** ;
   `cd docui && bun run build` → **EXIT 0**.
+
+## Layout — contrat **épinglage vs collage** des barres (`barPin`) + fallback CSS — 2026-10-02
+
+Suite au verdict sur QFooter (cf. `warnings.md`).
+
+- **Contrat centralisé** : `lib/layout.ts` exporte `barPin(props, zoneFixed) → { fixed, sticky }`.
+  - `fixed` = **seule** la prop `fixed` (position: fixed, hors flux) ;
+  - `sticky` = prop `sticky` **ou** casse `F`/`H` de la zone (position: sticky).
+  - **`zoneFixed` ne doit JAMAIS produire `fixed`** : pour la footer, `F` est un no-op (dernière
+    rangée) ; le mapper serait _breaking_. C'est précisément ce contrat que le test fige.
+- **Utilisé par `QHeader` et `QFooter`** (une seule source de vérité, comportement inchangé).
+- **Warning** : `QFooter` avertit **une fois** (`console.warn('[q-footer] …')`, style du paquet :
+  `[q-layout]` avertit sans gate) quand `view` contient `F` mais que `fixed` n'est pas posé
+  (no-op silencieux).
+- **CSS** : les fallbacks d'offset passent de `.q-app:has(…)` à
+  `:is(.q-app, .q-config-provider, .q-layout):has(…)` (header **et** footer) → couvre
+  l'installation recommandée ; le chemin mesuré (inline style) garde la priorité.
+- **Docs** : JSDoc de `sticky` (QFooter) réécrite ; `2.layouts/5.footer.md` génère l'API depuis
+  le runtime (donc la JSDoc corrigée suffit) ; `2.layouts/2.app-layout.md` corrigé (2 endroits :
+  la phrase « the case of its letter is enough » et la ligne du tableau « Which shell? »).
+- **Vérif** : `bun test lib` → **374 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+  (Le no-op `F` et l'offset CSS ne sont pas testables sans navigateur — seul le contrat `barPin`
+  l'est, et il l'est.)
+
+## Tokens de thème — `--muted-foreground` + parité clair/sombre — 2026-10-02
+
+Suite au bug dark mode (cf. `warnings.md`).
+
+- **Token ajouté** à la couche `@layer dnax-tokens` : `--muted-foreground` dans `:root`
+  (`rgb(0 0 0 / 0.6)` — **identique** au rendu clair d'avant) **et** en `.dark`
+  (`rgb(255 255 255 / 0.62)`, contraste ≈ 7:1 sur `--card`). Source unique de tous les textes/
+  icônes secondaires : descriptions dialog/sheet, label/prefix/suffix et devise de champ,
+  flèches select/autocomplete, icône de date-picker, fil d'Ariane, overlay/popups de carte,
+  clavier numérique.
+- **Règle** : les tokens **sémantiques** de surface/texte (`--background`, `--foreground`,
+  `--card`, `--muted`, `--muted-foreground`, `--border`) doivent exister dans **les deux** thèmes —
+  un token présent d'un seul côté retombe sur le fallback de l'autre.
+- **CSS dialog (dark)** : bordure des zones sticky → `var(--border)` ; survol du × →
+  `rgb(255 255 255 / 0.08)` (convention des hovers sombres du paquet).
+- **Vérif** : `lib/styleTokens.test.ts` **(nouveau, 5 tests)** qui lit `styles/main.css` (seule
+  vérification possible sans navigateur) et verrouille : présence des deux blocs, **parité** des
+  tokens sémantiques, `--muted-foreground` défini des deux côtés, les deux descriptions qui lisent
+  le token, et l'absence de tout `color: rgb(0 0 0 / 0.6)` littéral.
+  `bun test lib` → **379 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+
+## En-têtes title + description : `padding-top` du titre — 2026-10-02
+
+Demande : « si il y a une prop `description`, alors le title doit avoir un peu de padding top ».
+
+- **Pourquoi** : `QDialogHeader` / `QBottomSheetHeader` enveloppent titre + description dans un
+  `<q-toolbar>` (`min-height: 50px`, `align-items: center`). Sans description le titre est seul
+  (bloc haut) ; **avec** description, le bloc grandit et la toolbar centrée **colle le titre au
+  bord haut**.
+- **Correctif** : classe modificateur `--with-description` posée sur le bloc texte quand une
+  description existe (**prop** ou **slot** `#description`, via le `slotHasContent` existant),
+  et `padding-top: 4px` sur le titre :
+  `.q-dialog__header-text--with-description .q-dialog__title` et
+  `.q-bottom-sheet__header-text--with-description .q-bottom-sheet__title`.
+- **Les deux composants** sont traités (même structure, décrits comme « équivalent QHeader »).
+- **Vérif** : `lib/styleTokens.test.ts` +2 tests **contrat composant ↔ CSS** (la classe doit être
+  posée par le `.vue` **et** stylée par la feuille — une divergence des deux côtés serait un échec
+  silencieux). `bun test lib` → **381 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+  (Le rendu lui-même n'est pas testable sans navigateur.)

@@ -64,6 +64,14 @@ const hasCustomContent = computed(() => {
   return slotHasContent(slots.default?.() ?? [])
 })
 const useCustom = computed(() => !isStandard.value && hasCustomContent.value)
+
+// Une **description** (prop ou slot) rend le bloc titre+description plus haut : la toolbar
+// (min-height 50px, `align-items: center`) collait le titre au bord haut. Le titre reçoit
+// alors un peu de `padding-top` (cf. `.q-dialog__header-text--with-description`).
+const hasDescription = computed(() => {
+  void refresh.value
+  return !!props.description || slotHasContent(slots.description?.() ?? [])
+})
 </script>
 
 <template>
@@ -77,7 +85,10 @@ const useCustom = computed(() => !isStandard.value && hasCustomContent.value)
 
     <!-- Mode standard : toolbar embarqué (title / description / close) -->
     <q-toolbar v-else>
-      <div class="q-dialog__header-text">
+      <div
+        class="q-dialog__header-text"
+        :class="{ 'q-dialog__header-text--with-description': hasDescription }"
+      >
         <h2 v-if="title" class="q-dialog__title">{{ title }}</h2>
         <slot name="title" />
         <p v-if="description" class="q-dialog__description">{{ description }}</p>

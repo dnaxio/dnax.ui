@@ -5,7 +5,7 @@
 // barre se décale sous la précédente automatiquement.
 import { computed, inject, ref } from "vue"
 import { useFixedBarOffset } from "../lib/fixedLayout"
-import { qLayoutKey } from "../lib/layout"
+import { barPin, qLayoutKey } from "../lib/layout"
 
 interface Props {
   /** Fixe la barre en haut de l'écran (sort du flux) */
@@ -29,7 +29,9 @@ const rootEl = ref<HTMLElement | null>(null)
 // par la casse de la lettre (H) — la barre reste alors close dans sa cellule.
 const layout = inject(qLayoutKey, null)
 const zone = computed(() => layout?.zones.value.header)
-const isSticky = computed(() => props.sticky || !!zone.value?.fixed)
+// Même contrat que la footer : seule la prop `fixed` épingle ; la casse `H`/`F` « colle ».
+const pin = computed(() => barPin(props, !!zone.value?.fixed))
+const isSticky = computed(() => pin.value.sticky)
 const layoutStyle = computed<Record<string, string | undefined>>(() => ({
   gridArea: zone.value?.area,
 }))
@@ -49,7 +51,7 @@ const translucentStyle = computed<Record<string, string> | undefined>(() =>
     ref="rootEl"
     class="q-header"
     :class="{
-      'q-header--fixed': fixed,
+      'q-header--fixed': pin.fixed,
       'q-header--sticky': isSticky,
       'q-header--translucent': translucent === true || typeof translucent === 'number',
       'q-header--glass': glass,

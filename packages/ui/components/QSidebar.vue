@@ -180,7 +180,10 @@ let isHorizontal = false
 
 const onPointerDown = (e: PointerEvent) => {
   if (isStatic.value || !open.value || props.disable) return
-  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  // ⚠️ Ne **pas** `setPointerCapture` ici : capturer au `pointerdown` fait retarger le
+  // `click` qui suit vers l'`<aside>` → **aucun** handler interne ne se déclenche (ni le ×
+  // de fermeture, ni les items de menu). La capture est prise uniquement si le geste est
+  // **confirmé horizontal** (cf. `onPointerMove`), donc un vrai clic n'est jamais capturé.
   startX = e.clientX
   startY = e.clientY
   currentDx = 0
@@ -198,6 +201,10 @@ const onPointerMove = (e: PointerEvent) => {
   if (!isHorizontal) {
     if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
       isHorizontal = true
+      // Capture **au moment du swipe confirmé** (et non au pointerdown) : c'est ce qui
+      // laisse le `click` d'un vrai clic atteindre les handlers internes, tout en gardant
+      // les événements du swipe même si le pointeur sort du panneau.
+      rootEl.value.setPointerCapture(e.pointerId)
       rootEl.value.style.transition = "none"
     }
     else return
@@ -210,11 +217,14 @@ const onPointerMove = (e: PointerEvent) => {
   rootEl.value.style.transform = `translateX(${dir === 1 ? travel : -travel}px)`
 }
 
-const onPointerUp = () => {
+const onPointerUp = (e: PointerEvent) => {
   if (!dragging.value) return
   dragging.value = false
   const el = rootEl.value
   if (!el) return
+  // Relâche la capture prise au swipe confirmé (le navigateur le fait aussi en fin de geste ;
+  // on l'explicite pour rester cohérent).
+  if (el.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId)
   el.style.transition = "" // restaure la transition CSS
   const width = el.offsetWidth || parseInt(props.width, 10) || 260
   if (currentDx > Math.min(80, width * 0.3)) {

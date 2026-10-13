@@ -179,3 +179,24 @@ export function parseView(view?: string): LayoutView {
   }
   return parsed
 }
+
+/**
+ * Position d'une **barre** (`q-header` / `q-footer`) dans le modèle scroll-document :
+ * - **`fixed`** — *épinglée* (`position: fixed`), hors flux : **décidée par la seule prop
+ *   `fixed`** ;
+ * - **`sticky`** — *collée* (`position: sticky`) : la prop `sticky` **ou** la casse `F`/`H`
+ *   de la zone.
+ *
+ * ⚠️ **Contrat (ne pas inverser)** : pour la **footer**, la lettre `F` produit bien
+ * `sticky`, mais `position: sticky; bottom: 0` sur la **dernière rangée** du grid est
+ * **sans effet visible** (la barre tombe déjà en fin de page) — contrairement à `H` sur le
+ * header, qui reste collé en haut. Un `F` **minuscule ou majuscule** est donc équivalent.
+ * `zoneFixed` ne doit **jamais** être traduit en `fixed` : ce serait un changement de
+ * sémantique *breaking* (le contenu passerait sous la barre). Seul `fixed` épingle.
+ */
+export function barPin(
+  props: { fixed?: boolean; sticky?: boolean },
+  zoneFixed: boolean,
+): { fixed: boolean; sticky: boolean } {
+  return { fixed: props.fixed === true, sticky: props.sticky === true || zoneFixed }
+}

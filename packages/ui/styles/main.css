@@ -155,14 +155,18 @@ body {
 
 /* Fallback sans mesure JS (SSR, barres pas encore observées) : 50px + safe-area.
    Écrit dans la **variable** d'offset — et non en padding — pour que la hauteur
-   mesurée (style inline, lib/fixedLayout.ts) la remplace dès l'hydratation. */
-.q-app:has(.q-header--fixed) :is(.q-page, .q-page-container) {
+   mesurée (style inline, lib/fixedLayout.ts) la remplace dès l'hydratation.
+   `:is(.q-app, .q-config-provider, .q-layout)` couvre les trois racines possibles :
+   l'installation **recommandée** (QConfigProvider, avec ou sans QLayout) n'utilise pas
+   forcément `.q-app`. Le chemin **mesuré** (`fixedLayout.ts`) retombe déjà sur
+   `.q-app` sinon le parent direct — seul ce fallback CSS était trop restrictif. */
+:is(.q-app, .q-config-provider, .q-layout):has(.q-header--fixed) :is(.q-page, .q-page-container) {
   --q-page-offset: 50px;
   --q-page-offset: calc(constant(safe-area-inset-top) + 50px);
   --q-page-offset: calc(env(safe-area-inset-top) + 50px);
 }
 
-.q-app:has(.q-footer--fixed) :is(.q-page, .q-page-container) {
+:is(.q-app, .q-config-provider, .q-layout):has(.q-footer--fixed) :is(.q-page, .q-page-container) {
   --q-page-offset-bottom: 50px;
   --q-page-offset-bottom: calc(constant(safe-area-inset-bottom) + 50px);
   --q-page-offset-bottom: calc(env(safe-area-inset-bottom) + 50px);
@@ -342,6 +346,9 @@ body {
     --foreground: #1d1d1d;
     --card: #ffffff;
     --muted: #f4f6f9;
+    /* Texte secondaire (descriptions, préfixes, curseurs…) — **défini ici ET en .dark** :
+       tout `var(--muted-foreground, …)` sans définition tombait sur son fallback sombre. */
+    --muted-foreground: rgb(0 0 0 / 0.6);
     --border: rgb(0 0 0 / 0.12);
 
     /* Palette des séries de <q-chart> (convention `--chart-N`, reprise de shadcn) :
@@ -362,6 +369,7 @@ body {
     --foreground: #e6edf3;
     --card: #161b22;
     --muted: #1c2128;
+    --muted-foreground: rgb(255 255 255 / 0.62);
     --border: rgb(255 255 255 / 0.12);
     --q-table-border: rgb(255 255 255 / 0.12);
     --q-table-hover-bg: rgb(255 255 255 / 0.06);
@@ -505,6 +513,11 @@ html.dark body {
 
 .dark .q-separator {
   border-color: var(--border);
+}
+
+/* Séparateur de fil d'Ariane : le noir translucide est invisible en sombre */
+.dark .q-breadcrumbs {
+  --q-breadcrumbs-sep-color: rgb(255 255 255 / 0.42);
 }
 
 /* ===== QBtn ===== */
@@ -2136,12 +2149,12 @@ html.dark body {
   display: block;
   margin-bottom: 2px;
   font-size: 12px;
-  color: rgb(0 0 0 / 0.6);
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
 }
 
 .q-field__prefix,
 .q-field__suffix {
-  color: rgb(0 0 0 / 0.6);
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
   white-space: nowrap;
 }
 
@@ -2335,7 +2348,7 @@ html.dark body {
   font-size: 12px;
   line-height: 1.2;
   text-align: center;
-  color: rgb(0 0 0 / 0.6);
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
 }
 
 .q-image-picker__input {
@@ -2471,7 +2484,7 @@ html.dark body {
 
 .q-file-picker__add-label {
   font-size: 13px;
-  color: rgb(0 0 0 / 0.6);
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
 }
 
 .q-file-picker__input {
@@ -3453,7 +3466,7 @@ html.dark body {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: rgb(0 0 0 / 0.6);
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
 }
 
 .q-table--dark .q-table__rows-select {
@@ -3675,8 +3688,14 @@ html.dark body {
   line-height: 1.4;
 }
 
+/* Bordure du contrôle (état décoché) : noir 45 % en clair → **illisible en sombre**.
+   Couvert par la variante `--dark` du composant (surface sombre explicite) ET par le
+   **mode sombre du thème** (`.dark`), avec la même valeur.
+   L'état coché/indéterminé est stylé en inline (couleur de la prop) — non concerné. */
 .q-checkbox--dark .q-checkbox__box,
-.q-radio--dark .q-radio__circle {
+.q-radio--dark .q-radio__circle,
+.dark .q-checkbox__box,
+.dark .q-radio__circle {
   border-color: rgb(255 255 255 / 0.6);
 }
 
@@ -3701,7 +3720,7 @@ html.dark body {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
-  color: rgb(0 0 0 / 0.6);
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
   transition: transform 0.2s ease;
 }
 
@@ -4164,7 +4183,7 @@ html.dark body {
 /* ===== QBreadcrumbs ===== */
 .q-breadcrumbs {
   --q-breadcrumbs-gutter: 8px;
-  --q-breadcrumbs-color: rgb(0 0 0 / 0.6);
+  --q-breadcrumbs-color: var(--muted-foreground, rgb(0 0 0 / 0.6));
   --q-breadcrumbs-sep-color: rgb(0 0 0 / 0.42);
   --q-breadcrumbs-active-color: var(--primary);
 
@@ -4888,7 +4907,7 @@ a.q-breadcrumbs__el:hover {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
-  color: rgb(0 0 0 / 0.6);
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
   transition: transform 0.2s ease;
 }
 
@@ -5324,6 +5343,12 @@ a.q-breadcrumbs__el:hover {
   min-width: 0;
 }
 
+/* Description présente → le bloc titre+description est plus haut que la toolbar centrée :
+   un peu d'air au-dessus du titre évite qu'il colle au bord haut. */
+.q-bottom-sheet__header-text--with-description .q-bottom-sheet__title {
+  padding-top: 4px;
+}
+
 .q-bottom-sheet__title {
   margin: 0;
   font-size: 17px;
@@ -5334,7 +5359,7 @@ a.q-breadcrumbs__el:hover {
 .q-bottom-sheet__description {
   margin: 4px 0 0;
   font-size: 14px;
-  color: rgb(0 0 0 / 0.6);
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
   line-height: 1.4;
 }
 
@@ -5655,7 +5680,7 @@ a.q-breadcrumbs__el:hover {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
-  color: rgb(0 0 0 / 0.6);
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
 }
 
 .q-date-picker__overlay {
@@ -6946,6 +6971,12 @@ a.q-breadcrumbs__el:hover {
   min-width: 0;
 }
 
+/* Description présente → le bloc titre+description est plus haut que la toolbar centrée :
+   un peu d'air au-dessus du titre évite qu'il colle au bord haut. */
+.q-dialog__header-text--with-description .q-dialog__title {
+  padding-top: 4px;
+}
+
 .q-dialog__title {
   margin: 0;
   font-size: 17px;
@@ -6956,7 +6987,7 @@ a.q-breadcrumbs__el:hover {
 .q-dialog__description {
   margin: 4px 0 0;
   font-size: 14px;
-  color: rgb(0 0 0 / 0.6);
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
   line-height: 1.4;
 }
 
@@ -6977,6 +7008,18 @@ a.q-breadcrumbs__el:hover {
 
 .q-dialog__close:hover {
   background-color: rgb(0 0 0 / 0.06);
+}
+
+/* Mode sombre du dialog : bordure des zones sticky et survol du × — le noir
+   codé en dur (bordure, hover) y est invisible. Convention du paquet :
+   surfaces/hovers sombres en blanc translucide (cf. `.dark .q-btn-actions__item:hover`). */
+.dark .q-dialog__header,
+.dark .q-dialog__footer {
+  border-color: var(--border);
+}
+
+.dark .q-dialog__close:hover {
+  background-color: rgb(255 255 255 / 0.08);
 }
 
 .q-dialog__close svg {

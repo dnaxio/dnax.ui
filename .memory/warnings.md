@@ -1430,3 +1430,116 @@ nom Y est rogné à gauche ».
 - **Vérif** : `lib/chart.axis.test.ts` (rend l'option en **SVG SSR ECharts**, sans navigateur,
   et assert que la boîte du nom tient dans le cadre) ; `bun test lib` → **370 pass / 0 fail** ;
   `cd docui && bun run build` → **EXIT 0**.
+
+## QSidebar — `setPointerCapture` au `pointerdown` retargait le `click` vers l'`<aside>` — 2026-10-02
+
+Signalé : dans la sidebar offcanvas, **ni le bouton × de fermeture ni les items de menu** ne
+réagissaient au clic souris (alors qu'un `.click()` programmatique marchait).
+
+- **Cause racine** : `onPointerDown` appelait `setPointerCapture(e.pointerId)` dès le
+  `pointerdown`. Avec la capture, l'`pointerup` est livré à l'élément capturé, et le **`click`**
+  qui suit est émis sur le **plus proche ancêtre commun** de `pointerdown` (l'élément interne) et
+  de `pointerup` (l'`<aside>` capturé) → le `click` vise l'`<aside>` → les handlers des
+  descendants (×, items) ne s'exécutent jamais. Un `.click()` programmatique ne passe pas par
+  les pointer events → d'oû le côté « aléatoire » (mouse vs script).
+- **Correctif** : ne **plus** capturer au `pointerdown` ; capturer seulement quand le geste est
+  **confirmé horizontal** (`onPointerMove`, quand `isHorizontal` passe à `true`), et relâcher
+  dans `onPointerUp` (`hasPointerCapture` → `releasePointerCapture`). Un vrai clic (sans drag
+  horizontal > 8px) n'est donc jamais capturé → le `click` atteint bien l'élément visé. Un
+  swipe réel (déjà fermant) voit son `click` absorbé — comportement voulu. `touch-action: pan-y`
+  (déjà en CSS) couvre le geste tactile, la capture JS ne sert qu'à garder les events si le
+  pointeur sort du panneau.
+- **Règle** : ne **jamais** `setPointerCapture` au `pointerdown` d'un conteneur qui doit laisser
+  fonctionner les **clics de ses enfants** — différer la capture au moment où le drag est
+  effectivement engagé.
+- **Vérif** : comportement DOM/pointer non testable sans navigateur (règle projet) → correctif
+  vérifié par lecture + `bun test lib` → **370 pass / 0 fail** ;
+  `cd docui && bun run build` → **EXIT 0** ; diagnostics `QSidebar.vue` propres.
+  Démo : `docui/content/docs/2.layouts/6.sidebar.md` (`demo="offcanvas"`, × + items de menu).
+
+## QFooter — la JSDoc de `sticky` mentait (« automatique avec F ») + `F` = no-op silencieux — 2026-10-02
+
+Trois défauts signalés ensemble (l'utilisateur a **raison** sur les trois) :
+
+1. **Doc qui ment (bug)** : la JSDoc de `sticky` disait « colle en bas pendant le scroll
+   (automatique dans un QLayout avec une lettre majuscule) », alors que `lib/layout.ts` et
+   `styles/main.css` disent **l'inverse** : la rangée footer étant la **dernière** du grid, le
+   footer tombe déjà en fin de page → `F`/`f` sont **équivalents** et `sticky` n'a **pas d'effet
+   visible**. Deux sources du même paquet se contredisaient. La doc du site `2.app-layout.md`
+   répétait la même erreur (« the case of its letter in `view` is enough » pour **toute** barre).
+2. **Piège d'API** : `view="…F…"` est **accepté** (la classe `.q-footer--sticky` est posée) mais
+   **inerte** — un dev Quasar qui écrit `fFf` croit épingler. ⚠️ Le correctif naïf (mapper
+   `F` → `--fixed`) serait **breaking** : le contenu passerait sous la barre.
+3. **Fallback CSS trop restrictif** : `.q-app:has(.q-footer--fixed) …` ne couvre pas
+   l'installation **recommandée** `QConfigProvider` (`.q-config-provider`, avec/sans `.q-layout`).
+   Le chemin **mesuré** (`lib/fixedLayout.ts` : `closest(".q-app") ?? parentElement`) tombait juste ;
+   seul le fallback SSR/cold était trop étroit.
+
+- **Statut** : `fixed` **opt-in** est un choix d'architecture assumé (statu quo cohérent) — pas un bug.
+- **Correctifs** : (1) JSDoc réécrite (footer **en fin de page**, `fixed` pour épingler) ;
+  (2) `console.warn` **une fois** si `zone.fixed && !props.fixed` (précédent du paquet :
+  `[q-layout]` avertit sans gate dev) ; (3) sélecteurs élargis à
+  `:is(.q-app, .q-config-provider, .q-layout):has(…)` (header **et** footer).
+- **Vérif** : `lib/layout.test.ts` (4 tests `barPin`, dont « la casse F/H colle mais n'épingle
+  **jamais** ») ; `bun test lib` → **374 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+
+## Dark mode — `--muted-foreground` utilisé partout mais **jamais défini** → textes noirs — 2026-10-02
+
+Signalé : « en mode dark les descriptions des titres de dialog s'affichent en noir ».
+
+- **Cause racine** : la description du dialog était en **noir codé en dur**
+  (`.q-dialog__description { color: rgb(0 0 0 / 0.6) }`), sans token. Plus largement, le paquet
+  utilisait déjà `var(--muted-foreground, <fallback clair>)` à plusieurs endroits mais **le token
+  n'était défini nulle part** (`:root` **et** `.dark` l'ignoraient) → tous ces usages retombaient
+  sur leur fallback **noir** en mode sombre (`.dark .q-dialog__content { color: var(--foreground) }`
+  ne pouvait rien y faire : la règle du composant est plus spécifique).
+- **Classe de bug** : un token sémantique manquant ne casse pas le build — il **fige** le
+  fallback clair dans TOUS les thèmes. À vérifier avant d'écrire `var(--t, fallback)`.
+- **Correctifs (périmètre)** :
+  1. `--muted-foreground` défini dans `:root` (`rgb(0 0 0 / 0.6)` — **identique** au rendu clair
+     existant) **et** `.dark` (`rgb(255 255 255 / 0.62)`). Débloque d'office les usages qui
+     **lisaient déjà** le token : `.q-map__overlay`, popups de carte, `.q-field__currency`,
+     clavier numérique.
+  2. Migration au token des **textes/icônes secondaires en noir codé en dur** (`rgb(0 0 0 / 0.6)`),
+     transparente en clair (valeur identique) : `.q-dialog__description`,
+     `.q-bottom-sheet__description`, `.q-field__label-stack`, `.q-field__prefix/suffix`,
+     `.q-image-picker__add-label`, `.q-file-picker__add-label`, `.q-table__rows-select`,
+     `.q-autocomplete__arrow`, `.q-select__arrow`, `.q-date-picker__field-icon`, et
+     `--q-breadcrumbs-color`.
+  3. Défauts dark de même classe dans le dialog : bordure des zones sticky
+     (`rgb(0 0 0 / 0.08)` invisible → `var(--border)`) et survol du × (noir 6% invisible →
+     `rgb(255 255 255 / 0.08)`, convention des hovers sombres du paquet) ; séparateur de fil
+     d'Ariane → override `.dark` (`rgb(255 255 255 / 0.42)`).
+- **Vérif** : `lib/styleTokens.test.ts` (**5 tests**) — contenu de fichier (seule vérif possible
+  sans navigateur) : parité des tokens sémantiques clair/sombre, `--muted-foreground` défini des
+  deux côtés, les deux descriptions lisent le token, et **plus aucun** `color: rgb(0 0 0 / 0.6)`
+  littéral (lookbehind : `background-color:` contient la sous-chaîne).
+  `bun test lib` → **379 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+
+## Contrôles en dark mode — le variant `--dark` du composant ≠ le **mode sombre du thème** — 2026-10-02
+
+Signalé : « pareil pour checkbox en mode dark ».
+
+- **Symptôme** : l'état **décoché** du checkbox/radio est une bordure **noire codée en dur**
+  (`.q-checkbox__box { border: 2px solid rgb(0 0 0 / 0.45) }`) → quasi **invisible** sur un fond
+  sombre.
+- **Cause racine** : le paquet expose une variante `--dark` **par composant**
+  (`.q-checkbox--dark .q-checkbox__box { border-color: rgb(255 255 255 / 0.6) }`) — c'est une
+  **surface sombre explicite** (prop `dark`), pas le mode sombre du **thème** (classe `.dark` du
+  `QConfigProvider`). Les deux sont indépendants : la variante corrigeait le cas « dark dans une
+  app claire », mais le thème sombre restait cassé. L'état **coché** n'est pas concerné (styles
+  inline posés par la prop `color`).
+- **Piège général** : toute couleur de contrôle codée en dur (`rgb(0 0 0 / X)`) doit être couverte
+  **deux fois** — variante `--dark` (si elle existe) **et** `.dark` (thème). Ne pas supposer que
+  l'une couvre l'autre.
+- **Correctif** : les sélecteurs `.dark` ont été **ajoutés à la règle existante** (même valeur) :
+  `.dark .q-checkbox__box, .dark .q-radio__circle` → `border-color: rgb(255 255 255 / 0.6)`.
+- **Reste à traiter (même littéral `rgb(0 0 0 / 0.45)`, non corrigé — à valider)** : placeholders
+  (`.q-input .q-field__native::placeholder`, `.q-select__display--placeholder`,
+  `.q-select__search-input::placeholder`, `.q-autocomplete__search-input::placeholder`), icônes de
+  champ (`.q-field__icon`), `.q-input-password__toggle`, `.q-file-picker__preview` (texte/icône) ;
+  et la famille décorative `0.3`/`0.35` (`.q-scroll-area__thumb`, `.q-splitter__handle`,
+  `.q-slider__marker`, `.q-swiper` bullets, `.q-reorder__handle`).
+- **Vérif** : `lib/styleTokens.test.ts` +1 test (la bordure claire **et** l'override `.dark`
+  doivent exister). `bun test lib` → **382 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+  (Rendu non vérifiable sans navigateur.)

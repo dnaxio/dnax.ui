@@ -1,6 +1,6 @@
 // Tests unitaires de l'analyse du prop `view` de QLayout (matrice 3×3).
 import { describe, expect, it } from "bun:test"
-import { DEFAULT_LAYOUT_VIEW, parseView } from "./layout"
+import { barPin, DEFAULT_LAYOUT_VIEW, parseView } from "./layout"
 
 describe("parseView", () => {
   it("applique la vue par défaut sans argument", () => {
@@ -121,5 +121,30 @@ describe("parseView", () => {
     expect(v.error).toBeDefined()
     expect(v.zones.page.cells).toEqual([[1, 1]])
     expect(v.gridTemplateAreas).toBe('"h h h" "l p r" "f f f"')
+  })
+})
+
+describe("barPin — contrat header / footer", () => {
+  it("seule la prop `fixed` épingle (position: fixed)", () => {
+    expect(barPin({}, false)).toEqual({ fixed: false, sticky: false })
+    expect(barPin({ fixed: true }, false)).toEqual({ fixed: true, sticky: false })
+    expect(barPin({ fixed: false }, true)).toEqual({ fixed: false, sticky: true })
+  })
+
+  it("la prop `sticky` colle (position: sticky)", () => {
+    expect(barPin({ sticky: true }, false)).toEqual({ fixed: false, sticky: true })
+  })
+
+  it("la casse F/H de la zone colle, mais n'épingle JAMAIS", () => {
+    // `view="hHh LpR fFf"` : la zone footer est « fixed » au sens du parsing…
+    const zoneFixed = parseView("hHh LpR fFf").zones.footer.fixed
+    expect(zoneFixed).toBe(true)
+    // …et pourtant la barre ne doit PAS devenir `position: fixed` : seulement `sticky`
+    // (sans effet visible sur la dernière rangée du grid).
+    expect(barPin({}, zoneFixed)).toEqual({ fixed: false, sticky: true })
+  })
+
+  it("`fixed` l'emporte : épinglé et collé sont indépendants", () => {
+    expect(barPin({ fixed: true, sticky: true }, true)).toEqual({ fixed: true, sticky: true })
   })
 })
