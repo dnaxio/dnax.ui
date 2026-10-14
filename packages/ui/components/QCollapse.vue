@@ -23,6 +23,11 @@ interface Props {
   iconRight?: string
   /** Icône Iconify du chevron (défaut : lucide:chevron-down) */
   expandIcon?: string
+  /**
+   * **Guide vertical** à gauche du contenu (« tirets longs »), aligné sous l'icône du header —
+   * pour une arborescence (groupe + enfants). Suit le thème (`--border`).
+   */
+  guide?: boolean
   headerClass?: string
   /** Hauteur réduite */
   dense?: boolean
@@ -32,6 +37,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   defaultOpened: false,
+  guide: false,
   dense: false,
   disable: false,
   headerClass: "",
@@ -98,7 +104,7 @@ onMounted(measure)
 </script>
 
 <template>
-  <div class="q-collapse">
+  <div class="q-collapse" :class="{ 'q-collapse--guide': guide }">
     <button
       type="button"
       class="q-collapse__header"

@@ -100,6 +100,7 @@ describe("classes de style (composant ↔ CSS)", () => {
       "q-bottom-sheet__header-text--with-description",
       ".q-bottom-sheet__header-text--with-description .q-bottom-sheet__title",
     ],
+    ["components/QCollapse.vue", "q-collapse--guide", ".q-collapse--guide .q-collapse__inner"],
   ]
 
   for (const [file, className, selector] of CONTRACTS) {
@@ -120,4 +121,29 @@ describe("mode sombre des contrôles", () => {
       expect({ selector, present: css.includes(selector) }).toEqual({ selector, present: true })
     }
   })
+})
+
+describe("en-têtes de panneau : safe-area", () => {
+  // La safe-area doit **s'ajouter** au padding de base, jamais le remplacer : sinon, sans
+  // encoche (`env()` = 0), le titre et le × collent au bord haut.
+  const PANEL_HEADERS = [
+    ".q-select__sheet--dialog .q-select__sheet-header",
+    ".q-date-picker__sheet--dialog .q-date-picker__sheet-header",
+    ".q-country-picker__sheet--dialog .q-country-picker__sheet-header",
+  ]
+
+  for (const selector of PANEL_HEADERS) {
+    it(`« ${selector} » ajoute la safe-area à un padding de base`, () => {
+      const block = blockAfter(css, selector)
+      expect({ selector, defined: block !== undefined }).toEqual({ selector, defined: true })
+      expect({ selector, adds: block!.includes("calc(env(safe-area-inset-top) + 16px)") }).toEqual({
+        selector,
+        adds: true,
+      })
+      expect({ selector, bare: block!.includes("padding-top: env(safe-area-inset-top);") }).toEqual({
+        selector,
+        bare: false,
+      })
+    })
+  }
 })

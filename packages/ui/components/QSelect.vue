@@ -60,7 +60,7 @@ import { radiusStyle, radiusValue, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 import { useOverlayBack } from "../lib/overlayBack"
 import { createSearcher } from "../lib/search"
-import { optionsOf, selectionOf } from "../lib/select"
+import { optionsOf, selectionOf, shouldClearSearchOnClose } from "../lib/select"
 
 interface Props {
   /** Valeur sélectionnée : option, valeur (emit-value), ou tableau (multiple) */
@@ -112,6 +112,12 @@ interface Props {
   useSearch?: boolean | UseSearchOptions
   /** Placeholder du champ de recherche (useSearch) */
   searchPlaceholder?: string
+  /**
+   * Efface la recherche saisie à la **fermeture sans sélection** (clic extérieur, backdrop,
+   * Échap, ×). **Désactivé par défaut** : la recherche est conservée et réaffichée à la
+   * réouverture. Même activé, elle n'est effacée qu'en l'absence de valeur sélectionnée.
+   */
+  clearSearchOnClose?: boolean
   /** Mode d'ouverture : inline (dropdown) | modal (centré) | sheet (bottom sheet) | dialog (plein écran) */
   mode?: "inline" | "modal" | "sheet" | "dialog"
   /** Largeur du panneau (modal/sheet) : "300px", "80%"… (par défaut : modal 480px / 90% si écran < 768px, sheet 640px) */
@@ -164,6 +170,8 @@ const props = withDefaults(defineProps<Props>(), {
   mode: "inline",
   offset: 8,
   position: "auto",
+  // Comportement de "reset" de la recherche à la fermeture : **désactivé par défaut**
+  clearSearchOnClose: false,
 })
 
 const emit = defineEmits<{
@@ -532,9 +540,10 @@ const openPopup = () => {
 
 const closePopup = () => {
   open.value = false
-  // Fermeture sans sélection (clic extérieur, backdrop, Échap, ×) : on abandonne la
-  // recherche saisie pour ne pas laisser un filtre fantôme au prochain affichage.
-  if (query.value !== "" && !hasValue.value) {
+  // Fermeture sans sélection (clic extérieur, backdrop, Échap, ×) : la recherche est
+  // **conservée par défaut** (opt-in via `clearSearchOnClose`) — le filtre ne "disparaît"
+  // donc plus tout seul à la réouverture (cf. `shouldClearSearchOnClose`).
+  if (shouldClearSearchOnClose(props.clearSearchOnClose, query.value, hasValue.value)) {
     query.value = ""
     emit("update:inputValue", "")
   }

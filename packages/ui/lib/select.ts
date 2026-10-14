@@ -28,3 +28,18 @@ export const selectionOf = (value: unknown, multiple: boolean): any[] => {
   if (multiple) return Array.isArray(value) ? value : []
   return [value]
 }
+
+/**
+ * La recherche saisie doit-elle être **effacée** à la fermeture du panneau (clic extérieur,
+ * backdrop, Échap, ×) ?
+ *
+ * **Opt-in** (prop `clearSearchOnClose`, désactivée par défaut) : par défaut la recherche est
+ * **conservée** — un `inputValue` vidé à la fermeture n'est pas toujours souhaité (formulaire
+ * qui reprend la saisie, filtre persistant…). Même sous opt-in, on n'efface que s'il n'y a **pas**
+ * de valeur : sinon le champ d'affichage reprendrait le label et la recherche n'aurait plus cours.
+ */
+export const shouldClearSearchOnClose = (
+  enabled: boolean,
+  query: string,
+  hasValue: boolean,
+): boolean => enabled && query !== "" && !hasValue

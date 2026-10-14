@@ -2866,3 +2866,53 @@ Demande : « si il y a une prop `description`, alors le title doit avoir un peu 
   posée par le `.vue` **et** stylée par la feuille — une divergence des deux côtés serait un échec
   silencieux). `bun test lib` → **381 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
   (Le rendu lui-même n'est pas testable sans navigateur.)
+
+## QCollapse — prop `guide` (« tirets longs » / guide vertical) — 2026-10-02
+
+Demande : « une prop qui permet d'avoir ces tirets longs à gauche dans les collapses »
+(capture d'une arborescence : groupe + enfants indentés, trait vertical à gauche).
+
+- **API** : `guide?: boolean` (défaut `false`) sur `QCollapse`. Pose la classe
+  `q-collapse--guide` sur la racine ; la prop est **auto-documentée** dans l'API du site
+  (les Props viennent du runtime, via `<dnax-api>`).
+- **CSS** (une seule règle) : le trait est une `border-left` sur `.q-collapse__inner`, qui porte
+  déjà le padding du contenu :
+  ```css
+  .q-collapse--guide .q-collapse__inner {
+    margin-left: 25px; /* centre de l'icône du header : padding 16 + icône 18 / 2 */
+    padding-left: 12px;
+    border-left: 1px solid var(--border);
+  }
+  ```
+  Aligné sous l'icône du header, contenu décalé d'autant. `--border` → **suit le thème** (clair et
+  sombre) : aucune couleur codée en dur (leçon des correctifs dark précédents).
+- **Usage typique** (démo `guide`) : `QCollapse` + `default-opened` + `icon-left`, enfants en
+  `QList dense` de `QItem clickable` / `QItemSection avatar` (icône), dont un `active`.
+- **Doc** : section « Guide line » avant l'API (`4.components/collapse.md`) + `"guide"` ajouté à
+  l'union de `DnaxDemoCollapse.vue` ; équilibre MDC 6/6.
+- **Vérif** : `lib/styleTokens.test.ts` — contrat **composant ↔ CSS** de `q-collapse--guide`
+  ajouté (la classe doit être posée par le `.vue` **et** stylée par la feuille).
+  `bun test lib` → **383 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+
+## QSelect — prop `clearSearchOnClose` (vidage de la recherche à la fermeture) — 2026-10-02
+
+Demande : « une prop qui permet de dire si au clic extérieur on vide l'input, car ce n'est pas
+voulu dans tous les cas — et par défaut ce comportement doit être **désactivé** ».
+
+- **Comportement précédent** : `closePopup()` vidait **toujours** la recherche saisie (quand
+  aucune valeur n'était sélectionnée) sur **toutes** les fermetures sans sélection — clic
+  extérieur (`onDocMousedown`), backdrop, Échap, ×, `blur`. Non configurable.
+- **API** : `clearSearchOnClose?: boolean`, **défaut `false`** (⚠️ **changement de comportement
+  assumé** : la recherche est désormais **conservée** par défaut à la fermeture). Même activée,
+  elle n'efface que si aucune valeur n'est choisie (sinon le champ doit reprendre le label).
+- **Logique extraite** dans le module partagé `lib/select.ts` → `shouldClearSearchOnClose(enabled,
+query, hasValue)` (pur, testé) : la règle est au même endroit pour les deux composants de
+  sélection, et le défaut est verrouillé par un test.
+- **Non concerné (volontairement)** : la recherche est **toujours** vidée **après une sélection**
+  (`select()`), pour laisser le champ d'affichage reprendre le label — ce n'est pas le cas visé.
+  `QAutocomplete` ne vidait **déjà** rien à la fermeture : aucune prop ajoutée là-bas.
+- **Doc** : `4.components/select.md` — la phrase « clicking outside … discards the typed text »
+  était **devenue fausse** → réécrite (conservé par défaut, `clear-search-on-close` en opt-in).
+  La prop apparaît aussi dans l'API auto-générée (`<dnax-api>`).
+- **Vérif** : `lib/select.test.ts` +2 tests (désactivé → conserve ; activé → efface seulement
+  sans valeur). `bun test lib` → **388 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.

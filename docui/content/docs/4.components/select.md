@@ -162,7 +162,9 @@ target specific object keys and tune fuzziness (`threshold`: `0` exact → `1`
 everything, default `0.4`).
 
 Selecting an option (single selection) **clears the search** so the field shows the
-chosen value; clicking outside with nothing selected also discards the typed text.
+chosen value. **Clicking outside** (backdrop / Esc / ×) **keeps** the typed text by
+default — pass **`clear-search-on-close`** to discard it instead (opt-in: it only
+discards when nothing is selected).
 
 ::prose-show-case
 :dnax-demo-select{demo="search"}

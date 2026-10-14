@@ -3609,6 +3609,15 @@ html.dark body {
   padding: 0 16px;
 }
 
+/* Guide vertical (« tirets longs ») à gauche du contenu : trait aligné sous l'**icône** du
+   header (padding 16px + icône 18px / 2) et contenu décalé d'autant. Suit le thème via
+   `--border` (invisible nulle part : clair comme sombre). */
+.q-collapse--guide .q-collapse__inner {
+  margin-left: 25px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
 /* ===== QCheckbox / QRadio ===== */
 .q-checkbox,
 .q-radio {
@@ -3855,7 +3864,7 @@ html.dark body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 16px 16px 14px;
   border-bottom: 1px solid rgb(0 0 0 / 0.08);
   font-weight: 600;
   font-size: 15px;
@@ -5107,7 +5116,9 @@ a.q-breadcrumbs__el:hover {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 14px 16px;
+  /* Un peu plus d'air en haut (titre + bouton de fermeture) : le panneau a un coin
+     arrondi, 14px des deux côtés collait le titre au bord. Bas inchangé. */
+  padding: 16px 16px 14px;
   border-bottom: 1px solid rgb(0 0 0 / 0.08);
   font-weight: 600;
   font-size: 15px;
@@ -5733,9 +5744,11 @@ a.q-breadcrumbs__el:hover {
 }
 
 .q-date-picker__sheet--dialog .q-date-picker__sheet-header {
-  padding-top: 0;
-  padding-top: constant(safe-area-inset-top);
-  padding-top: env(safe-area-inset-top);
+  /* La safe-area **s'ajoute** au padding de base — sinon le titre et le × collent au bord
+     haut (0 px) sur tout appareil sans encoche (`env()` vaut 0). */
+  padding-top: 16px;
+  padding-top: calc(constant(safe-area-inset-top) + 16px);
+  padding-top: calc(env(safe-area-inset-top) + 16px);
 }
 
 .q-date-picker__sheet-header {
@@ -5743,7 +5756,7 @@ a.q-breadcrumbs__el:hover {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 16px 16px 14px;
   border-bottom: 1px solid rgb(0 0 0 / 0.08);
   font-weight: 600;
   font-size: 15px;
@@ -6211,16 +6224,17 @@ a.q-breadcrumbs__el:hover {
   box-shadow: none;
 }
 .q-country-picker__sheet--dialog .q-country-picker__sheet-header {
-  padding-top: 0;
-  padding-top: constant(safe-area-inset-top);
-  padding-top: env(safe-area-inset-top);
+  /* Safe-area **ajoutée** au padding de base (cf. date-picker). */
+  padding-top: 16px;
+  padding-top: calc(constant(safe-area-inset-top) + 16px);
+  padding-top: calc(env(safe-area-inset-top) + 16px);
 }
 .q-country-picker__sheet-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 16px 16px 14px;
   border-bottom: 1px solid rgb(0 0 0 / 0.08);
   font-weight: 600;
   font-size: 15px;
@@ -8146,9 +8160,11 @@ a.q-breadcrumbs__el:hover {
    En mode sheet avec recherche en bas, c'est le champ qui gère l'inset ;
    sinon (liste seule) c'est la liste. */
 .q-select__sheet--dialog .q-select__sheet-header {
-  padding-top: 0;
-  padding-top: constant(safe-area-inset-top);
-  padding-top: env(safe-area-inset-top);
+  /* Safe-area **ajoutée** au padding de base — en mode plein écran le titre et le ×
+     sont au bord haut ; sans encoche `env()` vaut 0, d'où le padding de repli. */
+  padding-top: 16px;
+  padding-top: calc(constant(safe-area-inset-top) + 16px);
+  padding-top: calc(env(safe-area-inset-top) + 16px);
 }
 
 .q-select__sheet--dialog .q-select__sheet-list,

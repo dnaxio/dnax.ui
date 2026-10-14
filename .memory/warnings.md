@@ -1543,3 +1543,29 @@ Signalé : « pareil pour checkbox en mode dark ».
 - **Vérif** : `lib/styleTokens.test.ts` +1 test (la bordure claire **et** l'override `.dark`
   doivent exister). `bun test lib` → **382 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
   (Rendu non vérifiable sans navigateur.)
+
+## En-têtes de panneau — la safe-area **remplaçait** le padding de base — 2026-10-02
+
+Signalé : « dans les select en mode sheet les bouton close et titre doivent avoir un padding top
+un peu aussi, ou picker date en mode sheet ou modal ».
+
+- **Bug réel trouvé** : les règles safe-area des en-têtes plein écran faisaient
+  `padding-top: 0; padding-top: constant(…); padding-top: env(…)` — la safe-area **remplaçait** le
+  padding de base. Or `env(safe-area-inset-top)` vaut **0** partout où il n'y a pas d'encoche
+  (desktop, Android…) → le titre et le ✗ **collaient au bord haut** (0 px). Concerné :
+  `.q-select__sheet--dialog`, `.q-date-picker__sheet--dialog`, `.q-country-picker__sheet--dialog`.
+- **Correctif** : la safe-area **s'ajoute** — `padding-top: 16px` puis
+  `calc(constant(env) + 16px)` puis `calc(env(…) + 16px)`. Le 1er niveau (valeur nue, non nulle)
+  sert de **repli sans encoche** (`0` n'est un bon repli que si le padding de base est déjà 0).
+- **Rappel** : `.q-dialog__header` en maximisé garde `padding-top: env(…)` seul — c'est **correct**
+  car son padding de base est `0` et le `<q-toolbar>` embarqué (min-height 50px, contenu centré)
+  fournit déjà l'air.
+- **Espacement (demande)** : les en-têtes de panneau (sheet/modal) passent de `14px 16px` à
+  **`16px 16px 14px`** — un peu plus d'air en haut pour le titre + le bouton ✗ (le panneau a un
+  coin arrondi), bas inchangé pour ne pas décaler la recherche / liste. Appliqué aux **4 familles**
+  partageant la même règle : `.q-select__sheet-header`, `.q-autocomplete__sheet-header`,
+  `.q-date-picker__sheet-header`, `.q-country-picker__sheet-header`.
+- **Vérif** : `lib/styleTokens.test.ts` +3 tests (chaque en-tête `--dialog` doit contenir
+  `calc(env(safe-area-inset-top) + 16px)` et **pas** de `padding-top: env(…)` nu).
+  `bun test lib` → **386 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+  (Rendu non vérifiable sans navigateur.)

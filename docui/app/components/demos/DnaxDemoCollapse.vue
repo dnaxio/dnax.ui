@@ -5,7 +5,7 @@ import { ref } from "vue"
 
 defineProps<{
   /** Identifiant de la démo à afficher */
-  demo: "basic" | "icons" | "uncontrolled" | "states" | "custom"
+  demo: "basic" | "icons" | "uncontrolled" | "states" | "custom" | "guide"
 }>()
 
 const openBasic = ref(true)
@@ -60,6 +60,33 @@ const openCustom = ref(false)
         <span class="q-collapse__label">Custom header</span>
       </template>
       <p class="demo-p">Anything goes inside the <code>#header</code> slot.</p>
+    </q-collapse>
+  </div>
+
+  <div v-else-if="demo === 'guide'" class="demo-collapse">
+    <q-collapse label="Gestion administrative" icon-left="lucide:users" guide default-opened>
+      <q-list dense>
+        <q-item clickable>
+          <q-item-section avatar><q-icon name="lucide:user" /></q-item-section>
+          <q-item-section>Dossier personnel</q-item-section>
+        </q-item>
+        <q-item clickable>
+          <q-item-section avatar><q-icon name="lucide:file-pen" /></q-item-section>
+          <q-item-section>Contrats</q-item-section>
+        </q-item>
+        <q-item clickable active>
+          <q-item-section avatar><q-icon name="lucide:users-round" /></q-item-section>
+          <q-item-section>Groupes</q-item-section>
+        </q-item>
+        <q-item clickable>
+          <q-item-section avatar><q-icon name="lucide:git-branch" /></q-item-section>
+          <q-item-section>Organigramme</q-item-section>
+        </q-item>
+        <q-item clickable>
+          <q-item-section avatar><q-icon name="lucide:contact" /></q-item-section>
+          <q-item-section>Annuaire</q-item-section>
+        </q-item>
+      </q-list>
     </q-collapse>
   </div>
 </template>

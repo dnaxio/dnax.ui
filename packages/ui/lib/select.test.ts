@@ -2,7 +2,7 @@
 // Régression : `multiple` + modèle scalaire (`false`) faisait jeter `list.map` et
 // empêchait le popup entier de se rendre.
 import { describe, expect, it } from "bun:test"
-import { optionsOf, selectionOf } from "./select"
+import { optionsOf, selectionOf, shouldClearSearchOnClose } from "./select"
 
 describe("optionsOf", () => {
   it("laisse passer un tableau (même vide)", () => {
@@ -38,5 +38,19 @@ describe("selectionOf", () => {
     expect(selectionOf(false, false)).toEqual([false])
     expect(selectionOf(null, false)).toEqual([])
     expect(selectionOf(undefined, false)).toEqual([])
+  })
+})
+
+describe("shouldClearSearchOnClose", () => {
+  it("désactivé (défaut) → la recherche est CONSERVÉE", () => {
+    expect(shouldClearSearchOnClose(false, "ada", false)).toBe(false)
+    expect(shouldClearSearchOnClose(false, "ada", true)).toBe(false)
+    expect(shouldClearSearchOnClose(false, "", false)).toBe(false)
+  })
+
+  it("activé → efface seulement si une recherche est saisie et aucune valeur choisie", () => {
+    expect(shouldClearSearchOnClose(true, "ada", false)).toBe(true)
+    expect(shouldClearSearchOnClose(true, "", false)).toBe(false) // rien à effacer
+    expect(shouldClearSearchOnClose(true, "ada", true)).toBe(false) // valeur choisie → label
   })
 })

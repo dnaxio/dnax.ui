@@ -142,6 +142,33 @@ const openCustom = ref(false)
 ```
 ::
 
+## Guide line
+
+`guide` draws a **vertical guide line** (French « tirets longs ») down the left of the
+content, aligned under the header icon — the usual look for a group of children
+(menu / tree). It follows the theme (`--border`), clear and dark.
+
+::prose-show-case
+<dnax-demo-collapse demo="guide"></dnax-demo-collapse>
+
+#code
+
+```vue
+<q-collapse label="Gestion administrative" icon-left="lucide:users" guide default-opened>
+  <q-list dense>
+    <q-item clickable>
+      <q-item-section avatar><q-icon name="lucide:user" /></q-item-section>
+      <q-item-section>Dossier personnel</q-item-section>
+    </q-item>
+    <q-item clickable active>
+      <q-item-section avatar><q-icon name="lucide:users-round" /></q-item-section>
+      <q-item-section>Groupes</q-item-section>
+    </q-item>
+  </q-list>
+</q-collapse>
+```
+::
+
 ## API
 
 <dnax-api name="QCollapse"></dnax-api>
