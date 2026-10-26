@@ -203,7 +203,7 @@ export { DEFAULT_LAYOUT_VIEW, parseView, qLayoutKey } from "./lib/layout"
 export type { LayoutView, LayoutZone, LayoutZonePlacement, QLayoutContext } from "./lib/layout"
 export { vRipple } from "./lib/ripple"
 export type { RippleOptions, RippleValue } from "./lib/ripple"
-export { chartToECharts, channelValue, pickFromEvent, tableCsv, tableModel, textValue } from "./lib/chart"
+export { chartToECharts, channelValue, pickFromEvent, tableCsv, tableModel, textValue, tokenCss } from "./lib/chart"
 export type {
   QChartAxis,
   QChartChannel,
@@ -226,6 +226,15 @@ export type {
 } from "./lib/chart"
 export { DEFAULT_CURRENCY, DEFAULT_LOCALE, formatValue } from "./lib/chartFormat"
 export { boxStats, histogram, linearFit, waterfallSteps } from "./lib/chartStats"
+export { cellBarGeometry, cellScale, cellVisualOf, sparklineGeometry } from "./lib/chartTable"
+export type {
+  QChartCellBar,
+  QChartCellKind,
+  QChartCellScale,
+  QChartCellVisual,
+  QChartSparkPoint,
+  QChartSparkline,
+} from "./lib/chartTable"
 export { vTouchPan } from "./lib/touchPan"
 export type { PanDetails, TouchPanHandler, PanDirection } from "./lib/touchPan"
 export { vTouchHold } from "./lib/touchHold"

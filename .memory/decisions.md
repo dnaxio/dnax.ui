@@ -3218,3 +3218,31 @@ Nouvelle surface du traducteur, sans casser l'existant (aucun `format` = aucun c
   `chart.bi.test.ts` = 60 tests et `chart.modules.test.ts` = rendu SVG tree-shaké) ;
   `cd docui && bun run build` → **EXIT 0** ; pages `11.band` … `21.dashboards` +
   `llms.txt` régénéré.
+
+## QChart table — micro-visualisations de cellule (Power BI) — 2026-10-26
+
+`filename: packages/ui/lib/chartTable.ts` (nouveau), `lib/chart.ts`, `components/QChart.vue`
+
+Les colonnes d'une marque `table` acceptent `cell` :
+`bar` (barre de données ancrée à gauche), `delta` (barre divergente depuis 50 %, ▲/▼,
+valeur absolue par défaut), `heat` (barre pleine largeur dont l'opacité suit la valeur) et
+`sparkline` (SVG inline, `field`/`values`, point `last`/`first`/`high`/`low`).
+`cell: true` = `{ type: "bar" }`.
+
+- **Géométrie pure** : `lib/chartTable.ts` — `cellScale` (bornes par colonne, `min`/`max`
+  explicites possibles), `cellBarGeometry` (largeur/gauche en %, `ratio`, `diverging`,
+  `sign`), `sparklineGeometry` (tracé + surface + point, `viewBox` 100×24, valeurs
+  constantes centrées), `cellVisualOf` (normalise `true` → barre).
+- **Modèle** : `tableModel` expose `cellScales` (colonnes visualisées, jamais les
+  sparklines) et `totalValues` (agrégats **bruts**), en plus de `totals` (texte formaté).
+  Le pied de table réutilise les mêmes barres avec ces valeurs brutes.
+- **Rendu** : `QChart.vue` calcule une `RenderedCell` par cellule (`renderCell`) — le
+  template ne fait plus que poser les styles. `tokenCss()` (exporté) transforme un token
+  (`primary`, `chart-1`, `muted-foreground`…) en `var(--token, fallback)`.
+- **Défauts** : opacité `bar` 0.18, `delta` 0.85, `heat` = ratio ; `delta` colore le texte
+  (positif = `color`, négatif = `negativeColor`) ; une colonne `sparkline` n'est **pas
+  triable** par défaut (tableaux non comparables).
+- **Doc/démo** : section « In-cell visualisations » de `09.table.md` + démo
+  `table-cell-visuals` (barres grises, delta bleu/rose, sparklines avec point rose).
+- **Vérif** : `lib/chartTable.test.ts` (**13 tests**) ; `bun test lib` → **553 pass /
+  0 fail** ; `cd docui && bun run build` → **EXIT 0**.

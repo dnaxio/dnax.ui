@@ -1686,3 +1686,19 @@ sur une ligne/colonne supprimée.
   une chaîne avec espace ASCII.
 - **`percent` et `Intl`** : `Intl` multiplie par 100 pour `style: "percent"` ; `formatValue`
   divise donc **avant** pour que `42` → « 42 % » (et non 4 200 %).
+
+## QChart table — pièges des micro-visualisations — 2026-10-26
+
+`filename: packages/ui/lib/chartTable.ts`, `components/QChart.vue`
+
+- Une colonne `sparkline` **n'est pas triable** : `compareCells` comparerait la
+  représentation texte du tableau. `sortable` vaut donc `false` par défaut pour ce type.
+- Les barres du **pied de table** ne peuvent pas réutiliser `row[field]` (le total est un
+  texte) : `tableModel` expose `totalValues` (bruts) à côté de `totals` (formatés).
+- `column.format` reçoit la valeur **absolue** d'un `delta` (la flèche porte le signe) ;
+  pour un total, le texte vient de `totals` (déjà formaté) et n'est pas re-formaté.
+- `tokenCss` ne doit pas avaler les noms de couleur CSS : seuls les tokens connus
+  (`TOKEN_FALLBACKS`) et les noms contenant un tiret (`muted-foreground`) deviennent
+  `var(--…)`.
+- Le rendu d'une barre est un `<span>` absolu **derrière** le texte : garder
+  `position: relative` sur `.q-chart__cell` et `z-index` sur la valeur.

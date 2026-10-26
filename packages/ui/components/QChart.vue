@@ -11,12 +11,15 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue"
-import { chartToECharts, COLOR_TOKENS } from "../lib/chart"
+import { chartToECharts, COLOR_TOKENS, tokenCss } from "../lib/chart"
 import { normalizeCssColor } from "../lib/color"
 import { legendPickOf, nextLegendPick, pickFromEvent, sameSelection, tableCsv, tableModel } from "../lib/chart"
+import { cellBarGeometry, cellVisualOf, sparklineGeometry } from "../lib/chartTable"
+import { formatValue } from "../lib/chartFormat"
 import { useConfigLang } from "../lib/useComponentProps"
 import type {
   QChartAxis,
+  QChartCellVisual,
   QChartColumn,
   QChartLegend,
   QChartMark,
@@ -295,8 +298,11 @@ const columnStyle = (column: QChartColumn) => ({
 })
 
 /** Tri suivant : `asc` → `desc` → aucun (l'ordre d'origine revient) */
+const isSortable = (column: QChartColumn) =>
+  column.sortable ?? cellVisualOf(column.cell)?.type !== "sparkline"
+
 const toggleSort = (column: QChartColumn) => {
-  if (column.sortable === false) return
+  if (!isSortable(column)) return
   const base =
     sortState.value ??
     (tableMark.value?.sortBy
@@ -315,8 +321,8 @@ const sortIndicator = (column: QChartColumn) => {
 }
 
 const sortTitle = (column: QChartColumn) => {
-  if (column.sortable === false) return ""
-  return sortIndicator(column) === "\u2191" ? t("sortDescending") : t("sortAscending")
+  if (!isSortable(column)) return ""
+  return sortIndicator(column) === "↑" ? t("sortDescending") : t("sortAscending")
 }
 
 const goPage = (delta: number) => {
@@ -376,12 +382,102 @@ const isSelected = (row: any) => {
   return key !== undefined && !!selected && typeof selected === "object" && String(selected.name) === String(key)
 }
 
-/** Valeur affichée d'une cellule : `format` de la colonne sinon la valeur telle quelle */
-const cellValue = (column: QChartColumn, row: any) => {
-  const value = row?.[column.field]
-  const formatted = column.format?.(value, row)
-  if (formatted !== undefined) return formatted
-  return value === null || value === undefined ? "" : String(value)
+// ─── Micro-visualisations de cellule (barres / delta / heat / sparkline) ──────
+
+/** Cellule prête à rendre (le composant ne calcule plus rien dans le template) */
+interface RenderedCell {
+  kind: "text" | "bar" | "delta" | "heat" | "sparkline"
+  text: string
+  bar?: { style: Record<string, string | number> }
+  textStyle?: Record<string, string>
+  arrow?: string
+  spark?: { path: string; areaPath: string; marker?: { x: number; y: number } }
+  lineColor: string
+  pointColor: string
+  area: boolean
+}
+
+/** Couleur CSS d'un token (`primary` → `var(--primary, #1976d2)`) ou d'une couleur libre */
+const cssColor = (value: string | undefined, fallback: string) => tokenCss(value, fallback)
+
+/** Rend une cellule : texte + (optionnellement) une barre, un delta ou une sparkline.
+ *
+ *  `override` sert à la ligne de **totaux** : on lui donne la valeur brute agrégée et le
+ *  texte déjà formaté par `tableModel`. */
+const renderCell = (
+  column: QChartColumn,
+  row: any,
+  override?: { value?: any; text?: string },
+): RenderedCell => {
+  const visual: QChartCellVisual | undefined = cellVisualOf(column.cell)
+  const rawValue = override ? override.value : row?.[column.field]
+  const numeric = typeof rawValue === "number" && Number.isFinite(rawValue)
+  /** Un `delta` affiche la valeur **absolue** : la flèche porte le signe */
+  const shown = visual?.type === "delta" && visual.absolute !== false && numeric ? Math.abs(rawValue) : rawValue
+  const text =
+    override?.text ??
+    column.format?.(shown, row) ??
+    (visual?.format ? formatValue(shown, visual.format, { locale: locale.value }) : undefined) ??
+    // Sparkline : le texte de repli (accessibilité, CSV) est la **dernière valeur**
+    (Array.isArray(shown)
+      ? shown.length
+        ? String(shown[shown.length - 1])
+        : ""
+      : shown === null || shown === undefined
+        ? ""
+        : String(shown))
+
+  if (visual?.type === "sparkline") {
+    const series = override
+      ? undefined
+      : visual.values
+        ? visual.values(row)
+        : visual.field
+          ? row?.[visual.field]
+          : undefined
+    const spark = sparklineGeometry(Array.isArray(series) ? series : [], { point: visual.point ?? "last" })
+    return {
+      kind: "sparkline",
+      text,
+      spark,
+      lineColor: cssColor(visual.color, "var(--muted-foreground, #71717a)"),
+      pointColor: cssColor(visual.pointColor ?? visual.negativeColor, "var(--negative, #c10015)"),
+      area: visual.area === true,
+    }
+  }
+
+  if (visual) {
+    const scale = table.value?.cellScales?.[column.field]
+    const bar = numeric && scale ? cellBarGeometry(rawValue, visual, scale) : undefined
+    const positive = cssColor(
+      visual.color,
+      visual.type === "delta" ? "var(--primary, #1976d2)" : "var(--muted-foreground, #71717a)",
+    )
+    const negative = cssColor(visual.negativeColor, "var(--negative, #c10015)")
+    if (bar) {
+      const color = bar.sign < 0 ? negative : positive
+      const opacity = visual.opacity ?? (visual.type === "delta" ? 0.85 : visual.type === "heat" ? bar.ratio : 0.18)
+      const showArrow = (visual.arrow ?? visual.type === "delta") && bar.sign !== 0
+      return {
+        kind: visual.type,
+        text,
+        bar: { style: { left: `${bar.left}%`, width: `${bar.width}%`, background: color, opacity } },
+        ...(visual.type === "delta" && bar.sign !== 0 ? { textStyle: { color } } : {}),
+        ...(showArrow ? { arrow: bar.sign > 0 ? "▲" : "▼" } : {}),
+        lineColor: color,
+        pointColor: negative,
+        area: false,
+      }
+    }
+  }
+
+  return {
+    kind: "text",
+    text,
+    lineColor: "currentColor",
+    pointColor: "var(--negative, #c10015)",
+    area: false,
+  }
 }
 
 /** Sélection émise pour un élément — avec la même règle de re-clic que le reste */
@@ -610,7 +706,7 @@ defineExpose({
             :key="column.field"
             :style="columnStyle(column)"
             :title="sortTitle(column)"
-            :class="{ 'is-sortable': column.sortable !== false }"
+            :class="{ 'is-sortable': isSortable(column) }"
             :aria-sort="sortIndicator(column) === '↑' ? 'ascending' : sortIndicator(column) === '↓' ? 'descending' : 'none'"
             @click="toggleSort(column)"
           >
@@ -628,14 +724,76 @@ defineExpose({
           @click="pickRow(row, index)"
         >
           <td v-for="column in table.columns" :key="column.field" :style="columnStyle(column)">
-            {{ cellValue(column, row) }}
+            <div
+              v-for="cell in [renderCell(column, row)]"
+              :key="column.field"
+              class="q-chart__cell"
+              :class="{
+                'q-chart__cell--num': column.align === 'end',
+                'q-chart__cell--delta': cell.kind === 'delta',
+                'q-chart__cell--sparkline': cell.kind === 'sparkline',
+              }"
+              :role="cell.kind === 'sparkline' ? 'img' : undefined"
+              :aria-label="cell.kind === 'sparkline' ? cell.text : undefined"
+              :title="cell.kind === 'sparkline' ? cell.text : undefined"
+            >
+              <span v-if="cell.bar" class="q-chart__cell-bar" :style="cell.bar.style" aria-hidden="true" />
+              <svg
+                v-if="cell.kind === 'sparkline' && cell.spark"
+                class="q-chart__spark"
+                viewBox="0 0 100 24"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <path v-if="cell.area" :d="cell.spark.areaPath" :fill="cell.lineColor" opacity="0.15" />
+                <path
+                  :d="cell.spark.path"
+                  fill="none"
+                  :stroke="cell.lineColor"
+                  stroke-width="1.5"
+                  vector-effect="non-scaling-stroke"
+                />
+                <circle
+                  v-if="cell.spark.marker"
+                  :cx="cell.spark.marker.x"
+                  :cy="cell.spark.marker.y"
+                  r="2.4"
+                  :fill="cell.pointColor"
+                />
+              </svg>
+              <span
+                v-if="cell.kind !== 'sparkline' || !cell.spark"
+                class="q-chart__cell-value"
+                :style="cell.textStyle"
+              >
+                {{ cell.text }}<span v-if="cell.arrow" class="q-chart__cell-arrow">{{ cell.arrow }}</span>
+              </span>
+            </div>
           </td>
         </tr>
       </tbody>
       <tfoot v-if="table.totals">
         <tr>
           <td v-for="column in table.columns" :key="column.field" :style="columnStyle(column)">
-            {{ table.totals[column.field] ?? "" }}
+            <div
+              v-for="cell in [
+                renderCell(column, undefined, {
+                  value: table.totalValues?.[column.field],
+                  text: table.totals?.[column.field] ?? '',
+                }),
+              ]"
+              :key="column.field"
+              class="q-chart__cell"
+              :class="{
+                'q-chart__cell--num': column.align === 'end',
+                'q-chart__cell--delta': cell.kind === 'delta',
+              }"
+            >
+              <span v-if="cell.bar" class="q-chart__cell-bar" :style="cell.bar.style" aria-hidden="true" />
+              <span class="q-chart__cell-value" :style="cell.textStyle">
+                {{ cell.text }}<span v-if="cell.arrow" class="q-chart__cell-arrow">{{ cell.arrow }}</span>
+              </span>
+            </div>
           </td>
         </tr>
       </tfoot>
@@ -746,6 +904,63 @@ defineExpose({
 .q-chart--table tbody tr.is-selected {
   box-shadow: inset 2px 0 0 var(--primary, #2563eb);
   background: var(--accent, #f4f4f5);
+}
+
+/* ─── Micro-visualisations de cellule (barres, delta, sparkline) ─── */
+.q-chart__cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+}
+
+.q-chart__cell--num {
+  justify-content: flex-end;
+}
+
+.q-chart__cell-bar {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 0;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.q-chart__cell-value {
+  position: relative;
+  z-index: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* `delta` : axe médian, les barres divergent de part et d'autre */
+.q-chart__cell--delta::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 50%;
+  width: 1px;
+  background: var(--border, #e4e4e7);
+}
+
+.q-chart__cell-arrow {
+  margin-left: 4px;
+  font-size: 9px;
+  vertical-align: 1px;
+}
+
+.q-chart__cell--sparkline {
+  justify-content: stretch;
+}
+
+.q-chart__spark {
+  display: block;
+  width: 100%;
+  height: 22px;
+  min-width: 46px;
+  overflow: visible;
 }
 
 .q-chart__empty {

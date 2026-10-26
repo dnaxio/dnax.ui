@@ -2166,3 +2166,21 @@ masque laissent voir la surface réelle derrière, **quelle que soit sa couleur*
 - `histogram`, `boxStats`, `linearFit`, `waterfallSteps`, `percentShares`,
   `categoryTotals` (`lib/chartStats.ts`) — réutilisables hors graphique.
 - `tableModel` / `tableCsv` (`lib/chart.ts`) — tri, pagination, totaux, CSV.
+
+## QChart table — micro-visualisations (`column.cell`) — 2026-10-26
+
+`filename: docui/content/docs/5.charts/09.table.md`
+
+```ts
+{ field: 'orders', label: 'Orders', align: 'end', summary: 'sum',
+  cell: { type: 'bar', color: 'muted-foreground' } }
+{ field: 'target', label: 'vs Target (Δ)', cell: { type: 'delta', negativeColor: 'negative' } }
+{ field: 'trend', label: 'Trend', cell: { type: 'sparkline', field: 'trend', point: 'last' } }
+```
+
+- Les échelles sont calculées sur les lignes **visibles** (jointure + tri) ; `min`/`max`
+  forcent l'échelle.
+- `sparkline` lit `cell.field` (tableau de nombres dans la ligne) ou `cell.values(row)`.
+- Le total d'une colonne sparkline est vide (pas d'agrégat d'un tableau).
+- Couleurs : tokens dnax (`primary`, `chart-1`, `muted-foreground`) ou CSS.
+- Pour une **jauge de progression** simple, `{ type: 'bar', max: 100 }` suffit.

@@ -32,8 +32,11 @@
 import { axisFormatter, DEFAULT_LOCALE, formatValue, timeTickFormatter } from "./chartFormat"
 import type { QChartFormat } from "./chartFormat"
 import { boxStats, categoryTotals, histogram, linearFit, waterfallSteps } from "./chartStats"
+import { cellScale, cellVisualOf } from "./chartTable"
+import type { QChartCellScale, QChartCellVisual } from "./chartTable"
 
 export type { QChartFormat, QChartFormatKind, QChartFormatOptions } from "./chartFormat"
+export type { QChartCellKind, QChartCellScale, QChartCellVisual } from "./chartTable"
 
 /** Valeur d'un canal : nom de champ, valeurs explicites ou fonction d'accès */
 export type QChartChannel = string | readonly any[] | ((d: any, i: number) => any) | number
@@ -94,6 +97,9 @@ export interface QChartColumn {
   sortable?: boolean
   /** Agrégat de la ligne de **totaux** (`sum`, `avg`, `min`, `max`, `count`) */
   summary?: "sum" | "avg" | "min" | "max" | "count"
+  /** **Micro-visualisation** de la cellule (façon Power BI) : barre de données, barre
+   *  divergente `delta`, intensité `heat` ou `sparkline`. `true` = barre de données. */
+  cell?: QChartCellVisual | boolean
 }
 
 /** Séparateurs d'une marque `table` : `horizontal` (défaut — un trait sous chaque rangée),
@@ -118,6 +124,10 @@ export interface QChartTable {
   sortDesc?: boolean
   /** Ligne de **totaux** déjà formatée (clé = champ) */
   totals?: Record<string, string>
+  /** Valeurs **brutes** des agrégats de la ligne de totaux (pour ses barres de cellule) */
+  totalValues?: Record<string, number>
+  /** Bornes par colonne, calculées sur les lignes visibles (barres / heat / delta) */
+  cellScales?: Record<string, QChartCellScale>
 }
 
 /** État de vue d'une table (tri / page), piloté par le composant */
@@ -138,14 +148,16 @@ function compareCells(a: any, b: any): number {
   return sa < sb ? -1 : sa > sb ? 1 : 0
 }
 
-/** Agrège une colonne pour la ligne de totaux (`undefined` = pas d'agrégat) */
-function summarize(column: QChartColumn, rows: any[]): string | undefined {
+/** Agrège une colonne pour la ligne de totaux (`undefined` = pas d'agrégat).
+ *  Renvoie la valeur **brute** (pour les barres du pied de table) et son texte formaté. */
+function aggregate(column: QChartColumn, rows: any[]): { value?: number; formatted?: string } | undefined {
   const raw = rows.map((row) => row?.[column.field])
   const nums = raw.filter((v): v is number => typeof v === "number" && Number.isFinite(v))
-  const mode = column.summary ?? (nums.length === raw.filter((v) => v !== null && v !== undefined).length && nums.length > 0 ? "sum" : undefined)
+  const nonEmpty = raw.filter((v) => v !== null && v !== undefined).length
+  const mode = column.summary ?? (nums.length === nonEmpty && nums.length > 0 ? "sum" : undefined)
   if (!mode) return undefined
-  if (mode === "count") return String(rows.length)
-  if (nums.length === 0) return ""
+  if (mode === "count") return { value: rows.length, formatted: String(rows.length) }
+  if (nums.length === 0) return { formatted: "" }
   const value =
     mode === "sum"
       ? nums.reduce((s, v) => s + v, 0)
@@ -154,7 +166,10 @@ function summarize(column: QChartColumn, rows: any[]): string | undefined {
         : mode === "min"
           ? Math.min(...nums)
           : Math.max(...nums)
-  return column.format ? column.format(value, undefined) : String(Number(value.toPrecision(12)))
+  return {
+    value,
+    formatted: column.format ? column.format(value, undefined) : String(Number(value.toPrecision(12))),
+  }
 }
 
 /** Modèle d'une marque `table` : colonnes déclarées ou déduites des lignes, lignes jointes à la
@@ -198,14 +213,36 @@ export function tableModel(
 
   // ── Totaux (sur toutes les lignes visibles, pas seulement la page) ──
   let totals: Record<string, string> | undefined
+  let totalValues: Record<string, number> | undefined
   if (mark.totals) {
     const label = typeof mark.totals === "object" ? (mark.totals.label ?? "") : ""
     const out: Record<string, string> = {}
+    const raw: Record<string, number> = {}
     columns.forEach((column, i) => {
-      const value = i === 0 && label ? label : summarize(column, sorted)
-      if (value !== undefined) out[column.field] = value
+      const agg = aggregate(column, sorted)
+      if (i === 0 && label) out[column.field] = label
+      else if (agg?.formatted !== undefined) out[column.field] = agg.formatted
+      if (agg?.value !== undefined) raw[column.field] = agg.value
     })
     if (Object.keys(out).length) totals = out
+    if (Object.keys(raw).length) totalValues = raw
+  }
+
+  // ── Échelles des micro-visualisations (barres / heat / delta) ──
+  let cellScales: Record<string, QChartCellScale> | undefined
+  const visualColumns = columns.filter((column) => {
+    const visual = cellVisualOf(column.cell)
+    return !!visual && visual.type !== "sparkline"
+  })
+  if (visualColumns.length) {
+    cellScales = {}
+    for (const column of visualColumns) {
+      const visual = cellVisualOf(column.cell)!
+      cellScales[column.field] = cellScale(
+        sorted.map((row) => row?.[column.field]),
+        visual,
+      )
+    }
   }
 
   // ── Pagination ──
@@ -228,6 +265,8 @@ export function tableModel(
     model.allRows = sorted
   }
   if (totals) model.totals = totals
+  if (totalValues) model.totalValues = totalValues
+  if (cellScales) model.cellScales = cellScales
   return model
 }
 
@@ -1026,6 +1065,18 @@ const TOKEN_FALLBACKS: Record<string, string> = {
 }
 
 const isToken = (v: any): v is string => typeof v === "string" && v in TOKEN_FALLBACKS
+
+/** Couleur de **cellule de table** (CSS) : un token `primary` / `chart-1` devient
+ *  `var(--primary, #1976d2)` ; toute autre valeur CSS est rendue telle quelle.
+ *  Les tokens d'un thème hôte qui ne sont pas dans `TOKEN_FALLBACKS` (ex. `muted-foreground`)
+ *  sont acceptés dès qu'ils contiennent un tiret — on leur donne `fallback` pour repli. */
+export function tokenCss(value: string | undefined, fallback = "currentColor"): string {
+  if (!value) return fallback
+  if (isToken(value) || /^[a-z][a-z0-9-]*-[a-z0-9-]+$/i.test(value)) {
+    return `var(--${value}, ${TOKEN_FALLBACKS[value] ?? fallback})`
+  }
+  return value
+}
 
 /** Style de l'info-bulle : carte translucide floutée (verre), rayon 3px, ombre portée.
  *  `var(--card)` rend la surface solidaire du thème hôte (clair/sombre) sans relecture. */

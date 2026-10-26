@@ -48,6 +48,7 @@ defineProps<{
     | "band"
     | "compact"
     | "bi-table"
+    | "table-cell-visuals"
     | "gauge"
     | "funnel"
     | "radar"
@@ -327,6 +328,19 @@ const funnelRows = [
   { stage: "Signups", value: 540 },
   { stage: "Trials", value: 210 },
   { stage: "Paid", value: 96 },
+]
+
+// `table-cell-visuals` : micro-visualisations de cellule (barres, delta vs cible, sparklines)
+const productRows = [
+  { type: "Life Support", orders: 111_279_893, target: 32_000_764, trend: [22, 24, 23, 26, 25, 28, 27, 30, 29, 32, 31, 33] },
+  { type: "Hull & Shields", orders: 100_253_815, target: -11_384_881, trend: [38, 36, 35, 37, 34, 33, 35, 32, 30, 31, 29, 28] },
+  { type: "Projectiles", orders: 98_625_703, target: 1_873_870, trend: [12, 13, 12, 14, 15, 14, 16, 15, 17, 16, 18, 17] },
+  { type: "Fuel & Piping", orders: 44_397_154, target: 2_838_728, trend: [20, 21, 20, 22, 21, 23, 22, 24, 23, 25, 24, 26] },
+  { type: "Structural", orders: 41_162_408, target: 6_590_646, trend: [10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16] },
+  { type: "Engine & Propulsion", orders: 41_011_306, target: 5_181_019, trend: [30, 28, 29, 27, 28, 26, 27, 25, 26, 24, 25, 23] },
+  { type: "Planetary Systems", orders: 33_509_986, target: -1_966_911, trend: [18, 19, 18, 17, 18, 16, 17, 15, 16, 14, 15, 13] },
+  { type: "Modules", orders: 29_549_228, target: -34_608, trend: [9, 9, 8, 9, 8, 8, 7, 8, 7, 7, 6, 7] },
+  { type: "Electrical", orders: 18_304_485, target: 316_044, trend: [5, 6, 5, 6, 6, 7, 6, 7, 7, 8, 7, 8] },
 ]
 </script>
 
@@ -1025,6 +1039,49 @@ const funnelRows = [
             { field: 'month', label: 'Month', width: 110 },
             { field: 'revenue', label: 'Revenue', align: 'end', summary: 'sum' },
             { field: 'cost', label: 'Cost', align: 'end', summary: 'sum' },
+          ],
+        },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'table-cell-visuals'" class="demo-chart">
+    <q-chart
+      title="Product hierarchy"
+      exportable
+      :height="365"
+      :marks="[
+        {
+          type: 'table',
+          data: productRows,
+          totals: { label: 'Total' },
+          columns: [
+            { field: 'type', label: 'Type' },
+            {
+              field: 'orders',
+              label: 'Orders MTD ($)',
+              align: 'end',
+              width: 180,
+              summary: 'sum',
+              cell: { type: 'bar', color: 'muted-foreground' },
+              format: (v) => Number(v).toLocaleString('en-US'),
+            },
+            {
+              field: 'target',
+              label: 'vs. Target (Δ)',
+              align: 'end',
+              width: 180,
+              summary: 'sum',
+              cell: { type: 'delta', color: 'chart-1', negativeColor: 'negative' },
+              format: (v) => Number(v).toLocaleString('en-US'),
+            },
+            {
+              field: 'trend',
+              label: 'Trend (Δ)',
+              align: 'end',
+              width: 150,
+              cell: { type: 'sparkline', color: 'muted-foreground', pointColor: 'negative', point: 'last' },
+            },
           ],
         },
       ]"
