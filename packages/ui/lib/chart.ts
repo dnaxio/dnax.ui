@@ -1394,13 +1394,13 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
           return formatText(share, { ...(typeof m.labelFormat === "object" ? m.labelFormat : {}), style: "percent" })
         }
       } else if (stackGroupOf(m) && percentGroups.has(stackGroupOf(m)!)) {
-        formatter = "{c}%"
+        formatter = (p: any) => formatText(Number(ordinateOfPoint(p) ?? 0), "percent")
       } else {
         formatter = (p: any) => {
           const total = labelTotalsOf(m).get(String(categoryOfPoint(p))) ?? 0
           const value = Number(ordinateOfPoint(p) ?? 0)
           const share = total === 0 ? 0 : (Math.abs(value) / Math.abs(total)) * 100
-          return `${Math.round(share * 10) / 10} %`
+          return formatText(share, "percent")
         }
       }
     } else if (m.labelFormat) {
@@ -1559,11 +1559,14 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
         const column = columnIndex.get(String(solveX(m.x, m, i)))
         const row = rowIndex.get(String(channelValue(m.y, data, i)))
         if (column === undefined || row === undefined) continue
+        // Valeur manquante en mode numérique : la case reste **vide** (et transparente)
+        const missing = numeric && (typeof raw[i] !== "number" || !Number.isFinite(raw[i]))
         const cell: Record<string, any> = {
           // Nom de la cellule → l'info-bulle ECharts par défaut (« ligne · colonne »)
           name: `${rowCategories[row]} · ${categories[column]}`,
-          value: [column, row, numeric ? raw[i] : 1],
+          value: [column, row, numeric ? (missing ? NaN : raw[i]) : 1],
         }
+        if (missing) cell.itemStyle = { opacity: 0 }
         if (m.title !== undefined) cell.tooltip = { formatter: String(channelValue(m.title, data, i)) }
         cells.push(cell)
       }
@@ -1793,6 +1796,11 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
         const parent = parentName !== undefined && parentName !== null ? nodes.get(String(parentName)) : undefined
         if (parent && parent !== node) (parent.children ??= []).push(node)
         else roots.push(node)
+      }
+      // Un nœud **interne** tient sa surface de ses enfants : sa valeur explicite (souvent 0)
+      // fausserait le calcul, on la retire.
+      for (const node of nodes.values()) {
+        if (node.children?.length && !node.value) delete node.value
       }
       series.push({
         type: m.type,

@@ -3214,7 +3214,7 @@ Nouvelle surface du traducteur, sans casser l'existant (aucun `format` = aucun c
   (`visualMap.dimension = 2`). `line`/`area` gagnent `connectNulls` et `smooth`.
 - **Testabilité** : tout le calcul reste dans `lib/` (`chartFormat`, `chartStats`), le
   traducteur reste **pur** (ni DOM ni `getComputedStyle`).
-- **Vérif** : `bun test lib` → **539 pass / 0 fail** (29 fichiers, dont
+- **Vérif** : `bun test lib` → **540 pass / 0 fail** (29 fichiers, dont
   `chart.bi.test.ts` = 60 tests et `chart.modules.test.ts` = rendu SVG tree-shaké) ;
   `cd docui && bun run build` → **EXIT 0** ; pages `11.band` … `21.dashboards` +
   `llms.txt` régénéré.

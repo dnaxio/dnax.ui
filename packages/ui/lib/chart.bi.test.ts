@@ -645,6 +645,23 @@ describe("marques P1 : forme de l'option", () => {
     expect(chart.series[0].data.reduce((s: number, d: any) => s + d.value, 0)).toBe(8)
   })
 
+  it("heatmap : une valeur manquante laisse la case vide", () => {
+    const chart = option([
+      {
+        type: "heatmap",
+        data: [
+          { hour: "9h", day: "Mon", v: 1 },
+          { hour: "12h", day: "Mon", v: null },
+        ],
+        x: "hour",
+        y: "day",
+        fill: "v",
+      },
+    ])
+    expect(chart.series[0].data[1].itemStyle).toEqual({ opacity: 0 })
+    expect(Number.isNaN(chart.series[0].data[1].value[2])).toBe(true)
+  })
+
   it("cascade : barres flottantes, totaux et connecteurs", () => {
     const rows = [
       { step: "Start", delta: 100 },

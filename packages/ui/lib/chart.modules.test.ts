@@ -64,7 +64,7 @@ const THEME = { text: "#111111", muted: "#666666", grid: "#e5e5e5" }
 
 const render = (config: QChartConfig) => {
   const chart = echarts.init(null as any, null, { renderer: "svg", ssr: true, width: 420, height: 280 })
-  chart.setOption(chartToECharts({ marks: [], theme: THEME, ...config }))
+  chart.setOption(chartToECharts({ theme: THEME, ...config, marks: config.marks ?? [] }))
   const svg = chart.renderToSVGString()
   chart.dispose()
   return svg
