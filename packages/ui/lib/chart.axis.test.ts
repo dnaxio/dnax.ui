@@ -28,7 +28,7 @@ function renderSvg(config: Record<string, any>, width: number, height: number): 
     width,
     height,
   })
-  chart.setOption(chartToECharts({ theme: THEME, ...config }))
+  chart.setOption(chartToECharts({ marks: [], theme: THEME, ...config }))
   const svg = chart.renderToSVGString()
   chart.dispose()
   return svg

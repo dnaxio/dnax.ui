@@ -35,6 +35,7 @@ import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
+import QSelect from "./QSelect.vue"
 
 interface Props {
   /** Lignes de données */
@@ -164,6 +165,13 @@ const rowsPerPage = computed({
   get: () => pagination.value.rowsPerPage,
   set: (v) => setPagination({ page: 1, rowsPerPage: v }),
 })
+
+/** Libellé d'une option « lignes par page » (0 = tout afficher).
+ *  Reçoit l'option normalisée par QSelect (`{ value, label }`) ou la valeur brute. */
+const rowsPerPageOptionLabel = (opt: any): string => {
+  const value = opt !== null && typeof opt === "object" ? opt.value : opt
+  return value === 0 ? "All" : String(value)
+}
 const sortBy = computed(() => pagination.value.sortBy)
 const descending = computed(() => pagination.value.descending)
 
@@ -729,12 +737,18 @@ const virtual = computed(() => {
       <slot name="bottom" />
       <div class="q-table__pagination">
         <span class="q-table__range">{{ rangeLabel }}</span>
-        <label class="q-table__rows-select">
-          Rows per page
-          <select :value="rowsPerPage" @change="(e) => (rowsPerPage = Number((e.target as HTMLSelectElement).value))">
-            <option v-for="n in rowsPerPageOptions" :key="n" :value="n">{{ n === 0 ? 'All' : n }}</option>
-          </select>
-        </label>
+        <div class="q-table__rows-select">
+          <span>Rows per page</span>
+          <q-select
+            v-model="rowsPerPage"
+            class="q-table__rows-field"
+            :options="rowsPerPageOptions"
+            :option-label="rowsPerPageOptionLabel"
+            emit-value
+            dense
+            aria-label="Rows per page"
+          />
+        </div>
         <div class="q-table__page-nav">
           <button
             type="button"

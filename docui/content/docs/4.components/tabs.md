@@ -289,6 +289,47 @@ const transitionDuration = ref(350)
 ```
 ::
 
+### Scroll arrows
+
+When the tabs **overflow** their container, `show-arrows` (default `true` — the Quasar
+behaviour) makes the row **scrollable**: two **round buttons overlaid** on the edges scroll
+by ~60 % of the visible width, and the tabs slide underneath them. Both stay visible while
+the row overflows — the side with nothing left to scroll is **disabled** (faded).
+
+Each edge that still has tabs to reveal **fades out** under its arrow. The fade is a pure
+alpha mask (`transparent → opaque`), so it renders **identically in light and dark themes**
+and needs no background colour — it simply reveals whatever surface the tabs sit on. Pass
+`:show-arrows="false"` to keep the previous behaviour (no scrolling, no fade).
+
+Works on both axes: horizontal tabs get ‹ › and `vertical` tabs get ⌃ ⌄.
+
+::prose-show-case
+:dnax-demo-tabs{demo="arrows"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const tab = ref("overview")
+</script>
+
+<template>
+  <!-- narrow container on purpose: the row overflows -->
+  <div style="max-width: 380px">
+    <q-tabs v-model="tab" align="left" show-arrows>
+      <q-tab name="overview" label="Overview" />
+      <q-tab name="analytics" label="Analytics" />
+      <q-tab name="reports" label="Reports" />
+      <q-tab name="segments" label="Segments" />
+      <q-tab name="attribution" label="Attribution" />
+    </q-tabs>
+  </div>
+</template>
+```
+::
+
 ### Colors
 
 `active-color` tints the active tab (and the indicator by default),

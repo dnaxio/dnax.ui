@@ -26,14 +26,213 @@ export const isBlankValue = (v: any): boolean =>
 /**
  * Décale les références A1 non absolues d'une formule de (dr, dc) —
  * plages incluses, `$` préservés (copie / autofill).
+ *
+ * Les **littéraux de chaîne** sont laissés intacts (`"A1"` reste `"A1"`) et les
+ * **identifiants** contenant des chiffres ne sont pas pris pour des références
+ * (`LOG10(...)`, `price1`…).
  */
 export const shiftFormulaRefs = (src: string, dr: number, dc: number): string =>
-  src.replace(
+  splitFormulaSegments(src)
+    .map((segment) => (segment.code ? shiftCodeRefs(segment.text, dr, dc) : segment.text))
+    .join("")
+
+/**
+ * Requête de suggestion de **fonction** à la position du curseur.
+ *
+ * Ne suggère que si le curseur est en train de taper un identifiant de fonction :
+ * hors littéral de chaîne, commençant un token (`=`, `(`, `,`, opérateur, espace…)
+ * et **pas** au milieu d'une référence de cellule (`A` devant `1`). Retourne `""`
+ * quand il n'y a rien à suggérer (ex. `=SUM(`).
+ */
+export function functionQueryAt(text: string, caret: number = text.length): string {
+  if (!text.trim().startsWith("=")) return ""
+  const end = Math.max(0, Math.min(caret, text.length))
+
+  // Curseur dans une chaîne littérale → aucune suggestion
+  let quote = ""
+  for (let i = 0; i < end; i++) {
+    const ch = text[i]!
+    if (quote) {
+      if (ch === quote) {
+        if (text[i + 1] === quote) {
+          i++
+          continue
+        }
+        quote = ""
+      }
+      continue
+    }
+    if (ch === '"' || ch === "'") quote = ch
+  }
+  if (quote) return ""
+
+  let start = end
+  while (start > 0 && /[A-Za-z]/.test(text[start - 1]!)) start--
+  if (start === end) return ""
+  // « A » devant « 1 » : référence de cellule en cours de frappe, pas une fonction
+  if (/[0-9]/.test(text[end] ?? "")) return ""
+  // Doit commencer un token (évite `A1:B`, `$AB`, `sheet!SUM`…)
+  const before = start > 0 ? text[start - 1]! : ""
+  if (before && !/[=(,;\s+\-*/^%&<>]/.test(before)) return ""
+  return text.slice(start, end).toLowerCase()
+}
+
+/** Pose d'une sous-séquence : les lettres de `query` apparaissent dans l'ordre. */
+const isSubsequence = (query: string, name: string): boolean => {
+  let i = 0
+  for (const ch of name) {
+    if (ch === query[i]) i++
+    if (i === query.length) return true
+  }
+  return query.length === 0
+}
+
+/**
+ * Classe des suggestions par pertinence :
+ * égalité > préfixe > sous-chaîne > sous-séquence, puis nom le plus court,
+ * puis ordre d'origine. `query` vide → aucun résultat.
+ */
+export function rankSuggestions<T extends { name: string }>(
+  items: T[],
+  query: string,
+  limit = 8,
+): T[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  return items
+    .map((item, index) => {
+      const name = item.name.toLowerCase()
+      const score = name === q
+        ? 0
+        : name.startsWith(q)
+          ? 1
+          : name.includes(q)
+            ? 2
+            : isSubsequence(q, name)
+              ? 3
+              : -1
+      return { item, index, score, length: name.length }
+    })
+    .filter((entry) => entry.score >= 0)
+    .sort((a, b) => a.score - b.score || a.length - b.length || a.index - b.index)
+    .slice(0, limit)
+    .map((entry) => entry.item)
+}
+
+/** Arguments d'une signature (`"range, criteria, [sum_range]"` → 3 entrées). */
+export function signatureArgs(sig: string): string[] {
+  return sig
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+export interface FunctionCallAtResult {
+  /** Nom de la fonction (minuscules) */
+  name: string
+  /** Index de l'argument courant (0-based) */
+  index: number
+}
+
+/**
+ * Fonction (parmi `known`) dans les parenthèses de laquelle se trouve le curseur.
+ * Gère l'imbrication, les littéraux et les virgules de chaque niveau.
+ */
+export function functionCallAt(
+  text: string,
+  caret: number,
+  known: Iterable<string>,
+): FunctionCallAtResult | null {
+  const names = new Set([...known].map((name) => name.toLowerCase()))
+  const end = Math.max(0, Math.min(caret, text.length))
+  const stack: { name: string; index: number }[] = []
+  let quote = ""
+  for (let i = 0; i < end; i++) {
+    const ch = text[i]!
+    if (quote) {
+      if (ch === quote) {
+        if (text[i + 1] === quote) {
+          i++
+          continue
+        }
+        quote = ""
+      }
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      continue
+    }
+    if (ch === "(") {
+      let j = i - 1
+      while (j >= 0 && /[A-Za-z0-9_]/.test(text[j]!)) j--
+      stack.push({ name: text.slice(j + 1, i).toLowerCase(), index: 0 })
+      continue
+    }
+    if (ch === ")") {
+      stack.pop()
+      continue
+    }
+    if (ch === "," && stack.length) stack[stack.length - 1]!.index++
+  }
+  for (let k = stack.length - 1; k >= 0; k--) {
+    const frame = stack[k]!
+    if (names.has(frame.name)) return { name: frame.name, index: frame.index }
+  }
+  return null
+}
+
+/** Segments d'une formule : `code: false` = littéral de chaîne (guillemets simples/doubles). */
+const splitFormulaSegments = (src: string): { code: boolean; text: string }[] => {
+  const out: { code: boolean; text: string }[] = []
+  let code = ""
+  let i = 0
+  while (i < src.length) {
+    const ch = src[i]!
+    if (ch !== '"' && ch !== "'") {
+      code += ch
+      i++
+      continue
+    }
+    if (code) {
+      out.push({ code: true, text: code })
+      code = ""
+    }
+    let literal = ch
+    i++
+    while (i < src.length) {
+      const c = src[i]!
+      literal += c
+      i++
+      if (c !== ch) continue
+      // Guillemet doublé = caractère littéral (cf. parseString du moteur)
+      if (src[i] === ch) {
+        literal += src[i]
+        i++
+        continue
+      }
+      break
+    }
+    out.push({ code: false, text: literal })
+  }
+  if (code) out.push({ code: true, text: code })
+  return out
+}
+
+/** Décalage des références dans un segment de code (jamais dans une chaîne). */
+const shiftCodeRefs = (code: string, dr: number, dc: number): string =>
+  code.replace(
     /(\$?)([A-Za-z]{1,3})(\$?)(\d+)/g,
-    (_m: string, ca: string, L: string, ra: string, D: string) => {
-      const col = colFromLetters(L) + (ca === "$" ? 0 : dc)
-      const row = Number(D) - 1 + (ra === "$" ? 0 : dr)
-      if (col < 0 || row < 0) return _m
+    (match: string, ca: string, letters: string, ra: string, digits: string, offset: number) => {
+      // Borne gauche : la ref doit commencer un token (pas « LOG10 », « price1 »…)
+      const before = offset > 0 ? code[offset - 1]! : ""
+      if (before && /[A-Za-z0-9_.]/.test(before)) return match
+      // Borne droite : pas de suite alphanumérique, pas un appel de fonction
+      const after = code[offset + match.length] ?? ""
+      if (after && /[A-Za-z0-9_(]/.test(after)) return match
+      const col = colFromLetters(letters) + (ca === "$" ? 0 : dc)
+      const row = Number(digits) - 1 + (ra === "$" ? 0 : dr)
+      if (col < 0 || row < 0) return match
       return ca + colLetter(col) + ra + (row + 1)
     },
   )

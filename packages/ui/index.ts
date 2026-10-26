@@ -164,6 +164,22 @@ export { screen } from "./lib/screen"
 export type { QScreen } from "./lib/screen"
 export { loading } from "./lib/loading"
 export type { LoadingOptions, QLoadingPlugin } from "./lib/loading"
+export { network, createNetwork, resolveOnline, onlineAfterEvent } from "./lib/network"
+export type { QNetwork, NetworkEvent, NetworkOptions, NetworkEventTarget, NetworkNavigator } from "./lib/network"
+export {
+  wakeLock,
+  createWakeLock,
+  isWakeLockCapable,
+  isDocumentVisible,
+  shouldReacquire,
+} from "./lib/wakeLock"
+export type {
+  QWakeLock,
+  WakeLockOptions,
+  WakeLockApiLike,
+  WakeLockSentinelLike,
+  WakeLockVisibilityLike,
+} from "./lib/wakeLock"
 export { localStorage, sessionStorage } from "./lib/storage"
 export type { QWebStorage } from "./lib/storage"
 export {
@@ -187,19 +203,29 @@ export { DEFAULT_LAYOUT_VIEW, parseView, qLayoutKey } from "./lib/layout"
 export type { LayoutView, LayoutZone, LayoutZonePlacement, QLayoutContext } from "./lib/layout"
 export { vRipple } from "./lib/ripple"
 export type { RippleOptions, RippleValue } from "./lib/ripple"
-export { chartToECharts, channelValue, pickFromEvent, tableModel, textValue } from "./lib/chart"
+export { chartToECharts, channelValue, pickFromEvent, tableCsv, tableModel, textValue } from "./lib/chart"
 export type {
   QChartAxis,
   QChartChannel,
   QChartColumn,
   QChartConfig,
+  QChartFormat,
+  QChartFormatKind,
+  QChartFormatOptions,
+  QChartGaugeBand,
   QChartLegend,
   QChartMark,
   QChartMarkType,
   QChartOrientation,
   QChartTable,
+  QChartTableTotals,
+  QChartTableView,
+  QChartThreshold,
+  QChartTooltip,
   QChartPick,
 } from "./lib/chart"
+export { DEFAULT_CURRENCY, DEFAULT_LOCALE, formatValue } from "./lib/chartFormat"
+export { boxStats, histogram, linearFit, waterfallSteps } from "./lib/chartStats"
 export { vTouchPan } from "./lib/touchPan"
 export type { PanDetails, TouchPanHandler, PanDirection } from "./lib/touchPan"
 export { vTouchHold } from "./lib/touchHold"

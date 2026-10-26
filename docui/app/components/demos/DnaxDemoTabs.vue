@@ -5,7 +5,7 @@ import { ref } from "vue"
 
 defineProps<{
   /** Demo identifier to render */
-  demo: "basic" | "align" | "icons" | "counts" | "switch" | "animated" | "collapse" | "colors" | "route"
+  demo: "basic" | "align" | "icons" | "counts" | "switch" | "animated" | "collapse" | "arrows" | "colors" | "route"
 }>()
 
 // — basic / switch / animated / collapse / colors —
@@ -19,6 +19,9 @@ const stretchDemo = ref(false)
 // — icons / counts —
 const tabIcons = ref("inbox")
 const tabCounts = ref("inbox")
+
+// — arrows (débordement) —
+const tabArrows = ref("overview")
 
 // — transitions —
 const transitionDemo = ref<"spring" | "smooth" | "elastic">("spring")
@@ -195,6 +198,25 @@ const colorOptions = [
     </p>
   </div>
 
+  <div v-else-if="demo === 'arrows'" class="demo-arrows-wrap">
+    <q-tabs v-model="tabArrows" align="left" active-color="primary" show-arrows>
+      <q-tab name="overview" label="Overview" />
+      <q-tab name="analytics" label="Analytics" />
+      <q-tab name="reports" label="Reports" />
+      <q-tab name="segments" label="Segments" />
+      <q-tab name="attribution" label="Attribution" />
+      <q-tab name="experiments" label="Experiments" />
+      <q-tab name="settings" label="Settings" />
+    </q-tabs>
+    <p class="demo-p">
+      The row is wider than its container: it scrolls, and the <strong>overlaid</strong> round
+      arrows stay on both edges — the faded one is the side you can no longer scroll. The edge
+      that still has tabs to reveal <strong>fades out</strong> under its arrow (alpha mask, same
+      in light and dark).
+      (<code>:show-arrows="false"</code> disables it).
+    </p>
+  </div>
+
   <div v-else-if="demo === 'colors'">
     <div class="demo-row demo-row--align">
       <q-select
@@ -256,6 +278,11 @@ const colorOptions = [
 
 .demo-align-select {
   width: 180px;
+}
+
+/* Démo flèches : conteneur volontairement étroit pour provoquer le débordement */
+.demo-arrows-wrap {
+  max-width: 380px;
 }
 
 .demo-switch-row {

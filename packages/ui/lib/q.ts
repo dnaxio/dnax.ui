@@ -15,6 +15,8 @@ import { platform, qBreakpoints } from "./platform"
 import { screen } from "./screen"
 import { loading } from "./loading"
 import { localStorage, sessionStorage } from "./storage"
+import { network } from "./network"
+import { wakeLock } from "./wakeLock"
 
 export interface DialogOptions {
   /** Composant de dialogue (SFC importé) ou nom de composant global */
@@ -324,7 +326,8 @@ function notify(opts: NotifyOptions): NotifyController {
 }
 
 // API publique : $q.dialog / $q.bottomSheet / $q.notify / $q.imagePreview / $q.platform / $q.breakpoints / $q.screen / $q.loading
-// / $q.localStorage / $q.sessionStorage (stockage web typé)
+// / $q.localStorage / $q.sessionStorage (stockage web typé) / $q.network (connexion en ligne)
+// / $q.wakeLock (écran allumé, Screen Wake Lock API)
 // Conventions Quasar : .open() pour les piles (dialog, bottomSheet, imagePreview),
 // .show() pour notify et loading ; méthodes directes pour le stockage.
 const notifyPlugin = notify as typeof notify & { show: typeof notify }
@@ -347,6 +350,8 @@ export const $q = {
   loading,
   localStorage,
   sessionStorage,
+  network,
+  wakeLock,
 }
 
 /** Accès programmatique aux plugins ($q.dialog, $q.notify, $q.loading…) */

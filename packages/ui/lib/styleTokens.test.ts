@@ -101,6 +101,18 @@ describe("classes de style (composant ↔ CSS)", () => {
       ".q-bottom-sheet__header-text--with-description .q-bottom-sheet__title",
     ],
     ["components/QCollapse.vue", "q-collapse--guide", ".q-collapse--guide .q-collapse__inner"],
+    ["components/QTabs.vue", "q-tabs--arrows", ".q-tabs--arrows .q-tabs__content"],
+    [
+      "components/QTabs.vue",
+      "q-tabs--scroll-start",
+      ".q-tabs--arrows.q-tabs--scroll-start .q-tabs__content",
+    ],
+    [
+      "components/QTabs.vue",
+      "q-tabs--scroll-end",
+      ".q-tabs--arrows.q-tabs--scroll-end .q-tabs__content",
+    ],
+    ["components/QTable.vue", "q-table__rows-field", ".q-table__rows-field"],
   ]
 
   for (const [file, className, selector] of CONTRACTS) {
@@ -110,6 +122,57 @@ describe("classes de style (composant ↔ CSS)", () => {
       expect({ selector, inCss: css.includes(selector) }).toEqual({ selector, inCss: true })
     })
   }
+
+  it("une description ajoute aussi de l'air AVANT le séparateur (padding-bottom)", () => {
+    // Le séparateur est le `border-bottom` de l'en-tête : sans ce padding, le trait colle
+    // au texte de la description.
+    for (const selector of [
+      ".q-dialog__header-text--with-description",
+      ".q-bottom-sheet__header-text--with-description",
+    ]) {
+      const block = blockAfter(css, selector)
+      expect({ selector, defined: block !== undefined }).toEqual({ selector, defined: true })
+      expect({ selector, padded: block!.includes("padding-bottom") }).toEqual({
+        selector,
+        padded: true,
+      })
+    }
+  })
+})
+
+describe("fondu de défilement des tabs (thème-agnostique)", () => {
+  const block = blockAfter(css, ".q-tabs--arrows .q-tabs__content")
+
+  it("le fondu est un masque alpha (`#fff`), sans couleur de thème", () => {
+    // `#fff` est opaque en mode `alpha` ET `luminance` (ancien WebKit).
+    expect({ defined: block !== undefined }).toEqual({ defined: true })
+    expect({ hasMask: block!.includes("mask-image") }).toEqual({ hasMask: true })
+    expect({ opaque: block!.includes("#fff") }).toEqual({ opaque: true })
+    // Aucune couleur de surface : le fondu ne peut pas se désaligner d'un thème à l'autre.
+    expect({ themeColor: block!.includes("var(--card") }).toEqual({ themeColor: false })
+    expect({ hardcodedBlack: block!.includes("rgb(0 0 0") }).toEqual({ hardcodedBlack: false })
+  })
+
+  it("le fondu suit l'axe des tabs (horizontal → to right, vertical → to bottom)", () => {
+    const vertical = blockAfter(css, ".q-tabs--vertical.q-tabs--arrows .q-tabs__content")
+    expect({ defined: vertical !== undefined }).toEqual({ defined: true })
+    expect({ right: block!.includes("to right") }).toEqual({ right: true })
+    expect({ bottom: vertical!.includes("to bottom") }).toEqual({ bottom: true })
+  })
+})
+
+describe("pagination de QTable", () => {
+  it("le sélecteur « lignes par page » est un QSelect, pas un `<select>` natif", async () => {
+    const vue = await Bun.file(new URL("../components/QTable.vue", import.meta.url)).text()
+    expect({ usesQSelect: vue.includes("<q-select") }).toEqual({ usesQSelect: true })
+    expect({ nativeSelect: /<select\b/.test(vue) }).toEqual({ nativeSelect: false })
+  })
+
+  it("la liste vient de la prop publique `rows-per-page-options` (aucun tableau dérivé)", async () => {
+    const vue = await Bun.file(new URL("../components/QTable.vue", import.meta.url)).text()
+    expect({ fromProp: vue.includes(':options="rowsPerPageOptions"') }).toEqual({ fromProp: true })
+    expect({ derived: vue.includes("rowsPerPageChoices") }).toEqual({ derived: false })
+  })
 })
 
 describe("mode sombre des contrôles", () => {

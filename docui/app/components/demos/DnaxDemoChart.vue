@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Démos live « Charts » : marks littéraux `{ type, data, x, y, … }`.
 import { reactive, ref } from "vue"
-import type { QChartPick } from "@dnax/ui"
+import type { QChartMark, QChartPick } from "@dnax/ui"
 
 /** Sélection partagée, **une clé par démo** : plusieurs démos vivent sur la même page, elles
  *  ne doivent pas se contaminer. `picked.interaction`, `picked.select`… */
@@ -39,6 +39,23 @@ defineProps<{
     | "link-filter"
     | "table-separators"
     | "overview"
+    | "combo"
+    | "percent"
+    | "float"
+    | "labels"
+    | "thresholds"
+    | "band"
+    | "compact"
+    | "bi-table"
+    | "gauge"
+    | "funnel"
+    | "radar"
+    | "treemap"
+    | "sankey"
+    | "boxplot"
+    | "histogram"
+    | "waterfall"
+    | "tooltip"
 }>()
 
 const monthly = [
@@ -84,7 +101,7 @@ const team = [
   { name: "Elif", experience: 5, score: 4.4, src: photo("photo-1568579569464-f87941549e29") },
 ]
 // `legend` : deux séries nommées, réutilisées par les trois placements de légende
-const legendMarks = [
+const legendMarks: QChartMark[] = [
   { type: "line", data: monthly, x: "month", y: "revenue", stroke: "primary", name: "Revenue" },
   { type: "line", data: monthly, x: "month", y: "cost", stroke: "chart-2", name: "Cost" },
 ]
@@ -211,6 +228,103 @@ const share = [
   { channel: "Store", revenue: 41 },
   { channel: "Partners", revenue: 27 },
   { channel: "Other", revenue: 12 },
+]
+
+// ─── Démos BI / PKI (P0 + P1) ────────────────────────────────────────────────
+
+// `combo` : volume (barres, axe gauche) + taux (ligne, axe **secondaire**)
+const traffic = [
+  { month: "Jan", volume: 420, rate: 2.1 },
+  { month: "Feb", volume: 510, rate: 2.6 },
+  { month: "Mar", volume: 470, rate: 2.4 },
+  { month: "Apr", volume: 630, rate: 3.1 },
+  { month: "May", volume: 720, rate: 3.4 },
+  { month: "Jun", volume: 680, rate: 3.0 },
+]
+
+// `percent` : trois canaux empilés à 100 %
+const channelShare = months.flatMap((month, i) => [
+  { month, channel: "Online", value: 20 + ((i * 7) % 23) },
+  { month, channel: "Store", value: 12 + ((i * 5) % 17) },
+  { month, channel: "Partners", value: 6 + ((i * 3) % 11) },
+])
+
+// `float` : budget vs réalisé — barre **flottante** (`base` = budget)
+const budget = [
+  { month: "Jan", planned: 40, actual: 52 },
+  { month: "Feb", planned: 45, actual: 43 },
+  { month: "Mar", planned: 50, actual: 61 },
+  { month: "Apr", planned: 55, actual: 58 },
+  { month: "May", planned: 60, actual: 54 },
+  { month: "Jun", planned: 60, actual: 72 },
+]
+
+// `thresholds` : couleur par règle (bon / moyen / mauvais)
+const scores = [
+  { week: "W1", score: 84 },
+  { week: "W2", score: 72 },
+  { week: "W3", score: 91 },
+  { week: "W4", score: 58 },
+  { week: "W5", score: 66 },
+  { week: "W6", score: 79 },
+]
+
+const scoreThresholds = [
+  { value: 80, op: "gte" as const, color: "positive" },
+  { value: 60, op: "gte" as const, color: "warning" },
+  { value: 0, op: "gte" as const, color: "negative" },
+]
+
+// `histogram` : valeurs brutes, tranches calculées par la marque
+const ageValues = Array.from({ length: 48 }, (_, i) => 18 + ((i * 7) % 30))
+
+// `boxplot` : listes brutes → cinq nombres calculés
+const scoreGroups = [
+  { team: "Alpha", scores: [62, 68, 71, 74, 79, 83, 88] },
+  { team: "Beta", scores: [55, 61, 65, 67, 70, 74, 80] },
+  { team: "Gamma", scores: [70, 72, 76, 80, 84, 88, 95] },
+]
+
+// `waterfall` : cumul, lignes de total et connecteurs
+const cashflow = [
+  { step: "Revenue", delta: 120 },
+  { step: "COGS", delta: -45 },
+  { step: "Payroll", delta: -38 },
+  { step: "Marketing", delta: -17 },
+  { step: "Gross profit", delta: 0, total: true },
+]
+
+// `radar` : `x` = l'indicateur, `y` = la valeur, `z` = la série
+const skillNames = ["Speed", "Power", "Accuracy", "Stamina", "Agility"]
+const skillRows = ["Alpha", "Beta"].flatMap((team, t) =>
+  skillNames.map((skill, i) => ({ team, skill, value: 5 + ((i * 3 + t * 4) % 5) })),
+)
+
+// `treemap` / `sunburst` : hiérarchie par `parent`
+const spendTree = [
+  { name: "Product", parent: "", value: 0 },
+  { name: "Engineering", parent: "Product", value: 42 },
+  { name: "Design", parent: "Product", value: 18 },
+  { name: "Marketing", parent: "", value: 0 },
+  { name: "Ads", parent: "Marketing", value: 26 },
+  { name: "Content", parent: "Marketing", value: 14 },
+]
+
+// `sankey` : flux entre étapes
+const flows = [
+  { source: "Visits", target: "Signups", value: 420 },
+  { source: "Visits", target: "Bounce", value: 580 },
+  { source: "Signups", target: "Trials", value: 210 },
+  { source: "Trials", target: "Paid", value: 96 },
+]
+
+const uptime = [{ label: "Uptime", value: 99.2 }]
+
+const funnelRows = [
+  { stage: "Visits", value: 1200 },
+  { stage: "Signups", value: 540 },
+  { stage: "Trials", value: 210 },
+  { stage: "Paid", value: 96 },
 ]
 </script>
 
@@ -565,7 +679,7 @@ const share = [
         { type: 'pie', data: monthly, x: 'month', y: 'revenue', radius: '52%', labels: 'percent', name: 'Revenue' },
       ]"
       @pick="picked.legend = $event"
-      @unpick="dropped = $event.name"
+      @unpick="dropped = $event.name ?? ''"
     />
     <q-chart
       :height="180"
@@ -781,6 +895,224 @@ const share = [
         <code>filter</code> — see the demo above.
       </template>
     </p>
+  </div>
+
+  <!-- ─── Démos BI / PKI ─────────────────────────────────────────────────────── -->
+
+  <div v-else-if="demo === 'combo'" class="demo-chart">
+    <q-chart
+      title="Volume and conversion rate"
+      :height="280"
+      :x="{ type: 'band' }"
+      :y="{ label: 'Volume', format: 'compact' }"
+      :y-right="{ label: 'Rate', format: 'percent', min: 0, max: 5 }"
+      :marks="[
+        { type: 'bar', data: traffic, x: 'month', y: 'volume', fill: 'chart-1', name: 'Volume' },
+        { type: 'line', data: traffic, x: 'month', y: 'rate', yAxis: 'right', stroke: 'chart-3', name: 'Conversion', labels: true, labelFormat: 'percent' },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'percent'" class="demo-chart">
+    <q-chart
+      title="Channel mix, 100 %"
+      :height="280"
+      :y="{ format: 'percent' }"
+      :marks="[
+        { type: 'bar', data: channelShare, x: 'month', y: 'value', z: 'channel', stack: 'percent', labels: 'percent' },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'float'" class="demo-chart">
+    <q-chart
+      title="Budget vs actual"
+      :height="280"
+      :marks="[
+        { type: 'bar', data: budget, x: 'month', y: 'actual', base: 'planned', fill: 'chart-2', name: 'Actual', labels: true },
+        { type: 'rule', y: [50], stroke: 'chart-5', label: 'Plan', labelPosition: 'insideEndTop' },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'labels'" class="demo-chart">
+    <q-chart
+      title="Revenue, with data labels"
+      :height="280"
+      :y="{ format: 'compact' }"
+      :marks="[
+        { type: 'bar', data: monthly, x: 'month', y: 'revenue', fill: 'chart-1', name: 'Revenue', labels: true, labelFormat: 'compact' },
+        { type: 'line', data: monthly, x: 'month', y: 'cost', stroke: 'chart-3', name: 'Cost', labels: 'percent', labelPosition: 'bottom' },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'thresholds'" class="demo-chart">
+    <q-chart
+      title="Weekly score"
+      :height="280"
+      :y="{ min: 0, max: 100 }"
+      :marks="[
+        { type: 'bar', data: scores, x: 'week', y: 'score', thresholds: scoreThresholds, labels: true, name: 'Score' },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'band'" class="demo-chart">
+    <q-chart
+      title="Revenue and target zone"
+      :height="280"
+      :marks="[
+        { type: 'bar', data: monthly, x: 'month', y: 'revenue', fill: 'chart-1', name: 'Revenue', labels: true },
+        { type: 'band', y0: 45, y1: 55, fill: 'positive', opacity: 0.14, label: 'Target zone' },
+        { type: 'rule', y: [50], stroke: 'chart-5', label: 'Target', labelPosition: 'insideEndTop' },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'compact'" class="demo-chart">
+    <div class="demo-grid">
+      <q-chart
+        compact
+        :height="120"
+        :marks="[{ type: 'line', data: monthly, x: 'month', y: 'revenue', stroke: 'primary' }]"
+      />
+      <q-chart
+        compact
+        :height="120"
+        :marks="[{ type: 'bar', data: monthly, x: 'month', y: 'revenue', fill: 'chart-1' }]"
+      />
+      <q-chart
+        compact
+        :height="120"
+        :marks="[{ type: 'area', data: monthly, x: 'month', y: 'cost', fill: 'chart-3', stroke: 'chart-3' }]"
+      />
+      <q-chart
+        compact
+        :height="120"
+        :marks="[{ type: 'pie', data: share, x: 'channel', y: 'revenue', labels: false }]"
+      />
+    </div>
+  </div>
+
+  <div v-else-if="demo === 'bi-table'" class="demo-chart">
+    <q-chart
+      title="Monthly detail"
+      exportable
+      :height="290"
+      :marks="[
+        {
+          type: 'table',
+          data: monthly,
+          sortBy: 'revenue',
+          sortDesc: true,
+          pageSize: 4,
+          totals: { label: 'Total' },
+          columns: [
+            { field: 'month', label: 'Month', width: 110 },
+            { field: 'revenue', label: 'Revenue', align: 'end', summary: 'sum' },
+            { field: 'cost', label: 'Cost', align: 'end', summary: 'sum' },
+          ],
+        },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'gauge'" class="demo-chart">
+    <q-chart
+      title="Service level"
+      :height="260"
+      :marks="[
+        {
+          type: 'gauge',
+          data: uptime,
+          x: 'label',
+          y: 'value',
+          min: 90,
+          max: 100,
+          target: 99,
+          unit: '%',
+          bands: [
+            { to: 97, color: 'negative' },
+            { to: 99, color: 'warning' },
+            { to: 100, color: 'positive' },
+          ],
+        },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'funnel'" class="demo-chart">
+    <q-chart
+      title="Acquisition funnel"
+      :height="280"
+      :marks="[{ type: 'funnel', data: funnelRows, x: 'stage', y: 'value', name: 'Pipeline', labelFormat: 'compact' }]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'radar'" class="demo-chart">
+    <q-chart
+      title="Skills, two teams"
+      :height="300"
+      :marks="[{ type: 'radar', data: skillRows, x: 'skill', y: 'value', z: 'team', max: 9 }]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'treemap'" class="demo-chart">
+    <q-chart
+      title="Spend by department"
+      :height="300"
+      :marks="[{ type: 'treemap', data: spendTree, x: 'name', parent: 'parent', value: 'value', name: 'Spend' }]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'sankey'" class="demo-chart">
+    <q-chart
+      title="Acquisition flow"
+      :height="300"
+      :marks="[{ type: 'sankey', data: flows, name: 'Flow' }]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'boxplot'" class="demo-chart">
+    <q-chart
+      title="Scores by team"
+      :height="280"
+      :marks="[{ type: 'boxplot', data: scoreGroups, x: 'team', values: 'scores', name: 'Scores' }]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'histogram'" class="demo-chart">
+    <q-chart
+      title="Age distribution"
+      :height="280"
+      :x="{ label: 'Age' }"
+      :y="{ label: 'People' }"
+      :marks="[{ type: 'histogram', data: ageValues, x: (d) => d, bins: 8, fill: 'chart-2', name: 'Ages' }]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'waterfall'" class="demo-chart">
+    <q-chart
+      title="From revenue to gross profit"
+      :height="280"
+      :marks="[
+        { type: 'waterfall', data: cashflow, x: 'step', y: 'delta', isTotal: 'total', name: 'Cash flow', labels: true },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'tooltip'" class="demo-chart">
+    <q-chart
+      title="Revenue, formatted tooltip"
+      :height="280"
+      :y="{ format: 'compact' }"
+      :tooltip="{ valueFormatter: (value) => `${value} k€`, sortDesc: true }"
+      :marks="[
+        { type: 'bar', data: monthly, x: 'month', y: 'revenue', fill: 'chart-1', name: 'Revenue' },
+        { type: 'line', data: monthly, x: 'month', y: 'cost', stroke: 'chart-3', name: 'Cost' },
+      ]"
+    />
   </div>
 
   <div v-else class="demo-chart">

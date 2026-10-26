@@ -1,6 +1,6 @@
 // Tests unitaires du moteur de formules A1 (bun test).
 import { describe, expect, it } from "bun:test"
-import { evaluateFormula, isError } from "./formula"
+import { criteriaMatcher, evaluateFormula, FORMULA_FUNCTION_NAMES, isError } from "./formula"
 import type { FormulaValue } from "./formula"
 
 type Grid = (string | number | boolean | null)[][]
@@ -184,6 +184,14 @@ describe("fonctions dates", () => {
   })
 })
 
+describe("espaces autour de la formule", () => {
+  const e = harness([[]])
+  it("accepte des espaces avant le `=` (isFormulaRaw les tolère)", () => {
+    expect(e("  =1+2")).toBe(3)
+    expect(e(" =SUM(1,2) ")).toBe(3)
+  })
+})
+
 describe("math & erreurs de type", () => {
   const e = harness([[]])
   it("ABS / ROUND / INT / MOD / SQRT / POWER", () => {
@@ -202,5 +210,190 @@ describe("math & erreurs de type", () => {
   })
   it("isError détecte FormulaError", () => {
     expect(isError(e("=1/0"))).toBe(true)
+  })
+})
+
+// ─── Extension 2026-10-17 : critères, stats, recherche, dates, texte ───
+
+describe("critères (SUMIF / COUNTIF / *IFS)", () => {
+  const grid: Grid = [
+    ["A", "x", 10],
+    ["B", "y", 20],
+    ["C", "x", 30],
+    [null, null, null],
+    ["D", "y", 40],
+  ]
+  const e = harness(grid)
+
+  it("SUMIF : critère texte, comparaison numérique, plage de somme optionnelle", () => {
+    expect(e('=SUMIF(B1:B5,"x",C1:C5)')).toBe(40)
+    expect(e('=SUMIF(B1:B5,"y",C1:C5)')).toBe(60)
+    expect(e('=SUMIF(C1:C5,">15")')).toBe(90)
+    expect(e('=SUMIF(C1:C5,"<>")')).toBe(100)
+  })
+
+  it("COUNTIF : égalité (insensible à la casse), vides, jokers", () => {
+    expect(e('=COUNTIF(A1:A5,"a")')).toBe(1)
+    expect(e('=COUNTIF(A1:A5,"?")')).toBe(4)
+    expect(e('=COUNTIF(A1:A5,"")')).toBe(1)
+    expect(e('=COUNTIF(A1:A5,"<>")')).toBe(4)
+    expect(e('=COUNTIF(A1:A5,"a*")')).toBe(1)
+    expect(e('=COUNTIF(A1:A5,">b")')).toBe(2)
+  })
+
+  it("AVERAGEIF ignore les non-nombres ; #DIV/0! sans correspondance", () => {
+    expect(e('=AVERAGEIF(B1:B5,"y",C1:C5)')).toBe(30)
+    expect(String(e('=AVERAGEIF(B1:B5,"z",C1:C5)'))).toBe("#DIV/0!")
+  })
+
+  it("COUNTIFS / SUMIFS / AVERAGEIFS croisent plusieurs critères", () => {
+    expect(e('=COUNTIFS(B1:B5,"x",C1:C5,">15")')).toBe(1)
+    expect(e('=SUMIFS(C1:C5,B1:B5,"x",C1:C5,">15")')).toBe(30)
+    expect(e('=SUMIFS(C1:C5,B1:B5,"x")')).toBe(40)
+    expect(e('=AVERAGEIFS(C1:C5,B1:B5,"y")')).toBe(30)
+  })
+
+  it("SUMPRODUCT multiplie les plages terme à terme", () => {
+    expect(e("=SUMPRODUCT(C1:C3,C1:C3)")).toBe(1400)
+    expect(e("=SUMPRODUCT(C1:C2)")).toBe(30)
+  })
+})
+
+describe("criteriaMatcher (unitaire)", () => {
+  it("compare nombres, textes, vides et jokers", () => {
+    expect(criteriaMatcher(">10")(15)).toBe(true)
+    expect(criteriaMatcher(">10")("abc")).toBe(false)
+    expect(criteriaMatcher("<=5")(5)).toBe(true)
+    expect(criteriaMatcher(0)("0")).toBe(true)
+    expect(criteriaMatcher("paris")("PARIS")).toBe(true)
+    expect(criteriaMatcher("paris")("paris ")).toBe(false)
+    expect(criteriaMatcher("par*")("paris")).toBe(true)
+    expect(criteriaMatcher("<>")(null)).toBe(false)
+    expect(criteriaMatcher("")("")).toBe(true)
+    expect(criteriaMatcher("<m")("apple")).toBe(true)
+  })
+})
+
+describe("statistiques", () => {
+  const grid: Grid = [
+    [10],
+    [20],
+    [30],
+    [40],
+  ]
+  const e = harness(grid)
+
+  it("MEDIAN / LARGE / SMALL / RANK", () => {
+    expect(e("=MEDIAN(A1:A4)")).toBe(25)
+    expect(e("=LARGE(A1:A4,2)")).toBe(30)
+    expect(e("=SMALL(A1:A4,2)")).toBe(20)
+    expect(e("=RANK(20,A1:A4)")).toBe(3)
+    expect(e("=RANK(20,A1:A4,1)")).toBe(2)
+    expect(String(e("=LARGE(A1:A4,9)"))).toBe("#NUM!")
+    expect(String(e("=RANK(99,A1:A4)"))).toBe("#N/A")
+  })
+
+  it("STDEV / STDEVP / VAR / VARP", () => {
+    expect(Number(e("=STDEV(A1:A4)"))).toBeCloseTo(12.9099, 3)
+    expect(Number(e("=STDEVP(A1:A4)"))).toBeCloseTo(11.1803, 3)
+    expect(Number(e("=VAR(A1:A4)"))).toBeCloseTo(166.6667, 3)
+    expect(e("=VARP(A1:A4)")).toBe(125)
+    expect(String(e("=STDEV(A1)"))).toBe("#DIV/0!")
+  })
+})
+
+describe("recherche INDEX / MATCH", () => {
+  const grid: Grid = [
+    ["A", "x", 10],
+    ["B", "y", 20],
+    ["C", "x", 30],
+  ]
+  const e = harness(grid)
+
+  it("INDEX sur une plage (ligne/colonne, index unique)", () => {
+    expect(e("=INDEX(C1:C3,2)")).toBe(20)
+    expect(e("=INDEX(A1:C1,2)")).toBe("x")
+    expect(e("=INDEX(A1:C3,3,3)")).toBe(30)
+    expect(String(e("=INDEX(A1:C3,9,1)"))).toBe("#REF!")
+  })
+
+  it("MATCH exact et approché", () => {
+    expect(e('=MATCH("x",B1:B3,0)')).toBe(1)
+    expect(e("=MATCH(30,C1:C3,0)")).toBe(3)
+    expect(e("=MATCH(25,C1:C3,1)")).toBe(2)
+    expect(String(e("=MATCH(99,C1:C3,0)"))).toBe("#N/A")
+  })
+})
+
+describe("littéraux TRUE / FALSE", () => {
+  const e = harness([[]])
+  it("valeurs booléennes en littéral et en fonction", () => {
+    expect(e("=IF(TRUE,1,2)")).toBe(1)
+    expect(e("=IF(FALSE,1,2)")).toBe(2)
+    expect(e("=TRUE()")).toBe(true)
+    expect(e("=FALSE()")).toBe(false)
+    expect(e('=IFS(0,1,TRUE,"x")')).toBe("x")
+  })
+  it("un identifiant plus long reste une référence", () => {
+    expect(String(e("=TRUE1"))).toBe("#NAME?")
+  })
+})
+
+describe("erreurs (ISERROR / ISERR / ISNA / NA)", () => {
+  const e = harness([[]])
+  it("distingue erreur générique, #N/A et absence d'erreur", () => {
+    expect(e("=ISERROR(1/0)")).toBe(true)
+    expect(e("=ISERROR(1)")).toBe(false)
+    expect(e("=ISERR(1/0)")).toBe(true)
+    expect(e("=ISERR(NA())")).toBe(false)
+    expect(e("=ISNA(NA())")).toBe(true)
+    expect(e("=ISNA(1/0)")).toBe(false)
+    expect(String(e("=NA()"))).toBe("#N/A")
+  })
+})
+
+describe("texte étendu", () => {
+  const e = harness([[]])
+  it("TEXTJOIN / PROPER / SEARCH / EXACT", () => {
+    expect(e('=TEXTJOIN("-",1,"a","","b")')).toBe("a-b")
+    expect(e('=TEXTJOIN("-",0,"a","","b")')).toBe("a--b")
+    expect(e('=PROPER("hello world")')).toBe("Hello World")
+    expect(e('=SEARCH("B","abc")')).toBe(2)
+    expect(String(e('=SEARCH("z","abc")'))).toBe("#VALUE!")
+    expect(e('=EXACT("a","A")')).toBe(false)
+    expect(e('=EXACT("a","a")')).toBe(true)
+  })
+})
+
+describe("dates étendues", () => {
+  const grid: Grid = [
+    ["2026-10-05"],
+    ["2026-10-06"],
+  ]
+  const e = harness(grid)
+  it("DAYS / WEEKNUM / ISOWEEKNUM", () => {
+    expect(e('=DAYS("2026-10-10","2026-10-01")')).toBe(9)
+    expect(e('=WEEKNUM("2026-01-05",2)')).toBe(2)
+    expect(e('=ISOWEEKNUM("2026-01-05")')).toBe(2)
+    expect(e('=WEEKDAY("2026-10-05",2)')).toBe(1)
+  })
+  it("WORKDAY / NETWORKDAYS (avec et sans fériés)", () => {
+    expect(e('=WORKDAY("2026-10-16",1)')).toBe("2026-10-19")
+    expect(e('=NETWORKDAYS("2026-10-01","2026-10-07")')).toBe(5)
+    expect(e('=NETWORKDAYS("2026-10-01","2026-10-07",A1:A2)')).toBe(3)
+  })
+})
+
+describe("parité moteur ↔ autocomplétion", () => {
+  it("aucune fonction intégrée n'est absente de FORMULA_FNS", async () => {
+    const vue = await Bun.file(new URL("../components/QSpreadsheet.vue", import.meta.url)).text()
+    const start = vue.indexOf("const FORMULA_FNS")
+    const end = vue.indexOf("const fxSource")
+    const block = vue.slice(start, end)
+    const suggested = new Set([...block.matchAll(/name: "([A-Z]+)"/g)].map((m) => m[1]!))
+    // Alias internes volontairement absents des suggestions.
+    const aliases = new Set(["AVG", "CEIL", "POW"])
+    const missing = FORMULA_FUNCTION_NAMES.filter((n) => !aliases.has(n) && !suggested.has(n))
+    expect(missing).toEqual([])
   })
 })

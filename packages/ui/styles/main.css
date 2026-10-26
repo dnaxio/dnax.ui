@@ -831,6 +831,144 @@ html.dark body {
   align-items: stretch;
 }
 
+/* Flèches de défilement (`show-arrows`, comportement Quasar) : le contenu devient
+   défilable (barre de défilement masquée, le défilement est piloté par les flèches).
+   `scroll-padding` : le focus / `scrollIntoView` ne colle pas un onglet sous une flèche. */
+.q-tabs--arrows .q-tabs__content {
+  --q-tabs-fade-start: 0px;
+  --q-tabs-fade-end: 0px;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-padding-inline: 48px;
+  /* Fondu sous les flèches : masque **alpha** (transparent → blanc opaque). Le blanc est
+     opaque en mode `alpha` **et** `luminance` (ancien WebKit), et un masque ne dépend
+     d'aucune couleur de thème : le rendu est **identique en clair et en sombre** (contrairement
+     à un dégradé `--card` qui supposerait la couleur de surface du parent).
+     Le côté déjà entièrement visible garde `--q-tabs-fade-*: 0px` → aucun fondu. */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #fff var(--q-tabs-fade-start),
+    #fff calc(100% - var(--q-tabs-fade-end)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #fff var(--q-tabs-fade-start),
+    #fff calc(100% - var(--q-tabs-fade-end)),
+    transparent 100%
+  );
+}
+
+/* Côtés à fondre — posés par le composant d'après les mesures de défilement
+   (`tabArrowState`) : à droite tant qu'il reste du contenu, à gauche dès qu'on a défilé. */
+.q-tabs--arrows.q-tabs--scroll-start .q-tabs__content {
+  --q-tabs-fade-start: 48px;
+}
+
+.q-tabs--arrows.q-tabs--scroll-end .q-tabs__content {
+  --q-tabs-fade-end: 48px;
+}
+
+.q-tabs--arrows .q-tabs__content::-webkit-scrollbar {
+  display: none;
+}
+
+.q-tabs--vertical.q-tabs--arrows .q-tabs__content {
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-padding-inline: 0;
+  scroll-padding-block: 40px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #fff var(--q-tabs-fade-start),
+    #fff calc(100% - var(--q-tabs-fade-end)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #fff var(--q-tabs-fade-start),
+    #fff calc(100% - var(--q-tabs-fade-end)),
+    transparent 100%
+  );
+}
+
+.q-tabs--vertical.q-tabs--arrows.q-tabs--scroll-start .q-tabs__content {
+  --q-tabs-fade-start: 40px;
+}
+
+.q-tabs--vertical.q-tabs--arrows.q-tabs--scroll-end .q-tabs__content {
+  --q-tabs-fade-end: 40px;
+}
+
+/* Bouton **circulaire en surimpression** : les onglets défilent dessous. */
+.q-tabs__arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background-color: var(--card, #fff);
+  color: inherit;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.q-tabs__arrow--start {
+  left: 8px;
+}
+
+.q-tabs__arrow--end {
+  right: 8px;
+}
+
+.q-tabs__arrow:hover:not(:disabled) {
+  background-color: var(--muted, rgb(0 0 0 / 0.04));
+}
+
+/* Côté sans défilement possible : flèche **estompée** (toujours visible, comme la référence). */
+.q-tabs__arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.q-tabs__arrow svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Vertical : flèches en haut / en bas, centrées horizontalement. */
+.q-tabs--vertical .q-tabs__arrow {
+  top: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
+.q-tabs--vertical .q-tabs__arrow--start {
+  top: 8px;
+}
+
+.q-tabs--vertical .q-tabs__arrow--end {
+  bottom: 8px;
+}
+
 .q-tabs--dense {
   --q-tabs-h: 32px;
 }
@@ -841,10 +979,14 @@ html.dark body {
 
 .q-tabs--center .q-tabs__content {
   justify-content: center;
+  /* `safe` : en cas de débordement, retombe sur `flex-start` au lieu de rendre le
+     début inaccessible au défilement (bug classique du flex centré + overflow). */
+  justify-content: safe center;
 }
 
 .q-tabs--right .q-tabs__content {
   justify-content: flex-end;
+  justify-content: safe flex-end;
 }
 
 .q-tabs--justify .q-tab {
@@ -3473,13 +3615,27 @@ html.dark body {
   color: rgb(255 255 255 / 0.6);
 }
 
-.q-table__rows-select select {
-  padding: 2px 6px;
-  border: 1px solid var(--q-table-border);
-  border-radius: 4px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
+/* Sélecteur « lignes par page » : QSelect compact — le footer n'a pas de place
+   pour la ligne d'aide (hint/error) ni pour la hauteur de champ standard. */
+.q-table__rows-field {
+  width: 72px;
+  flex: 0 0 auto;
+}
+
+.q-table__rows-field .q-field__control {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.q-table__rows-field .q-field__bottom {
+  display: none;
+}
+
+.q-table--dark .q-table__rows-field .q-field__control {
+  background-color: #1d1d1d;
+  border-color: var(--q-table-border);
+  color: #fff;
 }
 
 .q-table__page-nav {
@@ -5355,7 +5511,12 @@ a.q-breadcrumbs__el:hover {
 }
 
 /* Description présente → le bloc titre+description est plus haut que la toolbar centrée :
-   un peu d'air au-dessus du titre évite qu'il colle au bord haut. */
+   un peu d'air au-dessus du titre, **et un peu avant le séparateur** (sinon le trait colle
+   au texte de la description). */
+.q-bottom-sheet__header-text--with-description {
+  padding-bottom: 6px;
+}
+
 .q-bottom-sheet__header-text--with-description .q-bottom-sheet__title {
   padding-top: 4px;
 }
@@ -5418,8 +5579,15 @@ a.q-breadcrumbs__el:hover {
 }
 
 .q-bottom-sheet__panel--dark .q-bottom-sheet__header,
-.q-bottom-sheet__panel--dark .q-bottom-sheet__footer {
+.q-bottom-sheet__panel--dark .q-bottom-sheet__footer,
+/* Thème sombre : le noir 8 % codé en dur est invisible (même classe que le dialog). */
+.dark .q-bottom-sheet__header,
+.dark .q-bottom-sheet__footer {
   border-color: rgb(255 255 255 / 0.12);
+}
+
+.dark .q-bottom-sheet__close:hover {
+  background-color: rgb(255 255 255 / 0.08);
 }
 
 /* — transitions (slide vertical type vaul) — durées configurables via
@@ -6051,7 +6219,7 @@ a.q-breadcrumbs__el:hover {
   background-color: var(--primary);
 }
 
-/* — raccourci « Today » (prop `today-btn`) : bord à bord dans le panneau — */
+/* — raccourci « aujourd'hui » (prop `today-btn`) : bord à bord dans le panneau — */
 .q-date-calendar__footer {
   display: flex;
   justify-content: flex-end;
@@ -6986,7 +7154,12 @@ a.q-breadcrumbs__el:hover {
 }
 
 /* Description présente → le bloc titre+description est plus haut que la toolbar centrée :
-   un peu d'air au-dessus du titre évite qu'il colle au bord haut. */
+   un peu d'air au-dessus du titre, **et un peu avant le séparateur** (sinon le trait colle
+   au texte de la description). */
+.q-dialog__header-text--with-description {
+  padding-bottom: 6px;
+}
+
 .q-dialog__header-text--with-description .q-dialog__title {
   padding-top: 4px;
 }
@@ -9761,6 +9934,67 @@ a.q-breadcrumbs__el:hover {
   opacity: 0.55;
 }
 
+/* Aperçu live du résultat (barre fx) — discret, monospace, rouge si erreur */
+.q-spreadsheet__fx-preview {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 8px;
+  border-left: 1px solid var(--q-spreadsheet-border);
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.q-spreadsheet__fx-preview-eq {
+  margin-right: 4px;
+  opacity: 0.6;
+}
+.q-spreadsheet__fx-preview--error {
+  color: var(--negative, #c10015);
+  font-weight: 600;
+}
+.dark .q-spreadsheet__fx-preview,
+.q-spreadsheet--dark .q-spreadsheet__fx-preview {
+  color: rgb(255 255 255 / 0.6);
+}
+
+/* Aide à l'argument : signature de la fonction au curseur */
+.q-spreadsheet__fxhint {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted-foreground, rgb(0 0 0 / 0.6));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.q-spreadsheet__fxhint strong {
+  color: var(--foreground, #1d1d1d);
+}
+.q-spreadsheet__fxhint-arg--on {
+  color: var(--primary, #1976d2);
+  font-weight: 700;
+}
+/* Dans l'éditeur de cellule : sous le textarea, séparateur discret */
+.q-spreadsheet__fxhint--editor {
+  flex: 0 0 auto;
+  padding: 3px 8px 5px;
+  border-top: 1px dashed var(--q-spreadsheet-border);
+  white-space: normal;
+}
+.dark .q-spreadsheet__fxhint,
+.q-spreadsheet--dark .q-spreadsheet__fxhint {
+  color: rgb(255 255 255 / 0.6);
+}
+.dark .q-spreadsheet__fxhint strong,
+.q-spreadsheet--dark .q-spreadsheet__fxhint strong {
+  color: #fff;
+}
+
 /* ─── Éditeur formule (textarea monospace) ─── */
 .q-spreadsheet__editor--formula {
   align-items: stretch;
@@ -10150,6 +10384,10 @@ a.q-breadcrumbs__el:hover {
 .q-spreadsheet__fnsug-item span {
   color: #8b93a1;
   font-size: 11.5px;
+}
+.q-spreadsheet__fnsug-kind {
+  font-style: italic;
+  opacity: 0.85;
 }
 .q-spreadsheet__fnsug-item:hover,
 .q-spreadsheet__fnsug-item--on {

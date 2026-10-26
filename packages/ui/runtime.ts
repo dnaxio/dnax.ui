@@ -39,6 +39,13 @@ export {
   useDialogPluginComponent,
   useBottomSheetPluginComponent,
 } from "./lib/q"
+// `$q.network` (état de connexion réactif) — accessible aussi par import direct,
+// sans évaluer le barrel ni les composants.
+export { network, createNetwork } from "./lib/network"
+export type { QNetwork, NetworkOptions } from "./lib/network"
+// `$q.wakeLock` (écran allumé) — Screen Wake Lock API.
+export { wakeLock, createWakeLock } from "./lib/wakeLock"
+export type { QWakeLock, WakeLockOptions } from "./lib/wakeLock"
 
 // — Providers de `$q` (montés au boot par l'app hôte) —
 export { default as QDialogProvider } from "./components/QDialogProvider.vue"

@@ -4,6 +4,14 @@ import { computed, ref, watch } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../../lib/icons"
 import { cn } from "../../lib/utils"
+import { useConfigLang } from "../../lib/useComponentProps"
+import {
+  dateLabels,
+  dateLocale,
+  monthShortNames,
+  monthYearLabel,
+  weekdayShortNames,
+} from "../../lib/dateI18n"
 
 interface Props {
   modelValue?: Date | null
@@ -15,7 +23,7 @@ interface Props {
   disabledDates?: (d: Date) => boolean
   /** Premier jour de la semaine : 0 = dimanche, 1 = lundi (défaut) */
   firstDayOfWeek?: number
-  /** Raccourci « Today » sous la grille */
+  /** Libellé du raccourci « aujourd'hui » (texte selon `lang`) */
   todayBtn?: boolean
   /** En-tête : libellé cliquable ouvrant le choix du mois (et de l'année) */
   monthDropdown?: boolean
@@ -29,6 +37,11 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{ select: [date: Date] }>()
+
+// Langue de l'app (`QConfigProvider lang`) : mois, jours et libellés suivent.
+const configLang = useConfigLang()
+const locale = computed(() => dateLocale(configLang.value))
+const labels = computed(() => dateLabels(configLang.value))
 
 const today = new Date()
 const viewYear = ref(props.modelValue?.getFullYear() ?? today.getFullYear())
@@ -51,10 +64,7 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
 const sameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 
-const weekdayLabels = computed(() => {
-  const names = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"] as const
-  return Array.from({ length: 7 }, (_, i) => names[(props.firstDayOfWeek + i) % 7])
-})
+const weekdayLabels = computed(() => weekdayShortNames(locale.value, props.firstDayOfWeek))
 
 const weeks = computed<(Date | null)[][]>(() => {
   const y = viewYear.value
@@ -70,18 +80,10 @@ const weeks = computed<(Date | null)[][]>(() => {
   return result
 })
 
-const monthLabel = computed(() =>
-  new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(
-    new Date(viewYear.value, viewMonth.value, 1),
-  ),
-)
+const monthLabel = computed(() => monthYearLabel(locale.value, viewYear.value, viewMonth.value))
 
-/** Noms courts des 12 mois, dans la langue du navigateur (comme `monthLabel`) */
-const monthNames = computed(() =>
-  Array.from({ length: 12 }, (_, i) =>
-    new Intl.DateTimeFormat(undefined, { month: "short" }).format(new Date(2000, i, 1)),
-  ),
-)
+/** Noms courts des 12 mois, dans la langue de l'app (comme `monthLabel`) */
+const monthNames = computed(() => monthShortNames(locale.value))
 
 const prevMonth = () => {
   if (viewMonth.value === 0) {
@@ -126,7 +128,7 @@ const onSelectDate = (d: Date) => {
   emit("select", d)
 }
 
-/** Raccourci « Today » : désactivé quand aujourd'hui est hors bornes / désactivé */
+/** Raccourci « aujourd'hui » : désactivé quand aujourd'hui est hors bornes / désactivé */
 const todaySelectable = computed(() => !isDisabled(startOfDay(new Date())))
 
 const selectToday = () => {
@@ -141,7 +143,7 @@ const selectToday = () => {
       <button
         type="button"
         class="q-date-calendar__nav-btn"
-        aria-label="Mois précédent"
+        :aria-label="labels.prevMonth"
         @click="prevMonth"
       >
         <Icon :icon="icons.chevronLeft" aria-hidden="true" />
@@ -152,7 +154,7 @@ const selectToday = () => {
         class="q-date-calendar__nav-label q-date-calendar__nav-label--button"
         :class="{ 'q-date-calendar__nav-label--open': monthPickerOpen }"
         :aria-expanded="monthPickerOpen"
-        aria-label="Choisir le mois"
+        :aria-label="labels.chooseMonth"
         @click="monthPickerOpen = !monthPickerOpen"
       >
         <span class="q-date-calendar__nav-text">{{ monthLabel }}</span>
@@ -162,7 +164,7 @@ const selectToday = () => {
       <button
         type="button"
         class="q-date-calendar__nav-btn"
-        aria-label="Mois suivant"
+        :aria-label="labels.nextMonth"
         @click="nextMonth"
       >
         <Icon :icon="icons.chevronRight" aria-hidden="true" />
@@ -175,7 +177,7 @@ const selectToday = () => {
         <button
           type="button"
           class="q-date-calendar__nav-btn"
-          aria-label="Année précédente"
+          :aria-label="labels.prevYear"
           @click="prevYear"
         >
           <Icon :icon="icons.chevronLeft" aria-hidden="true" />
@@ -184,7 +186,7 @@ const selectToday = () => {
         <button
           type="button"
           class="q-date-calendar__nav-btn"
-          aria-label="Année suivante"
+          :aria-label="labels.nextYear"
           @click="nextYear"
         >
           <Icon :icon="icons.chevronRight" aria-hidden="true" />
@@ -239,7 +241,7 @@ const selectToday = () => {
         :disabled="!todaySelectable"
         @click="selectToday"
       >
-        Today
+        {{ labels.today }}
       </button>
     </div>
   </div>

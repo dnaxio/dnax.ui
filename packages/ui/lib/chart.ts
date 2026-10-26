@@ -29,6 +29,12 @@
 // analysée au build par la doc (`docd/scripts/mark-parse.ts`) pour documenter l'API de
 // chaque marque.
 
+import { axisFormatter, DEFAULT_LOCALE, formatValue, timeTickFormatter } from "./chartFormat"
+import type { QChartFormat } from "./chartFormat"
+import { boxStats, categoryTotals, histogram, linearFit, waterfallSteps } from "./chartStats"
+
+export type { QChartFormat, QChartFormatKind, QChartFormatOptions } from "./chartFormat"
+
 /** Valeur d'un canal : nom de champ, valeurs explicites ou fonction d'accès */
 export type QChartChannel = string | readonly any[] | ((d: any, i: number) => any) | number
 
@@ -45,6 +51,27 @@ export type QChartMarkType =
   | "heatmap"
   /** Données en **table** (HTML, pas de canvas) — mêmes données, même `link`, même sélection */
   | "table"
+  // ── Analyses métier (P1) ──
+  /** Bande de seuil / zone d'alerte (`y0` → `y1`) — `markArea` */
+  | "band"
+  /** Jauge (valeur, cible, plages de performance) — hors axes */
+  | "gauge"
+  /** Entonnoir — hors axes */
+  | "funnel"
+  /** Radar multicritères — hors axes */
+  | "radar"
+  /** Treemap hiérarchique — hors axes */
+  | "treemap"
+  /** Sunburst hiérarchique — hors axes */
+  | "sunburst"
+  /** Flux entre étapes — hors axes */
+  | "sankey"
+  /** Boîte à moustaches — cinq nombres par catégorie */
+  | "boxplot"
+  /** Histogramme — binning natif (`bins`, `domain`) */
+  | "histogram"
+  /** Cascade — cumul et barres flottantes */
+  | "waterfall"
 
 /** Sens des axes : `horizontal` inverse les axes (catégories sur l'axe Y) */
 export type QChartOrientation = "vertical" | "horizontal"
@@ -61,6 +88,12 @@ export interface QChartColumn {
   align?: "start" | "center" | "end"
   /** Formate la valeur affichée (reçoit la valeur et la ligne) */
   format?: (value: any, row: any) => string
+  /** Largeur de la colonne (nombre = px, sinon valeur CSS) */
+  width?: number | string
+  /** La colonne est-elle **triable** ? (défaut : `true` quand la table est triable) */
+  sortable?: boolean
+  /** Agrégat de la ligne de **totaux** (`sum`, `avg`, `min`, `max`, `count`) */
+  summary?: "sum" | "avg" | "min" | "max" | "count"
 }
 
 /** Séparateurs d'une marque `table` : `horizontal` (défaut — un trait sous chaque rangée),
@@ -70,14 +103,63 @@ export type QChartTableSeparator = "horizontal" | "vertical" | "grid" | "none"
 /** Modèle prêt à rendre d'une marque `table` */
 export interface QChartTable {
   columns: QChartColumn[]
-  /** Lignes **jointes** à la sélection (même règle que les autres marques) */
+  /** Lignes **jointes** à la sélection (même règle que les autres marques), puis triées et paginées */
   rows: any[]
   /** Séparateurs demandés par la marque (`separator`, défaut `horizontal`) */
   separator: QChartTableSeparator
+  /** Toutes les lignes visibles (avant pagination) — export CSV et totaux */
+  allRows?: any[]
+  /** Page courante (0-based) et nombre de pages (quand `pageSize` est donné) */
+  page?: number
+  pages?: number
+  pageSize?: number
+  /** Tri courant */
+  sortBy?: string
+  sortDesc?: boolean
+  /** Ligne de **totaux** déjà formatée (clé = champ) */
+  totals?: Record<string, string>
+}
+
+/** État de vue d'une table (tri / page), piloté par le composant */
+export interface QChartTableView {
+  sortBy?: string
+  sortDesc?: boolean
+  page?: number
+}
+
+/** Compare deux valeurs de cellule : nombres d'abord, puis texte ; les vides en dernier. */
+function compareCells(a: any, b: any): number {
+  const ea = a === null || a === undefined || Number.isNaN(a)
+  const eb = b === null || b === undefined || Number.isNaN(b)
+  if (ea || eb) return ea && eb ? 0 : ea ? 1 : -1
+  if (typeof a === "number" && typeof b === "number") return a - b
+  const sa = String(a)
+  const sb = String(b)
+  return sa < sb ? -1 : sa > sb ? 1 : 0
+}
+
+/** Agrège une colonne pour la ligne de totaux (`undefined` = pas d'agrégat) */
+function summarize(column: QChartColumn, rows: any[]): string | undefined {
+  const raw = rows.map((row) => row?.[column.field])
+  const nums = raw.filter((v): v is number => typeof v === "number" && Number.isFinite(v))
+  const mode = column.summary ?? (nums.length === raw.filter((v) => v !== null && v !== undefined).length && nums.length > 0 ? "sum" : undefined)
+  if (!mode) return undefined
+  if (mode === "count") return String(rows.length)
+  if (nums.length === 0) return ""
+  const value =
+    mode === "sum"
+      ? nums.reduce((s, v) => s + v, 0)
+      : mode === "avg"
+        ? nums.reduce((s, v) => s + v, 0) / nums.length
+        : mode === "min"
+          ? Math.min(...nums)
+          : Math.max(...nums)
+  return column.format ? column.format(value, undefined) : String(Number(value.toPrecision(12)))
 }
 
 /** Modèle d'une marque `table` : colonnes déclarées ou déduites des lignes, lignes jointes à la
- *  sélection partagée (comme n'importe quelle marque liée).
+ *  sélection partagée (comme n'importe quelle marque liée), puis **tri**, **pagination** et
+ *  **totaux** (options de la marque, ou `view` pour un état interactif).
  *
  *  `mode` a le même sens que sur les graphiques : `filter` ne garde que les lignes liées, `dim`
  *  les **garde toutes** (c'est au rendu d'estomper les autres, comme pour une série). */
@@ -85,18 +167,19 @@ export function tableModel(
   mark: QChartMark | undefined,
   selection?: any,
   mode: QChartLinkMode = "filter",
+  view: QChartTableView = {},
 ): QChartTable {
   if (!mark) return { columns: [], rows: [], separator: "horizontal" }
   const separator = mark.separator ?? "horizontal"
   const all = mark.data ?? []
-  const rows = mode === "dim" ? all : linkedRows(all, chartLink(mark.link), selection)
+  const visible = mode === "dim" ? all : linkedRows(all, chartLink(mark.link), selection)
   const declared = mark.columns ?? []
   const columns: QChartColumn[] = declared.map((column) =>
     typeof column === "string" ? { field: column, label: column } : { ...column, label: column.label ?? column.field },
   )
   if (columns.length === 0) {
     const seen = new Set<string>()
-    for (const row of rows) {
+    for (const row of visible) {
       if (row === null || typeof row !== "object") continue
       for (const key of Object.keys(row)) {
         if (!seen.has(key)) {
@@ -106,7 +189,98 @@ export function tableModel(
       }
     }
   }
-  return { columns, rows, separator }
+
+  // ── Tri ──
+  const sortBy = view.sortBy ?? mark.sortBy
+  const sortDesc = !!(view.sortDesc ?? mark.sortDesc ?? false)
+  const sorted = sortBy ? [...visible].sort((a, b) => compareCells(a?.[sortBy], b?.[sortBy])) : visible
+  if (sortBy && sortDesc) sorted.reverse()
+
+  // ── Totaux (sur toutes les lignes visibles, pas seulement la page) ──
+  let totals: Record<string, string> | undefined
+  if (mark.totals) {
+    const label = typeof mark.totals === "object" ? (mark.totals.label ?? "") : ""
+    const out: Record<string, string> = {}
+    columns.forEach((column, i) => {
+      const value = i === 0 && label ? label : summarize(column, sorted)
+      if (value !== undefined) out[column.field] = value
+    })
+    if (Object.keys(out).length) totals = out
+  }
+
+  // ── Pagination ──
+  const pageSize = typeof mark.pageSize === "number" && mark.pageSize > 0 ? Math.floor(mark.pageSize) : 0
+  const pages = pageSize > 0 ? Math.max(1, Math.ceil(sorted.length / pageSize)) : undefined
+  const page = pages ? Math.max(0, Math.min(pages - 1, Math.floor(view.page ?? mark.page ?? 0))) : undefined
+  const rows = pages && page !== undefined ? sorted.slice(page * pageSize, page * pageSize + pageSize) : sorted
+
+  const model: QChartTable = { columns, rows, separator }
+  if (mark.sortBy !== undefined || sortBy !== undefined) {
+    model.sortBy = sortBy
+    model.sortDesc = sortDesc
+  }
+  if (pages !== undefined) {
+    model.allRows = sorted
+    model.page = page
+    model.pages = pages
+    model.pageSize = pageSize
+  } else if (totals) {
+    model.allRows = sorted
+  }
+  if (totals) model.totals = totals
+  return model
+}
+
+/** Export CSV d'un modèle de table (RFC 4180 : guillemets doublés, séparateur déduit du séparateur
+ *  de champs, pas de ligne d'en-tête ajoutée si `header: false`). Ne dépend d'aucun DOM. */
+export function tableCsv(
+  model: QChartTable,
+  options: { separator?: string; header?: boolean; label?: string } = {},
+): string {
+  const delimiter = options.separator ?? ","
+  const escape = (value: any) => {
+    const text = value === null || value === undefined ? "" : String(value)
+    return new RegExp(`["\n\r${delimiter}]`).test(text) ? `"${text.replace(/"/g, '""')}"` : text
+  }
+  const rows = model.allRows ?? model.rows
+  const lines: string[] = []
+  if (options.header !== false) {
+    lines.push(model.columns.map((column) => escape(column.label ?? column.field)).join(delimiter))
+  }
+  for (const row of rows) {
+    lines.push(model.columns.map((column) => escape(row?.[column.field])).join(delimiter))
+  }
+  if (model.totals && options.label !== undefined) {
+    lines.push(
+      model.columns
+        .map((column, i) => escape(model.totals?.[column.field] ?? (i === 0 ? options.label : "")))
+        .join(delimiter),
+    )
+  }
+  return lines.join("\r\n")
+}
+
+/** Seuil déclaratif de couleur (barres, points, aires) : la première règle qui matche
+ *  colore l'élément. Sans `op`, `gt` (strictement supérieur). */
+export interface QChartThreshold {
+  value: number
+  op?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq"
+  /** Token dnax.ui ou couleur CSS */
+  color: string
+}
+
+/** Plage de performance d'une `gauge` (zone colorée de l'arc) */
+export interface QChartGaugeBand {
+  /** Borne haute — en valeur d'axe, ou en **fraction** `0..1` avec `fraction: true` */
+  to: number
+  color: string
+  fraction?: boolean
+}
+
+/** Ligne de totaux d'une marque `table` */
+export interface QChartTableTotals {
+  /** Libellé de la première colonne (« Total ») */
+  label?: string
 }
 
 /** A single mark: `{ type: 'line', data, x, y, … }` */
@@ -144,8 +318,16 @@ export interface QChartMark {
   /** `pie`: starting angle in degrees — `90` (the default) starts at 12 o'clock, angles growing counter-clockwise */
   startAngle?: number
   /** `pie`: content of the slice labels — `name` (default), `value`, `percent`, `name-value`, `name-percent`, or `false` to hide them.
-   *  `heatmap`: `true` prints the value inside each cell. */
+   *  `heatmap`: `true` prints the value inside each cell.
+   *  `bar` / `line` / `area`: `true` or `value` prints the value, `name` the category, `percent`
+   *  the share of the category — `labelFormat` formate le nombre. */
   labels?: boolean | "name" | "value" | "percent" | "name-value" | "name-percent"
+  /** Position des étiquettes de données (`top`, `bottom`, `inside`, `left`, `right`…) */
+  labelPosition?: string
+  /** Format des étiquettes de données (axes, barres, lignes, aires) */
+  labelFormat?: QChartFormat
+  /** Seuils de couleur par point (bar, dot, area) — la première règle qui matche gagne */
+  thresholds?: QChartThreshold[]
   /** `dot`: point radius — a constant, or a channel for a bubble chart */
   r?: number | QChartChannel
   /** `dot`: point shape — `circle` (default), `rect`, `triangle`, `diamond`, `pin`, `none`… */
@@ -192,8 +374,64 @@ export interface QChartMark {
   name?: string
   /** Grouping: one series (and one legend entry) per value of the channel */
   z?: QChartChannel
-  /** Stack the series */
-  stack?: boolean
+  /** Stack the series — `true` empile, `"percent"` empile **à 100 %** (valeurs normalisées
+   *  par catégorie), une autre chaîne nomme le groupe d'empilement. */
+  stack?: boolean | "percent" | string
+  /** Axe des ordonnées visé — `left` (défaut) ou `right` (axe secondaire, cf. `yRight`) */
+  yAxis?: "left" | "right"
+  /** `bar` **flottante** : canal de la base par point (`y0`) — waterfall, budget/réalisé, bullet */
+  base?: QChartChannel
+  /** `bar` : couleur de la base (défaut : transparente) */
+  baseFill?: string
+  /** `line` / `area` : relie les points manquants au lieu de couper le trait */
+  connectNulls?: boolean
+  /** `line` / `area` : courbe lissée (`true`) ou tension numérique */
+  smooth?: boolean | number
+  /** `dot` : ajoute une **ligne de tendance** (régression linéaire) */
+  trend?: boolean
+  /** `rule` / `band` : libellé du repère et sa position (`start`, `middle`, `end`, `insideTop`…) */
+  label?: string
+  /** `band` : bornes basses / hautes verticales (axe Y) */
+  y0?: QChartChannel
+  y1?: QChartChannel
+  /** `band` : bornes pour une bande **verticale** (axe X) */
+  x0?: QChartChannel
+  x1?: QChartChannel
+  /** `histogram` : nombre de tranches (défaut : règle de la racine carrée) */
+  bins?: number
+  /** `histogram` : domaine forcé `[min, max]` */
+  domain?: [number, number]
+  /** `sankey` / `treemap` / `sunburst` : canal de la valeur (poids, surface) */
+  value?: QChartChannel
+  /** `treemap` / `sunburst` : canal du **parent** (hiérarchie) */
+  parent?: QChartChannel
+  /** `boxplot` : canal de la **liste de valeurs** brutes (calcul des cinq nombres) */
+  values?: QChartChannel
+  /** `boxplot` : canal des **statistiques précalculées** (`[min, q1, médiane, q3, max]`) */
+  stats?: QChartChannel
+  /** `gauge` / `radar` : borne basse / haute de l'échelle */
+  min?: number
+  max?: number
+  /** `gauge` : valeur de la **cible** (aiguille secondaire annotée) */
+  target?: number | QChartChannel
+  /** `gauge` : plages de performance (arc coloré) */
+  bands?: QChartGaugeBand[]
+  /** `gauge` / `funnel` : suffixe d'unité affiché dans le détail (`%`, `F CFA`…) */
+  unit?: string
+  /** `waterfall` : couleur des deltas négatifs (défaut : token `negative`) */
+  negativeFill?: QChartChannel
+  /** `waterfall` : canal qui marque les lignes de **total** (`true` → barre depuis zéro) */
+  isTotal?: QChartChannel
+  /** `table` : tri initial (champ, sens) — interactif au clic sur l'en-tête */
+  sortBy?: string
+  sortDesc?: boolean
+  /** `table` : pagination (`pageSize` lignes par page, `page` 0-based) */
+  pageSize?: number
+  page?: number
+  /** `table` : ligne de **totaux** (agrégats des colonnes, `summary`) */
+  totals?: boolean | QChartTableTotals
+  /** Info-bulle **par marque** : reçoit les paramètres du point et la valeur brute */
+  tooltip?: (params: any, value: any) => string
 }
 
 /** Options accepted by **each** mark (keys of `QChartMark`).
@@ -206,10 +444,95 @@ export interface QChartMark {
  *  `orientation` (`rule` reference lines only carry positions and a stroke, and `pie`
  *  slices are one per row: no `z`, `stack` or `orientation`). */
 export const MARK_OPTIONS = {
-  line: ["data", "link", "x", "y", "stroke", "strokeWidth", "opacity", "title", "name", "z", "stack", "orientation"],
-  area: ["data", "link", "x", "y", "fill", "stroke", "strokeWidth", "opacity", "title", "name", "z", "stack", "orientation"],
-  bar: ["data", "link", "x", "y", "fill", "stroke", "strokeWidth", "opacity", "title", "name", "z", "stack", "orientation"],
-  dot: ["data", "link", "x", "y", "fill", "stroke", "strokeWidth", "opacity", "r", "symbol", "title", "name", "z", "stack", "orientation"],
+  line: [
+    "data",
+    "link",
+    "x",
+    "y",
+    "stroke",
+    "strokeWidth",
+    "opacity",
+    "title",
+    "name",
+    "z",
+    "stack",
+    "orientation",
+    "yAxis",
+    "connectNulls",
+    "smooth",
+    "labels",
+    "labelPosition",
+    "labelFormat",
+    "thresholds",
+    "tooltip",
+  ],
+  area: [
+    "data",
+    "link",
+    "x",
+    "y",
+    "fill",
+    "stroke",
+    "strokeWidth",
+    "opacity",
+    "title",
+    "name",
+    "z",
+    "stack",
+    "orientation",
+    "yAxis",
+    "connectNulls",
+    "smooth",
+    "labels",
+    "labelPosition",
+    "labelFormat",
+    "thresholds",
+    "tooltip",
+  ],
+  bar: [
+    "data",
+    "link",
+    "x",
+    "y",
+    "fill",
+    "stroke",
+    "strokeWidth",
+    "opacity",
+    "title",
+    "name",
+    "z",
+    "stack",
+    "orientation",
+    "yAxis",
+    "base",
+    "baseFill",
+    "labels",
+    "labelPosition",
+    "labelFormat",
+    "thresholds",
+    "tooltip",
+  ],
+  dot: [
+    "data",
+    "link",
+    "x",
+    "y",
+    "fill",
+    "stroke",
+    "strokeWidth",
+    "opacity",
+    "r",
+    "symbol",
+    "trend",
+    "thresholds",
+    "title",
+    "name",
+    "z",
+    "stack",
+    "orientation",
+    "yAxis",
+    "tooltip",
+  ],
   image: [
     "data",
     "link",
@@ -258,10 +581,140 @@ export const MARK_OPTIONS = {
     "stack",
     "orientation",
   ],
-  rule: ["data", "link", "x", "y", "stroke", "fill", "strokeWidth"],
-  pie: ["data", "link", "x", "y", "fill", "radius", "innerRadius", "startAngle", "labels", "opacity", "title", "name"],
-  heatmap: ["data", "link", "x", "y", "fill", "labels", "opacity", "title", "name"],
-  table: ["data", "link", "columns", "separator"],
+  rule: ["data", "link", "x", "y", "stroke", "fill", "strokeWidth", "label", "labelPosition"],
+  band: ["data", "link", "x", "y", "x0", "x1", "y0", "y1", "fill", "stroke", "opacity", "label", "labelPosition"],
+  pie: [
+    "data",
+    "link",
+    "x",
+    "y",
+    "fill",
+    "radius",
+    "innerRadius",
+    "startAngle",
+    "labels",
+    "labelPosition",
+    "opacity",
+    "title",
+    "name",
+  ],
+  heatmap: ["data", "link", "x", "y", "fill", "labels", "labelFormat", "opacity", "title", "name"],
+  gauge: [
+    "data",
+    "link",
+    "x",
+    "y",
+    "min",
+    "max",
+    "target",
+    "bands",
+    "unit",
+    "fill",
+    "opacity",
+    "title",
+    "name",
+    "labelFormat",
+  ],
+  funnel: [
+    "data",
+    "link",
+    "x",
+    "y",
+    "fill",
+    "opacity",
+    "labels",
+    "labelPosition",
+    "labelFormat",
+    "title",
+    "name",
+  ],
+  radar: [
+    "data",
+    "link",
+    "x",
+    "y",
+    "z",
+    "fill",
+    "stroke",
+    "strokeWidth",
+    "opacity",
+    "min",
+    "max",
+    "labels",
+    "title",
+    "name",
+  ],
+  treemap: ["data", "link", "x", "parent", "value", "fill", "opacity", "labels", "labelFormat", "title", "name"],
+  sunburst: [
+    "data",
+    "link",
+    "x",
+    "parent",
+    "value",
+    "fill",
+    "radius",
+    "opacity",
+    "labels",
+    "labelFormat",
+    "title",
+    "name",
+  ],
+  sankey: ["data", "link", "x", "y", "value", "fill", "opacity", "title", "name"],
+  boxplot: [
+    "data",
+    "link",
+    "x",
+    "y",
+    "values",
+    "stats",
+    "fill",
+    "stroke",
+    "opacity",
+    "title",
+    "name",
+    "yAxis",
+  ],
+  histogram: [
+    "data",
+    "link",
+    "x",
+    "bins",
+    "domain",
+    "fill",
+    "opacity",
+    "labels",
+    "labelPosition",
+    "labelFormat",
+    "title",
+    "name",
+  ],
+  waterfall: [
+    "data",
+    "link",
+    "x",
+    "y",
+    "fill",
+    "negativeFill",
+    "isTotal",
+    "labels",
+    "labelPosition",
+    "labelFormat",
+    "opacity",
+    "title",
+    "name",
+    "yAxis",
+  ],
+  table: [
+    "data",
+    "link",
+    "columns",
+    "separator",
+    "sortBy",
+    "sortDesc",
+    "pageSize",
+    "page",
+    "totals",
+  ],
 } as const satisfies Record<QChartMarkType, readonly (keyof QChartMark)[]>
 
 /** Configuration d'axe */
@@ -275,6 +728,34 @@ export interface QChartAxis {
   max?: number | string
   /** Afficher les lignes de grille (défaut : oui) */
   grid?: boolean
+  /** Format des **graduations** (`compact`, `percent`, `currency`, `date`… ou fonction) */
+  format?: QChartFormat
+  /** Locale des graduations (défaut : celle du graphique) */
+  locale?: string
+  /** Axe **temporel** : granularité des libellés (`auto` par défaut) */
+  timeUnit?: "auto" | "day" | "week" | "month" | "quarter" | "year"
+  /** Axe temporel : fuseau horaire IANA (`Africa/Dakar`, `Europe/Paris`…) */
+  timeZone?: string
+  /** Rotation des libellés, en degrés (ex. `-35` pour gagner de la place) */
+  labelRotate?: number
+  /** Nombre de graduations souhaité (indicatif) */
+  splitNumber?: number
+  /** Masquer tout l'axe */
+  show?: boolean
+  /** Interligne ou intervalle des libellés : `auto` (défaut) ou un nombre (`0` = tous) */
+  interval?: number | "auto"
+}
+
+/** Info-bulle personnalisable */
+export interface QChartTooltip {
+  /** Formateur **global** : reçoit les paramètres ECharts, renvoie du HTML / du texte */
+  formatter?: (params: any) => string
+  /** Formate **chaque valeur** affichée (axe comme point) */
+  valueFormatter?: (value: any, params?: any) => string
+  /** Trier les séries de l'info-bulle d'axe par valeur décroissante */
+  sortDesc?: boolean
+  /** Garder le `valueFormatter` aussi dans le **nom de la donnée** (`name`) */
+  nameFormatter?: (name: any, params?: any) => string
 }
 
 /** Élément désigné dans un graphique (clic, survol) — émis par `<q-chart>` sur `@pick`.
@@ -319,6 +800,7 @@ export function legendPickOf(
   }
   for (const markIndex of order) {
     const mark = marks![markIndex]
+    if (!mark) continue
     const rows = mark.data ?? []
     for (let dataIndex = 0; dataIndex < rows.length; dataIndex++) {
       const row = rows[dataIndex]
@@ -457,6 +939,12 @@ export interface QChartConfig {
   marks: QChartMark[]
   x?: QChartAxis
   y?: QChartAxis
+  /** Axe des ordonnées **secondaire**, à droite (combo volume + taux) */
+  yRight?: QChartAxis
+  /** Locale de l'axe et des formats par défaut (`fr-FR`) */
+  locale?: string
+  /** Mode **compact** : marges réduites, graduations discrètes, légende masquée par défaut */
+  compact?: boolean
   /** Palette : tokens dnax.ui (`primary`, `secondary`…) ou couleurs CSS */
   colors?: string[]
   /** Titre du graphique */
@@ -464,8 +952,8 @@ export interface QChartConfig {
   /** Légende : `false` pour la masquer, `true` pour la forcer (défaut : dès qu'une série
    *  est nommée) ou un objet `{ position, offset, align }` */
   legend?: boolean | QChartLegend
-  /** Info-bulle (défaut : oui) */
-  tooltip?: boolean
+  /** Info-bulle : `false` pour l'éteindre, ou `{ formatter, valueFormatter, sortDesc }` */
+  tooltip?: boolean | QChartTooltip
   /** Ce que deviennent les lignes **non liées** par `link` : `filter` (défaut) les retire, `dim`
    *  les **estompe** (`dimOpacity`) et laisse la place à la sélection. */
   linkMode?: QChartLinkMode
@@ -639,6 +1127,60 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
     grid: resolve(config.theme?.grid),
   }
 
+  /** Locale des nombres / dates (les formats y retombent quand ils n'en donnent pas) */
+  const locale = config.locale ?? DEFAULT_LOCALE
+  /** Mode mini-widget : marges réduites, axes et légende effacés */
+  const compact = config.compact === true
+  /** Format de valeur pour une info-bulle / une étiquette */
+  const formatText = (value: any, format?: QChartFormat) => formatValue(value, format, { locale })
+
+  /** Familles posées sur les axes (les autres sont hors axes : pie, gauge, funnel…) */
+  const CARTESIAN = new Set<QChartMarkType>([
+    "line",
+    "area",
+    "bar",
+    "dot",
+    "text",
+    "image",
+    "heatmap",
+    "boxplot",
+    "histogram",
+    "waterfall",
+  ])
+  const isCartesianMark = (m: QChartMark) => CARTESIAN.has(m.type)
+
+  /** Groupe d'empilement d'une marque (`true` / `percent` → « total », une chaîne la nomme) */
+  const stackGroupOf = (m: QChartMark): string | undefined => {
+    if (!m.stack) return undefined
+    if (m.stack === true || m.stack === "percent") return "total"
+    return String(m.stack)
+  }
+  /** Groupes qui doivent être normalisés à 100 % */
+  const percentGroups = new Set<string>()
+  for (const m of marks) if (m.stack === "percent") percentGroups.add(stackGroupOf(m) ?? "total")
+
+  /** Seuil de couleur applicable à une valeur */
+  const thresholdOf = (value: any, thresholds?: QChartThreshold[]): string | undefined => {
+    if (!thresholds?.length || typeof value !== "number" || !Number.isFinite(value)) return undefined
+    for (const rule of thresholds) {
+      const op = rule.op ?? "gt"
+      const hit =
+        op === "gt"
+          ? value > rule.value
+          : op === "gte"
+            ? value >= rule.value
+            : op === "lt"
+              ? value < rule.value
+              : op === "lte"
+                ? value <= rule.value
+                : op === "eq"
+                  ? value === rule.value
+                  : value !== rule.value
+      if (hit) return resolve(rule.color)
+    }
+    return undefined
+  }
+
   /** Lignes d'une marque, **jointes** à la sélection partagée (`link` + `selection`).
    *  Point d'application unique : toutes les familles de marques en héritent. */
   const dataOf = (m: QChartMark) => {
@@ -650,7 +1192,7 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
 
   // Orientation : donnée par la première marque de série. Toutes les marques
   // doivent partager la même orientation (`pie` n'est pas posé sur les axes → ignoré).
-  const first = marks.find((m) => !isRule(m) && m.type !== "pie" && m.type !== "table") ?? marks[0]
+  const first = marks.find(isCartesianMark) ?? marks[0]
   const horizontal = !!first && isHorizontal(first)
 
   const abscissaOf = (m: QChartMark) => m.x ?? m.y
@@ -674,15 +1216,36 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
     return channelValue(channel, data, i)
   }
 
+  // ─── Histogrammes : les tranches sont calculées **avant** les catégories (leurs libellés
+  // deviennent l'axe) ───
+  const binsOf = new Map<QChartMark, ReturnType<typeof histogram>>()
+  for (const m of marks) {
+    if (m.type !== "histogram") continue
+    const data = dataOf(m)
+    const raw = data.map((_, i) => channelValue(m.x, data, i))
+    binsOf.set(m, histogram(raw, { bins: m.bins, domain: m.domain }))
+  }
+
   // ─── Domaine des catégories (axe « band ») ───
   const categories: string[] = []
   const seen = new Set<string>()
-  let numericX = true
+  let numericX = !binsOf.size
   let timeX = config.x?.type === "time"
   for (const m of marks) {
-    if (isRule(m) || m.type === "pie" || m.type === "table") continue
+    if (!isCartesianMark(m)) continue
     const data = dataOf(m)
     const ch = abscissaOf(m)
+    // Histogramme : une catégorie par tranche (borne basse → haute)
+    const bins = binsOf.get(m)
+    if (bins) {
+      for (const bin of bins) {
+        if (!seen.has(bin.label)) {
+          seen.add(bin.label)
+          categories.push(bin.label)
+        }
+      }
+      continue
+    }
     for (let i = 0; i < data.length; i++) {
       const pair = pairRowOf(m, i)
       const v = pair ? pair[0] : channelValue(ch, data, i)
@@ -746,6 +1309,113 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
     return horizontal ? [val, cat] : [cat, val]
   }
 
+  /** Catégorie brute d'un point (même résolution que `pairOf`, sans l'orientation) */
+  const categoryOf = (m: QChartMark, i: number): any => {
+    const pair = pairRowOf(m, i)
+    return pair ? pair[0] : solveX(abscissaOf(m), m, i)
+  }
+  /** Valeur brute d'un point (axe des ordonnées) */
+  const ordinateValueOf = (m: QChartMark, i: number): any => {
+    const pair = pairRowOf(m, i)
+    return pair ? pair[1] : channelValue(ordinateOf(m), dataOf(m), i)
+  }
+
+  // ─── Empilement 100 % : ECharts ne normalise pas, on calcule les totaux par catégorie ───
+  const stackTotals = new Map<string, Map<string, number>>()
+  for (const group of percentGroups) {
+    const entries: { category: any; value: any }[] = []
+    for (const m of marks) {
+      if (stackGroupOf(m) !== group || !isCartesianMark(m)) continue
+      const data = dataOf(m)
+      for (let i = 0; i < data.length; i++) {
+        entries.push({ category: categoryOf(m, i), value: ordinateValueOf(m, i) })
+      }
+    }
+    stackTotals.set(group, categoryTotals(entries))
+  }
+
+  /** Paire normalisée : dans un groupe `percent`, l'ordonnée devient une part (0→100) */
+  const scaledPairOf = (m: QChartMark, i: number): [any, any] | null => {
+    const pair = pairOf(m, i)
+    if (!pair) return null
+    const group = stackGroupOf(m)
+    const totals = group && percentGroups.has(group) ? stackTotals.get(group) : undefined
+    if (!totals) return pair
+    const total = totals.get(String(categoryOf(m, i))) ?? 0
+    const scale = (v: any) =>
+      typeof v === "number" ? (total === 0 ? 0 : (v / total) * 100) : v
+    return horizontal ? [scale(pair[0]), pair[1]] : [pair[0], scale(pair[1])]
+  }
+
+  /** Total par catégorie **du graphique** — sert aux étiquettes `percent` hors empilement */
+  let chartLabelTotals: Map<string, number> | undefined
+  const labelTotalsOf = (m: QChartMark) => {
+    if (chartLabelTotals) return chartLabelTotals
+    const entries: { category: any; value: any }[] = []
+    for (const mark of marks) {
+      if (mark.type !== "bar" && mark.type !== "line" && mark.type !== "area" && mark.type !== "dot" && mark.type !== "waterfall") continue
+      const data = dataOf(mark)
+      for (let i = 0; i < data.length; i++) {
+        entries.push({ category: categoryOf(mark, i), value: ordinateValueOf(mark, i) })
+      }
+    }
+    chartLabelTotals = categoryTotals(entries)
+    return chartLabelTotals
+  }
+
+  /** Valeur d'ordonnée portée par un point ECharts (`{ value: [cat, val] }` ou scalaire) */
+  const ordinateOfPoint = (p: any): any => {
+    const v = p?.value ?? p?.data?.value ?? p?.data
+    if (Array.isArray(v)) return horizontal ? v[0] : v[1]
+    return v
+  }
+  /** Catégorie portée par un point ECharts */
+  const categoryOfPoint = (p: any): any => {
+    const v = p?.value ?? p?.data?.value ?? p?.data
+    if (Array.isArray(v)) return horizontal ? v[1] : v[0]
+    return p?.name ?? p?.axisValue
+  }
+
+  /** Étiquettes de données (`labels`) d'une marque cartésienne */
+  const dataLabelsOf = (m: QChartMark): Record<string, any> | undefined => {
+    if (!m.labels) return undefined
+    const position = m.labelPosition ?? "top"
+    let formatter: any
+    if (m.labels === "name") {
+      formatter = "{b}"
+    } else if (m.labels === "percent") {
+      if (m.labelFormat) {
+        formatter = (p: any) => {
+          const group = stackGroupOf(m)
+          const totals = group && percentGroups.has(group) ? stackTotals.get(group) : labelTotalsOf(m)
+          const total = totals?.get(String(categoryOfPoint(p))) ?? 0
+          const value = Number(ordinateOfPoint(p) ?? 0)
+          const share = total === 0 ? 0 : (Math.abs(value) / Math.abs(total)) * 100
+          return formatText(share, { ...(typeof m.labelFormat === "object" ? m.labelFormat : {}), style: "percent" })
+        }
+      } else if (stackGroupOf(m) && percentGroups.has(stackGroupOf(m)!)) {
+        formatter = "{c}%"
+      } else {
+        formatter = (p: any) => {
+          const total = labelTotalsOf(m).get(String(categoryOfPoint(p))) ?? 0
+          const value = Number(ordinateOfPoint(p) ?? 0)
+          const share = total === 0 ? 0 : (Math.abs(value) / Math.abs(total)) * 100
+          return `${Math.round(share * 10) / 10} %`
+        }
+      }
+    } else if (m.labelFormat) {
+      formatter = (p: any) => formatText(ordinateOfPoint(p), m.labelFormat)
+    } else {
+      formatter = "{c}"
+    }
+    return {
+      show: true,
+      position,
+      formatter,
+      color: theme.text,
+    }
+  }
+
   const series: Record<string, any>[] = []
   let colorIndex = 0
   const colorFor = (explicit?: any) => {
@@ -755,6 +1425,11 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
 
   const rulesY: any[] = []
   const rulesX: any[] = []
+  /** Zones de seuil (`band`) — `markArea` posé plus bas sur la première série */
+  const bandsY: any[] = []
+  const bandsX: any[] = []
+  /** Configuration `radar` (indicateurs), une par marque `radar` */
+  const radarOptions: any[] = []
   /** Échelles de couleurs des cartes de chaleur (valeur numérique → palette) */
   const visualMaps: any[] = []
 
@@ -762,6 +1437,48 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
     // Une marque `table` n'est pas une série : elle est rendue en HTML par `<q-chart>`
     if (m.type === "table") continue
     const data = dataOf(m)
+
+    // Bande de seuil / zone d'alerte : `markArea` — horizontale par défaut (`y0` → `y1`),
+    // verticale avec `x0` / `x1`. Le libellé (`label`) est posé sur la zone.
+    if (m.type === "band") {
+      const color = resolve(colorValue(m.fill, data, 0) ?? m.fill)
+      const style: Record<string, any> = {}
+      if (typeof color === "string" && looksLikeColor(color)) style.color = color
+      if (typeof m.stroke === "string") {
+        const border = resolve(m.stroke)
+        if (typeof border === "string" && looksLikeColor(border)) style.borderColor = border
+      }
+      if (typeof m.opacity === "number") style.opacity = m.opacity
+      const labelCfg = m.label
+        ? { show: true, formatter: m.label, position: m.labelPosition ?? "insideTop", color: theme.muted }
+        : { show: false }
+      const vertical = m.x0 !== undefined || m.x1 !== undefined
+      const loChannel = vertical ? m.x0 : (m.y0 ?? m.y)
+      const hiChannel = vertical ? m.x1 : (m.y1 ?? m.y)
+      /** Une chaîne qui **n'est pas** un champ de la donnée est une constante (`x0: "Jan"`) */
+      const boundValue = (channel: QChartChannel | undefined, i: number) => {
+        if (typeof channel === "string") {
+          const row = data[0]
+          if (!isPlainObject(row) || !(channel in row)) return channel
+        }
+        return channelValue(channel, data, i)
+      }
+      const count = Math.max(
+        data.length || 1,
+        isArrayLike(loChannel) ? loChannel.length : 1,
+        isArrayLike(hiChannel) ? hiChannel.length : 1,
+      )
+      for (let i = 0; i < count; i++) {
+        const lo = boundValue(loChannel, i)
+        const hi = boundValue(hiChannel, i)
+        if (lo === undefined || hi === undefined) continue
+        const area = vertical
+          ? [{ xAxis: lo, itemStyle: { ...style }, label: { ...labelCfg } }, { xAxis: hi }]
+          : [{ yAxis: lo, itemStyle: { ...style }, label: { ...labelCfg } }, { yAxis: hi }]
+        ;(vertical ? bandsX : bandsY).push(area)
+      }
+      continue
+    }
 
     // Camembert / anneau — famille **hors axes** (ni grid ni xAxis/yAxis) : une part par
     // ligne, `x` = le libellé de la part, `y` = sa valeur. Sans `fill`, ECharts colorie
@@ -791,6 +1508,20 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
         if (m.title !== undefined) slice.tooltip = { formatter: String(channelValue(m.title, data, i)) }
         return slice
       })
+      // Format personnalisé : le formateur reçoit le point ECharts (`value`, `percent`, `name`)
+      const formatted = m.labelFormat
+        ? (p: any) => {
+            if (m.labels === "percent") {
+              return formatText(p.percent, { style: "percent", ...(typeof m.labelFormat === "object" ? m.labelFormat : {}) })
+            }
+            const text = formatText(p.value, m.labelFormat)
+            if (m.labels === "name-value") return `${p.name}: ${text}`
+            if (m.labels === "name-percent") {
+              return `${p.name} ${formatText(p.percent, { style: "percent" })}`
+            }
+            return m.labels === "value" ? text : p.name
+          }
+        : formatter
       const outer = m.radius ?? "70%"
       series.push({
         type: "pie",
@@ -800,7 +1531,12 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
         ...(typeof m.startAngle === "number" ? { startAngle: m.startAngle } : {}),
         ...(m.labels === false
           ? { label: { show: false }, labelLine: { show: false } }
-          : { label: { formatter } }),
+          : {
+              label: {
+                formatter: formatted,
+                ...(m.labelPosition ? { position: m.labelPosition } : {}),
+              },
+            }),
         data: slices,
       })
       continue
@@ -816,7 +1552,7 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
       const columnIndex = new Map(categories.map((c, i) => [c, i]))
       const rowIndex = new Map(rowCategories.map((c, i) => [c, i]))
       const raw = data.map((_, i) => colorValue(m.fill, data, i))
-      const numeric = raw.length > 0 && raw.every((v) => typeof v === "number")
+      const numeric = raw.some((v) => typeof v === "number")
       const uniform = numeric ? undefined : resolve(raw[0] ?? m.fill)
       const cells: any[] = []
       for (let i = 0; i < data.length; i++) {
@@ -831,7 +1567,7 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
         if (m.title !== undefined) cell.tooltip = { formatter: String(channelValue(m.title, data, i)) }
         cells.push(cell)
       }
-      const values = numeric ? (raw as number[]) : [0, 1]
+      const values = numeric ? (raw.filter((v) => typeof v === "number") as number[]) : [0, 1]
       // Couleur constante → échelle dégénérée `[c, c]` (sinon la palette sert de rampe)
       const flat = typeof uniform === "string" && looksLikeColor(uniform) ? uniform : (palette[0] ?? "#1976d2")
       visualMaps.push({
@@ -839,6 +1575,7 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
         max: Math.max(...values),
         inRange: { color: numeric ? palette : [flat, flat] },
         show: numeric, // une couleur constante n'a pas d'échelle à montrer
+        seriesIndex: series.length, // n'affecte pas les autres séries (ex. un `dot` coloré)
         orient: "horizontal",
         left: 0,
         bottom: 0,
@@ -854,7 +1591,15 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
         data: cells,
         ...(cellOpacity !== undefined ? { itemStyle: { opacity: cellOpacity } } : {}),
         ...(m.labels === true || m.labels === "value"
-          ? { label: { show: true, formatter: "{@[2]}", color: theme.text } }
+          ? {
+              label: {
+                show: true,
+                formatter: m.labelFormat
+                  ? (p: any) => formatText(p.value?.[2], m.labelFormat)
+                  : "{@[2]}",
+                color: theme.text,
+              },
+            }
           : {}),
       })
       continue
@@ -879,10 +1624,341 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
       if (typeof stroke === "string" && looksLikeColor(stroke)) lineStyle.color = stroke
       if (typeof m.strokeWidth === "number") lineStyle.width = m.strokeWidth
       const list = vertical ? rulesX : rulesY
+      const labelCfg = m.label
+        ? {
+            show: true,
+            formatter: m.label,
+            position: m.labelPosition ?? "end",
+            color: theme.muted,
+          }
+        : undefined
       for (const v of values) {
         if (v === undefined || v === null) continue
-        list.push({ [vertical ? "xAxis" : "yAxis"]: v, lineStyle: { ...lineStyle } })
+        list.push({
+          [vertical ? "xAxis" : "yAxis"]: v,
+          lineStyle: { ...lineStyle },
+          ...(labelCfg ? { label: { ...labelCfg } } : {}),
+        })
       }
+      continue
+    }
+
+    // ─── Jauge : valeur, plages de performance (`bands`) et cible annotée ───
+    if (m.type === "gauge") {
+      const value = Number(ordinateValueOf(m, 0) ?? 0)
+      const min = m.min ?? 0
+      const max = m.max ?? 100
+      const span = max - min || 1
+      const label = channelValue(m.x, data, 0) ?? m.name ?? ""
+      const target = m.target !== undefined ? Number(channelValue(m.target, data, 0)) : undefined
+      const fmt = (v: any) => {
+        const text = formatText(v, m.labelFormat)
+        return m.unit ? `${text} ${m.unit}` : text
+      }
+      // Plages : `fraction` (0→1) ou valeurs d'axe, converties en fractions pour ECharts
+      const bands = (m.bands ?? [])
+        .map((band) => {
+          const to = band.fraction ? band.to : (band.to - min) / span
+          return [Math.max(0, Math.min(1, to)), resolve(band.color)] as [number, string]
+        })
+        .sort((a, b) => a[0] - b[0])
+      const axisColors = bands.length ? bands : ([[1, colorFor(m.fill)]] as [number, string][])
+      if (axisColors[0]![0] !== 0) axisColors.unshift([0, axisColors[0]![1]])
+      series.push({
+        type: "gauge",
+        name: m.name,
+        z: series.length,
+        min,
+        max,
+        radius: m.radius ?? "75%",
+        startAngle: 210,
+        endAngle: -30,
+        progress: { show: true, width: 12, itemStyle: { color: colorFor(m.fill) } },
+        axisLine: { lineStyle: { width: 12, color: axisColors } },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { show: true, color: theme.muted, distance: 14, formatter: (v: number) => formatText(v, m.labelFormat) },
+        pointer: { show: true, width: 4, itemStyle: { color: theme.text } },
+        anchor: { show: true, size: 8, itemStyle: { color: theme.text } },
+        // La cible s'affiche sous la valeur : une coordonnée polaire n'accueille pas de `markLine`
+        detail: {
+          valueAnimation: true,
+          color: theme.text,
+          fontSize: 20,
+          lineHeight: 22,
+          offsetCenter: [0, target !== undefined ? "46%" : "60%"],
+          formatter: (v: number) => (target !== undefined ? `${fmt(v)}\nCible ${fmt(target)}` : fmt(v)),
+        },
+        title: { show: !!label, offsetCenter: [0, target !== undefined ? "88%" : "82%"], color: theme.muted, fontSize: 11 },
+        data: [{ name: String(label), value }],
+        ...(typeof m.opacity === "number" ? { itemStyle: { opacity: m.opacity } } : {}),
+      })
+      continue
+    }
+
+    // ─── Entonnoir : une part par ligne ───
+    if (m.type === "funnel") {
+      const slices = data.map((_, i) => {
+        const name = String(channelValue(m.x, data, i) ?? i)
+        const value = Number(channelValue(m.y, data, i) ?? 0)
+        const c = resolve(colorValue(m.fill, data, i))
+        return {
+          name,
+          value,
+          ...(typeof c === "string" && looksLikeColor(c) ? { itemStyle: { color: c } } : {}),
+        }
+      })
+      series.push({
+        type: "funnel",
+        name: m.name,
+        z: series.length,
+        top: 12,
+        bottom: 12,
+        left: "10%",
+        right: "10%",
+        minSize: "20%",
+        gap: 2,
+        data: slices,
+        ...(m.labels === false
+          ? { label: { show: false } }
+          : {
+              label: {
+                show: true,
+                position: m.labelPosition ?? "inside",
+                color: theme.text,
+                formatter: (p: any) =>
+                  m.labelFormat ? `${p.name}: ${formatText(p.value, m.labelFormat)}` : `${p.name}: ${p.value}`,
+              },
+            }),
+        ...(typeof m.opacity === "number" ? { itemStyle: { opacity: m.opacity } } : {}),
+      })
+      continue
+    }
+
+    // ─── Radar : `x` = l'indicateur, `y` = la valeur, `z` = la série ───
+    if (m.type === "radar") {
+      const indicators: string[] = []
+      const seenIndicator = new Set<string>()
+      const byGroup = new Map<string, Map<string, number>>()
+      for (let i = 0; i < data.length; i++) {
+        const indicator = String(channelValue(m.x, data, i) ?? i)
+        if (!seenIndicator.has(indicator)) {
+          seenIndicator.add(indicator)
+          indicators.push(indicator)
+        }
+        const key = String(channelValue(m.z, data, i) ?? m.name ?? "")
+        if (!byGroup.has(key)) byGroup.set(key, new Map())
+        byGroup.get(key)!.set(indicator, Number(ordinateValueOf(m, i)) || 0)
+      }
+      const flat = [...byGroup.values()].flatMap((vals) => [...vals.values()])
+      const radarMax = m.max ?? Math.max(1, ...flat) * 1.2
+      radarOptions.push({
+        indicator: indicators.map((name) => ({ name, max: radarMax, min: m.min ?? 0 })),
+        axisLabel: { color: theme.muted },
+        axisLine: { lineStyle: { color: theme.grid } },
+        splitLine: { lineStyle: { color: theme.grid } },
+        splitArea: { show: false },
+      })
+      const radarIndex = radarOptions.length - 1
+      const entries = [...byGroup.entries()].map(([key, vals], index) => {
+        const c = resolve(palette[index % palette.length])
+        return {
+          name: key || String(m.name ?? ""),
+          value: indicators.map((indicator) => vals.get(indicator) ?? 0),
+          lineStyle: { color: c, width: typeof m.strokeWidth === "number" ? m.strokeWidth : 2 },
+          itemStyle: { color: c },
+          areaStyle: { color: c, opacity: typeof m.opacity === "number" ? m.opacity : 0.18 },
+        }
+      })
+      series.push({ type: "radar", name: m.name, z: series.length, radarIndex, symbolSize: 4, data: entries })
+      continue
+    }
+
+    // ─── Treemap / sunburst : hiérarchie par `parent` ───
+    if (m.type === "treemap" || m.type === "sunburst") {
+      const nameOf = (i: number) => String(channelValue(m.x, data, i) ?? i)
+      const nodes = new Map<string, any>()
+      const roots: any[] = []
+      for (let i = 0; i < data.length; i++) {
+        const node: Record<string, any> = { name: nameOf(i) }
+        const value = m.value !== undefined ? channelValue(m.value, data, i) : m.y !== undefined ? channelValue(m.y, data, i) : undefined
+        if (value !== undefined) node.value = Number(value)
+        const c = resolve(colorValue(m.fill, data, i))
+        if (typeof c === "string" && looksLikeColor(c)) node.itemStyle = { color: c }
+        nodes.set(node.name, node)
+      }
+      for (let i = 0; i < data.length; i++) {
+        const node = nodes.get(nameOf(i))!
+        const parentName = m.parent !== undefined ? channelValue(m.parent, data, i) : undefined
+        const parent = parentName !== undefined && parentName !== null ? nodes.get(String(parentName)) : undefined
+        if (parent && parent !== node) (parent.children ??= []).push(node)
+        else roots.push(node)
+      }
+      series.push({
+        type: m.type,
+        name: m.name,
+        z: series.length,
+        data: roots,
+        ...(m.type === "sunburst" ? { radius: m.radius ?? ["15%", "90%"] } : {}),
+        ...(m.type === "treemap" ? { roam: false, nodeClick: false, breadcrumb: { show: false } } : {}),
+        ...(m.labels === false
+          ? { label: { show: false } }
+          : m.labelFormat
+            ? { label: { formatter: (p: any) => formatText(p.value, m.labelFormat) } }
+            : {}),
+      })
+      continue
+    }
+
+    // ─── Sankey : flux source → cible ───
+    if (m.type === "sankey") {
+      const links: any[] = []
+      const names: string[] = []
+      const seenNode = new Set<string>()
+      for (let i = 0; i < data.length; i++) {
+        const source = String(channelValue(m.x ?? "source", data, i) ?? "")
+        const target = String(channelValue(m.y ?? "target", data, i) ?? "")
+        const value = Number(channelValue(m.value ?? "value", data, i) ?? 0)
+        links.push({ source, target, value })
+        for (const name of [source, target]) {
+          if (name && !seenNode.has(name)) {
+            seenNode.add(name)
+            names.push(name)
+          }
+        }
+      }
+      series.push({
+        type: "sankey",
+        name: m.name,
+        z: series.length,
+        data: names.map((name) => ({ name })),
+        links,
+        left: 8,
+        right: 8,
+        top: 12,
+        bottom: 12,
+        emphasis: { focus: "adjacency" },
+        lineStyle: { color: "gradient", opacity: 0.35, curveness: 0.5 },
+        label: { color: theme.text },
+        ...(typeof m.opacity === "number" ? { itemStyle: { opacity: m.opacity } } : {}),
+      })
+      continue
+    }
+
+    // ─── Boîte à moustaches : cinq nombres, bruts (`values`) ou précalculés (`stats`) ───
+    if (m.type === "boxplot") {
+      const boxes: any[] = []
+      for (let i = 0; i < data.length; i++) {
+        const category = categoryOf(m, i)
+        if (category === undefined || category === null) continue
+        let stats: any = m.stats !== undefined ? channelValue(m.stats, data, i) : undefined
+        if (!stats && m.values !== undefined) stats = boxStats(channelValue(m.values, data, i) ?? [])
+        if (!stats) continue
+        const five = Array.isArray(stats) ? stats : [stats.min, stats.q1, stats.median, stats.q3, stats.max]
+        if (five.some((v: any) => typeof v !== "number" || !Number.isFinite(v))) continue
+        boxes.push({ name: String(category), value: five })
+      }
+      const border = colorFor(m.stroke ?? m.fill)
+      series.push({
+        type: "boxplot",
+        name: m.name,
+        z: series.length,
+        data: boxes,
+        boxWidth: [7, 40],
+        itemStyle: {
+          color: "transparent",
+          borderColor: border,
+          borderWidth: typeof m.strokeWidth === "number" ? m.strokeWidth : 2,
+          ...(typeof m.opacity === "number" ? { opacity: m.opacity } : {}),
+        },
+      })
+      continue
+    }
+
+    // ─── Histogramme : tranches calculées en amont (`binsOf`) ───
+    if (m.type === "histogram") {
+      const bins = binsOf.get(m) ?? []
+      series.push({
+        type: "bar",
+        name: m.name,
+        z: series.length,
+        barCategoryGap: "2%",
+        data: bins.map((bin) => ({ name: bin.label, value: bin.count })),
+        itemStyle: {
+          color: colorFor(m.fill),
+          borderRadius: [2, 2, 0, 0],
+          ...(typeof m.opacity === "number" ? { opacity: m.opacity } : {}),
+        },
+        ...(dataLabelsOf(m) ? { label: dataLabelsOf(m) } : {}),
+      })
+      continue
+    }
+
+    // ─── Cascade : barres flottantes cumulées + connecteurs ───
+    if (m.type === "waterfall") {
+      const values = data.map((_, i) => ordinateValueOf(m, i))
+      const flags = data.map((_, i) => (m.isTotal !== undefined ? channelValue(m.isTotal, data, i) : false))
+      const steps = waterfallSteps(values, flags)
+      const positive = resolve(colorValue(m.fill, data, 0) ?? m.fill)
+      const negative = resolve(colorValue(m.negativeFill, data, 0) ?? "negative")
+      const totalColor = palette[colorIndex++ % palette.length]
+      const items = steps.map((step, i) => {
+        const color = step.totalRow
+          ? totalColor
+          : step.delta < 0
+            ? negative
+            : typeof positive === "string" && looksLikeColor(positive)
+              ? positive
+              : palette[0]
+        return {
+          name: String(categoryOf(m, i) ?? i),
+          value: [Math.min(step.base, step.total), Math.max(step.base, step.total)],
+          itemStyle: { color, ...(typeof m.opacity === "number" ? { opacity: m.opacity } : {}) },
+        }
+      })
+      const connectors = steps
+        .slice(0, -1)
+        .map((step, i) => {
+          const from = categories[i]
+          const to = categories[i + 1]
+          if (from === undefined || to === undefined) return null
+          return [
+            { coord: [from, step.total] },
+            { coord: [to, step.total] },
+          ]
+        })
+        .filter((pair): pair is { coord: (string | number)[] }[] => pair !== null)
+      const labels = dataLabelsOf(m)
+      series.push({
+        type: "bar",
+        name: m.name,
+        z: series.length,
+        barMaxWidth: 42,
+        data: items,
+        ...(labels
+          ? {
+              label: {
+                ...labels,
+                formatter: (p: any) => {
+                  const step = steps[p.dataIndex]
+                  if (!step) return ""
+                  return formatText(step.totalRow ? step.total : step.delta, m.labelFormat)
+                },
+              },
+            }
+          : {}),
+        ...(connectors.length
+          ? {
+              markLine: {
+                silent: true,
+                symbol: "none",
+                animation: false,
+                data: connectors,
+                lineStyle: { color: theme.muted, type: "dashed", width: 1 },
+              },
+            }
+          : {}),
+      })
       continue
     }
 
@@ -905,7 +1981,16 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
     for (const g of groups) {
       const points = g.indexes
         .map((i) => {
-          const pair = pairOf(m, i)
+          // `line` / `area` : un trou garde sa catégorie avec une ordonnée `null` — la ligne
+          // se coupe (ou se relie avec `connectNulls`). Les autres marques sautent le point.
+          if (m.type === "line" || m.type === "area") {
+            const scaled = scaledPairOf(m, i)
+            if (scaled) return { value: scaled, index: i }
+            const cat = categoryOf(m, i)
+            if (cat === undefined || cat === null) return null
+            return { value: (horizontal ? [null, cat] : [cat, null]) as [any, any], index: i }
+          }
+          const pair = scaledPairOf(m, i)
           return pair ? { value: pair, index: i } : null
         })
         .filter((p): p is { value: [any, any]; index: number } => p !== null)
@@ -949,12 +2034,18 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
         typeof m.src === "string" && /^([./]|[a-z][a-z0-9+.-]*:)/i.test(m.src) ? m.src : undefined
 
       const name = g.key ?? m.name
+      const stackGroup = stackGroupOf(m)
 
       const common = {
         name,
         z: series.length,
-        ...(m.stack ? { stack: "total" } : {}),
+        ...(stackGroup ? { stack: stackGroup } : {}),
+        ...(m.yAxis === "right" && !horizontal ? { yAxisIndex: 1 } : {}),
         ...(theme.muted ? { markLineColor: theme.muted } : {}),
+        // Info-bulle **par marque** : reçoit les paramètres du point et la valeur brute
+        ...(m.tooltip
+          ? { tooltip: { formatter: (p: any) => m.tooltip!(p, ordinateOfPoint(p)) } }
+          : {}),
       }
 
       /** Valeur au point `p` si elle diffère du défaut donné (sinon `undefined`) */
@@ -1010,26 +2101,80 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
           const t = m.title !== undefined ? channelValue(m.title, data, p.index) : undefined
           if (t !== undefined) item.tooltip = { formatter: String(t) }
         }
+        // Seuils déclaratifs : ils colorent le point (pas les images ni le texte)
+        if (m.type !== "image" && m.type !== "text") {
+          const threshold = thresholdOf(p.value[horizontal ? 0 : 1], m.thresholds)
+          if (threshold) item.itemStyle = { ...(item.itemStyle ?? {}), color: threshold }
+        }
         return item
       }
 
       const opacity = typeof m.opacity === "number" ? m.opacity : undefined
 
       if (m.type === "bar") {
-        series.push({
-          ...common,
-          type: "bar",
-          data: points.map(perPoint),
-          itemStyle: { color: baseColor, borderRadius: [3, 3, 0, 0], ...(opacity !== undefined ? { opacity } : {}) },
-          barMaxWidth: 42,
-        })
+        const labels = dataLabelsOf(m)
+        if (m.base !== undefined) {
+          // Barre **flottante** : ECharts n'accepte pas `[cat, [y0, y1]]` — on empile une base
+          // invisible et le delta visible dans **le même groupe** d'empilement.
+          const stackName = `${stackGroup ?? "bar"}__base_${series.length}`
+          const at = horizontal ? 0 : 1
+          const baseColorFill = resolve(m.baseFill) ?? "transparent"
+          const bases = points.map((p) => {
+            const raw = Number(channelValue(m.base, data, p.index))
+            const base = Number.isFinite(raw) ? raw : 0
+            return horizontal ? [base, p.value[1]] : [p.value[0], base]
+          })
+          series.push({
+            type: "bar",
+            z: series.length,
+            stack: stackName,
+            silent: true,
+            legendHoverLink: false,
+            tooltip: { show: false },
+            emphasis: { disabled: true },
+            barMaxWidth: 42,
+            data: bases.map((value) => ({ value, itemStyle: { color: baseColorFill } })),
+            itemStyle: { color: baseColorFill },
+            // Marqueur interne : la base ne participe ni à la légende, ni à l'estompage
+            __base: true,
+          })
+          const tops = points.map((p, k) => {
+            const base = Number((bases[k] as any)[at])
+            const value = Number(p.value[at])
+            const delta = (Number.isFinite(value) ? value : 0) - (Number.isFinite(base) ? base : 0)
+            const item = perPoint(p)
+            item.value = horizontal ? [delta, p.value[1]] : [p.value[0], delta]
+            return item
+          })
+          series.push({
+            ...common,
+            type: "bar",
+            z: series.length,
+            stack: stackName,
+            data: tops,
+            itemStyle: { color: baseColor, borderRadius: [3, 3, 0, 0], ...(opacity !== undefined ? { opacity } : {}) },
+            barMaxWidth: 42,
+            ...(labels ? { label: labels } : {}),
+          })
+        } else {
+          series.push({
+            ...common,
+            type: "bar",
+            data: points.map(perPoint),
+            itemStyle: { color: baseColor, borderRadius: [3, 3, 0, 0], ...(opacity !== undefined ? { opacity } : {}) },
+            barMaxWidth: 42,
+            ...(labels ? { label: labels } : {}),
+          })
+        }
       } else if (m.type === "line" || m.type === "area") {
         const isArea = m.type === "area"
+        const labels = dataLabelsOf(m)
         series.push({
           ...common,
           type: "line",
           data: points.map(perPoint),
-          smooth: false,
+          smooth: m.smooth === true ? true : typeof m.smooth === "number" ? m.smooth : false,
+          ...(m.connectNulls ? { connectNulls: true } : {}),
           symbol: "circle",
           symbolSize: isArea ? 0 : 5,
           lineStyle: {
@@ -1038,16 +2183,38 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
             ...(opacity !== undefined ? { opacity } : {}),
           },
           ...(isArea ? { areaStyle: { color: baseColor, opacity: 0.18 } } : {}),
+          ...(labels ? { label: labels } : {}),
         })
       } else if (m.type === "dot") {
+        // `fill` numérique → **échelle de couleurs** (visualMap dédié à cette série).
+        // La valeur de couleur voyage en **3ᵉ dimension** du point (`[x, y, v]`), sinon
+        // le moteur n'a rien à mapper.
+        const fills = g.indexes.map((i) => colorValue(m.fill, data, i))
+        const numericFill = fills.length > 0 && fills.every((v) => typeof v === "number")
+        const dotData = points.map((p) => {
+          const item = perPoint(p)
+          if (numericFill) item.value = [...p.value, Number(colorValue(m.fill, data, p.index))]
+          return item
+        })
+        if (numericFill) {
+          const nums = fills as number[]
+          visualMaps.push({
+            show: false,
+            seriesIndex: series.length,
+            dimension: 2,
+            min: Math.min(...nums),
+            max: Math.max(...nums),
+            inRange: { color: palette },
+          })
+        }
         series.push({
           ...common,
           type: "scatter",
           symbol: typeof m.symbol === "string" ? m.symbol : "circle",
-          data: points.map(perPoint),
+          data: dotData,
           symbolSize: typeof radius === "number" ? radius * 2 + 2 : 9,
           itemStyle: {
-            color: baseColor,
+            ...(numericFill ? {} : { color: baseColor }),
             ...(typeof outline === "string" && looksLikeColor(outline)
               ? {
                   borderColor: outline,
@@ -1145,6 +2312,54 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
     }
   }
 
+  // Ligne de tendance des nuages de points (`trend: true`) — régression linéaire, deux points
+  for (const m of marks) {
+    if (m.type !== "dot" || !m.trend) continue
+    const data = dataOf(m)
+    const pts: [number, number][] = []
+    for (let i = 0; i < data.length; i++) {
+      const cat = categoryOf(m, i)
+      const val = ordinateValueOf(m, i)
+      if (
+        typeof cat === "number" &&
+        typeof val === "number" &&
+        Number.isFinite(cat) &&
+        Number.isFinite(val)
+      ) {
+        pts.push([cat, val])
+      }
+    }
+    const fit = linearFit(pts)
+    if (!fit) continue
+    const xs = pts.map(([x]) => x)
+    const x0 = Math.min(...xs)
+    const x1 = Math.max(...xs)
+    const at = (x: number) => fit.slope * x + fit.intercept
+    series.push({
+      type: "line",
+      z: series.length,
+      silent: true,
+      symbol: "none",
+      legendHoverLink: false,
+      tooltip: { show: false },
+      lineStyle: { color: theme.muted, type: "dashed", width: 1.5 },
+      data: horizontal
+        ? [{ value: [at(x0), x0] }, { value: [at(x1), x1] }]
+        : [{ value: [x0, at(x0)] }, { value: [x1, at(x1)] }],
+      __trend: true,
+    })
+  }
+
+  // Zones de seuil (`band`) : `markArea` sur la première série cartésienne
+  if (bandsY.length || bandsX.length) {
+    if (!series.length) {
+      series.push({ type: "line", data: [], silent: true, symbol: "none", lineStyle: { opacity: 0 } })
+    }
+    const host =
+      series.find((s) => s.type === "bar" || s.type === "line" || s.type === "scatter") ?? series[0]!
+    host.markArea = { silent: true, animation: false, data: [...bandsY, ...bandsX] }
+  }
+
   // Les règles sont posées sur la première série (ou une série vide hôte)
   if (rulesY.length || rulesX.length) {
     if (!series.length) {
@@ -1162,7 +2377,7 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
   // ─── Légende : position (haut par défaut), alignement, marge, place réservée ───
   // La légende et la zone de tracé ne doivent pas se toucher : la marge (`offset`) est
   // **réservée** dans le `grid` (haut/bas/gauche/droite selon la position).
-  const legendOn = config.legend === false ? false : config.legend === true || series.some((s) => !!s.name)
+  const legendOn = config.legend === false ? false : config.legend === true || (!compact && series.some((s) => !!s.name))
   const legendConfig: QChartLegend = typeof config.legend === "object" && config.legend !== null ? config.legend : {}
   const legendPosition = legendConfig.position ?? "top"
   // `offset` par défaut : 24 px — une respiration **conséquente** entre la légende et la
@@ -1195,51 +2410,91 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
               ? { bottom: scaleBand, left: legendAlign }
               : { top: legendTop, left: legendAlign }),
       }
-  const gridBox = {
-    left: 8 + (legendOn && legendPosition === "left" ? LEGEND_COLUMN + legendGap : 0),
-    right: 16 + (legendOn && legendPosition === "right" ? LEGEND_COLUMN + legendGap : 0),
-    // Légende → nom d'axe → zone de tracé, sans recouvrement
-    top: (legendTopBand > 0 ? legendTopBand : config.title ? 44 : 16) + axisNameTop,
-    bottom:
-      8 +
-      axisNameBottom +
-      scaleBand +
-      (legendOn && legendPosition === "bottom" ? LEGEND_LINE + legendGap : 0),
-    containLabel: true,
-  }
+  /** Axe des ordonnées **secondaire** (marques avec `yAxis: 'right'`) */
+  const hasRightAxis = series.some((s) => s.yAxisIndex === 1)
+  const gridBox = compact
+    ? {
+        left: 2,
+        right: hasRightAxis ? 12 : 2,
+        top: config.title ? 20 : 2,
+        bottom: 2,
+        containLabel: true,
+      }
+    : {
+        left: 8 + (legendOn && legendPosition === "left" ? LEGEND_COLUMN + legendGap : 0),
+        right:
+          16 +
+          (legendOn && legendPosition === "right" ? LEGEND_COLUMN + legendGap : 0) +
+          (hasRightAxis ? 12 : 0),
+        // Légende → nom d'axe → zone de tracé, sans recouvrement
+        top: (legendTopBand > 0 ? legendTopBand : config.title ? 44 : 16) + axisNameTop,
+        bottom:
+          8 +
+          axisNameBottom +
+          scaleBand +
+          (legendOn && legendPosition === "bottom" ? LEGEND_LINE + legendGap : 0),
+        containLabel: true,
+      }
 
   const axisLabel = { color: theme.muted }
-  /** Nombres de l'axe des ordonnées : un peu d'air entre eux et l'axe (défaut moteur : 8) —
-   *  `grid.containLabel` réserve la place, rien d'autre à ajuster. */
-  const valueAxisLabel = { ...axisLabel, margin: 16 }
   const axisLine = { lineStyle: { color: theme.grid } }
 
+  /** Libellés d'axe : format demandé, granularité temporelle, rotation, mode compact */
+  const axisLabelOptions = (axis: QChartAxis | undefined, temporal = false) => {
+    const formatted =
+      axisFormatter(axis?.format, { locale: axis?.locale ?? locale }) ??
+      (temporal
+        ? timeTickFormatter(axis?.timeUnit, axis?.locale ?? locale, axis?.timeZone)
+        : undefined)
+    const opt: Record<string, any> = { ...axisLabel, hideOverlap: true }
+    if (formatted) opt.formatter = formatted
+    if (typeof axis?.labelRotate === "number") opt.rotate = axis.labelRotate
+    if (axis?.interval !== undefined && axis.interval !== "auto") opt.interval = axis.interval
+    if (compact || axis?.show === false) opt.show = false
+    return opt
+  }
+
   const hasHeatmap = series.some((s) => s.type === "heatmap")
-  const categoryAxis = (axis: QChartAxis | undefined, data: string[] = categories, heat = false) => ({
+  const categoryAxis = (
+    axis: QChartAxis | undefined,
+    data: string[] = categories,
+    heat = false,
+    temporal = false,
+  ) => ({
     type: "category",
+    show: axis?.show !== false,
     data,
-    name: axis?.label,
+    name: compact ? undefined : axis?.label,
     nameTextStyle: axisLabel,
-    axisLabel: { ...axisLabel, hideOverlap: true },
-    axisLine,
+    axisLabel: axisLabelOptions(axis, temporal),
+    axisLine: { ...axisLine, show: !compact && axis?.show !== false },
     axisTick: { show: false },
     splitLine: { show: false },
     // Carte de chaleur : quadrillage des cases
     ...(heat ? { splitArea: { show: true } } : {}),
     boundaryGap: hasHeatmap || series.some((s) => s.type === "bar"),
   })
-  const valueAxis = (axis: QChartAxis | undefined, zero: boolean) => ({
-    type: axis?.type === "log" ? "log" : "value",
-    name: axis?.label,
-    nameTextStyle: axisLabel,
-    min: axis?.min ?? (zero ? 0 : undefined),
-    max: axis?.max,
-    axisLabel:
-      typeof axis?.margin === "number" ? { ...valueAxisLabel, margin: axis.margin } : valueAxisLabel,
-    axisLine: { show: false },
-    axisTick: { show: false },
-    splitLine: { show: axis?.grid ?? true, lineStyle: { color: theme.grid } },
-  })
+  const valueAxis = (axis: QChartAxis | undefined, zero: boolean, temporal = false) => {
+    const label = axisLabelOptions(axis, temporal)
+    if (!temporal) label.margin = typeof axis?.margin === "number" ? axis.margin : 16
+    else if (typeof axis?.margin === "number") label.margin = axis.margin
+    return {
+      type: axis?.type === "log" ? "log" : temporal ? "time" : "value",
+      show: axis?.show !== false,
+      name: compact ? undefined : axis?.label,
+      nameTextStyle: axisLabel,
+      min: axis?.min ?? (zero ? 0 : undefined),
+      max: axis?.max,
+      ...(typeof axis?.splitNumber === "number" ? { splitNumber: axis.splitNumber } : {}),
+      axisLabel: label,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: {
+        show: compact ? axis?.grid === true : axis?.grid ?? true,
+        lineStyle: { color: theme.grid },
+      },
+    }
+  }
 
   // ─── Nom d'axe : placement **toujours dans le cadre** ───
   // Axe **horizontal** : centré sous l'axe (`middle`). À la fin de l'axe (`end`, le défaut
@@ -1256,26 +2511,41 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
   // Orientation horizontale : catégories sur l'axe Y
   const hasBar = series.some((s) => s.type === "bar")
   const xAxisBase = hasHeatmap
-    ? categoryAxis(config.x, categories, true)
+    ? categoryAxis(config.x, categories, true, axisType === "time")
     : horizontal
-      ? valueAxis(config.x, hasBar)
+      ? valueAxis(config.x, hasBar, axisType === "time")
       : axisType === "category"
         ? categoryAxis(config.x)
-        : valueAxis(config.x, false)
+        : valueAxis(config.x, false, axisType === "time")
   const yAxisBase = hasHeatmap
     ? categoryAxis(config.y, rowCategories, true)
     : horizontal
       ? axisType === "category"
         ? categoryAxis(config.y)
-        : valueAxis(config.y, false)
-      : valueAxis(config.y, hasBar)
+        : valueAxis(config.y, false, config.y?.type === "time")
+      : valueAxis(config.y, hasBar, config.y?.type === "time")
   const xAxis = config.x?.label ? { ...xAxisBase, ...axisNameX } : xAxisBase
-  const yAxis = config.y?.label ? { ...yAxisBase, ...axisNameY } : yAxisBase
+  const yAxisLeft = config.y?.label ? { ...yAxisBase, ...axisNameY } : yAxisBase
+  // Axe **secondaire** : mêmes règles, nom ancré à droite (sinon il sort du cadre)
+  const yAxisRight = hasRightAxis
+    ? {
+        ...valueAxis(config.yRight, series.some((s) => s.yAxisIndex === 1 && s.type === "bar"), config.yRight?.type === "time"),
+        ...(config.yRight?.label
+          ? { nameLocation: "end" as const, nameTextStyle: { ...axisLabel, align: "right" as const } }
+          : {}),
+      }
+    : undefined
+  const yAxis = hasRightAxis ? [yAxisLeft, yAxisRight] : yAxisLeft
 
-  // Familles **hors axes** (`pie` seul) : ni grid ni xAxis/yAxis — sinon ECharts laisse
-  // un cadre fantôme et décale le titre.
+  // Familles **hors axes** (`pie`, `gauge`, `radar`, `sankey`…) : ni grid ni xAxis/yAxis —
+  // sinon ECharts laisse un cadre fantôme et décale le titre.
   const cartesian = series.some(
-    (s) => s.type === "bar" || s.type === "line" || s.type === "scatter" || s.type === "heatmap",
+    (s) =>
+      s.type === "bar" ||
+      s.type === "line" ||
+      s.type === "scatter" ||
+      s.type === "heatmap" ||
+      s.type === "boxplot",
   )
 
   // Un tooltip d'axe suppose des données **par catégorie** : vrai pour tout cartésien, sauf si
@@ -1286,6 +2556,40 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
     (series.some((s) => s.type === "scatter") &&
       !series.some((s) => s.type === "heatmap") &&
       !marks.some((m) => m.title !== undefined || m.type === "text"))
+
+  /** Info-bulle : `false`, `true`, ou configuration (formateurs, tri) */
+  const tooltipConfig: QChartTooltip =
+    typeof config.tooltip === "object" && config.tooltip !== null ? config.tooltip : {}
+  /** Formateur d'axe par défaut enrichi : valeurs formatées, noms formatés, tri */
+  const axisTooltipFormatter = (params: any) => {
+    const list: any[] = Array.isArray(params) ? params : [params]
+    const head = list[0]?.axisValueLabel ?? list[0]?.axisValue ?? ""
+    const rows = tooltipConfig.sortDesc
+      ? [...list].sort((a, b) => Number(ordinateOfPoint(b) ?? 0) - Number(ordinateOfPoint(a) ?? 0))
+      : list
+    const body = rows
+      .map((p) => {
+        const raw = ordinateOfPoint(p)
+        const rawName = p.seriesName ?? p.name ?? ""
+        const name = tooltipConfig.nameFormatter ? tooltipConfig.nameFormatter(rawName, p) : rawName
+        const text = tooltipConfig.valueFormatter
+          ? tooltipConfig.valueFormatter(raw, p)
+          : raw === null || raw === undefined
+            ? "—"
+            : String(raw)
+        return `${p.marker ?? ""}${name ? `${name}: ` : ""}${text}`
+      })
+      .join("<br/>")
+    return `${head ? `<div style="margin-bottom:2px">${head}</div>` : ""}${body}`
+  }
+
+  // `valueFormatter` par point : ECharts lit cette option **au niveau de la série** quand
+  // l'info-bulle est en mode `item` (pas de formateur global).
+  if (!axisTooltip && tooltipConfig.valueFormatter) {
+    for (const one of series) {
+      one.tooltip = { ...(one.tooltip ?? {}), valueFormatter: tooltipConfig.valueFormatter }
+    }
+  }
 
   const option: Record<string, any> = {
     ...(config.title
@@ -1298,6 +2602,7 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
           yAxis,
         }
       : {}),
+    ...(radarOptions.length ? { radar: radarOptions.length === 1 ? radarOptions[0] : radarOptions } : {}),
     ...(visualMaps.length ? { visualMap: visualMaps } : {}),
     tooltip:
       config.tooltip === false
@@ -1312,6 +2617,11 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
               ? { axisPointer: { type: series.some((s) => s.type === "bar") ? "shadow" : "line" } }
               : {}),
             confine: true,
+            ...(tooltipConfig.formatter
+              ? { formatter: tooltipConfig.formatter }
+              : axisTooltip && (tooltipConfig.valueFormatter || tooltipConfig.nameFormatter || tooltipConfig.sortDesc)
+                ? { formatter: axisTooltipFormatter }
+                : {}),
             ...tooltipStyle(theme),
           },
     legend: legendOption,
@@ -1330,6 +2640,8 @@ export function chartToECharts(config: QChartConfig): Record<string, any> {
   if ((config.linkMode ?? "filter") === "dim" && hasSelection) {
     const dim = typeof config.dimOpacity === "number" ? config.dimOpacity : 0.25
     for (const one of option.series ?? []) {
+      // Les séries techniques (base d'une barre flottante, tendance) restent intactes
+      if (one.__base || one.__trend) continue
       one.selectedMode = "single"
       // Seule l'opacité change : on ne touche ni au rayon (celui des barres vient du
       // traducteur : `borderRadius: [3, 3, 0, 0]`) ni au reste du style de la marque.

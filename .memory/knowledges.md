@@ -2119,3 +2119,50 @@ Deux conséquences pratiques :
 Le contexte `FormulaContext` (`row`, `resolveField`, `resolveCell`) ne transporte **aucune**
 borne de grille — c'est pourquoi une plage ouverte ne peut pas être résolue telle quelle ;
 l'ajouter serait un changement du moteur (séparé de `prefill`).
+
+## Fondu de défilement sous des boutons en surimpression — masque alpha, pas un dégradé de fond — 2026-10-17
+
+Pour estomper le contenu d'un scroller qui passe sous des boutons flottants (QTabs
+`show-arrows`), utiliser `mask-image: linear-gradient(…)` : les pixels **transparents** du
+masque laissent voir la surface réelle derrière, **quelle que soit sa couleur**.
+
+- Le masque est appliqué à la boîte de l'élément (défaut `mask-origin: border-box`) : il **ne
+  défile pas** avec le contenu, les deux bords restent fixes pendant le scroll.
+- `#fff` comme extrémité opaque : opaque en `mask-mode: alpha` **et** `luminance` (ancien
+  WebKit) — `#000` serait transparent dans le second cas.
+- Fondu **conditionnel** : deux variables `--fade-start/end` (0 px par défaut) passent à la
+  longueur du fondu via des classes posées depuis les mesures (`scrollLeft`, `clientWidth`,
+  `scrollWidth`) — un masque fixe estomperait aussi les extrémités alors que rien ne dépasse.
+- Éviter un dégradé de couleur (`--card`) en surimpression : le composant ne connaît pas la
+  surface du parent, et le token devrait être valide dans les deux thèmes.
+- Doubler `mask-image` par `-webkit-mask-image` (Safari) ; le masque n'ajoute aucune couleur,
+  donc **rendu identique en clair et en sombre**.
+
+## QChart — ajouter / étendre une marque (checklist) — 2026-10-26
+
+`filename: packages/ui/lib/chart.ts`, `components/QChart.vue`
+
+1. **Type** : ajouter la valeur à `QChartMarkType` et les clés à `QChartMark`.
+2. **Doc générée** : ajouter les clés dans `MARK_OPTIONS` (sinon elles n'apparaissent pas
+   dans `:dnax-mark-api`).
+3. **Traducteur** : brancher la marque dans `chartToECharts` **avant** la boucle générique
+   (les familles hors axes `continue` tôt). Pour une famille cartésienne, l'ajouter à
+   l'ensemble `CARTESIAN` (catégories + orientation) et à la détection `cartesian`.
+4. **Module ECharts** : enregistrer la série/le composant dans `use([...])` de
+   `QChart.vue` **et** dans `lib/chart.modules.test.ts` — un module manquant est ignoré
+   silencieusement.
+5. **Couleurs** : passer par `resolve`/`color` (tokens + normalisation zrender), jamais une
+   couleur en dur.
+6. **Tests** : forme de l'option dans `chart.bi.test.ts` + un cas **SVG SSR** (aucun
+   navigateur) pour prouver que le rendu ne lève pas.
+7. **Doc** : page `docui/content/docs/5.charts/NN.<marque>.md` (démo
+   `DnaxDemoChart.vue` + `:dnax-mark-api`), mise à jour de `5.charts/index.md`, puis
+   rebuild (le `llms.txt` est généré par le build).
+
+### Aides pures disponibles
+
+- `formatValue(value, format, ctx)` / `DEFAULT_LOCALE` (`lib/chartFormat.ts`) — mêmes
+  formats que les axes et les étiquettes.
+- `histogram`, `boxStats`, `linearFit`, `waterfallSteps`, `percentShares`,
+  `categoryTotals` (`lib/chartStats.ts`) — réutilisables hors graphique.
+- `tableModel` / `tableCsv` (`lib/chart.ts`) — tri, pagination, totaux, CSV.

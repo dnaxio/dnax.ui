@@ -9,6 +9,8 @@ import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { useOverlayBack } from "../lib/overlayBack"
 import { placePopover, type PopoverPlacement } from "../lib/datePicker"
+import { useConfigLang } from "../lib/useComponentProps"
+import { dateLabels, dateLocale } from "../lib/dateI18n"
 import QDateCalendar from "./internal/QDateCalendar.vue"
 
 interface Props {
@@ -43,7 +45,7 @@ interface Props {
   width?: string
   /** Titre du panneau (modes à voile : sheet/modal/dialog) */
   title?: string
-  /** Raccourci « Today » sous le calendrier (tous les modes) */
+  /** Raccourci « aujourd'hui » sous le calendrier (tous les modes) */
   todayBtn?: boolean
   /** En-tête : libellé cliquable ouvrant le choix du mois (tous les modes) */
   monthDropdown?: boolean
@@ -75,6 +77,11 @@ const emit = defineEmits<{
   clear: []
 }>()
 
+// Langue de l'app (`QConfigProvider lang`) : format d'affichage et libellés.
+const configLang = useConfigLang()
+const locale = computed(() => dateLocale(configLang.value))
+const labels = computed(() => dateLabels(configLang.value))
+
 /** Champ déclencheur (tout sauf `inline`) */
 const isPanelMode = computed(() => props.mode !== "inline")
 /** Panneau ancré au champ : ni voile, ni blocage du scroll, ni retour navigateur */
@@ -98,7 +105,7 @@ const formatFn = computed(
   () =>
     props.format ??
     ((d: Date) =>
-      new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", year: "numeric" }).format(d)),
+      new Intl.DateTimeFormat(locale.value, { day: "2-digit", month: "short", year: "numeric" }).format(d)),
 )
 
 const displayText = computed(() => (props.modelValue ? formatFn.value(props.modelValue) : ""))
@@ -139,7 +146,7 @@ const closePopup = () => {
   open.value = false
 }
 
-const sheetTitle = computed(() => props.title || props.label || "Sélectionner une date")
+const sheetTitle = computed(() => props.title || props.label || labels.value.selectDate)
 
 const sheetStyle = computed<Record<string, string> | undefined>(() =>
   props.width ? { width: props.width, maxWidth: props.width } : undefined,
@@ -263,7 +270,7 @@ onBeforeUnmount(() => {
           v-if="clearable && modelValue && !disable && !readonly"
           class="q-field__clear"
           type="button"
-          aria-label="Effacer"
+          :aria-label="labels.clear"
           @click.stop="onClear"
         >
           <Icon :icon="icons.x" aria-hidden="true" />
@@ -304,7 +311,7 @@ onBeforeUnmount(() => {
                 <button
                   type="button"
                   class="q-date-picker__sheet-close"
-                  :aria-label="`Fermer ${sheetTitle}`"
+                  :aria-label="`${labels.close} ${sheetTitle}`"
                   @click="closePopup"
                 >
                   <Icon :icon="icons.x" aria-hidden="true" />

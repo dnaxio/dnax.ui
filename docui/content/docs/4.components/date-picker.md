@@ -46,7 +46,7 @@ three overlay modes there is no backdrop and no scroll lock — the page around 
 visible and interactive — and the panel follows the field: it flips above it when
 there is no room below, and stays inside the window.
 
-`today-btn` adds a **Today** shortcut under the grid (disabled when today falls
+`today-btn` adds a **today** shortcut under the grid (disabled when today falls
 outside the allowed window) and `month-dropdown` turns the header label into a
 picker — a year stepper plus the twelve months — to jump to any month. Both work in
 every mode that renders the calendar.
@@ -238,6 +238,20 @@ const dateFormat = ref(new Date(1990, 4, 12))
 </template>
 ```
 ::
+
+## Localization
+
+The calendar follows the `lang` of the nearest `q-config-provider` (`en` by default,
+`fr`): month names, weekday initials, the today shortcut and the built-in labels
+(navigation, *Select a date*, *Clear*, *Close*) are translated, and the field format
+uses the matching locale (`en-US` / `fr-FR`). Nothing is read from the browser locale,
+so the server and the client render the same markup.
+
+```html
+<q-config-provider lang="fr">
+  <q-date-picker v-model="date" mode="sheet" today-btn />
+</q-config-provider>
+```
 
 ## API
 

@@ -45,6 +45,7 @@ interface RefToken {
 type Node =
   | { kind: "num"; value: number }
   | { kind: "str"; value: string }
+  | { kind: "bool"; value: boolean }
   | { kind: "ref"; ref: RefToken }
   | { kind: "range"; start: RefToken; end: RefToken }
   | { kind: "call"; name: string; args: Node[] }
@@ -242,6 +243,13 @@ class Parser {
     let digits = ""
     while (!this.eof() && /[0-9]/.test(this.peek()!)) digits += this.next()
 
+    // Littéraux TRUE / FALSE (Excel) — ne s'appliquent pas à une référence type TRUE1.
+    const keyword = letters.toUpperCase()
+    if (!colAbs && !rowAbs && digits.length === 0 && (keyword === "TRUE" || keyword === "FALSE")) {
+      this.skipWs()
+      if (this.peek() !== ":") return { kind: "bool", value: keyword === "TRUE" }
+    }
+
     let token: RefToken
     if (digits.length > 0 && letters.length <= 3) {
       token = {
@@ -327,6 +335,77 @@ const truthy = (v: FormulaValue): boolean => {
   return v !== ""
 }
 
+/** Cellule « vide » au sens des critères (`null`, `undefined` ou chaîne vide). */
+const isBlankValue = (v: FormulaValue): boolean => v === null || v === undefined || v === ""
+
+/** Motif texte → expression régulière : `*` = tout, `?` = un caractère, insensible à la casse. */
+const wildcardRegExp = (pattern: string): RegExp => {
+  let out = ""
+  for (const ch of pattern) {
+    if (ch === "*") out += ".*"
+    else if (ch === "?") out += "."
+    else out += ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  }
+  return new RegExp("^" + out + "$", "i")
+}
+
+/**
+ * Transforme un critère de `SUMIF` / `COUNTIF` (…) en prédicat.
+ *
+ * - `10` / `"10"` → égalité numérique ;
+ * - `">10"`, `"<=5"`, `"<>abc"`, `"<m"` → comparaison (numérique ou texte) ;
+ * - `""` / `"<>"` → cellules **vides** / **non vides** ;
+ * - `*` et `?` → jokers sur le texte, insensible à la casse.
+ */
+export function criteriaMatcher(criteria: FormulaValue): (v: FormulaValue) => boolean {
+  if (isError(criteria)) return () => false
+  if (criteria === null || criteria === undefined) return isBlankValue
+  if (typeof criteria === "number" || typeof criteria === "boolean") {
+    const target = typeof criteria === "boolean" ? (criteria ? 1 : 0) : criteria
+    return (v) => {
+      if (isBlankValue(v)) return false
+      const n = typeof v === "number" ? v : Number(v)
+      return !Number.isNaN(n) && n === target
+    }
+  }
+
+  const m = /^(>=|<=|<>|>|<|=)?([\s\S]*)$/.exec(String(criteria))!
+  const op = m[1] ?? "="
+  const raw = (m[2] ?? "").trim()
+
+  // Critères de vacuité : "" (vides) / "<>" (non vides)
+  if (raw === "" && (op === "=" || op === "<>")) {
+    return op === "=" ? isBlankValue : (v) => !isBlankValue(v)
+  }
+
+  const numeric = raw !== "" && !Number.isNaN(Number(raw))
+  const equals = (v: FormulaValue): boolean => {
+    if (isBlankValue(v)) return false
+    if (numeric) {
+      const n = typeof v === "number" ? v : Number(v)
+      return !Number.isNaN(n) && n === Number(raw)
+    }
+    return wildcardRegExp(raw).test(toStr(v))
+  }
+  if (op === "=" || op === "<>") return op === "=" ? equals : (v) => !equals(v)
+
+  if (numeric) {
+    const target = Number(raw)
+    return (v) => {
+      if (isBlankValue(v)) return false
+      const n = typeof v === "number" ? v : Number(v)
+      if (Number.isNaN(n)) return false
+      return op === ">" ? n > target : op === "<" ? n < target : op === ">=" ? n >= target : n <= target
+    }
+  }
+  const target = raw.toLowerCase()
+  return (v) => {
+    if (isBlankValue(v)) return false
+    const s = toStr(v).toLowerCase()
+    return op === ">" ? s > target : op === "<" ? s < target : op === ">=" ? s >= target : s <= target
+  }
+}
+
 // collect=false ne produit jamais de tableau (les plages renvoient #VALUE!) —
 // ce garde sert uniquement au typage.
 const toScalar = (v: EvalValue): FormulaValue => (Array.isArray(v) ? err("#VALUE!") : v)
@@ -354,6 +433,8 @@ function evalNode(node: Node, ctx: FormulaContext, collect: boolean): EvalValue 
     case "num":
       return node.value
     case "str":
+      return node.value
+    case "bool":
       return node.value
     case "ref":
       return resolveRef(node.ref, ctx)
@@ -386,6 +467,18 @@ function evalNode(node: Node, ctx: FormulaContext, collect: boolean): EvalValue 
       return evalCall(node, ctx)
   }
 }
+
+// — Évaluation d'un argument en liste (plage → valeurs, scalaire → [valeur]) —
+// Indispensable aux fonctions à plages multiples (`SUMIF`, `SUMPRODUCT`…) : la forme
+// et l'ordre des arguments doivent rester distincts (contrairement au dispatch générique
+// qui aplatit tous les arguments dans un seul tableau).
+const evalList = (node: Node, ctx: FormulaContext): FormulaValue[] => {
+  const v = evalNode(node, ctx, true)
+  return Array.isArray(v) ? v : [v]
+}
+
+const evalScalar = (node: Node, ctx: FormulaContext): FormulaValue =>
+  toScalar(evalNode(node, ctx, false))
 
 function evalBinary(node: Extract<Node, { kind: "binary" }>, ctx: FormulaContext): FormulaValue {
   if (node.op === "&") {
@@ -605,6 +698,176 @@ function evalCall(node: Extract<Node, { kind: "call" }>, ctx: FormulaContext): F
     return err("#VALUE!")
   }
 
+  // ── Fonctions à plages multiples (alignées par index) ──
+  // La forme des arguments compte (plage de critères ↔ plage de valeurs) : elles sont
+  // donc évaluées ici, argument par argument, avant le dispatch générique qui aplatit.
+  const pairsFrom = (
+    from: number,
+  ): [FormulaValue[], ((v: FormulaValue) => boolean)][] | FormulaError => {
+    const out: [FormulaValue[], ((v: FormulaValue) => boolean)][] = []
+    for (let i = from; i + 1 < node.args.length; i += 2) {
+      const criteria = evalScalar(node.args[i + 1]!, ctx)
+      if (isError(criteria)) return criteria
+      out.push([evalList(node.args[i]!, ctx), criteriaMatcher(criteria)])
+    }
+    return out
+  }
+
+  /** Index (0-based) où **toutes** les paires (plage, critère) correspondent. */
+  const matched = (pairs: [FormulaValue[], ((v: FormulaValue) => boolean)][]): number[] => {
+    const len = pairs[0]?.[0].length ?? 0
+    const out: number[] = []
+    for (let i = 0; i < len; i++) {
+      if (pairs.every(([values, hit]) => hit(values[i] ?? null))) out.push(i)
+    }
+    return out
+  }
+
+  const numbersAt = (values: FormulaValue[], indexes: number[]): number[] =>
+    indexes.map((i) => values[i]).filter((v): v is number => typeof v === "number")
+
+  const holidaysOf = (n: Node | undefined): Set<string> => {
+    const out = new Set<string>()
+    if (!n) return out
+    for (const v of evalList(n, ctx)) {
+      const d = toLocalDate(v)
+      if (!isError(d)) out.add(dayKey(d))
+    }
+    return out
+  }
+
+  if ((name === "sumif" || name === "averageif") && node.args.length >= 2) {
+    const criteria = evalScalar(node.args[1]!, ctx)
+    if (isError(criteria)) return criteria
+    const criterionValues = evalList(node.args[0]!, ctx)
+    const valueValues = node.args[2] ? evalList(node.args[2], ctx) : criterionValues
+    const nums = numbersAt(valueValues, matched([[criterionValues, criteriaMatcher(criteria)]]))
+    const total = nums.reduce((a, b) => a + b, 0)
+    if (name === "sumif") return total
+    return nums.length ? total / nums.length : err("#DIV/0!")
+  }
+
+  if (name === "countif" && node.args.length >= 2) {
+    const criteria = evalScalar(node.args[1]!, ctx)
+    if (isError(criteria)) return criteria
+    return matched([[evalList(node.args[0]!, ctx), criteriaMatcher(criteria)]]).length
+  }
+
+  if (name === "countifs" && node.args.length >= 2) {
+    const pairs = pairsFrom(0)
+    if (isError(pairs)) return pairs
+    return matched(pairs).length
+  }
+
+  if ((name === "sumifs" || name === "averageifs") && node.args.length >= 3) {
+    const pairs = pairsFrom(1)
+    if (isError(pairs)) return pairs
+    const nums = numbersAt(evalList(node.args[0]!, ctx), matched(pairs))
+    const total = nums.reduce((a, b) => a + b, 0)
+    if (name === "sumifs") return total
+    return nums.length ? total / nums.length : err("#DIV/0!")
+  }
+
+  if (name === "sumproduct" && node.args.length >= 1) {
+    const lists = node.args.map((a) => evalList(a, ctx))
+    const len = lists[0]?.length ?? 0
+    if (!len || lists.some((l) => l.length !== len)) return err("#VALUE!")
+    let total = 0
+    for (let i = 0; i < len; i++) {
+      let product = 1
+      // Comme Excel : une valeur non numérique compte pour 0 dans le produit.
+      for (const l of lists) product *= typeof l[i] === "number" ? (l[i] as number) : 0
+      total += product
+    }
+    return total
+  }
+
+  if ((name === "large" || name === "small") && node.args.length >= 2) {
+    const values = evalList(node.args[0]!, ctx).filter((v): v is number => typeof v === "number")
+    const k = Math.trunc(Number(evalScalar(node.args[1]!, ctx)) || 0)
+    if (k < 1 || k > values.length) return err("#NUM!")
+    values.sort((a, b) => (name === "large" ? b - a : a - b))
+    return values[k - 1]!
+  }
+
+  if (name === "rank" && node.args.length >= 2) {
+    const target = evalScalar(node.args[0]!, ctx)
+    if (isError(target)) return target
+    const values = evalList(node.args[1]!, ctx).filter((v): v is number => typeof v === "number")
+    const n = Number(target)
+    if (Number.isNaN(n) || !values.includes(n)) return err("#N/A")
+    const order = node.args[2] ? Number(evalScalar(node.args[2], ctx)) : 0
+    const sorted = [...values].sort((a, b) => (order ? a - b : b - a))
+    return sorted.indexOf(n) + 1
+  }
+
+  if (name === "index" && node.args.length >= 2) {
+    const rangeNode = node.args[0]!
+    if (rangeNode.kind !== "range") return err("#VALUE!")
+    const a = resolveRefPos(rangeNode.start)
+    const b = resolveRefPos(rangeNode.end)
+    if (!a || !b) return err("#REF!")
+    const r0 = Math.min(a[0], b[0])
+    const r1 = Math.max(a[0], b[0])
+    const c0 = Math.min(a[1], b[1])
+    const c1 = Math.max(a[1], b[1])
+    const rows = r1 - r0 + 1
+    const cols = c1 - c0 + 1
+    const first = Math.trunc(Number(evalScalar(node.args[1]!, ctx)) || 0)
+    const second = node.args[2] ? Math.trunc(Number(evalScalar(node.args[2], ctx)) || 0) : 0
+    // Un seul index : ligne, ou colonne quand la plage n'a qu'une ligne (usage Excel).
+    const row = !second && rows === 1 ? 1 : first
+    const col = !second ? (rows === 1 ? first : 1) : second
+    if (row < 1 || col < 1 || row > rows || col > cols) return err("#REF!")
+    const value = ctx.resolveCell(r0 + row - 1, c0 + col - 1)
+    return value === undefined ? err("#REF!") : value
+  }
+
+  if (name === "match" && node.args.length >= 2) {
+    const rangeNode = node.args[1]!
+    if (rangeNode.kind !== "range") return err("#N/A")
+    const a = resolveRefPos(rangeNode.start)
+    const b = resolveRefPos(rangeNode.end)
+    if (!a || !b) return err("#N/A")
+    const key = evalScalar(node.args[0]!, ctx)
+    if (isError(key)) return key
+    const values: FormulaValue[] = []
+    for (let r = Math.min(a[0], b[0]); r <= Math.max(a[0], b[0]); r++)
+      for (let c = Math.min(a[1], b[1]); c <= Math.max(a[1], b[1]); c++)
+        values.push(ctx.resolveCell(r, c) ?? null)
+    const type = node.args[2] ? Math.trunc(Number(evalScalar(node.args[2], ctx)) || 0) : 1
+    if (type === 0) {
+      const at = values.findIndex((v) =>
+        typeof key === "number" && typeof v === "number"
+          ? v === key
+          : toStr(v).toLowerCase() === toStr(key).toLowerCase())
+      return at === -1 ? err("#N/A") : at + 1
+    }
+    // Approché : dernier ≤ clé (croissant) / dernier ≥ clé (décroissant)
+    let best = -1
+    values.forEach((v, i) => {
+      const cmp = compare(v, key)
+      if (cmp === "err") return
+      if (type === -1 ? cmp >= 0 : cmp <= 0) best = i
+    })
+    return best === -1 ? err("#N/A") : best + 1
+  }
+
+  if (name === "workday" && node.args.length >= 2) {
+    const start = toLocalDate(evalScalar(node.args[0]!, ctx))
+    if (isError(start)) return start
+    const days = Math.trunc(Number(evalScalar(node.args[1]!, ctx)) || 0)
+    return isoLocal(addWorkdays(start, days, holidaysOf(node.args[2])))
+  }
+
+  if (name === "networkdays" && node.args.length >= 2) {
+    const start = toLocalDate(evalScalar(node.args[0]!, ctx))
+    const end = toLocalDate(evalScalar(node.args[1]!, ctx))
+    if (isError(start)) return start
+    if (isError(end)) return end
+    return countWorkdays(start, end, holidaysOf(node.args[2]))
+  }
+
   const fn = FUNCTIONS[name]
   if (!fn) return err("#NAME?")
 
@@ -732,6 +995,72 @@ const isoLocal = (d: Date, time = false) => {
 }
 const isoUTC = (d: Date) =>
   d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate())
+
+// — Dates « métier » (jours ouvrés, semaines) — calculs en UTC pour ignorer le fuseau/DST.
+/** Clé de jour (`YYYY-MM-DD`) insensible à l'heure et au fuseau. */
+const dayKey = (d: Date): string =>
+  isoUTC(new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())))
+
+/** Numéro de semaine « type Excel » : `startDay` 0 = dimanche, 1 = lundi. */
+const weekNumber = (d: Date, startDay: number): number => {
+  const jan1 = Date.UTC(d.getFullYear(), 0, 1)
+  const today = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+  const offset = (new Date(jan1).getUTCDay() - startDay + 7) % 7
+  const dayOfYear = Math.round((today - jan1) / 86400000)
+  return Math.floor((dayOfYear + offset) / 7) + 1
+}
+
+/** Numéro de semaine ISO 8601 (semaine 1 = celle du premier jeudi). */
+const isoWeekNumber = (d: Date): number => {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  const day = t.getUTCDay() || 7
+  t.setUTCDate(t.getUTCDate() + 4 - day)
+  const yearStart = Date.UTC(t.getUTCFullYear(), 0, 1)
+  return Math.ceil(((t.getTime() - yearStart) / 86400000 + 1) / 7)
+}
+
+/** Ajoute (ou retire) des jours ouvrés (lun–ven), hors jours fériés. */
+const addWorkdays = (start: Date, days: number, holidays: Set<string>): Date => {
+  let t = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())
+  const step = days < 0 ? -86400000 : 86400000
+  let left = Math.abs(Math.trunc(days))
+  while (left > 0) {
+    t += step
+    const d = new Date(t)
+    const wd = d.getUTCDay()
+    if (wd === 0 || wd === 6) continue
+    if (holidays.has(isoUTC(d))) continue
+    left--
+  }
+  const out = new Date(t)
+  return new Date(out.getUTCFullYear(), out.getUTCMonth(), out.getUTCDate())
+}
+
+/** Jours ouvrés entre deux dates (bornes incluses ; négatif si `end` < `start`). */
+const countWorkdays = (start: Date, end: Date, holidays: Set<string>): number => {
+  const a = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())
+  const b = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())
+  const sign = a <= b ? 1 : -1
+  const from = Math.min(a, b)
+  const to = Math.max(a, b)
+  let n = 0
+  for (let t = from; t <= to; t += 86400000) {
+    const d = new Date(t)
+    const wd = d.getUTCDay()
+    if (wd === 0 || wd === 6) continue
+    if (holidays.has(isoUTC(d))) continue
+    n++
+  }
+  return n * sign
+}
+
+/** Variance d'une liste de nombres (`sample` → n−1, sinon population). */
+const varianceOf = (values: number[], sample: boolean): FormulaValue => {
+  if (values.length < (sample ? 2 : 1)) return err("#DIV/0!")
+  const mean = values.reduce((a, b) => a + b, 0) / values.length
+  const sum = values.reduce((a, b) => a + (b - mean) ** 2, 0)
+  return sum / (sample ? values.length - 1 : values.length)
+}
 
 Object.assign(FUNCTIONS, {
   // Logique étendue (évaluées paresseusement dans evalCall : IFS, SWITCH, IFNA, VLOOKUP)
@@ -907,9 +1236,124 @@ Object.assign(FUNCTIONS, {
   rand: () => Math.random(),
 })
 
-/** Évalue une formule ("=…" optionnel). Retourne une valeur ou une FormulaError. */
+// ─── Critères, statistiques, texte et dates (extension 2026-10-17) ───
+// Les agrégats conditionnels (`SUMIF`, `COUNTIF`, `*IFS`, `SUMPRODUCT`), `INDEX`/`MATCH`,
+// `LARGE`/`SMALL`/`RANK` et `WORKDAY`/`NETWORKDAYS` sont traités dans `evalCall` (plages).
+Object.assign(FUNCTIONS, {
+  median: (args: FormulaValue[]) => {
+    const n = numbers(args).sort((a, b) => a - b)
+    if (!n.length) return err("#NUM!")
+    const mid = Math.floor(n.length / 2)
+    return n.length % 2 ? n[mid]! : (n[mid - 1]! + n[mid]!) / 2
+  },
+  stdev: (args: FormulaValue[]) => {
+    const v = varianceOf(numbers(args), true)
+    return typeof v === "number" ? Math.sqrt(v) : v
+  },
+  stdevp: (args: FormulaValue[]) => {
+    const v = varianceOf(numbers(args), false)
+    return typeof v === "number" ? Math.sqrt(v) : v
+  },
+  var: (args: FormulaValue[]) => varianceOf(numbers(args), true),
+  varp: (args: FormulaValue[]) => varianceOf(numbers(args), false),
+  // Constantes logiques (aussi disponibles en littéraux `TRUE` / `FALSE`)
+  true: () => true,
+  false: () => false,
+  // Info / erreurs
+  iserror: (args: FormulaValue[], h: boolean) => scalar(args, h, (v) => isError(v)),
+  iserr: (args: FormulaValue[], h: boolean) =>
+    scalar(args, h, (v) => isError(v) && v.code !== "#N/A"),
+  isna: (args: FormulaValue[], h: boolean) =>
+    scalar(args, h, (v) => isError(v) && v.code === "#N/A"),
+  na: () => err("#N/A"),
+  // Texte
+  proper: (args: FormulaValue[], h: boolean) =>
+    scalar(args, h, (v) =>
+      toStr(v)
+        .toLowerCase()
+        .replace(/(^|[^\p{L}\p{N}])(\p{L})/gu, (_m: string, sep: string, ch: string) => sep + ch.toUpperCase())),
+  exact: (args: FormulaValue[]) => toStr(args[0] ?? null) === toStr(args[1] ?? null),
+  search: (args: FormulaValue[]) => {
+    const needle = toStr(args[0] ?? null).toLowerCase()
+    const hay = toStr(args[1] ?? null).toLowerCase()
+    const start = Math.max(1, Math.trunc(Number(args[2] ?? 1)) || 1) - 1
+    const at = hay.indexOf(needle, start)
+    return at === -1 ? err("#VALUE!") : at + 1
+  },
+  textjoin: (args: FormulaValue[]) => {
+    const delimiter = toStr(args[0] ?? "")
+    const ignoreEmpty = args[1] === undefined ? true : truthy(args[1])
+    return args
+      .slice(2)
+      .filter((v) => !(ignoreEmpty && (v === null || v === undefined || v === "")))
+      .map(toStr)
+      .join(delimiter)
+  },
+  // Dates
+  days: (args: FormulaValue[]) => {
+    const end = toLocalDate(args[0] ?? null)
+    const start = toLocalDate(args[1] ?? null)
+    if (isError(end)) return end
+    if (isError(start)) return start
+    const a = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())
+    const b = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())
+    return Math.round((a - b) / 86400000)
+  },
+  weeknum: (args: FormulaValue[]) => {
+    const d = toLocalDate(args[0] ?? null)
+    if (isError(d)) return d
+    const type = Math.trunc(Number(args[1] ?? 1)) || 1
+    return weekNumber(d, type === 2 ? 1 : 0)
+  },
+  isoweeknum: (args: FormulaValue[]) => {
+    const d = toLocalDate(args[0] ?? null)
+    return isError(d) ? d : isoWeekNumber(d)
+  },
+})
+
+/** Fonctions évaluées hors `FUNCTIONS` (accès aux plages / arguments paresseux). */
+const NODE_FUNCTION_NAMES = [
+  "AND",
+  "AVERAGEIF",
+  "AVERAGEIFS",
+  "COUNTIF",
+  "COUNTIFS",
+  "IF",
+  "IFERROR",
+  "IFNA",
+  "IFS",
+  "INDEX",
+  "LARGE",
+  "MATCH",
+  "NETWORKDAYS",
+  "OR",
+  "RANK",
+  "SMALL",
+  "SUMPRODUCT",
+  "SUMIF",
+  "SUMIFS",
+  "SWITCH",
+  "VLOOKUP",
+  "WORKDAY",
+  "XLOOKUP",
+]
+
+/**
+ * Noms des fonctions intégrées (majuscules, triés) — contrat avec les suggestions de
+ * l'éditeur : aucune fonction ne doit être « invisible » dans l'autocomplétion.
+ */
+export const FORMULA_FUNCTION_NAMES: string[] = [
+  ...new Set([
+    ...Object.keys(FUNCTIONS).map((name) => name.toUpperCase()),
+    ...NODE_FUNCTION_NAMES,
+  ]),
+].sort()
+
+/** Évalue une formule ("=…" optionnel, espaces ignorés). Retourne une valeur ou une FormulaError. */
 export function evaluateFormula(source: string, ctx: FormulaContext): FormulaValue {
-  const src = source.startsWith("=") ? source.slice(1) : source
+  // `isFormulaRaw` accepte des espaces avant le `=` : le moteur doit en faire autant.
+  const trimmed = source.trim()
+  const src = trimmed.startsWith("=") ? trimmed.slice(1) : trimmed
   try {
     const parser = new Parser(src)
     const node = parser.parseExpr()

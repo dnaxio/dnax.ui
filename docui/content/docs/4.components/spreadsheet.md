@@ -403,6 +403,7 @@ source).
 | `A1:C3` | Range (rectangular block) — for aggregations | `=SUM(D1:D4)` |
 | `name` | Column reference on the current row | `=price * quantity` |
 | `"text"` / `'text'` | String literal | `=IF(B1>10,"big","small")` |
+| `TRUE` / `FALSE` | Boolean literal (also `TRUE()` / `FALSE()`) | `=IF(A1>0,TRUE,FALSE)` |
 | `10%` | Postfix percent | `=A1*10%` |
 
 ### Operators
@@ -418,10 +419,23 @@ Arithmetic `+ - * / ^` · postfix `%` · text concatenation `&` · comparisons
 | Function | Result | Example |
 | --- | --- | --- |
 | `SUM(…)` | Sum of the numeric arguments (ranges flatten) | `=SUM(D1:D4)` |
+| `SUMIF(range, crit, [sum])` | Sums `sum` where `range` matches `crit` | `=SUMIF(B1:B9,"x",C1:C9)` |
+| `SUMIFS(sum, r1, c1, …)` | Sums where **all** (range, criteria) pairs match | `=SUMIFS(C1:C9,B1:B9,"x",C1:C9,">10")` |
 | `AVERAGE(…)` / `AVG(…)` | Arithmetic mean of numeric values | `=AVERAGE(A1:A3)` |
+| `AVERAGEIF(range, crit, [avg])` / `AVERAGEIFS(…)` | Mean of the matching numeric cells | `=AVERAGEIF(B1:B9,"x",C1:C9)` |
 | `MIN(…)` / `MAX(…)` | Smallest / largest numeric value | `=MAX(C1:C5)` |
+| `MEDIAN(…)` | Median of the numeric values | `=MEDIAN(C1:C9)` |
 | `COUNT(…)` | Count of numeric cells | `=COUNT(B1:B10)` |
 | `COUNTA(…)` | Count of non-empty cells | `=COUNTA(A1:A10)` |
+| `COUNTIF(range, crit)` / `COUNTIFS(r1, c1, …)` | Count of cells matching the criteria | `=COUNTIF(B1:B9,"x")` |
+| `SUMPRODUCT(r1, r2…)` | Sum of the term-by-term products of the ranges | `=SUMPRODUCT(C1:C9,D1:D9)` |
+| `LARGE(range,k)` / `SMALL(range,k)` | k-th largest / smallest value | `=LARGE(C1:C9,2)` |
+| `RANK(v, range, [order])` | Rank of `v` (0 = descending, default) | `=RANK(C1,C1:C9)` |
+| `STDEV(…)` / `STDEVP(…)` / `VAR(…)` / `VARP(…)` | Sample / population standard deviation and variance | `=STDEV(C1:C9)` |
+
+Criteria accept a number or text (case-insensitive), the operators `= <> > < >= <=`,
+the wildcards `*` / `?`, and `""` / `"<>"` for **empty** / **non-empty** cells.
+Ranges of a `*IFS` call are aligned **by index** (same order, same length).
 
 **Logic (lazy)**
 
@@ -434,8 +448,16 @@ Arithmetic `+ - * / ^` · postfix `%` · text concatenation `&` · comparisons
 | `IFS(c1,v1,c2,v2…)` | First true condition wins (lazy) | `=IFS(A1>10,"big",A1>5,"mid",TRUE,"small")` |
 | `SWITCH(e,v1,r1,…,d)` | First matching value → result (lazy) | `=SWITCH(B1,"a",1,"b",2,0)` |
 | `IFNA(v, fallback)` | Fallback on `#N/A` only | `=IFNA(VLOOKUP(A1,D1:F9,2),"?")` |
-| `VLOOKUP(key, range, col, [approx])` | Exact match in the 1st column of a range, returns the `col`-th cell | `=VLOOKUP(A1,D1:F9,2)` |
+| `TRUE()` / `FALSE()` | Boolean constants (same as the literals) | `=TRUE()` |
+
+**Lookup**
+
+| Function | Result | Example |
+| --- | --- | --- |
+| `VLOOKUP(key, range, col)` | **Exact** match in the first column of `range`, returns the `col`-th cell | `=VLOOKUP(A1,D1:F9,2)` |
 | `XLOOKUP(key, table, ret, [fallback])` | Exact match in `table`, returns the cell from `ret` on the same row | `=XLOOKUP(A1,D1:D9,F1:F9,"?")` |
+| `INDEX(range, row, [col])` | Cell at `row` / `col` (1-based) inside a range | `=INDEX(C1:C9,3)` |
+| `MATCH(key, range, [type])` | Position of `key`: `0` exact, `1` largest ≤ (default), `-1` smallest ≥ | `=MATCH(A1,C1:C9,0)` |
 
 **Math**
 
@@ -456,12 +478,16 @@ Arithmetic `+ - * / ^` · postfix `%` · text concatenation `&` · comparisons
 
 | Function | Result | Example |
 | --- | --- | --- |
-| `CONCAT(…)` | Joins the arguments as text | `=CONCAT("ID-",B1)` |
+| `CONCAT(…)` / `CONCATENATE(…)` | Joins the arguments as text | `=CONCAT("ID-",B1)` |
+| `TEXTJOIN(delim, ignore, …)` | Joins with a delimiter, skipping empty values when `ignore` is truthy | `=TEXTJOIN(", ",1,A1:A9)` |
 | `UPPER(t)` / `LOWER(t)` / `TRIM(t)` | Uppercase / lowercase / trim spaces | `=UPPER(A1)` |
+| `PROPER(t)` | Capitalises the first letter of every word | `=PROPER(A1)` |
 | `LEN(t)` | Length in characters | `=LEN(A1)` |
 | `LEFT(t,n)` / `RIGHT(t,n)` | First / last `n` characters | `=LEFT(A1,3)` |
 | `MID(t,start,n)` | Substring from `start` (1-based) | `=MID(A1,2,4)` |
-| `FIND(what, t, [start])` | Position (1-based) of `what` in `t` | `=FIND("-",A1)` |
+| `FIND(what, t, [start])` | Position (1-based) of `what` in `t` (case-sensitive) | `=FIND("-",A1)` |
+| `SEARCH(what, t, [start])` | Same, **case-insensitive** | `=SEARCH("-",A1)` |
+| `EXACT(a, b)` | Strict equality (case-sensitive) | `=EXACT(A1,"ok")` |
 | `SUBSTITUTE(t,old,new,[n])` | Replaces all — or the `n`-th — occurrence | `=SUBSTITUTE(A1,"-"," ")` |
 | `REPLACE(t,start,n,new)` | Replaces `n` chars at `start` | `=REPLACE(A1,1,3,"X")` |
 
@@ -477,6 +503,11 @@ Arithmetic `+ - * / ^` · postfix `%` · text concatenation `&` · comparisons
 | `EOMONTH(d, months)` | Last day of the month shifted by `months` | `=EOMONTH(A1,1)` |
 | `DATEDIF(a, b, unit)` | Days / months / years between dates (D, M, Y, MD, YD) | `=DATEDIF(A1,B1,"D")` |
 | `TEXT(v, format)` | Format a number (`0.00`, `0%`) or ISO date (`YYYY-MM-DD HH:mm`…) | `=TEXT(A1,"DD/MM/YYYY")` |
+| `DAYS(end, start)` | Number of days between two dates | `=DAYS(B1,A1)` |
+| `WEEKNUM(d, [type])` | Week number (1 = Sunday start, 2 = Monday start) | `=WEEKNUM(A1,2)` |
+| `ISOWEEKNUM(d)` | ISO 8601 week number | `=ISOWEEKNUM(A1)` |
+| `WORKDAY(start, n, [holidays])` | Date `n` working days later (Mon–Fri) | `=WORKDAY(A1,5)` |
+| `NETWORKDAYS(start, end, [holidays])` | Working days between two dates (inclusive) | `=NETWORKDAYS(A1,B1)` |
 
 **Conversion & info**
 
@@ -484,6 +515,8 @@ Arithmetic `+ - * / ^` · postfix `%` · text concatenation `&` · comparisons
 | --- | --- | --- |
 | `VALUE(t)` / `N(v)` | Coerce to a number | `=VALUE(A1)` |
 | `ISBLANK(v)` / `ISNUMBER(v)` / `ISTEXT(v)` | Type checks | `=IF(ISBLANK(A1),"—",A1)` |
+| `ISERROR(v)` / `ISERR(v)` / `ISNA(v)` | Any error / any error except `#N/A` / `#N/A` only | `=ISERROR(A1/B1)` |
+| `NA()` | The `#N/A` error | `=IF(A1=0,NA(),A1)` |
 
 ### Errors
 
@@ -493,13 +526,19 @@ Arithmetic `+ - * / ^` · postfix `%` · text concatenation `&` · comparisons
 | `#NAME?` | Unknown function or column name |
 | `#VALUE!` | Wrong type (text where a number is expected, array in a scalar context) |
 | `#REF!` | Reference outside the grid |
+| `#NUM!` | Number out of range (e.g. `LARGE` rank, invalid variance) |
 | `#CYCLE!` | Circular reference (a formula that refers to itself) |
 | `#ERROR!` | Syntax error / unparsable formula |
 
 Errors are displayed in **red**; wrap a risky formula in `IFERROR` to provide a
-fallback. As you type inside the cell or the **fx bar**, a **suggestion list**
-of functions appears (`↑`/`↓` navigate, `Tab` accepts, `Esc` dismisses). Still
-not implemented: `XLOOKUP`, array formulas and cross-sheet references.
+fallback. As you type inside the cell or the **fx bar**, the bar shows a **live preview**
+of the result (the error code in red when the formula fails) and a **suggestion list**
+appears (`↑`/`↓` navigate, `Tab` accepts, `Esc` dismisses). Suggestions follow the
+**caret**, are suppressed inside string literals and cell references, and include the
+sheet's **columns** (`=pri` → `price`) besides functions; matching is prefix, substring
+or subsequence (`=sm` → `SUM`). Once a function call is open, its **signature** is shown
+with the current argument highlighted. Still not implemented: array formulas and
+cross-sheet references.
 
 ## Context menu, formatting & autofill
 

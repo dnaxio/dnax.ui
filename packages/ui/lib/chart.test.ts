@@ -12,7 +12,6 @@ import {
   pickFromEvent,
   sameSelection,
   tableModel,
-  tableModel,
   textValue,
 } from "./chart"
 import type { QChartConfig, QChartMark } from "./chart"
@@ -523,7 +522,17 @@ describe("marque `table`", () => {
   })
 
   it("`separator` est bien une option de la marque `table` (table d'API générée)", () => {
-    expect(MARK_OPTIONS.table).toEqual(["data", "link", "columns", "separator"])
+    expect(MARK_OPTIONS.table).toEqual([
+      "data",
+      "link",
+      "columns",
+      "separator",
+      "sortBy",
+      "sortDesc",
+      "pageSize",
+      "page",
+      "totals",
+    ])
   })
 })
 
@@ -693,7 +702,7 @@ describe("marque `table` (`tableModel`)", () => {
       { field: "month", label: "Month" },
       { field: "revenue", label: "Revenue", align: "end", format: expect.any(Function) },
     ])
-    expect(model.columns[1].format?.(42, rows[0])).toBe("42 €")
+    expect(model.columns[1]!.format?.(42, rows[0])).toBe("42 €")
   })
 
   it("accepte les colonnes en abrégé (`'month'`)", () => {
@@ -816,7 +825,7 @@ describe("clic de légende en mode `select` (`nextLegendPick`)", () => {
   it("**désélectionne** quand on reclique le nom courant (`null`)", () => {
     expect(nextLegendPick({ name: "Jan" }, "Jan")).toBeNull()
     // la comparaison est textuelle : 42 et « 42 » désignent la même part
-    expect(nextLegendPick({ name: 42 }, "42")).toBeNull()
+    expect(nextLegendPick({ name: 42 } as any, "42")).toBeNull()
   })
 
   it("une sélection sans nom (ou absente) laisse sélectionner", () => {

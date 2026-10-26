@@ -186,6 +186,10 @@ import {
   ISO_DATE,
   isoAddDays,
   shiftFormulaRefs,
+  functionQueryAt,
+  rankSuggestions,
+  functionCallAt,
+  signatureArgs,
   csvEscape,
   deriveCols,
   parseCsv,
@@ -194,6 +198,7 @@ import { checkValidation, type ArkCheck } from "../lib/spreadsheetValidation"
 import { normalizeCellOptions } from "../lib/spreadsheetOptions"
 import { inLockRect, lockRects, prefillForRow } from "../lib/spreadsheetZones"
 import { canAddRows, canRemoveRows, clampRows } from "../lib/spreadsheetRows"
+import { createHistory } from "../lib/history"
 import {
   DEFAULT_ROW_KEY,
   diffDocuments,
@@ -349,6 +354,9 @@ const I18N = {
     sheet: "Sheet",
     fxPlaceholder: "Value or formula (=SUM(A1:A3)…)",
     fxNoSel: "Select a cell…",
+    fxSyntax: "Syntax error",
+    fxEmpty: "empty",
+    fxColumn: "column",
     cut: "Cut",
     copy: "Copy",
     paste: "Paste",
@@ -427,6 +435,9 @@ const I18N = {
     sheet: "Feuille",
     fxPlaceholder: "Valeur ou formule (=SOMME(A1:A3)…)",
     fxNoSel: "Sélectionnez une cellule…",
+    fxSyntax: "Erreur de syntaxe",
+    fxEmpty: "vide",
+    fxColumn: "colonne",
     cut: "Couper",
     copy: "Copier",
     paste: "Coller",
@@ -1069,11 +1080,13 @@ const coerceValue = (col: QSpreadsheetColumn | undefined, text: unknown, old: an
   const raw = String(text ?? "")
   const t = raw.trim()
   if (t === "") return null
-  // Formule A1 : conservée brute dans la cellule (booléen/choix exclus)
+  // Formule A1 : conservée brute dans la cellule (booléen/choix exclus) —
+  // `t` (déjà trimé) évite qu'un `"  =…"` ne soit traité comme une formule par
+  // `isFormulaRaw` tout en échouant au parsing du moteur.
   if (t.startsWith("=")) {
     if (col?.type === "boolean" || col?.type === "select" || col?.type === "multiselect")
       return old
-    return raw
+    return t
   }
   if (col?.type === "number") {
     const n = Number(raw)
@@ -1136,12 +1149,14 @@ const clearCell = (row: number, column: string) => {
   if (isCellLocked(row, column)) return
   const old = state.value[row]?.[column]
   if (isBlankValue(old) || (Array.isArray(old) && old.length === 0)) return
+  pushHistory()
   setCellValue(row, column, old, null)
 }
 
 const toggleBoolean = (row: number, column: string) => {
   if (isCellLocked(row, column)) return
   const old = !!state.value[row]?.[column]
+  pushHistory()
   setCellValue(row, column, old, !old)
 }
 
@@ -1246,9 +1261,7 @@ interface Snapshot {
   merges: MergeRange[]
   rules: CondRule[]
 }
-const undoStack: Snapshot[] = []
-const redoStack: Snapshot[] = []
-
+const history = createHistory<Snapshot>(100)
 const takeSnapshot = (): Snapshot => ({
   rows: state.value.map((r) => ({ ...r })),
   cols: cols.value.map((c) => ({ ...c })),
@@ -1261,13 +1274,9 @@ const takeSnapshot = (): Snapshot => ({
   merges: merges.value.map((m) => ({ ...m })),
   rules: condRules.value.map((r) => ({ ...r })),
 })
-const pushHistory = () => {
-  undoStack.push(takeSnapshot())
-  if (undoStack.length > 100) undoStack.shift()
-  redoStack.length = 0
-}
-const canUndo = computed(() => undoStack.length > 0 && !props.readonly && !props.disable)
-const canRedo = computed(() => redoStack.length > 0 && !props.readonly && !props.disable)
+const pushHistory = () => history.push(takeSnapshot())
+const canUndo = computed(() => history.canUndo.value && !props.readonly && !props.disable)
+const canRedo = computed(() => history.canRedo.value && !props.readonly && !props.disable)
 
 const restoreSnapshot = (s: Snapshot) => {
   cols.value = s.cols.map((c) => ({ ...c }))
@@ -1282,17 +1291,35 @@ const restoreSnapshot = (s: Snapshot) => {
   condRules.value = s.rules.map((r) => ({ ...r }))
   emit("update:columns", cols.value)
   pushRows(state.value)
+  // La sélection peut pointer sur une ligne/colonne qui n'existe plus (redo d'une
+  // suppression) : on la ramène sur la première cellule plutôt que de laisser un
+  // curseur fantôme hors grille.
+  const current = sel.value
+  if (current) {
+    const maxRow = state.value.length - 1
+    const bad =
+      colIndex(current.column) === -1 ||
+      (current.endColumn !== undefined && colIndex(current.endColumn) === -1) ||
+      current.row > maxRow ||
+      (current.endRow !== undefined && current.endRow > maxRow)
+    if (bad) {
+      if (state.value.length && cols.value.length) select(0, cols.value[0]!.name)
+      else setSel(null)
+    }
+  }
 }
 const undo = () => {
   if (!canUndo.value) return
-  redoStack.push(takeSnapshot())
-  restoreSnapshot(undoStack.pop()!)
+  const snapshot = history.undo(takeSnapshot())
+  if (!snapshot) return
+  restoreSnapshot(snapshot)
   emit("structure-change", { rows: state.value, columns: cols.value, reason: "undo" })
 }
 const redo = () => {
   if (!canRedo.value) return
-  undoStack.push(takeSnapshot())
-  restoreSnapshot(redoStack.pop()!)
+  const snapshot = history.redo(takeSnapshot())
+  if (!snapshot) return
+  restoreSnapshot(snapshot)
   emit("structure-change", { rows: state.value, columns: cols.value, reason: "redo" })
 }
 
@@ -1924,6 +1951,41 @@ const fxCanEdit = computed(() => {
   )
 })
 
+/**
+ * Aperçu **live** du résultat de la formule en cours de saisie dans la barre fx.
+ * Évaluée dans le contexte de la ligne sélectionnée (références par nom de colonne
+ * et A1 résolues sur la grille mémorisée). `null` si la saisie n'est pas une formule.
+ */
+const fxPreview = computed<{ text: string; error: boolean; hint: string } | null>(() => {
+  // Pendant l'édition en cellule, la grille affiche déjà le résultat.
+  if (editing.value || !sel.value || !fxCanEdit.value) return null
+  const source = fxDraft.value
+  if (!isFormulaRaw(source)) return null
+  const row = sel.value.row
+  const value = evaluateFormula(source, {
+    row,
+    resolveField: (name) => {
+      const i = colIndex(name)
+      return i === -1 ? undefined : evaluated.value[row]?.[i]
+    },
+    resolveCell: (r, c) => evaluated.value[r]?.[c],
+  })
+  if (isError(value)) {
+    return {
+      text: value.code,
+      error: true,
+      hint: value.code === "#ERROR!" ? t("fxSyntax") : value.code,
+    }
+  }
+  if (value === null || value === undefined || value === "") {
+    return { text: t("fxEmpty"), error: false, hint: "" }
+  }
+  const text = typeof value === "number"
+    ? new Intl.NumberFormat(lang.value, { maximumFractionDigits: 6 }).format(value)
+    : String(value)
+  return { text: text.length > 60 ? text.slice(0, 59) + "…" : text, error: false, hint: "" }
+})
+
 const commitFx = async () => {
   if (!sel.value) return
   if (!fxCanEdit.value) {
@@ -1939,7 +2001,21 @@ const commitFx = async () => {
 }
 
 const onFxInput = (e: Event) => {
-  fxDraft.value = (e.target as HTMLInputElement).value
+  const el = e.target as HTMLInputElement
+  fxDraft.value = el.value
+  fxCaret.value = el.selectionStart
+}
+
+/** Position du curseur depuis un événement (`null` si indisponible). */
+const caretFrom = (e: Event): number | null => {
+  const el = e.target as HTMLInputElement | HTMLTextAreaElement | null
+  return el && typeof el.selectionStart === "number" ? el.selectionStart : null
+}
+const syncFxCaret = (e: Event) => {
+  fxCaret.value = caretFrom(e)
+}
+const syncEditCaret = (e: Event) => {
+  editCaret.value = caretFrom(e)
 }
 
 const onFxKeydown = (e: KeyboardEvent) => {
@@ -1984,12 +2060,30 @@ const onFxKeydown = (e: KeyboardEvent) => {
 
 // ─── Autocomplétion des fonctions (barre fx + éditeur formule) ───
 const FORMULA_FNS: { name: string; sig: string }[] = [
+  // Agrégats & critères
   { name: "SUM", sig: "a, b, …" },
+  { name: "SUMIF", sig: "range, criteria, [sum_range]" },
+  { name: "SUMIFS", sig: "sum_range, range1, crit1…" },
   { name: "AVERAGE", sig: "a, b, …" },
-  { name: "MIN", sig: "a, b, …" },
-  { name: "MAX", sig: "a, b, …" },
+  { name: "AVERAGEIF", sig: "range, criteria, [avg_range]" },
+  { name: "AVERAGEIFS", sig: "avg_range, range1, crit1…" },
   { name: "COUNT", sig: "a, b, …" },
   { name: "COUNTA", sig: "a, b, …" },
+  { name: "COUNTIF", sig: "range, criteria" },
+  { name: "COUNTIFS", sig: "range1, crit1…" },
+  { name: "SUMPRODUCT", sig: "range1, range2…" },
+  { name: "MIN", sig: "a, b, …" },
+  { name: "MAX", sig: "a, b, …" },
+  { name: "MEDIAN", sig: "a, b, …" },
+  // Statistiques
+  { name: "LARGE", sig: "range, k" },
+  { name: "SMALL", sig: "range, k" },
+  { name: "RANK", sig: "value, range, [order]" },
+  { name: "STDEV", sig: "a, b, …" },
+  { name: "STDEVP", sig: "a, b, …" },
+  { name: "VAR", sig: "a, b, …" },
+  { name: "VARP", sig: "a, b, …" },
+  // Logique
   { name: "IF", sig: "cond, yes, no" },
   { name: "IFS", sig: "cond1, v1, cond2, v2…" },
   { name: "IFERROR", sig: "value, fallback" },
@@ -1998,7 +2092,22 @@ const FORMULA_FNS: { name: string; sig: string }[] = [
   { name: "AND", sig: "a, b…" },
   { name: "OR", sig: "a, b…" },
   { name: "NOT", sig: "v" },
-  { name: "VLOOKUP", sig: "key, range, col, [approx]" },
+  { name: "TRUE", sig: "" },
+  { name: "FALSE", sig: "" },
+  // Info / erreurs
+  { name: "ISBLANK", sig: "v" },
+  { name: "ISNUMBER", sig: "v" },
+  { name: "ISTEXT", sig: "v" },
+  { name: "ISERROR", sig: "v" },
+  { name: "ISERR", sig: "v" },
+  { name: "ISNA", sig: "v" },
+  { name: "NA", sig: "" },
+  // Recherche
+  { name: "VLOOKUP", sig: "key, range, col" },
+  { name: "XLOOKUP", sig: "key, table, return_range, [not_found]" },
+  { name: "INDEX", sig: "range, row, [col]" },
+  { name: "MATCH", sig: "key, range, [type]" },
+  // Maths
   { name: "ABS", sig: "n" },
   { name: "ROUND", sig: "n, [digits]" },
   { name: "ROUNDUP", sig: "n, [digits]" },
@@ -2011,23 +2120,26 @@ const FORMULA_FNS: { name: string; sig: string }[] = [
   { name: "POWER", sig: "n, exp" },
   { name: "PI", sig: "" },
   { name: "RAND", sig: "" },
+  // Texte
   { name: "CONCAT", sig: "a, b…" },
   { name: "CONCATENATE", sig: "a, b…" },
+  { name: "TEXTJOIN", sig: "delim, ignore_empty, a, b…" },
   { name: "UPPER", sig: "text" },
   { name: "LOWER", sig: "text" },
+  { name: "PROPER", sig: "text" },
   { name: "TRIM", sig: "text" },
   { name: "LEN", sig: "text" },
   { name: "LEFT", sig: "text, [n]" },
   { name: "RIGHT", sig: "text, [n]" },
   { name: "MID", sig: "text, start, n" },
+  { name: "SEARCH", sig: "find, text, [start]" },
   { name: "FIND", sig: "find, text, [start]" },
   { name: "SUBSTITUTE", sig: "text, old, new, [n]" },
   { name: "REPLACE", sig: "text, start, n, new" },
+  { name: "EXACT", sig: "a, b" },
   { name: "VALUE", sig: "text" },
   { name: "N", sig: "v" },
-  { name: "ISBLANK", sig: "v" },
-  { name: "ISNUMBER", sig: "v" },
-  { name: "ISTEXT", sig: "v" },
+  // Dates
   { name: "TODAY", sig: "" },
   { name: "NOW", sig: "" },
   { name: "DATE", sig: "y, m, d" },
@@ -2035,20 +2147,51 @@ const FORMULA_FNS: { name: string; sig: string }[] = [
   { name: "MONTH", sig: "date" },
   { name: "DAY", sig: "date" },
   { name: "EDATE", sig: "date, months" },
+  { name: "EOMONTH", sig: "date, months" },
+  { name: "DATEDIF", sig: "start, end, unit" },
+  { name: "DAYS", sig: "end, start" },
+  { name: "WEEKDAY", sig: "date, [type]" },
+  { name: "WEEKNUM", sig: "date, [type]" },
+  { name: "ISOWEEKNUM", sig: "date" },
+  { name: "WORKDAY", sig: "start, days, [holidays]" },
+  { name: "NETWORKDAYS", sig: "start, end, [holidays]" },
+  { name: "TEXT", sig: "value, format" },
 ]
 // La source alimente des méthodes de chaîne (`.trim()`, `.startsWith()`) :
 // la valeur brute d'une cellule peut être un nombre / booléen → on coerce.
 const fxSource = computed(() => String((editing.value ? draft.value : fxDraft.value) ?? ""))
-const fxQuery = computed(() => {
-  const s = fxSource.value
-  if (!s.trim().startsWith("=")) return ""
-  const m = s.match(/[A-Za-z]{1,}$/)
-  return m ? m[0].toLowerCase() : ""
-})
+/** Position du curseur (fx bar / éditeur de cellule) — pilote les suggestions. */
+const fxCaret = ref<number | null>(null)
+const editCaret = ref<number | null>(null)
+const fxQuery = computed(() =>
+  functionQueryAt(
+    fxSource.value,
+    (editing.value ? editCaret.value : fxCaret.value) ?? undefined,
+  ),
+)
 const fxSuggestions = computed(() => {
   const q = fxQuery.value
   if (!q) return []
-  return FORMULA_FNS.filter((f) => f.name.toLowerCase().startsWith(q)).slice(0, 12)
+  const fns = rankSuggestions(FORMULA_FNS, q, 8).map((f) => ({
+    kind: "fn" as const,
+    name: f.name,
+    detail: f.sig,
+    insert: f.name + "(",
+  }))
+  // Colonnes de la feuille : les formules acceptent `=price * qty`
+  const fields = rankSuggestions(
+    cols.value.map((col) => ({
+      name: col.name,
+      detail:
+        col.label !== undefined && String(col.label) !== col.name
+          ? String(col.label)
+          : t("fxColumn"),
+      insert: col.name,
+    })),
+    q,
+    4,
+  ).map((f) => ({ kind: "field" as const, ...f }))
+  return [...fns, ...fields]
 })
 const fxHide = ref(false)
 const fxActive = ref(0)
@@ -2057,6 +2200,23 @@ watch(fxQuery, () => {
   fxActive.value = 0
   fxHide.value = false
 })
+/** Signature de la fonction au curseur (argument courant surligné). */
+const fxHint = computed<{ name: string; args: string[]; active: number } | null>(() => {
+  const source = fxSource.value
+  if (!isFormulaRaw(source)) return null
+  const caret = Math.min(
+    (editing.value ? editCaret.value : fxCaret.value) ?? source.length,
+    source.length,
+  )
+  const call = functionCallAt(source, caret, FORMULA_FNS.map((f) => f.name))
+  if (!call) return null
+  const fn = FORMULA_FNS.find((f) => f.name.toLowerCase() === call.name)
+  if (!fn) return null
+  const args = signatureArgs(fn.sig)
+  if (!args.length) return null
+  return { name: fn.name, args, active: Math.min(call.index, args.length - 1) }
+})
+
 const fxPopStyle = ref<Record<string, string>>({})
 const refreshFxPop = () => {
   if (!fxOpen.value || !fxInputEl.value) return
@@ -2078,9 +2238,18 @@ const stepFx = (d: number) => {
 const acceptFx = () => {
   const f = fxSuggestions.value[fxActive.value]
   if (!f) return
-  const replaceTail = (s: string) => s.replace(/[A-Za-z]+$/, f.name + "(")
-  if (editing.value) draft.value = replaceTail(String(draft.value ?? ""))
-  else fxDraft.value = replaceTail(String(fxDraft.value ?? ""))
+  const source = editing.value ? String(draft.value ?? "") : String(fxDraft.value ?? "")
+  const caret = Math.min(
+    (editing.value ? editCaret.value : fxCaret.value) ?? source.length,
+    source.length,
+  )
+  const query = functionQueryAt(source, caret)
+  if (!query) return
+  const start = caret - query.length
+  const inserted = f.insert
+  const next = source.slice(0, start) + inserted + source.slice(caret)
+  if (editing.value) draft.value = next
+  else fxDraft.value = next
   fxActive.value = 0
   nextTick(() => {
     const el = editing.value
@@ -2088,7 +2257,12 @@ const acceptFx = () => {
         ? editAreaEl.value
         : editInputEl.value
       : fxInputEl.value
-    el?.focus({ preventScroll: true })
+    if (!el) return
+    el.focus({ preventScroll: true })
+    const pos = start + inserted.length
+    el.setSelectionRange(pos, pos)
+    if (editing.value) editCaret.value = pos
+    else fxCaret.value = pos
   })
 }
 const acceptFxAt = (i: number) => {
@@ -2915,8 +3089,8 @@ const applyFill = () => {
         const sr = b.r0 + (((rr - b.r0) % h) + h) % h
         const sc = b.c0 + (((cc - b.c0) % w) + w) % w
         let raw = state.value[sr]?.[colNameAt(sc)]
-        if (typeof raw === "string" && raw.startsWith("=")) {
-          raw = shiftFormulaRefs(raw, rr - sr, cc - sc)
+        if (typeof raw === "string" && raw.trim().startsWith("=")) {
+          raw = shiftFormulaRefs(raw.trim(), rr - sr, cc - sc)
         }
         val = raw
       }
@@ -3194,8 +3368,7 @@ const loadSheetIntoEngine = (idx: number) => {
   colWidths.value = { ...ext.widths }
   setSel(null)
   editing.value = null
-  undoStack.length = 0
-  redoStack.length = 0
+  history.clear()
   if (scrollEl.value) scrollEl.value.scrollTop = 0
 }
 /**
@@ -3607,7 +3780,10 @@ const findReplaceCurrent = () => {
   const next = findCase.value
     ? raw.split(findQuery.value).join(findReplaceText.value)
     : raw.replace(new RegExp(escapeRegExp(findQuery.value), "gi"), findReplaceText.value)
-  if (next !== raw) setCellValue(m.r, m.name, raw, next)
+  if (next !== raw) {
+    pushHistory()
+    setCellValue(m.r, m.name, raw, next)
+  }
   findScan()
   findNext(1)
 }
@@ -4147,6 +4323,7 @@ const validateAndSet = async (r: number, name: string, old: any, next: any): Pro
     return false
   }
   clearValError(r, name)
+  pushHistory()
   setCellValue(r, name, old, next)
   return true
 }
@@ -4527,9 +4704,23 @@ defineExpose({
         :placeholder="fxCanEdit ? t('fxPlaceholder') : t('fxNoSel')"
         spellcheck="false"
         @input="onFxInput"
+        @keyup="syncFxCaret"
+        @click="syncFxCaret"
         @keydown="onFxKeydown"
         @blur="commitFx"
       />
+      <span v-if="fxHint && !fxOpen && !editing" class="q-spreadsheet__fxhint">
+        <strong>{{ fxHint.name }}</strong>(<template v-for="(arg, i) in fxHint.args" :key="i"><span
+          class="q-spreadsheet__fxhint-arg"
+          :class="{ 'q-spreadsheet__fxhint-arg--on': i === fxHint.active }"
+        >{{ arg }}</span><span v-if="i < fxHint.args.length - 1">, </span></template>)
+      </span>
+      <span
+        v-if="fxPreview"
+        class="q-spreadsheet__fx-preview"
+        :class="{ 'q-spreadsheet__fx-preview--error': fxPreview.error }"
+        :title="fxPreview.hint"
+      ><span class="q-spreadsheet__fx-preview-eq" aria-hidden="true">=</span>{{ fxPreview.text }}</span>
     </div>
 
     <!-- ═══════ Barre Find & Replace ═══════ -->
@@ -4909,6 +5100,9 @@ defineExpose({
           class="q-spreadsheet__editor-input q-spreadsheet__editor-area"
           :rows="draftLines"
           spellcheck="false"
+          @input="syncEditCaret"
+          @keyup="syncEditCaret"
+          @click="syncEditCaret"
           @keydown="onEditKeydown"
           @blur="commitEdit"
         />
@@ -4923,6 +5117,12 @@ defineExpose({
           @keydown="onEditKeydown"
           @blur="commitEdit"
         />
+        <div v-if="editingIsFormula && fxHint && !fxOpen" class="q-spreadsheet__fxhint q-spreadsheet__fxhint--editor">
+          <strong>{{ fxHint.name }}</strong>(<template v-for="(arg, i) in fxHint.args" :key="i"><span
+            class="q-spreadsheet__fxhint-arg"
+            :class="{ 'q-spreadsheet__fxhint-arg--on': i === fxHint.active }"
+          >{{ arg }}</span><span v-if="i < fxHint.args.length - 1">, </span></template>)
+        </div>
         <div v-if="editingIsChoice && selectOptions.length" class="q-spreadsheet__options">
           <button
             v-for="opt in selectOptions"
@@ -4947,7 +5147,7 @@ defineExpose({
         <div v-if="editingIsFormula && fxOpen" class="q-spreadsheet__fnsug">
           <button
             v-for="(f, fi) in fxSuggestions"
-            :key="f.name"
+            :key="`${f.kind}:${f.name}`"
             type="button"
             class="q-spreadsheet__fnsug-item"
             :class="{ 'q-spreadsheet__fnsug-item--on': fxActive === fi }"
@@ -4955,7 +5155,8 @@ defineExpose({
             @click="acceptFxAt(fi)"
           >
             <code>{{ f.name }}</code>
-            <span>({{ f.sig }})</span>
+            <span v-if="f.kind === 'fn'">({{ f.detail }})</span>
+            <span v-else class="q-spreadsheet__fnsug-kind">{{ f.detail }}</span>
           </button>
         </div>
       </div>
@@ -5252,7 +5453,7 @@ defineExpose({
       >
         <button
           v-for="(f, fi) in fxSuggestions"
-          :key="f.name"
+          :key="`${f.kind}:${f.name}`"
           type="button"
           class="q-spreadsheet__fnsug-item"
           :class="{ 'q-spreadsheet__fnsug-item--on': fxActive === fi }"
@@ -5260,7 +5461,8 @@ defineExpose({
           @click="acceptFxAt(fi)"
         >
           <code>{{ f.name }}</code>
-          <span>({{ f.sig }})</span>
+          <span v-if="f.kind === 'fn'">({{ f.detail }})</span>
+          <span v-else class="q-spreadsheet__fnsug-kind">{{ f.detail }}</span>
         </button>
       </div>
     </Teleport>

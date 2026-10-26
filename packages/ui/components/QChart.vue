@@ -13,16 +13,31 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue"
 import { chartToECharts, COLOR_TOKENS } from "../lib/chart"
 import { normalizeCssColor } from "../lib/color"
-import { legendPickOf, nextLegendPick, pickFromEvent, sameSelection, tableModel } from "../lib/chart"
-import type { QChartAxis, QChartColumn, QChartLegend, QChartMark, QChartPick } from "../lib/chart"
+import { legendPickOf, nextLegendPick, pickFromEvent, sameSelection, tableCsv, tableModel } from "../lib/chart"
+import { useConfigLang } from "../lib/useComponentProps"
+import type {
+  QChartAxis,
+  QChartColumn,
+  QChartLegend,
+  QChartMark,
+  QChartPick,
+  QChartTooltip,
+} from "../lib/chart"
 
 interface Props {
   /** Marques à rendre : `{ type: 'line', data, x, y }`, `{ type: 'bar', … }`… */
   marks?: QChartMark[]
-  /** Axe X (type, libellé, bornes, grille) */
+  /** Axe X (type, libellé, bornes, grille, format, granularité temporelle) */
   x?: QChartAxis
-  /** Axe Y (type, libellé, bornes, grille) */
+  /** Axe Y (type, libellé, bornes, grille, format) */
   y?: QChartAxis
+  /** Axe Y **secondaire**, à droite — pour un combo volume (barres) + taux (ligne) :
+   *  la marque visée déclare `yAxis: 'right'`. */
+  yRight?: QChartAxis
+  /** Locale des nombres / dates (`fr-FR` par défaut, sinon celle du provider) */
+  locale?: string
+  /** Mode **compact** (mini-widget) : marges réduites, axes et légende masqués par défaut */
+  compact?: boolean
   /** Hauteur du conteneur (nombre = px, sinon valeur CSS) */
   height?: number | string
   /** Titre du graphique */
@@ -32,8 +47,9 @@ interface Props {
   /** Légende : `false` pour la masquer, `true` pour la forcer (défaut : dès qu'une série est
    *  nommée), ou `{ position: 'top' | 'bottom' | 'left' | 'right', offset, align }` */
   legend?: boolean | QChartLegend
-  /** Info-bulle au survol (défaut : true) */
-  tooltip?: boolean
+  /** Info-bulle au survol (défaut : true) — `false` l'éteint, un objet la personnalise
+   *  (`formatter`, `valueFormatter`, `sortDesc`) */
+  tooltip?: boolean | QChartTooltip
   /** Réaction des marques liées à la sélection : `filter` (défaut) **retire** les données non
    *  liées, `dim` les **estompe** (`dimOpacity`) en gardant tout le contexte visible. */
   linkMode?: "filter" | "dim"
@@ -47,6 +63,18 @@ interface Props {
    *  les éléments qui portent ce `name` sont mis en évidence (`highlight`) dans toutes les
    *  séries. `null` efface la sélection. */
   selected?: QChartPick | null
+  /** État **chargement** : superpose un message (slot `loading`) */
+  loading?: boolean
+  /** État **erreur** : `true` (message localisé) ou un texte à afficher (slot `error`) */
+  error?: string | boolean
+  /** État **vide** forcé (sinon détecté : aucune donnée) — slot `empty` */
+  empty?: boolean
+  /** Textes des états et de la table (prioritaires sur l'i18n du provider) */
+  texts?: Partial<
+    Record<"loading" | "empty" | "error" | "exportCsv" | "total" | "page" | "sortAscending" | "sortDescending", string>
+  >
+  /** Marque `table` : bouton d'**export CSV** */
+  exportable?: boolean
   /** Options ECharts brutes, fusionnées en dernier (échappatoire) */
   options?: Record<string, any>
 }
@@ -76,6 +104,37 @@ const emit = defineEmits<{
   unpick: [pick: QChartPick]
 }>()
 
+// ─── i18n des états et de la table ────────────────────────────────────────────
+const I18N = {
+  en: {
+    loading: "Loading…",
+    empty: "No data",
+    error: "Unable to display the chart",
+    exportCsv: "Export CSV",
+    total: "Total",
+    page: "Page {n} / {m}",
+    sortAscending: "Sort ascending",
+    sortDescending: "Sort descending",
+  },
+  fr: {
+    loading: "Chargement…",
+    empty: "Aucune donnée",
+    error: "Impossible d'afficher le graphique",
+    exportCsv: "Exporter en CSV",
+    total: "Total",
+    page: "Page {n} / {m}",
+    sortAscending: "Tri croissant",
+    sortDescending: "Tri décroissant",
+  },
+} as const
+type UiText = keyof (typeof I18N)["en"]
+const configLang = useConfigLang()
+const t = (key: UiText): string => props.texts?.[key] ?? I18N[configLang.value === "fr" ? "fr" : "en"][key]
+const fmtPage = (n: number, total: number) =>
+  t("page").replace("{n}", String(n)).replace("{m}", String(total))
+/** Locale des nombres / dates : prop, sinon celle du provider (`fr` → `fr-FR`) */
+const locale = computed(() => props.locale ?? (configLang.value === "fr" ? "fr-FR" : "en-US"))
+
 const el = ref<HTMLElement | null>(null)
 const chart = shallowRef<any>(null)
 let modulePromise: Promise<any> | null = null
@@ -85,11 +144,12 @@ let themeObserver: MutationObserver | undefined
 /** Charge ECharts (modules enregistrés une seule fois, arbre secoué). */
 const loadECharts = () => {
   modulePromise ??= (async () => {
-    const [core, charts, components, renderers] = await Promise.all([
+    const [core, charts, components, renderers, features] = await Promise.all([
       import("echarts/core"),
       import("echarts/charts"),
       import("echarts/components"),
       import("echarts/renderers"),
+      import("echarts/features"),
     ])
     core.use([
       charts.BarChart,
@@ -97,13 +157,25 @@ const loadECharts = () => {
       charts.ScatterChart,
       charts.PieChart, // marque `pie` (camembert / anneau)
       charts.HeatmapChart, // marque `heatmap` (carte de chaleur)
+      charts.BoxplotChart, // marque `boxplot` (boîte à moustaches)
+      charts.GaugeChart, // marque `gauge` (jauge)
+      charts.FunnelChart, // marque `funnel` (entonnoir)
+      charts.RadarChart, // marque `radar` (multicritères)
+      charts.TreemapChart, // marque `treemap`
+      charts.SunburstChart, // marque `sunburst`
+      charts.SankeyChart, // marque `sankey` (flux)
       components.GridComponent,
+      components.RadarComponent, // coordonnée polaire de la marque `radar`
       components.TooltipComponent,
       components.LegendComponent,
       components.TitleComponent, // titre (`title` prop)
       components.MarkLineComponent,
-      components.VisualMapComponent, // échelle de couleurs des cartes de chaleur
+      components.MarkAreaComponent, // marque `band` (zones de seuil)
+      components.VisualMapComponent, // échelles de couleurs (heatmap, `fill` numérique d'un `dot`)
       renderers.CanvasRenderer,
+      // ECharts 6 : `grid.containLabel` vit désormais dans un module de compatibilité —
+      // sans lui l'option est ignorée **silencieusement** (les libellés débordent du cadre).
+      features.LegacyGridContainLabel,
     ])
     return core
   })()
@@ -170,6 +242,9 @@ const build = () => {
     marks: props.marks,
     x: props.x,
     y: props.y,
+    yRight: props.yRight,
+    locale: locale.value,
+    compact: props.compact,
     colors: props.colors,
     title: props.title,
     legend: props.legend,
@@ -197,10 +272,81 @@ const linkChart = (group: string, instance: any, api: any) => {
 }
 
 const tableMark = computed(() => (props.marks ?? []).find((mark) => mark.type === "table"))
+
+/** État de vue **interactif** de la table (tri, page) — prioritaire sur les options de la marque */
+const sortState = ref<{ field: string; desc: boolean } | null>(null)
+const pageState = ref(0)
+
 const table = computed(() =>
   tableMark.value
-    ? tableModel(tableMark.value, props.selected ?? null, (props.linkMode as "filter" | "dim") ?? "filter")
+    ? tableModel(tableMark.value, props.selected ?? null, (props.linkMode as "filter" | "dim") ?? "filter", {
+        ...(sortState.value ? { sortBy: sortState.value.field, sortDesc: sortState.value.desc } : {}),
+        ...(pageState.value ? { page: pageState.value } : {}),
+      })
     : null,
+)
+
+/** Style d'une colonne (largeur fixe, alignement) */
+const columnStyle = (column: QChartColumn) => ({
+  textAlign: column.align,
+  ...(column.width !== undefined
+    ? { width: typeof column.width === "number" ? `${column.width}px` : column.width }
+    : {}),
+})
+
+/** Tri suivant : `asc` → `desc` → aucun (l'ordre d'origine revient) */
+const toggleSort = (column: QChartColumn) => {
+  if (column.sortable === false) return
+  const base =
+    sortState.value ??
+    (tableMark.value?.sortBy
+      ? { field: tableMark.value.sortBy, desc: !!tableMark.value.sortDesc }
+      : null)
+  if (!base || base.field !== column.field) sortState.value = { field: column.field, desc: false }
+  else if (!base.desc) sortState.value = { field: column.field, desc: true }
+  else sortState.value = null
+  pageState.value = 0
+}
+
+const sortIndicator = (column: QChartColumn) => {
+  const current = sortState.value ?? (tableMark.value?.sortBy ? { field: tableMark.value.sortBy, desc: !!tableMark.value.sortDesc } : null)
+  if (!current || current.field !== column.field) return ""
+  return current.desc ? "\u2193" : "\u2191"
+}
+
+const sortTitle = (column: QChartColumn) => {
+  if (column.sortable === false) return ""
+  return sortIndicator(column) === "\u2191" ? t("sortDescending") : t("sortAscending")
+}
+
+const goPage = (delta: number) => {
+  const model = table.value
+  if (!model?.pages) return
+  pageState.value = Math.max(0, Math.min(model.pages - 1, (model.page ?? 0) + delta))
+}
+
+/** Export CSV de **toutes** les lignes visibles (pas seulement la page) */
+const exportCsv = () => {
+  const model = table.value
+  if (!model || typeof window === "undefined" || typeof document === "undefined") return
+  const csv = tableCsv(model, { label: t("total") })
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = "chart.csv"
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
+// Les données changent → le tri et la page repartent de zéro (sinon une page vide peut rester)
+watch(
+  () => props.marks,
+  () => {
+    sortState.value = null
+    pageState.value = 0
+  },
+  { deep: true },
 )
 
 /** Champ qui porte la clé partagée d'une ligne : le `localField` de `link`, sinon le premier
@@ -256,6 +402,24 @@ const pickRow = (row: any, dataIndex: number) => {
     data: row,
   })
 }
+
+/** Une donnée est-elle présente ? (marque `table` : lignes visibles ; sinon : données déclarées) */
+const hasData = computed(() => {
+  const marks = props.marks ?? []
+  return marks.some((mark) => (mark.data?.length ?? 0) > 0)
+})
+
+/** État affiché en surimpression (`loading` > `error` > `empty`) */
+const stateKind = computed<"loading" | "error" | "empty" | null>(() => {
+  if (props.loading) return "loading"
+  if (props.error) return "error"
+  if (props.empty ?? !hasData.value) return "empty"
+  return null
+})
+
+const errorMessage = computed(() =>
+  typeof props.error === "string" ? props.error : t("error"),
+)
 
 const render = async () => {
   // Une marque `table` remplace le tracé : on libère l'instance si elle existait
@@ -348,6 +512,9 @@ watch(
     props.selected,
     props.x,
     props.y,
+    props.yRight,
+    props.locale,
+    props.compact,
     props.title,
     props.colors,
     props.legend,
@@ -414,7 +581,7 @@ defineExpose({
 </script>
 
 <template>
-  <!-- Marque `table` : les données en HTML (sélection, jointure et `@pick` comme le reste) -->
+  <!-- Marque `table` : les données en HTML (sélection, jointure, tri, pagination et `@pick` comme le reste) -->
   <div
     v-if="table"
     class="q-chart q-chart--table"
@@ -422,11 +589,25 @@ defineExpose({
     role="table"
     :aria-label="title || 'Table'"
   >
+    <div v-if="exportable" class="q-chart__table-bar">
+      <button type="button" class="q-chart__table-action" @click="exportCsv">
+        {{ t("exportCsv") }}
+      </button>
+    </div>
     <table :class="`is-${table.separator}`">
       <thead>
         <tr>
-          <th v-for="column in table.columns" :key="column.field" :style="{ textAlign: column.align }">
+          <th
+            v-for="column in table.columns"
+            :key="column.field"
+            :style="columnStyle(column)"
+            :title="sortTitle(column)"
+            :class="{ 'is-sortable': column.sortable !== false }"
+            :aria-sort="sortIndicator(column) === '↑' ? 'ascending' : sortIndicator(column) === '↓' ? 'descending' : 'none'"
+            @click="toggleSort(column)"
+          >
             {{ column.label }}
+            <span v-if="sortIndicator(column)" class="q-chart__sort">{{ sortIndicator(column) }}</span>
           </th>
         </tr>
       </thead>
@@ -438,23 +619,59 @@ defineExpose({
           :style="isDimmed(row) ? { opacity: dimOpacity } : undefined"
           @click="pickRow(row, index)"
         >
-          <td v-for="column in table.columns" :key="column.field" :style="{ textAlign: column.align }">
+          <td v-for="column in table.columns" :key="column.field" :style="columnStyle(column)">
             {{ cellValue(column, row) }}
           </td>
         </tr>
       </tbody>
+      <tfoot v-if="table.totals">
+        <tr>
+          <td v-for="column in table.columns" :key="column.field" :style="columnStyle(column)">
+            {{ table.totals[column.field] ?? "" }}
+          </td>
+        </tr>
+      </tfoot>
     </table>
-    <p v-if="table.rows.length === 0" class="q-chart__empty">No rows</p>
+    <p v-if="table.rows.length === 0" class="q-chart__empty">{{ t("empty") }}</p>
+    <div v-if="table.pages && table.pages > 1" class="q-chart__pager">
+      <button
+        type="button"
+        class="q-chart__table-action"
+        :disabled="(table.page ?? 0) <= 0"
+        @click="goPage(-1)"
+      >
+        ‹
+      </button>
+      <span class="q-chart__pager-label">{{ fmtPage((table.page ?? 0) + 1, table.pages) }}</span>
+      <button
+        type="button"
+        class="q-chart__table-action"
+        :disabled="(table.page ?? 0) >= table.pages - 1"
+        @click="goPage(1)"
+      >
+        ›
+      </button>
+    </div>
   </div>
 
   <div
     v-else
-    ref="el"
-    class="q-chart"
+    class="q-chart q-chart--plot"
     :style="{ height: typeof height === 'number' ? `${height}px` : height }"
-    role="img"
-    :aria-label="title || 'Chart'"
-  ></div>
+  >
+    <div
+      ref="el"
+      class="q-chart__canvas"
+      role="img"
+      :aria-label="title || 'Chart'"
+      :aria-busy="stateKind === 'loading' || undefined"
+    ></div>
+    <div v-if="stateKind" class="q-chart__state" :class="`q-chart__state--${stateKind}`" role="status">
+      <slot v-if="stateKind === 'loading'" name="loading">{{ t("loading") }}</slot>
+      <slot v-else-if="stateKind === 'error'" name="error">{{ errorMessage }}</slot>
+      <slot v-else name="empty">{{ t("empty") }}</slot>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -530,5 +747,90 @@ defineExpose({
 }
 .q-chart {
   width: 100%;
+}
+
+/* ─── Tracé (canvas + surimpression d'état) ─── */
+.q-chart--plot {
+  position: relative;
+  width: 100%;
+}
+
+.q-chart__canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* États `loading` / `empty` / `error` : une surimpression lisible sur le thème hôte */
+.q-chart__state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--muted-foreground, #71717a);
+  background: color-mix(in srgb, var(--card, #ffffff) 76%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.q-chart__state--error {
+  color: var(--negative, #c10015);
+}
+
+/* ─── Table BI (barre d'outils, tri, totaux, pagination) ─── */
+.q-chart__table-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 10px;
+}
+
+.q-chart__table-action {
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted-foreground, #71717a);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border, #e4e4e7);
+  border-radius: 4px;
+}
+
+.q-chart__table-action:hover:not(:disabled) {
+  color: var(--foreground, #18181b);
+  background: var(--accent, #f4f4f5);
+}
+
+.q-chart__table-action:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.q-chart--table th.is-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.q-chart__sort {
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.q-chart--table tfoot td {
+  font-weight: 600;
+  border-top: 1px solid var(--border, #e4e4e7);
+}
+
+.q-chart__pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--muted-foreground, #71717a);
 }
 </style>

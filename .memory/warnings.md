@@ -1569,3 +1569,120 @@ un peu aussi, ou picker date en mode sheet ou modal ».
   `calc(env(safe-area-inset-top) + 16px)` et **pas** de `padding-top: env(…)` nu).
   `bun test lib` → **386 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
   (Rendu non vérifiable sans navigateur.)
+
+## QDatePicker — « Today » restait en anglais malgré `lang="fr"` — 2026-10-17
+
+`filename: components/internal/QDateCalendar.vue`, `components/QDatePicker.vue`
+
+**Symptôme** : `<q-config-provider lang="fr">` puis `<q-date-picker today-btn>` → le
+raccourci affiche « Today ».
+
+**Cause** : `QConfigProvider` fournissait bien `lang` (`qConfigKey`, lu par
+`useConfigLang()`), mais `QDateCalendar` **ne le lisait pas** : « Today » était écrit en
+dur, les initiales des jours étaient françaises en dur (`["Dim", "Lun", …]`) et les mois
+utilisaient `Intl.DateTimeFormat(undefined, …)` — donc la **locale du navigateur**. Trois
+sources de langue différentes dans le même calendrier. `QDatePicker` avait aussi
+« Sélectionner une date » / « Effacer » / « Fermer » en dur (même en anglais).
+
+**Correctif** : `lib/dateI18n.ts` (`dateLocale`, `dateLabels`, `weekdayShortNames`,
+`monthShortNames`, `monthYearLabel`) consommé via `useConfigLang()` dans les deux
+composants ; locale **explicite** (`fr-FR` / `en-US`) pour un rendu déterministe
+serveur↔client ; le `format` par défaut du champ suit aussi la langue.
+
+**Règle** : quand un provider expose `lang`, **tout** texte visible (y compris les
+`aria-label`) et **tout** `Intl.*` d'un composant doivent passer par `useConfigLang()` —
+jamais `undefined` (locale navigateur), jamais une chaîne en dur. Un `lang` fourni mais
+non consommé ne casse rien : le bug est silencieux.
+
+**Vérif** : `lib/dateI18n.test.ts` (9 tests) ; `bun test lib` → **436 pass / 0 fail** ;
+`cd docui && bun run build` → **EXIT 0**.
+
+## QSpreadsheet — formules : `#ERROR!` avec des espaces, et `shiftFormulaRefs` trop large — 2026-10-17
+
+`filename: lib/formula.ts`, `lib/spreadsheet.ts`, `components/QSpreadsheet.vue`
+
+**Symptômes** (reproduits avant correctif) :
+
+1. `"  =1+2"` → `#ERROR!` : `isFormulaRaw` la reconnaît comme formule (`trim()`), mais
+   `evaluateFormula` exigeait `source.startsWith("=")` sur la chaîne **non trimée**.
+2. Autofill / recopie : `shiftFormulaRefs('=IF(A1>0,"A1","x")', 1, 0)` réécrivait aussi le
+   **littéral de chaîne** → `"A2"`.
+3. Même regex `[A-Za-z]{1,3}\d+` sur les **identifiants** : `=LOG10(A1)` → `LOG11(A2)` et
+   `=price1+A1` → `prICE2+A2`.
+
+**Correctifs** :
+
+- `evaluateFormula` trime la source avant de retirer le `=`, et `coerceValue` **stocke la
+  formule trimée** (plus de `"  =…"` en base).
+- `shiftFormulaRefs` découpe la formule en segments **chaîne / code** (guillemets simples et
+  doubles, `""` échappés) ; seuls les segments de code sont décalés, et une ref n'est
+  acceptée que si elle commence et finit sur une **borne de token** (rien de
+  `[A-Za-z0-9_.]` avant, rien d'alphanumérique ni `(` après).
+
+**Règle** : toute transformation textuelle d'une formule doit être **consciente des
+littéraux** et des bornes de tokens — une regex globale sur `A1` corrompt les chaînes, les
+noms de fonctions (`LOG10`) et les champs suffixés de chiffres (`price1`).
+
+**Vérif** : `lib/spreadsheet.test.ts` +3 cas, `lib/formula.test.ts` +1 ; `bun test lib` →
+**459 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+
+## QSpreadsheet — undo/redo inertes : piles d'historique non réactives — 2026-10-17
+
+`filename: components/QSpreadsheet.vue`, `lib/history.ts`
+
+**Symptôme** : après une suppression de ligne (ou n'importe quelle action), les boutons
+undo/redo restent désactivés et `Ctrl+Z` / `Ctrl+Y` ne font rien — alors que
+`removeSelectedRows()` appelait bien `pushHistory()`.
+
+**Cause** : `undoStack` / `redoStack` étaient des **tableaux simples** et
+`canUndo` / `canRedo` des `computed(() => undoStack.length > 0)`. Aucune dépendance
+réactive n'est lue → le computed est évalué une fois (au premier rendu, piles vides) et
+reste figé à `false` ; `undo()` sortait donc sur `!canUndo.value`.
+
+**Correctif** : `lib/history.ts` (`createHistory`) — piles en `shallowRef`
+**remplacées** à chaque opération (`[...stack, item]`, `slice`), `canUndo` / `canRedo`
+dérivés. Rappel : un `push` sur un tableau stocké dans un `ref`/`shallowRef` ne déclenche
+**pas** la réactivité, il faut réaffecter.
+
+**Complément** : les **saisies de cellule** ne poussaient aucun historique
+(`commitEdit` / `commitFx` / `toggleMultiOption` via `validateAndSet`, `toggleBoolean`,
+`findReplaceCurrent`) → `pushHistory()` ajouté au bon niveau (une entrée par action, pas
+par cellule). À la restauration, la sélection est ramenée dans la grille si elle pointe
+sur une ligne/colonne supprimée.
+
+**Vérif** : `lib/history.test.ts` (**5 tests**, réactivité prouvée par `effect` +
+`nextTick`) ; `bun test lib` → **476 pass / 0 fail** ; `cd docui && bun run build` →
+**EXIT 0**.
+
+## QChart BI — pièges ECharts 6 rencontrés — 2026-10-26
+
+`filename: packages/ui/lib/chart.ts`, `components/QChart.vue`
+
+- **`grid.containLabel` ignore silencieusement sans `LegacyGridContainLabel`** : en ECharts 6,
+  `containLabel` a migré dans `echarts/features` (`LegacyGridContainLabel`). Sans
+  `use([LegacyGridContainLabel])`, l'option est ignorée → les libellés d'axe débordent du
+  cadre. Le module est enregistré dans `loadECharts()` **et** dans
+  `lib/chart.modules.test.ts` (d'où l'absence du warning `[ECharts] Specified grid.containLabel…`).
+- **Pas de barre flottante par valeur `[cat, [y0, y1]]`** : ECharts n'accepte pas cette
+  forme sur un axe catégorie. Solution : base invisible empilée + delta (`__base`), ou
+  données `[start, end]` mappées **par index** (waterfall).
+- **Empilement 100 % inexistant** : `stack: "percent"` n'est **pas** une option ECharts ;
+  il faut normaliser les valeurs soi-même (`stackTotals` + `categoryTotals`).
+- **`visualMap` + `dot`** : la valeur de couleur doit voyager dans le point
+  (`value: [x, y, v]`) et le `visualMap` doit préciser `dimension: 2` ; sinon rien n'est
+  mappé (les points restent d'une couleur unie).
+- **`markArea`/`markLine` accrochés à `series[0]`** : ils suivent la **coordonnée** de la
+  série hôte. Une base invisible (`silent`) convient, mais `markLine` et `markArea` sont
+  deux propriétés distinctes sur la même série.
+- **Jauge polaire** : pas de `markLine` fiable en coordonnée polaire — la cible est rendue
+  dans `detail.formatter` (deux lignes valent mieux qu'une annotation qui ne s'affiche pas).
+- **Noms uniques** : `treemap`/`sunburst` utilisent le nom comme clé de nœud — deux nœuds de
+  même nom fusionnent.
+- **Index de série** : `z`, `base` et `trend` peuvent créer plusieurs séries pour une marque ;
+  `applySelection()` (qui cible `seriesIndex = markIndex`) peut donc viser la mauvaise série.
+  L'identité fiable reste `name` (le `@pick`/`legendPickOf` la restaure).
+- **Intl et espaces** : `fr-FR` utilise des espaces insécables fines (U+202F) dans les
+  nombres et les devises. Les tests unitaires normalisent (`plain()`), ne pas comparer à
+  une chaîne avec espace ASCII.
+- **`percent` et `Intl`** : `Intl` multiplie par 100 pour `style: "percent"` ; `formatValue`
+  divise donc **avant** pour que `42` → « 42 % » (et non 4 200 %).

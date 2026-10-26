@@ -25,9 +25,12 @@ export const qTabsKey: InjectionKey<QTabContext> = Symbol("q-tabs")
 
 <script setup lang="ts">
 import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, provide, ref, shallowRef, watch } from "vue"
+import { Icon } from "@iconify/vue"
 import { cva } from "class-variance-authority"
 import { cn } from "../lib/utils"
 import { colorValue } from "../lib/colors"
+import { icons } from "../lib/icons"
+import { tabArrowState, tabArrowStep } from "../lib/tabs"
 
 const tabsVariants = cva("q-tabs", {
   variants: {
@@ -70,6 +73,12 @@ interface Props {
   switchIndicatorPosition?: boolean | "top" | "bottom"
   /** Tabs en colonne (verticales) */
   vertical?: boolean
+  /**
+   * **Flèches de défilement** quand les tabs débordent (comportement Quasar, défaut `true`) :
+   * le contenu devient défilable et deux boutons apparaissent aux extrémités débordantes.
+   * `false` → aucun défilement (les tabs débordent, comme avant).
+   */
+  showArrows?: boolean
   /** Ne pas s'étendre (usage dans un QToolbar) */
   shrink?: boolean
   /** S'étendre sur l'axe croisé du parent flex */
@@ -106,6 +115,7 @@ const props = withDefaults(defineProps<Props>(), {
   noCaps: false,
   switchIndicatorPosition: undefined,
   vertical: false,
+  showArrows: true,
   shrink: false,
   stretch: false,
   contentClass: "",
@@ -148,10 +158,39 @@ const tabRegs = shallowRef<QTabRegistration[]>([])
 const tick = ref(0)
 const rootEl = ref<HTMLElement | null>(null)
 
-// Recalcule la position de l'indicateur après chaque changement de DOM
+// — Flèches de défilement (`show-arrows`, comportement Quasar) —
+const contentEl = ref<HTMLElement | null>(null)
+const canScrollStart = ref(false)
+const canScrollEnd = ref(false)
+let contentObserver: ResizeObserver | null = null
+
+/** Met à jour la visibilité des flèches depuis les mesures de défilement (axe courant). */
+const updateArrows = () => {
+  const el = contentEl.value
+  if (!el) return
+  const state = props.vertical
+    ? tabArrowState(el.scrollTop, el.clientHeight, el.scrollHeight)
+    : tabArrowState(el.scrollLeft, el.clientWidth, el.scrollWidth)
+  canScrollStart.value = state.canStart
+  canScrollEnd.value = state.canEnd
+}
+
+/** Fait défiler d'un cran (≈ 60 % de la zone visible) — fluide. */
+const scrollArrows = (dir: -1 | 1) => {
+  const el = contentEl.value
+  if (!el) return
+  const delta = tabArrowStep(props.vertical ? el.clientHeight : el.clientWidth) * dir
+  el.scrollBy(props.vertical ? { top: delta, behavior: "smooth" } : { left: delta, behavior: "smooth" })
+}
+
+/** Débordement réel → les deux flèches existent (celle du côté bloqué est **désactivée**). */
+const scrollable = computed(() => canScrollStart.value || canScrollEnd.value)
+
+// Recalcule la position de l'indicateur (et les flèches) après chaque changement de DOM
 const measure = async () => {
   await nextTick()
   tick.value++
+  updateArrows()
 }
 
 // collapse-inactive : le label s'étend/retombe via une transition max-width
@@ -169,10 +208,18 @@ onMounted(() => {
   measure()
   if (typeof window !== "undefined") window.addEventListener("resize", measure)
   rootEl.value?.addEventListener("transitionend", onCollapseEnd)
+  // Le conteneur peut changer de largeur sans resize fenêtre (sidebar, flex…) : les
+  // flèches doivent suivre le débordement réel.
+  if (typeof ResizeObserver !== "undefined" && contentEl.value) {
+    contentObserver = new ResizeObserver(updateArrows)
+    contentObserver.observe(contentEl.value)
+  }
 })
 onBeforeUnmount(() => {
   if (typeof window !== "undefined") window.removeEventListener("resize", measure)
   rootEl.value?.removeEventListener("transitionend", onCollapseEnd)
+  contentObserver?.disconnect()
+  contentObserver = null
 })
 
 const context: QTabContext = {
@@ -240,6 +287,11 @@ const tabsClasses = computed(() =>
     props.animated && "q-tabs--animated",
     props.animated && `q-tabs--anim-${props.transition}`,
     props.collapseInactive && "q-tabs--collapse-inactive",
+    props.showArrows && "q-tabs--arrows",
+    // Fondu des bords : uniquement du côté où il reste du contenu à révéler (le CSS
+    // n'utilise qu'un masque alpha → rendu identique en thème clair et sombre).
+    props.showArrows && canScrollStart.value && "q-tabs--scroll-start",
+    props.showArrows && canScrollEnd.value && "q-tabs--scroll-end",
   ),
 )
 </script>
@@ -253,9 +305,34 @@ const tabsClasses = computed(() =>
     role="tablist"
     :aria-orientation="vertical ? 'vertical' : 'horizontal'"
   >
-    <div class="q-tabs__content" :class="contentClass">
+    <button
+      v-if="showArrows && scrollable"
+      type="button"
+      class="q-tabs__arrow q-tabs__arrow--start"
+      :disabled="!canScrollStart"
+      :aria-label="vertical ? 'Defiler les onglets vers le haut' : 'Defiler les onglets vers la gauche'"
+      @click="scrollArrows(-1)"
+    >
+      <Icon :icon="vertical ? icons.chevronUp : icons.chevronLeft" aria-hidden="true" />
+    </button>
+    <div
+      ref="contentEl"
+      class="q-tabs__content"
+      :class="contentClass"
+      @scroll="updateArrows"
+    >
       <slot />
       <div class="q-tabs__indicator" :style="indicatorStyle" aria-hidden="true" />
     </div>
+    <button
+      v-if="showArrows && scrollable"
+      type="button"
+      class="q-tabs__arrow q-tabs__arrow--end"
+      :disabled="!canScrollEnd"
+      :aria-label="vertical ? 'Defiler les onglets vers le bas' : 'Defiler les onglets vers la droite'"
+      @click="scrollArrows(1)"
+    >
+      <Icon :icon="vertical ? icons.chevronDown : icons.chevronRight" aria-hidden="true" />
+    </button>
   </div>
 </template>

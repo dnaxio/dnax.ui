@@ -2858,14 +2858,33 @@ Demande : « si il y a une prop `description`, alors le title doit avoir un peu 
   bord haut**.
 - **Correctif** : classe modificateur `--with-description` posée sur le bloc texte quand une
   description existe (**prop** ou **slot** `#description`, via le `slotHasContent` existant),
-  et `padding-top: 4px` sur le titre :
-  `.q-dialog__header-text--with-description .q-dialog__title` et
-  `.q-bottom-sheet__header-text--with-description .q-bottom-sheet__title`.
+  puis **deux** règles CSS :
+  - `padding-top: 4px` sur le titre →
+    `.q-dialog__header-text--with-description .q-dialog__title` et
+    `.q-bottom-sheet__header-text--with-description .q-bottom-sheet__title` ;
+  - `padding-bottom: 6px` sur le **bloc** (ajouté le 2026-10-02 après une capture) : le
+    séparateur de l'en-tête est son `border-bottom`, donc sans ce padding le trait **colle
+    au texte de la description** (« gpt-4o-mini ») →
+    `.q-dialog__header-text--with-description`, `.q-bottom-sheet__header-text--with-description`.
+    Le bloc étant le plus haut enfant de la toolbar (centrée), la toolbar grandit et le trait
+    descend d'autant.
 - **Les deux composants** sont traités (même structure, décrits comme « équivalent QHeader »).
 - **Vérif** : `lib/styleTokens.test.ts` +2 tests **contrat composant ↔ CSS** (la classe doit être
   posée par le `.vue` **et** stylée par la feuille — une divergence des deux côtés serait un échec
-  silencieux). `bun test lib` → **381 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+  silencieux), +1 test « une description ajoute aussi de l'air AVANT le séparateur
+  (`padding-bottom`) ». `bun test lib` → **389 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
   (Le rendu lui-même n'est pas testable sans navigateur.)
+
+## QBottomSheet — séparateur d'en-tête invisible en **thème** sombre — 2026-10-02
+
+Même classe de bug que le checkbox : l'override de bordure n'existait que pour la variante
+`--panel--dark` (surface sombre explicite), pas pour la classe `.dark` du `QConfigProvider`.
+
+- `.q-bottom-sheet__header` / `__footer` portaient `border-*: 1px solid rgb(0 0 0 / 0.08)` ;
+  en thème sombre le trait était donc **invisible**.
+- **Correctif** : sélecteurs `.dark` ajoutés à la règle existante (`.dark .q-bottom-sheet__header,
+.dark .q-bottom-sheet__footer`) + `.dark .q-bottom-sheet__close:hover`
+  (`rgb(255 255 255 / 0.08)`, convention des hovers sombres) — symétrique du correctif dialog.
 
 ## QCollapse — prop `guide` (« tirets longs » / guide vertical) — 2026-10-02
 
@@ -2916,3 +2935,286 @@ query, hasValue)` (pur, testé) : la règle est au même endroit pour les deux c
   La prop apparaît aussi dans l'API auto-générée (`<dnax-api>`).
 - **Vérif** : `lib/select.test.ts` +2 tests (désactivé → conserve ; activé → efface seulement
   sans valeur). `bun test lib` → **388 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+
+## QTabs — prop `showArrows` (flèches de défilement, parité Quasar) — 2026-10-02
+
+Demande : « nos q-tabs n'expose pas de `show-arrows` comme Quasar ».
+
+- **Constat** : `QTabs` n'avait **ni** la prop **ni** le défilement — `.q-tabs__content` était un
+  simple flex (`min-width: 0`) : les tabs qui débordaient étaient **coupés** sans pouvoir défiler.
+- **API** : `showArrows?: boolean`, **défaut `true`** (défaut Quasar) → parité. `false` conserve
+  l'ancien comportement (pas de défilement). Pose `q-tabs--arrows` sur la racine.
+- **Comportement** (révisé le 2026-10-02 d'après une capture de référence) :
+  `.q-tabs--arrows .q-tabs__content` devient `overflow: auto` (barre masquée —
+  `scrollbar-width: none` + `::-webkit-scrollbar { display: none }`, `scroll-padding-inline: 48px`
+  pour que focus / `scrollIntoView` ne collent pas un onglet sous une flèche). Les deux flèches
+  sont des **boutons circulaires en surimpression** (`position: absolute`, 32 px, bordure
+  `--border`, fond `--card`, ombre légère) : les onglets **défilent dessous**. Elles restent
+  **visibles** tant que la rangée déborde (`scrollable = canScrollStart || canScrollEnd`) et
+  celle du côté **bloqué est `disabled`** (opacité 0.35) — au lieu d'être masquée comme dans la
+  1re version.
+- **Calcul** : `lib/tabs.ts` → `tabArrowState(position, clientSize, scrollSize)` (tolérance 1 px
+  pour les arrondis de sous-pixels). Un clic fait défiler d'un cran →
+  `tabArrowStep(clientSize)` = `max(80, 60 % de la zone visible)`, `scrollBy({ behavior: "smooth" })`.
+- **Les deux axes** : horizontal → chevrons gauche/droite (`left/right: 8px`) ; `vertical` →
+  haut/bas, centrés horizontalement (`top/bottom: 8px`, `transform: translateX(-50%)`).
+- **Suivi du débordement** : `scroll` sur le contenu + `ResizeObserver` sur le contenu (un conteneur
+  peut rétrécir sans `resize` fenêtre : sidebar, flex) + re-mesure après changement d'onglets
+  (`measure()` existant). Pas d'oscillation : la largeur des tabs ne dépend pas des flèches.
+- **Piège flex corrigé au passage** : un conteneur `justify-content: center` qui déborde rend son
+  **début inaccessible** au défilement → `.q-tabs--center` / `--right` reçoivent
+  `justify-content: safe center` / `safe flex-end` (repli propre quand ça déborde ; l'ancienne
+  déclaration reste en 1er pour les navigateurs sans `safe`).
+- **Indicateur** : il reste en `position: absolute` **dans** le scroller → `offsetLeft` est
+  indépendant du scroll, il glisse donc avec le contenu (rien à changer).
+- **Fondu sous les flèches** (ajout du 2026-10-17) : chaque bord qui a encore du contenu à
+  révéler **s'estompe** sous son bouton. Masque **alpha** sur le scroller
+  (`transparent → #fff`), piloté par deux variables `--q-tabs-fade-start/end` (0 px ou 48 px)
+  posées par les classes `q-tabs--scroll-start` / `q-tabs--scroll-end`, calculées depuis
+  `tabArrowState` → le côté déjà entièrement visible ne fond **pas**. `#fff` est opaque en
+  mode `alpha` **et** `luminance` (vieux WebKit) ; **aucune couleur de surface** n'est utilisée
+  → rendu **identique en clair et en sombre** (un dégradé `--card` supposerait la couleur du
+  parent). `vertical` → masque `to bottom`, largeur de fondu 40 px.
+- **Doc** : section « Scroll arrows » (`4.components/tabs.md`) + démo `arrows`
+  (`DnaxDemoTabs.vue`, conteneur 380 px volontairement étroit) ; équilibre MDC 10/10.
+- **Vérif** : `lib/tabs.test.ts` (**6 tests** : pas de débordement / début / milieu / fin /
+  tolérance 1 px / planche de déplacement) + contrats composant↔CSS `q-tabs--arrows`,
+  `q-tabs--scroll-start`, `q-tabs--scroll-end` et 2 tests « fondu thème-agnostique » dans
+  `styleTokens.test.ts`. `bun test lib` → **400 pass / 0 fail** ; `cd docui && bun run build` →
+  **EXIT 0**. (Rendu non vérifié : règle projet sans navigateur.)
+
+## $q.network — état de connexion réactif (`online` / `offline`) — 2026-10-17
+
+Demande : « il nous faut un $q.network.online ».
+
+- **API** : `$q.network.online` (booléen **lu sans `.value`**, réactif), `offline`
+  (inverse), `refresh()`, `on("online" | "offline", cb)` (désabonnement retourné),
+  `destroy()`. Le singleton est aussi exportable directement (`import { network } from
+"@dnax/ui"`) et ajouté à la surface `runtime.ts` (démos / plugins de l'app hôte), sans
+  évaluer le barrel.
+- **Mise en œuvre** : `packages/ui/lib/network.ts` — `createNetwork({ navigator, target,
+initial })` avec dépendances **injectables**. Les propriétés sont des **getters** sur un
+  objet `reactive` lisant une `ref` interne : `$q.network.online` reste un **booléen** en
+  template tout en étant réactif.
+- **Piège évité** : exposer `online` comme `Ref` aurait été inutilisable — le déballage
+  automatique de Vue ne s'applique qu'aux refs de **premier niveau** du setup, pas aux
+  propriétés imbriquées (`{{ $q.network.online }}` afficherait l'objet Ref).
+- **Source** : `navigator.onLine` + événements `online` / `offline` de `window`. Les
+  callbacks ne partent que sur une **transition** réelle (événement redondant ignoré) et un
+  abonné qui jette n'empêche pas les autres d'être notifiés.
+- **SSR** : sans `window`, aucun écouteur n'est posé ; sans `navigator.onLine`, `online`
+  vaut `true` (pas de bannière « hors ligne » fantôme au chargement). Côté client, l'état
+  réel est lu à l'évaluation du module — même compromis que `useOnline` de VueUse : les
+  deux rendus ne divergent que si l'appareil est réellement hors ligne au premier rendu.
+- **Doc** : `docui/content/docs/7.plugins/network.md` + démo `DnaxDemoNetwork.vue`
+  (statut live, événements simulés via `window.dispatchEvent`, `refresh()`).
+  Page reprise automatiquement par Docd (menu + `llms.txt` générés au build).
+- **Vérif** : `lib/network.test.ts` — **15 tests** (résolution SSR, transitions,
+  réactivité prouvée par `effect`, dédoublonnage, `on()` ciblé + type inconnu ignoré,
+  désabonnement, abonné en erreur, `refresh`, `destroy`). `bun test lib` → **427 pass /
+  0 fail** ; `cd docui && bun run build` → **EXIT 0** ; `plugins/network` présent dans
+  `.output/public/llms.txt`.
+
+## $q.wakeLock — Screen Wake Lock (parité Quasar AppWakeLock) — 2026-10-17
+
+Demande : « il nous faut ca aussi https://quasar.dev/quasar-plugins/app-wake-lock ».
+
+- **API Quasar** : `$q.wakeLock.request()` / `release()` (Promises), `isActive`,
+  `isCapable` ; singleton exportable directement (`import { wakeLock } from "@dnax/ui"`),
+  équivalent du `AppWakeLock` de Quasar pour un usage hors composant.
+- **Mise en œuvre** : `packages/ui/lib/wakeLock.ts` — fabrique
+  `createWakeLock({ api, visibility, server, deferCapability })` à dépendances injectables ;
+  helpers purs `isWakeLockCapable`, `isDocumentVisible`, `shouldReacquire`.
+- **Relâchement par le navigateur** : page masquée → le navigateur relâche le sentinel
+  (événement `release`), `isActive` retombe à `false`. La demande est **mémorisée**
+  (`wanted`) et rejouée au prochain `visibilitychange` visible, tant que `release()` n'a
+  pas été appelé. `shouldReacquire(wanted, visible, held)` centralise la décision.
+- **Idempotence** : `request()` ne redemande pas un verrou déjà tenu ; un `release()`
+  survenu pendant une demande en vol est honoré (le sentinel obtenu est relâché aussitôt
+  au lieu d'être conservé).
+- **Échecs doux** : refus du navigateur (`NotAllowedError`, économiseur de batterie,
+  iframe sans Permissions-Policy) → la promesse rejette et `wanted` reste vrai pour un
+  nouvel essai à la visibilité suivante. API absente → rejet `Not capable` ; au serveur →
+  résolution sans effet.
+- **SSR/hydratation** : `isCapable` démarre à `false` (serveur **et** premier rendu
+  client) puis est révélé au tick suivant (`setTimeout(0)`) — sinon un `v-if` / `:disable`
+  dépendant de la capacité divergerait du HTML SSR. `isActive` est `false` avant toute
+  demande (aucun décalage).
+- **Écoute de visibilité** posée à la création du singleton, retirée par `destroy()`
+  (tests / instances jetables).
+- **Doc** : `7.plugins/wake-lock.md` + démo `DnaxDemoWakeLock.vue` (statut, bascule
+  `request()` / `release()`, `isCapable` affiché).
+- **Vérif** : `lib/wakeLock.test.ts` — **12 tests** (helpers, serveur, non supporté,
+  idempotence, release, relâchement navigateur + ré-acquisition, arrêt après release,
+  refus propagé, destroy, révélation différée de `isCapable`). `bun test lib` →
+  **425 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0** ; « App Wake Lock »
+  présent dans `.output/public/llms.txt`.
+
+## QDatePicker / QDateCalendar — localisation pilotée par `lang` — 2026-10-17
+
+Cause : `lang` du provider fourni mais jamais lu par le calendrier (cf. `warnings.md`,
+même date). Décision pour tous les composants de date :
+
+- **Module** `lib/dateI18n.ts` : `dateLocale(lang)` (`fr-FR` / `en-US` — jamais
+  `undefined`, pour un rendu serveur/client déterministe), `dateLabels(lang)`
+  (`today`, navigation, `selectDate`, `clear`, `close`), `weekdayShortNames(locale,
+firstDayOfWeek)`, `monthShortNames(locale)`, `monthYearLabel(locale, year, month)`.
+- **Consommation** : `QDateCalendar` et `QDatePicker` lisent `useConfigLang()` (le
+  provider reste la seule source) ; le `format` par défaut du champ et tous les
+  `aria-label` suivent la langue.
+- **Rendu** : abréviations normalisées (point final retiré, initiale en majuscule :
+  `dim.` → `Dim`) ; `firstDayOfWeek` tourne le tableau, il ne dépend pas de la locale.
+- **Vérif** : `lib/dateI18n.test.ts` (**9 tests**) ; `bun test lib` → **436 pass /
+  0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+
+## QTable — pagination : QSelect au lieu du `<select>` natif — 2026-10-17
+
+Demande : « dans les q-table en bas le select d'élément à afficher utilise nos q-select et
+non le select natif ».
+
+- **Correctif** : le footer (`q-table__bottom`) garde « Rows per page » en texte (un
+  `<label>` sans contrôle natif n'a plus de sens) et rend
+  `<q-select v-model="rowsPerPage" :options="rowsPerPageOptions" :option-label="…"
+emit-value dense>`. On passe **la prop publique telle quelle** (aucun tableau
+  intermédiaire) ; `option-label` mappe `0 → "All"` (QSelect normalise chaque primitive
+  en `{ value, label }`, le callback reçoit donc l'option normalisée).
+- **Pourquoi `emit-value`** : `rowsPerPage` est un computed à setter (patch de
+  pagination) ; QSelect renvoie alors le **nombre** et non l'objet option.
+- **Import explicite** `import QSelect from "./QSelect.vue"` — convention du paquet : les
+  SFC importent leurs voisins, pas d'auto-import implicite (cf. QBtnActions, QDatePicker).
+- **CSS** : `.q-table__rows-field` — largeur 72 px, `q-field__control` à 28 px (aligné sur
+  les boutons de navigation), `q-field__bottom` masqué (le footer n'a pas de place pour
+  hint/error) ; variante `.q-table--dark` → fond `#1d1d1d`, bordure `--q-table-border`.
+  Les règles `.q-table__rows-select select` (natif) sont supprimées.
+- **Vérif** : contrats dans `styleTokens.test.ts` (« QSelect, pas de `<select>` natif » +
+  classe `.q-table__rows-field` composant↔CSS). `bun test lib` → **438 pass / 0 fail** ;
+  `cd docui && bun run build` → **EXIT 0**.
+
+## QSpreadsheet — extension du moteur de formules (fonctions invisibles + lots 1 & 2) — 2026-10-17
+
+Demande : « corrige les fonctions invisibles (lot 1, lot 2) ».
+
+- **Fonctions invisibles** : `XLOOKUP`, `WEEKDAY`, `EOMONTH`, `DATEDIF` et `TEXT` étaient
+  **implémentées** mais absentes de `FORMULA_FNS` (autocomplétion) → ajoutées. Contrat
+  verrouillé par un test : `FORMULA_FUNCTION_NAMES` (export du moteur) doit être couvert
+  par les suggestions de `QSpreadsheet.vue` (alias `AVG` / `CEIL` / `POW` exceptés).
+- **VLOOKUP** : la signature annonçait `[approx]` alors que l'implémentation fait une
+  correspondance **exacte** → signature corrigée (`key, range, col`).
+- **Lot 1** — agrégats à **plages multiples**, traités dans `evalCall` (le dispatch
+  générique aplatit les arguments et perdrait l'alignement) : `SUMIF(S)`, `COUNTIF(S)`,
+  `AVERAGEIF(S)`, `SUMPRODUCT`, `MEDIAN`, `INDEX`, `MATCH`, `ISERROR` / `ISERR` / `ISNA` /
+  `NA`, `TEXTJOIN`. Les critères passent par `criteriaMatcher()` (exporté, testé) :
+  nombre ou texte insensible à la casse, opérateurs `= <> > < >= <=`, jokers `*` / `?`,
+  `""` / `"<>"` pour vide / non vide.
+- **Lot 2** : `LARGE`, `SMALL`, `RANK`, `STDEV` / `STDEVP`, `VAR` / `VARP`, `WORKDAY`,
+  `NETWORKDAYS`, `WEEKNUM`, `ISOWEEKNUM`, `DAYS`, `SEARCH`, `PROPER`, `EXACT`.
+- **Littéraux `TRUE` / `FALSE`** : le parseur ne les connaissait pas (l'exemple
+  `IFS(…, TRUE, …)` de la doc renvoyait `#NAME?`) → nouveau nœud `bool` (et fonctions
+  `TRUE()` / `FALSE()`) ; un identifiant plus long (`TRUE1`) reste une référence.
+- **Dates** : calculs en **UTC** (clé de jour, itération des jours ouvrés) pour ignorer
+  fuseau/DST ; `WORKDAY` renvoie une date ISO, `NETWORKDAYS` un nombre signé.
+- **Doc** : tableau des fonctions de `4.components/spreadsheet.md` complété ; la mention
+  « `XLOOKUP` non implémenté » était **fausse** → retirée.
+- **Vérif** : `lib/formula.test.ts` — **46 tests** (critères, stats, lookup, erreurs,
+  texte, dates, booléens, parité moteur ↔ suggestions) ; `bun test lib` → **456 pass /
+  0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+
+## QSpreadsheet — barre fx : aperçu live + suggestions au curseur — 2026-10-17
+
+Suite de l'audit formules (point 6).
+
+- **Aperçu live** : `fxPreview` évalue le brouillon de la barre fx dans le contexte de la
+  ligne sélectionnée (références par nom de colonne **et** A1) et affiche le résultat, ou
+  le code d'erreur en rouge (`#ERROR!` → infobulle « Erreur de syntaxe », clé i18n
+  `fxSyntax`). Masqué pendant l'édition en cellule (la grille montre déjà le résultat) et
+  pour les colonnes non éditables (`boolean` / `select` / `multiselect`).
+- **Suggestions au curseur** : `functionQueryAt(text, caret)` (pur, dans
+  `lib/spreadsheet.ts`) remplace la regex de fin de chaîne — ignore les littéraux
+  (`'…'` / `"…"`, guillemets doublés), exige un **début de token** (`=`, `(`, `,`, `;`,
+  opérateur, espace), écarte les références en cours (`A` devant `1`) et les plages
+  (`A1:B`). `acceptFx` remplace l'identifiant **au curseur** (et non en fin de chaîne) puis
+  replace le caret après la parenthèse.
+- **Carets** : `fxCaret` (barre fx) et `editCaret` (éditeur de cellule) suivis sur
+  `input` / `keyup` / `click` ; sans caret connu, repli en fin de texte.
+- **i18n** : `fxSyntax`, `fxEmpty` (en + fr).
+- **CSS** : `.q-spreadsheet__fx-preview(--error)` + variantes `.dark` / `--dark`.
+- **Doc** : paragraphe « suggestions » de `4.components/spreadsheet.md` mis à jour.
+- **Vérif** : `lib/spreadsheet.test.ts` +4 tests `functionQueryAt` ; `bun test lib` →
+  **463 pass / 0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+
+## QSpreadsheet — autocomplétion : colonnes, fuzzy, aide à l'argument — 2026-10-17
+
+Suite du point 6 (demande : « vas y »).
+
+- **Colonnes dans les suggestions** : en plus des 89 fonctions, `fxSuggestions` propose les
+  **colonnes de la feuille** (`=pri` → `price`), avec un libellé discret (`col.label` sinon
+  i18n `fxColumn`). Accepter une colonne insère son **nom sans parenthèse** (`insert`
+  diffère de celui d'une fonction).
+- **Matching élargi** : `rankSuggestions(items, query, limit)` (pur, testé) classe
+  **égalité > préfixe > sous-chaîne > sous-séquence**, puis nom le plus court, puis ordre
+  d'origine. Ex. `=sm` → `SUM`, `=edian` → `MEDIAN`. Limites : 8 fonctions + 4 colonnes.
+- **Aide à l'argument** : `functionCallAt(text, caret, known)` (pur) remonte la fonction
+  **la plus interne** dont les parenthèses contiennent le curseur et l'index de l'argument
+  (virgules comptées par niveau, chaînes ignorées). `fxHint` affiche la signature
+  (`signatureArgs`) avec l'argument courant **surligné** — dans la barre fx et sous
+  l'éditeur de cellule (masquée quand la liste de suggestions est ouverte).
+- **i18n** : `fxColumn` (« column » / « colonne »).
+- **CSS** : `.q-spreadsheet__fxhint(--editor)`, `.q-spreadsheet__fxhint-arg--on`,
+  `.q-spreadsheet__fnsug-kind` (+ variantes dark).
+- **Vérif** : `lib/spreadsheet.test.ts` +8 tests (`rankSuggestions`, `functionCallAt`,
+  `signatureArgs`) ; `bun test lib` → **471 pass / 0 fail** ; build → **EXIT 0**.
+
+## QChart — extensions BI / PKI (P0 + P1) — 2026-10-26
+
+`filename: packages/ui/lib/chart.ts`, `lib/chartFormat.ts`, `lib/chartStats.ts`,
+`components/QChart.vue`, `docui/content/docs/5.charts/*`
+
+Nouvelle surface du traducteur, sans casser l'existant (aucun `format` = aucun changement) :
+
+- **Axe secondaire** : `QChartMark.yAxis: "left" | "right"` → `series.yAxisIndex = 1` ;
+  `QChartConfig.yRight` construit le second axe (`yAxis: [gauche, droite]`). En orientation
+  `horizontal`, `yAxis: "right"` est ignoré.
+- **Formatage Intl** (`lib/chartFormat.ts`, pur) : `QChartFormat` = chaîne (`compact`,
+  `percent`, `currency`, `date`…), objet (`locale`, `currency`, `timeZone`, digits,
+  `dateStyle`, `prefix`/`suffix`) ou fonction `(value, ctx) => string`. Locale par défaut
+  `fr-FR` (côté `QChart`, celle du provider : `fr` → `fr-FR`, sinon `en-US`). Appliqué aux
+  axes (`QChartAxis.format`), étiquettes (`labelFormat`), info-bulles et tableaux.
+  `percent` attend une valeur **déjà en pourcentage** (`42` → « 42 % ») ; `currency`
+  défaut `XOF` → « F CFA ».
+- **Empilement 100 %** : `stack: "percent"` — ECharts ne normalise pas, le traducteur
+  calcule les totaux par catégorie (`categoryTotals`) et convertit les valeurs en parts
+  (0→100). Une chaîne autre que `percent` nomme un groupe d'empilement.
+- **Barres flottantes** : canal `base` — ECharts n'accepte pas `[cat, [y0, y1]]` ; on émet
+  une **série de base invisible** (`silent`, `__base`) + le delta visible dans le même
+  groupe d'empilement.
+- **Étiquettes de données** : `labels` + `labelPosition` + `labelFormat` sur `bar`, `line`,
+  `area` (et déjà `pie`/`heatmap`). `labels: "percent"` = part de la catégorie dans le
+  graphique (ou dans le groupe d'empilement).
+- **Bandes de seuil** : nouvelle marque `band` (`y0`/`y1`, ou `x0`/`x1`) → `markArea` ;
+  `rule` accepte `label` + `labelPosition` (annotation sur la ligne).
+- **Seuils de couleur** : `thresholds: [{ value, op, color }]` (première règle gagnante),
+  appliqués par point sur `bar`, `line`, `area`, `dot`.
+- **Table BI** : `tableModel(mark, selection, mode, view)` — tri (`sortBy`, `sortDesc`,
+  interactif au clic), pagination (`pageSize`, `page`), totaux (`totals`, `summary` par
+  colonne), largeurs (`column.width`), export `tableCsv()` (toutes les lignes, RFC 4180).
+  `columns[].sortable: false` désactive le tri d'une colonne. `QChart` garde l'état de vue
+  en local et le réinitialise quand les données changent.
+- **Mode compact** : `compact` → marges ~2 px, libellés/axes/légende masqués, `splitLine`
+  seulement si `axis.grid === true`.
+- **États** : props `loading` / `error` / `empty` + slots `loading` / `error` / `empty`,
+  textes i18n (`fr`/`en`) via `useConfigLang`, surchargés par `texts`. Le canvas reste
+  monté, la surimpression est un calque.
+- **Info-bulle** : `tooltip: boolean | { formatter, valueFormatter, nameFormatter,
+  sortDesc }` ; `QChartMark.tooltip(params, value)` pour une marque.
+- **Marques P1** : `gauge` (bandes + cible dans le `detail`), `funnel`, `radar`
+  (indicateurs déduits de `x`, une série par `z`), `treemap`/`sunburst` (`parent`),
+  `sankey` (`source`/`target`/`value`), `boxplot` (`values` bruts ou `stats`),
+  `histogram` (`bins`, `domain`), `waterfall` (cumul + connecteurs). `dot` gagne
+  `trend` (régression) et une échelle de couleurs quand `fill` est numérique
+  (`visualMap.dimension = 2`). `line`/`area` gagnent `connectNulls` et `smooth`.
+- **Testabilité** : tout le calcul reste dans `lib/` (`chartFormat`, `chartStats`), le
+  traducteur reste **pur** (ni DOM ni `getComputedStyle`).
+- **Vérif** : `bun test lib` → **539 pass / 0 fail** (29 fichiers, dont
+  `chart.bi.test.ts` = 60 tests et `chart.modules.test.ts` = rendu SVG tree-shaké) ;
+  `cd docui && bun run build` → **EXIT 0** ; pages `11.band` … `21.dashboards` +
+  `llms.txt` régénéré.
