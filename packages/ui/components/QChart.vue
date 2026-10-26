@@ -332,9 +332,14 @@ const exportCsv = () => {
   const csv = tableCsv(model, { label: t("total") })
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
   const url = URL.createObjectURL(blob)
+  const slug =
+    (props.title ?? "chart")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "chart"
   const anchor = document.createElement("a")
   anchor.href = url
-  anchor.download = "chart.csv"
+  anchor.download = `${slug}.csv`
   anchor.click()
   URL.revokeObjectURL(url)
 }
@@ -393,11 +398,14 @@ const emitPick = (pick: QChartPick) => {
 const pickRow = (row: any, dataIndex: number) => {
   const markIndex = (props.marks ?? []).findIndex((mark) => mark.type === "table")
   const name = rowKey(row)
+  // Index **absolu** (toutes les lignes visibles), pas celui de la page courante
+  const all = table.value?.allRows
+  const absolute = all ? all.indexOf(row) : -1
   emitPick({
     ...(name !== undefined ? { name } : {}),
     markIndex,
     markType: "table",
-    dataIndex,
+    dataIndex: absolute >= 0 ? absolute : dataIndex,
     origin: "mark",
     data: row,
   })

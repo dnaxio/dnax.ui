@@ -17,6 +17,7 @@ defineProps<{
   /** Identifiant de la démo à afficher */
   demo:
     | "line"
+    | "area"
     | "bar"
     | "rule"
     | "dot"
@@ -51,6 +52,7 @@ defineProps<{
     | "funnel"
     | "radar"
     | "treemap"
+    | "sunburst"
     | "sankey"
     | "boxplot"
     | "histogram"
@@ -337,6 +339,17 @@ const funnelRows = [
         { type: 'line', data: monthly, x: 'month', y: 'revenue', stroke: 'primary', name: 'Revenue' },
         { type: 'line', data: monthly, x: 'month', y: 'cost', stroke: 'chart-2', name: 'Cost' },
         { type: 'dot', data: monthly, x: 'month', y: 'revenue', fill: 'primary', r: 3 },
+      ]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'area'" class="demo-chart">
+    <q-chart
+      title="Revenue as an area, cost as a line"
+      :height="260"
+      :marks="[
+        { type: 'area', data: monthly, x: 'month', y: 'revenue', stroke: 'chart-1', name: 'Revenue' },
+        { type: 'line', data: monthly, x: 'month', y: 'cost', stroke: 'chart-3', name: 'Cost' },
       ]"
     />
   </div>
@@ -1063,6 +1076,14 @@ const funnelRows = [
       title="Spend by department"
       :height="300"
       :marks="[{ type: 'treemap', data: spendTree, x: 'name', parent: 'parent', value: 'value', name: 'Spend' }]"
+    />
+  </div>
+
+  <div v-else-if="demo === 'sunburst'" class="demo-chart">
+    <q-chart
+      title="Spend by department"
+      :height="300"
+      :marks="[{ type: 'sunburst', data: spendTree, x: 'name', parent: 'parent', value: 'value', name: 'Spend' }]"
     />
   </div>
 
