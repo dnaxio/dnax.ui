@@ -38,6 +38,7 @@ below is the **complete list** of cell types: the editor each one opens, the val
 | `boolean` | checkbox — a click on the cell toggles it | `true` / `false` | no text editor (`Enter` / typing don't open one) |
 | `date` | native date picker | ISO string — `"2026-12-31"` | stored ISO; display it through `format` |
 | `datetime` | native `datetime-local` picker | ISO string — `"2026-09-07T09:30"` | stored ISO; display it through `format` |
+| `time` | native time picker | `HH:MM` — `"09:30"` (or `HH:MM:SS` when seconds are non-zero) | normalized on edit, paste and display (`9h5` → `09:05`); two cells make an **hour series** when filled |
 | `select` | filterable option list (`options`) | the option `value` (see `option-value`) — `"tea"` | a colored badge with `chip: true`, else its label |
 | `multiselect` | checkbox option list (`options`) | an **array** of values (see `option-value`) — `["tea","beer"]` (`[]` when empty) | one badge per value with `chip: true`, else the labels joined with `, ` |
 
@@ -68,11 +69,12 @@ const columns = [
   { name: "stock", label: "Stock", type: "integer" },
   { name: "inStock", label: "In stock", type: "boolean" },
   { name: "bestBefore", label: "Best before", type: "date" },
+  { name: "opensAt", label: "Opens at", type: "time" },
   { name: "lastCheck", label: "Last check", type: "datetime", format: (v) => (v ? new Date(v).toLocaleString() : "") },
 ]
 
 const rows = ref([
-  { product: "Chai", category: "tea", price: 18, stock: 39, inStock: true, bestBefore: "2026-12-31", lastCheck: "2026-09-07T09:30" },
+  { product: "Chai", category: "tea", price: 18, stock: 39, inStock: true, bestBefore: "2026-12-31", opensAt: "09:00", lastCheck: "2026-09-07T09:30" },
   // …
 ])
 </script>
@@ -557,9 +559,9 @@ once (`:root { --q-z-menu: 3600 }`).
 
 Select one or two cells and drag the **small square** at the bottom-right
 corner of the selection to **fill** in any direction (up / down / left / right):
-two numeric or date seeds create a series (1, 2, 3… / day steps) toward the
-bottom / right, other values are copied and **formula references shift** with
-the destination. Hold **Ctrl** while dragging to force a plain copy (no series);
+two numeric, date or **time** seeds create a series (1, 2, 3… / day steps / hour
+steps) toward the bottom / right, other values are copied and **formula references
+shift** with the destination. Hold **Ctrl** while dragging to force a plain copy (no series);
 `fillFormatsDown()` duplicates the first row's formatting across the selection.
 Drag the bottom edge of a **row number** to resize the row.
 
@@ -585,7 +587,7 @@ controls (− , `%` , +, reset on click of the percentage).
     cut/copy/paste, insert & delete rows/columns, sort, bold/italic, fill and
     text colors, clear formatting.
   • Drag the small square at the bottom-right of the selection to fill
-    down/right: numbers and dates with two seed cells create a series
+    down/right: numbers, dates and times with two seed cells create a series
     (1, 2, 3…), anything else is copied (formulas shift their A1 refs).
   • Drag a row number's bottom edge to resize the row height.
 -->

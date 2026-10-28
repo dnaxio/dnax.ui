@@ -14,7 +14,46 @@ import {
   csvSplitLine,
   parseCsv,
   deriveCols,
+  normalizeTime,
+  parseTimeOfDay,
+  secondsToTime,
+  timeToSeconds,
 } from "./spreadsheet"
+
+describe("heures (type `time`)", () => {
+  it("décompose les formes usuelles", () => {
+    expect(parseTimeOfDay("09:30")).toEqual({ hours: 9, minutes: 30, seconds: 0 })
+    expect(parseTimeOfDay("9h5")).toEqual({ hours: 9, minutes: 5, seconds: 0 })
+    expect(parseTimeOfDay("9")).toEqual({ hours: 9, minutes: 0, seconds: 0 })
+    expect(parseTimeOfDay("23:59:58")).toEqual({ hours: 23, minutes: 59, seconds: 58 })
+    // vide → cellule effacée ; null/undefined → pas une heure
+    expect(parseTimeOfDay("")).toBeNull()
+    expect(parseTimeOfDay(null)).toBeUndefined()
+  })
+
+  it("refuse les heures invalides", () => {
+    for (const value of ["24:00", "9:75", "9:30:75", "abc", "1:2:3:4", "-1:00"]) {
+      expect(parseTimeOfDay(value), value).toBeUndefined()
+    }
+  })
+
+  it("normalise en `HH:MM` (secondes conservées si non nulles)", () => {
+    expect(normalizeTime("9:5")).toBe("09:05")
+    expect(normalizeTime("9h30")).toBe("09:30")
+    expect(normalizeTime("09:30:00")).toBe("09:30")
+    expect(normalizeTime("09:30:07")).toBe("09:30:07")
+    expect(normalizeTime("")).toBeNull()
+    expect(normalizeTime("nope")).toBeUndefined()
+  })
+
+  it("séries d'heures : secondes, modulo 24 h, valeurs négatives", () => {
+    expect(timeToSeconds("01:00")).toBe(3600)
+    expect(secondsToTime(3600)).toBe("01:00")
+    expect(secondsToTime(25 * 3600)).toBe("01:00")
+    expect(secondsToTime(-3600)).toBe("23:00")
+    expect(secondsToTime(3661)).toBe("01:01:01")
+  })
+})
 
 describe("lettres de colonnes", () => {
   it("colLetter : 0→A, 25→Z, 26→AA, 27→AB, 701→ZZ, 702→AAA", () => {

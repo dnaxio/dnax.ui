@@ -3246,3 +3246,26 @@ valeur absolue par défaut), `heat` (barre pleine largeur dont l'opacité suit l
   `table-cell-visuals` (barres grises, delta bleu/rose, sparklines avec point rose).
 - **Vérif** : `lib/chartTable.test.ts` (**13 tests**) ; `bun test lib` → **553 pass /
   0 fail** ; `cd docui && bun run build` → **EXIT 0**.
+
+## QSpreadsheet — type de cellule `time` (heure) — 2026-10-26
+
+`filename: packages/ui/components/QSpreadsheet.vue`, `lib/spreadsheet.ts`
+
+Nouveau type `time` dans `QSpreadsheetCellType` :
+
+- **Éditeur** : `input[type="time"]` (`editorInputType`), comme `date` / `datetime`.
+- **Valeur stockée** : chaîne `HH:MM` — `HH:MM:SS` **seulement** si les secondes sont non
+  nulles. Aucune conversion de fuseau : c'est une heure de la journée, pas un instant.
+- **Normalisation** (`lib/spreadsheet.ts`, pur) : `parseTimeOfDay` accepte `9`, `9:5`,
+  `09:30`, `9h30`, `09:30:15` ; refuse `24:00`, `9:75`, etc. `normalizeTime` produit la
+  forme canonique (`null` = vide, `undefined` = invalide → l'ancienne valeur est gardée).
+- **Application** : `coerceValue` (saisie, collage, import), `startEdit` (le picker natif
+  n'accepte que `HH:MM`) et `cellText` (affichage des données anciennes/importées).
+- **Auto-remplissage** : deux cellules d'heure créent une **série** (pas 09:00, 10:00 →
+  11:00, 12:00…) via `timeToSeconds` / `secondsToTime`, avec passage à 24 h modulo
+  (`23:00 + 2 h` → `01:00`). Vers le bas et vers la droite, comme les nombres et les dates.
+- **Doc/démo** : ligne `time` dans le tableau des types de `4.components/spreadsheet.md`,
+  colonnes `opensAt` (démo `types`) et `kickoff` (démo autofill) de
+  `DnaxDemoSpreadsheet.vue`.
+- **Vérif** : `lib/spreadsheet.test.ts` +4 tests ; `bun test lib` → **557 pass / 0 fail** ;
+  `cd docui && bun run build` → **EXIT 0**.

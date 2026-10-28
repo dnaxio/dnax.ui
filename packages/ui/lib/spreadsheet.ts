@@ -247,6 +247,74 @@ export const isoAddDays = (iso: string, days: number): string => {
   return d.toISOString().slice(0, 10)
 }
 
+/** Heure du jour : `HH:MM` ou `HH:MM:SS` (toujours sur deux chiffres) */
+export const TIME_OF_DAY = /^\d{2}:\d{2}(?::\d{2})?$/
+
+/**
+ * Décompose une **heure** saisie librement. Accepte `9`, `09:30`, `9:5`, `9h30`, `09:30:15`.
+ *
+ * - `null` → chaîne vide (cellule effacée) ;
+ * - `undefined` → ce n'est pas une heure valide (`24:00`, `9:75`, `abc`…).
+ *
+ * Le parsing est volontairement **local** (pas de `Date`) : aucune conversion de fuseau ne
+ * doit intervenir sur une heure de la journée.
+ */
+export function parseTimeOfDay(
+  value: any,
+): { hours: number; minutes: number; seconds: number } | null | undefined {
+  if (value === null || value === undefined) return undefined
+  const raw = String(value).trim()
+  if (raw === "") return null
+  const match = raw.match(/^(\d{1,2})(?:[:h](\d{1,2}))?(?::(\d{1,2}))?$/i)
+  if (!match) return undefined
+  const hours = Number(match[1])
+  const minutes = match[2] === undefined ? 0 : Number(match[2])
+  const seconds = match[3] === undefined ? 0 : Number(match[3])
+  if (
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutes) ||
+    !Number.isInteger(seconds) ||
+    hours > 23 ||
+    minutes > 59 ||
+    seconds > 59
+  ) {
+    return undefined
+  }
+  return { hours, minutes, seconds }
+}
+
+const two = (n: number) => String(n).padStart(2, "0")
+
+/**
+ * Normalise une heure en `HH:MM` — les secondes ne sont conservées que si elles sont non
+ * nulles (`HH:MM:SS`). `null` = vide, `undefined` = invalide (l'appelant garde l'ancienne
+ * valeur, comme pour un nombre refusé).
+ */
+export function normalizeTime(value: any): string | null | undefined {
+  const parsed = parseTimeOfDay(value)
+  if (parsed === null || parsed === undefined) return parsed
+  const base = `${two(parsed.hours)}:${two(parsed.minutes)}`
+  return parsed.seconds ? `${base}:${two(parsed.seconds)}` : base
+}
+
+/** Secondes depuis minuit (séries d'auto-remplissage) — `undefined` si invalide */
+export function timeToSeconds(value: any): number | undefined {
+  const parsed = parseTimeOfDay(value)
+  if (!parsed) return undefined
+  return parsed.hours * 3600 + parsed.minutes * 60 + parsed.seconds
+}
+
+/** Secondes depuis minuit → `HH:MM` (`HH:MM:SS` si nécessaire), **modulo 24 h** */
+export function secondsToTime(total: number): string {
+  if (!Number.isFinite(total)) return "00:00"
+  const day = 86400
+  const normalized = ((Math.round(total) % day) + day) % day
+  const hours = Math.floor(normalized / 3600)
+  const minutes = Math.floor((normalized % 3600) / 60)
+  const seconds = normalized % 60
+  return seconds ? `${two(hours)}:${two(minutes)}:${two(seconds)}` : `${two(hours)}:${two(minutes)}`
+}
+
 /** Échappe une valeur pour un CSV (quote si délimiteur / guillemet / newline) */
 export const csvEscape = (s: unknown, delim: string): string => {
   const str = s === null || s === undefined ? "" : String(s)

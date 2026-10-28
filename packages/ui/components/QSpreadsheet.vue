@@ -4,7 +4,8 @@
 // édition en place (Entrée / F2 / double-clic / frappe directe),
 // lignes & colonnes (ajouter / insérer / supprimer),
 // tri, copier/coller, undo/redo, et cellules typées
-// (texte, nombre, entier, booléen, date, datetime, select / multiselect avec badges colorés).
+// texte, nombre, entier, booléen, date, datetime, **time (heure)**, select / multiselect avec
+// badges colorés).
 // Suivi des modifications : `v-model:dirty` (état) + `v-model:changes` (delta lignes / feuilles
 // ajoutées, modifiées, supprimées), calculé en comparant le document à une **référence**
 // (`lib/spreadsheetChanges.ts`).
@@ -44,6 +45,7 @@ export type QSpreadsheetCellType =
   | "boolean"
   | "date"
   | "datetime"
+  | "time"
   | "select"
   | "multiselect"
 
@@ -185,6 +187,9 @@ import {
   isBlankValue,
   ISO_DATE,
   isoAddDays,
+  normalizeTime,
+  secondsToTime,
+  timeToSeconds,
   shiftFormulaRefs,
   functionQueryAt,
   rankSuggestions,
@@ -877,6 +882,8 @@ const cellText = (row: number, column: string): string => {
   let out: any = ev === null || ev === undefined ? "" : ev
   // Apostrophe littérale (paste values) : affichée sans le préfixe
   if (typeof out === "string" && out.startsWith("'")) out = out.slice(1)
+  // Heure : toujours `HH:MM` à l'affichage (données importées ou anciennes comprises)
+  if (col?.type === "time" && typeof out === "string") out = normalizeTime(out) ?? out
   if (col?.format && out !== "") out = col.format(out, state.value[row] ?? {})
   if (out === null || out === undefined || out === "") return ""
   return String(out)
@@ -988,6 +995,8 @@ const editorInputType = computed(() => {
       return "date"
     case "datetime":
       return "datetime-local"
+    case "time":
+      return "time"
     default:
       // PAS de `type="number"` pour number/integer : (1) le navigateur refuse
       // `=` (formule) ou un "-" isolé dans un input number, (2) `v-model` sur
@@ -1022,6 +1031,8 @@ const startEdit = (row: number, column: string, initial?: string) => {
   } else {
     let rawStr = String(raw ?? "")
     if (rawStr.startsWith("'")) rawStr = rawStr.slice(1)
+    // Heure : l'input natif n'accepte que `HH:MM` — on normalise dès l'ouverture
+    if (col?.type === "time") rawStr = normalizeTime(rawStr) ?? rawStr
     draft.value = String(initial ?? rawStr)
   }
   editing.value = { row, column }
@@ -1098,6 +1109,11 @@ const coerceValue = (col: QSpreadsheetColumn | undefined, text: unknown, old: an
   }
   if (col?.type === "boolean") {
     return raw === "true" ? true : raw === "false" ? false : old
+  }
+  if (col?.type === "time") {
+    // Heure valide → `HH:MM` (`HH:MM:SS` si les secondes sont non nulles) ; invalide → ancienne
+    const time = normalizeTime(raw)
+    return time === undefined ? old : time
   }
   if (col?.type === "select") {
     const opt = cellOptionsOf(col).find(
@@ -3065,6 +3081,19 @@ const applyFill = () => {
           const d1 = +new Date(s1 + "T00:00:00Z")
           const step = Math.round((d1 - d0) / 86400000)
           if (step !== 0) val = isoAddDays(s1, step * (rr - b.r1))
+        } else if (
+          b.r1 > b.r0 &&
+          col?.type === "time" &&
+          typeof s0 === "string" &&
+          typeof s1 === "string"
+        ) {
+          // Série d'heures : 09:00 puis 10:00 → 11:00, 12:00… (modulo 24 h)
+          const t0 = timeToSeconds(s0)
+          const t1 = timeToSeconds(s1)
+          if (t0 !== undefined && t1 !== undefined && t1 !== t0) {
+            const step = (t1 - t0) / (b.r1 - b.r0)
+            val = secondsToTime(t1 + step * (rr - b.r1))
+          }
         }
       } else if (
         !fillCopy.value &&
@@ -3081,6 +3110,18 @@ const applyFill = () => {
         if (b.c1 > b.c0 && typeof s0 === "number" && typeof s1 === "number" && s1 !== s0) {
           const step = (s1 - s0) / (b.c1 - b.c0)
           val = s1 + step * (cc - b.c1)
+        } else if (
+          b.c1 > b.c0 &&
+          col?.type === "time" &&
+          typeof s0 === "string" &&
+          typeof s1 === "string"
+        ) {
+          const t0 = timeToSeconds(s0)
+          const t1 = timeToSeconds(s1)
+          if (t0 !== undefined && t1 !== undefined && t1 !== t0) {
+            const step = (t1 - t0) / (b.c1 - b.c0)
+            val = secondsToTime(t1 + step * (cc - b.c1))
+          }
         }
       }
       // Recopie du motif (source cyclique) — vers le bas, la droite, le haut,

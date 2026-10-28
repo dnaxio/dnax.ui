@@ -148,6 +148,12 @@ const typesColumns = [
     width: 150,
   },
   {
+    name: "opensAt",
+    label: "Opens at",
+    type: "time" as const,
+    width: 120,
+  },
+  {
     name: "lastCheck",
     label: "Last check",
     type: "datetime" as const,
@@ -163,11 +169,11 @@ const typesColumns = [
 ]
 
 const typesRows = ref([
-  { product: "Chai", category: "tea", price: 18, stock: 39, rating: 4, inStock: true, email: "hello@dnax.dev", website: "https://dnax.dev", bestBefore: "2026-12-31", lastCheck: "2026-09-07T09:30" },
-  { product: "Chang", category: "beer", price: 19, stock: 17, rating: 3, inStock: true, email: "beer@dnax.dev", website: "https://example.com", bestBefore: "2026-09-30", lastCheck: "2026-09-06T14:05" },
-  { product: "Aniseed Syrup", category: "condiment", price: 10, stock: 13, rating: 5, inStock: false, email: "sales@dnax.dev", website: "https://example.org", bestBefore: "2027-06-30", lastCheck: "2026-09-01T08:45" },
-  { product: "Ikura", category: "seafood", price: 31, stock: 0, rating: 2, inStock: false, email: "fish@dnax.dev", website: "https://example.net", bestBefore: "2026-11-15", lastCheck: "2026-08-28T16:20" },
-  { product: "Mishi Kobe Niku", category: "seafood", price: 97, stock: 29, rating: 5, inStock: true, email: "mishi@dnax.dev", website: "https://dnax.dev/blog", bestBefore: "2026-08-20", lastCheck: "2026-08-20T11:10" },
+  { product: "Chai", category: "tea", price: 18, stock: 39, rating: 4, inStock: true, email: "hello@dnax.dev", website: "https://dnax.dev", bestBefore: "2026-12-31", opensAt: "09:00", lastCheck: "2026-09-07T09:30" },
+  { product: "Chang", category: "beer", price: 19, stock: 17, rating: 3, inStock: true, email: "beer@dnax.dev", website: "https://example.com", bestBefore: "2026-09-30", opensAt: "09:30", lastCheck: "2026-09-06T14:05" },
+  { product: "Aniseed Syrup", category: "condiment", price: 10, stock: 13, rating: 5, inStock: false, email: "sales@dnax.dev", website: "https://example.org", bestBefore: "2027-06-30", opensAt: "10:00", lastCheck: "2026-09-01T08:45" },
+  { product: "Ikura", category: "seafood", price: 31, stock: 0, rating: 2, inStock: false, email: "fish@dnax.dev", website: "https://example.net", bestBefore: "2026-11-15", opensAt: "08:15", lastCheck: "2026-08-28T16:20" },
+  { product: "Mishi Kobe Niku", category: "seafood", price: 97, stock: 29, rating: 5, inStock: true, email: "mishi@dnax.dev", website: "https://dnax.dev/blog", bestBefore: "2026-08-20", opensAt: "12:45", lastCheck: "2026-08-20T11:10" },
 ])
 
 // — Choice demo : choix unique (`select`) vs choix multiples (`multiselect`) —
@@ -427,13 +433,14 @@ const opsColumns = [
   { name: "qty", label: "Qty", type: "integer" as const, width: 80 },
   { name: "price", label: "Price", type: "number" as const, width: 110, format: (v: any) => (v == null ? "" : "$" + Number(v).toFixed(2)) },
   { name: "start", label: "Start", type: "date" as const, width: 140 },
+  { name: "kickoff", label: "Kickoff", type: "time" as const, width: 110 },
 ]
 const opsRows = ref([
-  { item: "Design", qty: 1, price: 1200, start: "2026-09-01" },
-  { item: "Build", qty: 2, price: 800, start: "2026-09-02" },
-  { item: "Ship", qty: 3, price: 300, start: "2026-09-03" },
-  { item: "", qty: null, price: null, start: null },
-  { item: "", qty: null, price: null, start: null },
+  { item: "Design", qty: 1, price: 1200, start: "2026-09-01", kickoff: "09:00" },
+  { item: "Build", qty: 2, price: 800, start: "2026-09-02", kickoff: "10:00" },
+  { item: "Ship", qty: 3, price: 300, start: "2026-09-03", kickoff: "11:00" },
+  { item: "", qty: null, price: null, start: null, kickoff: null },
+  { item: "", qty: null, price: null, start: null, kickoff: null },
 ])
 
 // — Filters & freeze panes —
