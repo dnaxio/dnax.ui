@@ -3265,7 +3265,8 @@ Nouveau type `time` dans `QSpreadsheetCellType` :
   11:00, 12:00…) via `timeToSeconds` / `secondsToTime`, avec passage à 24 h modulo
   (`23:00 + 2 h` → `01:00`). Vers le bas et vers la droite, comme les nombres et les dates.
 - **Doc/démo** : ligne `time` dans le tableau des types de `4.components/spreadsheet.md`,
-  colonnes `opensAt` (démo `types`) et `kickoff` (démo autofill) de
+  colonnes `opensAt` (démo `types`) et `kickoff` (démo autofill), plus une démo **dédiée
+  `demo="time"`** (planning *Starts* / *Ends* + valeurs stockées affichées) dans
   `DnaxDemoSpreadsheet.vue`.
 - **Vérif** : `lib/spreadsheet.test.ts` +4 tests ; `bun test lib` → **557 pass / 0 fail** ;
   `cd docui && bun run build` → **EXIT 0**.
