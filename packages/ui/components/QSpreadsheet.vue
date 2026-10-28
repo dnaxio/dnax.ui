@@ -3158,10 +3158,17 @@ const endResize = () => {
   window.removeEventListener("pointerup", endResize)
 }
 
-const onPointerUpGlobal = () => {
+const onPointerUpGlobal = (e: PointerEvent) => {
   isPointerDown.value = false
   endResize()
   endRowResize()
+  const target = e.target as HTMLElement | null
+  // Ne restaurer le focus de la grille que si le geste se termine **dans la grille**,
+  // et jamais depuis l'éditeur / ses listes. Sinon `td.focus()` déclenche le `blur`
+  // de l'input **avant** le `click` de l'option : `commitEdit()` ferme l'éditeur et
+  // la valeur cliquée (`select` / `multiselect`) était perdue.
+  if (!target?.closest?.(".q-spreadsheet__viewport")) return
+  if (target.closest(".q-spreadsheet__editor")) return
   const s = sel.value
   if (s) focusCell(s.row, s.column)
 }

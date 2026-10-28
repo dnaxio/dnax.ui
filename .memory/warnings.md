@@ -1702,3 +1702,27 @@ sur une ligne/colonne supprimée.
   `var(--…)`.
 - Le rendu d'une barre est un `<span>` absolu **derrière** le texte : garder
   `position: relative` sur `.q-chart__cell` et `z-index` sur la valeur.
+
+## QSpreadsheet — colonnes `select` : cliquer une option ne sélectionnait rien — 2026-10-26
+
+`filename: components/QSpreadsheet.vue` (`onPointerUpGlobal`, `pickOption`)
+
+**Symptôme** : en édition d'une colonne `select` (et `multiselect`), cliquer une option de la
+liste fermait l'éditeur sans écrire la valeur choisie.
+
+**Cause racine** : `onPointerUpGlobal` (écouté sur `window` à chaque `pointerup`) appelait
+**toujours** `focusCell(selection)`. Un clic sur une option suivait donc l'ordre :
+`pointerup` → `td.focus()` → `blur` de l'input → `commitEdit()` (ferme l'éditeur) →
+puis `click` de l'option → `pickOption()` / `toggleMultiOption()` sortent immédiatement car
+`editing.value` est déjà `null`. Le `@mousedown.prevent` du bouton ne protège que le
+`mousedown`, pas le `pointerup`.
+
+**Correctif** : `onPointerUpGlobal(e)` ne restaure le focus que si la cible est **dans le
+viewport de la grille** (`.q-spreadsheet__viewport`) et **pas dans l'éditeur**
+(`.q-spreadsheet__editor`). Les clics dans l'éditeur, la barre d'outils, la barre fx, les
+popups téléportés (suggestions, menus) ne volent plus le focus avant leur `click`.
+Bonus : même correctif de fait pour les suggestions de fonctions de la barre fx
+(`commitFx` sur `blur`).
+
+**Règle** : ne jamais déplacer le focus depuis un `pointerup` global sans vérifier la cible —
+un `blur` peut fermer un éditeur **avant** le `click` de l'élément visé.
