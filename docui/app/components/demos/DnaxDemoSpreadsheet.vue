@@ -9,6 +9,7 @@ const props = defineProps<{
     | "inline"
     | "people"
     | "types"
+    | "time"
     | "choice"
     | "rawOptions"
     | "locked"
@@ -174,6 +175,22 @@ const typesRows = ref([
   { product: "Aniseed Syrup", category: "condiment", price: 10, stock: 13, rating: 5, inStock: false, email: "sales@dnax.dev", website: "https://example.org", bestBefore: "2027-06-30", opensAt: "10:00", lastCheck: "2026-09-01T08:45" },
   { product: "Ikura", category: "seafood", price: 31, stock: 0, rating: 2, inStock: false, email: "fish@dnax.dev", website: "https://example.net", bestBefore: "2026-11-15", opensAt: "08:15", lastCheck: "2026-08-28T16:20" },
   { product: "Mishi Kobe Niku", category: "seafood", price: 97, stock: 29, rating: 5, inStock: true, email: "mishi@dnax.dev", website: "https://dnax.dev/blog", bestBefore: "2026-08-20", opensAt: "12:45", lastCheck: "2026-08-20T11:10" },
+])
+
+// — Time demo: `time` columns (native hour picker), hour series on autofill —
+const timeColumns = [
+  { name: "task", label: "Task", width: 190 },
+  { name: "day", label: "Day", type: "date" as const, width: 150 },
+  { name: "start", label: "Starts", type: "time" as const, width: 110 },
+  { name: "end", label: "Ends", type: "time" as const, width: 110 },
+]
+const timeRows = ref([
+  { task: "Stand-up", day: "2026-09-07", start: "09:00", end: "09:15" },
+  { task: "Design review", day: "2026-09-07", start: "09:30", end: "10:30" },
+  { task: "Sprint planning", day: "2026-09-07", start: "11:00", end: "12:00" },
+  { task: "Lunch", day: "2026-09-07", start: "12:30", end: "13:30" },
+  { task: "", day: "2026-09-07", start: null, end: null },
+  { task: "", day: "2026-09-07", start: null, end: null },
 ])
 
 // — Choice demo : choix unique (`select`) vs choix multiples (`multiselect`) —
@@ -664,6 +681,20 @@ onMounted(() => {
     bordered
     :default-col-width="120"
   />
+
+  <div v-else-if="demo === 'time'">
+    <q-spreadsheet
+      v-model:rows="timeRows"
+      :columns="timeColumns"
+      height="240px"
+      bordered
+    />
+    <p class="demo-p demo-log">
+      stored → <code>start</code>: {{ JSON.stringify(timeRows[0]?.start) }} ·
+      <code>end</code>: {{ JSON.stringify(timeRows[0]?.end) }} — double-click a time cell to open
+      the native picker; drag the fill handle from two times to continue the hour series.
+    </p>
+  </div>
 
   <div v-else-if="demo === 'choice'">
     <q-spreadsheet

@@ -91,6 +91,43 @@ const rows = ref([
 ```
 ::
 
+### Time picker
+
+`type: "time"` opens the **native time picker**. The stored value is a normalized `HH:MM`
+string — `HH:MM:SS` only when the seconds are non-zero — and no time zone is involved: it is a
+time of day, not an instant. Typing `9h5`, `9:5` or `09:30:00` is normalized on commit, and two
+time cells create an **hour series** when you drag the fill handle:
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="time"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const columns = [
+  { name: "task", label: "Task", width: 190 },
+  { name: "day", label: "Day", type: "date" },
+  { name: "start", label: "Starts", type: "time" },
+  { name: "end", label: "Ends", type: "time" },
+]
+
+const rows = ref([
+  { task: "Stand-up", day: "2026-09-07", start: "09:00", end: "09:15" },
+  { task: "Design review", day: "2026-09-07", start: "09:30", end: "10:30" },
+  // …
+])
+</script>
+
+<template>
+  <q-spreadsheet v-model:rows="rows" :columns="columns" height="240px" bordered />
+</template>
+```
+
+::
+
 ## Inline editing
 
 Click a cell (e.g. **First name**) and start typing to replace its content, or
