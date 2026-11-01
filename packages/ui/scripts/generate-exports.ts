@@ -1,11 +1,22 @@
 /**
- * Regenerates `index.ts` with one explicit export per component.
+ * Regénère `index.ts` : une ligne d'export par composant, puis le **bloc manuel**
+ * (composables, helpers, types de `lib/`) recopié **tel quel**.
  * Run with: bun scripts/generate-exports.ts
+ *
+ * ⚠️ Ne jamais figer le bloc manuel dans ce script. Une version précédente le
+ * contenait en dur ; il avait pris du retard sur `index.ts` et une exécution a
+ * silencieusement supprimé `network`, `wakeLock`, `chartFormat`, `chartStats`,
+ * `chartTable`… (cf. `.memory/warnings.md`). Ici le bloc manuel est **relu** depuis
+ * `index.ts` : tout ce qui suit le dernier export de composant est conservé, donc le
+ * script est idempotent et ne peut plus rien perdre.
  */
-import { readdir } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 
 const componentsDir = new URL("../components/", import.meta.url)
 const indexFile = new URL("../index.ts", import.meta.url)
+
+/** Ligne produite pour un composant : `export { default as QX } from "./components/QX.vue"` */
+const COMPONENT_EXPORT_LINE = /^export \{ default as [\w$]+ \} from "\.\/components\/[\w$]+\.vue"$/
 
 const toPascalCase = (name: string) =>
   name
@@ -17,78 +28,44 @@ const files = (await readdir(componentsDir))
   .filter((file) => file.endsWith(".vue") && !file.startsWith("_"))
   .sort()
 
-const exports = files
+const componentExports = files
   .map(
     (file) =>
       `export { default as ${toPascalCase(file.replace(/\.vue$/, ""))} } from "./components/${file}"`,
   )
   .join("\n")
 
-// Exports manuels (composables / helpers) — conservés à chaque régénération
-const manualExports = `
-export { $q, usePlugin, useQ, QPlugin, dialogStack, closeDialog, bottomSheetStack, closeBottomSheet, useDialogPluginComponent, useBottomSheetPluginComponent } from "./lib/q"
-export type {
-  DialogOptions,
-  DialogController,
-  BottomSheetOptions,
-  BottomSheetController,
-  BottomSheetPluginContext,
-  NotifyOptions,
-  NotifyController,
-} from "./lib/q"
-export { platform, qBreakpoints } from "./lib/platform"
-export type { QPlatform } from "./lib/platform"
-export { screen } from "./lib/screen"
-export type { QScreen } from "./lib/screen"
-export { loading } from "./lib/loading"
-export type { LoadingOptions, QLoadingPlugin } from "./lib/loading"
-export { localStorage, sessionStorage } from "./lib/storage"
-export type { QWebStorage } from "./lib/storage"
-export {
-  registerOverlay,
-  unregisterOverlay,
-  hasOpenOverlays,
-  closeTopmostOverlay,
-  useOverlayBack,
-  installOverlayBackHandler,
-} from "./lib/overlayBack"
-export type { OverlayHandle } from "./lib/overlayBack"
-export { markOverlayClose, closeParentOverlay, vClose } from "./lib/closeOverlay"
-export { placePopover } from "./lib/datePicker"
-export type {
-  PlacePopoverOptions,
-  PopoverAnchor,
-  PopoverPlacement,
-  PopoverViewport,
-} from "./lib/datePicker"
-export { DEFAULT_LAYOUT_VIEW, parseView, qLayoutKey } from "./lib/layout"
-export type { LayoutView, LayoutZone, LayoutZonePlacement, QLayoutContext } from "./lib/layout"
-export { vRipple } from "./lib/ripple"
-export type { RippleOptions, RippleValue } from "./lib/ripple"
-export { chartToECharts, channelValue, pickFromEvent, tableModel, textValue } from "./lib/chart"
-export type {
-  QChartAxis,
-  QChartChannel,
-  QChartColumn,
-  QChartConfig,
-  QChartLegend,
-  QChartMark,
-  QChartMarkType,
-  QChartOrientation,
-  QChartTable,
-  QChartPick,
-} from "./lib/chart"
-export { vTouchPan } from "./lib/touchPan"
-export type { PanDetails, TouchPanHandler, PanDirection } from "./lib/touchPan"
-export { vTouchHold } from "./lib/touchHold"
-export type { TouchHoldDetails, TouchHoldHandler } from "./lib/touchHold"
-export { vTouchSwipe } from "./lib/touchSwipe"
-export type { TouchSwipeDetails, TouchSwipeHandler, SwipeDirection } from "./lib/touchSwipe"
-export { vTouchRepeat } from "./lib/touchRepeat"
-export type { TouchRepeatDetails, TouchRepeatHandler } from "./lib/touchRepeat"
-export { vIntersection } from "./lib/intersection"
-export type { IntersectionValue } from "./lib/intersection"
-`
+// — Bloc manuel : relu dans l'`index.ts` courant -------------------------------
+let current = ""
+try {
+  current = await readFile(indexFile, "utf8")
+} catch {
+  throw new Error(
+    "packages/ui/index.ts est introuvable : le bloc manuel (exports de `lib/`) ne peut pas être conservé. " +
+      "Recréez le fichier avec ses exports manuels avant de lancer ce script.",
+  )
+}
 
-await Bun.write(indexFile, `${exports}\n${manualExports}`)
+const lines = current.split("\n")
+let lastComponentLine = -1
+lines.forEach((line, i) => {
+  if (COMPONENT_EXPORT_LINE.test(line)) lastComponentLine = i
+})
+
+// Fichier sans aucun export de composant (création manuelle) : tout est conservé.
+const manualExports = (lastComponentLine === -1 ? current : lines.slice(lastComponentLine + 1).join("\n"))
+  .trim()
+
+if (lastComponentLine === -1 && /\bexport\b/.test(manualExports)) {
+  console.warn(
+    "⚠️  Aucun export de composant reconnu dans index.ts : tout son contenu est traité comme bloc manuel.",
+  )
+}
+
+const output = manualExports ? `${componentExports}\n\n${manualExports}\n` : `${componentExports}\n`
+
+await Bun.write(indexFile, output)
+
+const kept = manualExports ? manualExports.split("\n").length : 0
 console.log(`✓ ${files.length} composant(s) exporté(s) dans index.ts`)
+console.log(`✓ ${kept} ligne(s) d'exports manuels conservées (bloc relu depuis index.ts)`)

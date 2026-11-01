@@ -3270,3 +3270,46 @@ Nouveau type `time` dans `QSpreadsheetCellType` :
   `DnaxDemoSpreadsheet.vue`.
 - **Vérif** : `lib/spreadsheet.test.ts` +4 tests ; `bun test lib` → **557 pass / 0 fail** ;
   `cd docui && bun run build` → **EXIT 0**.
+
+## QInputTextarea + mode multiligne de QInput — 2026-11-01
+
+`filename: components/QInputTextarea.vue`, `components/QInput.vue`, `lib/textarea.ts`,
+`lib/useTextareaAutosize.ts`, `styles/main.css`
+
+**Constat** : il n'existait **pas** de `QTextarea`. Le seul textarea était le mode
+`autogrow` de `QInput` — avec `rows="1"` codé en dur, aucun plafond (`maxRows`), un
+`height` mesuré seulement au `watch(value)` (donc une valeur multiligne **pré-remplie
+était tronquée** au premier rendu), et `type` + `mask` appliqués à un `<textarea>`.
+
+**Décision** : deux niveaux, pas de duplication de vocabulaire de champ.
+
+1. `QInput` gagne `rows`, `maxRows`, `resize`, `autocomplete`. Le champ devient un
+   textarea dès que `autogrow || rows > 1 || resize !== "none"` (`isTextarea`) — les
+   formulaires existants ne changent pas (défauts : `rows: 1`, `resize: "none"`).
+   `mask` est **ignoré** en mode textarea (il supprime les retours à la ligne) ;
+   `type` n'est plus transmis au `<textarea>` (attribut invalide).
+2. `QInputTextarea` — composant **dédié** (textarea seul) : `rows` (défaut 3),
+   `max-rows`, `autogrow`, `resize`, `counter`, `maxlength`, `autocomplete`,
+   `spellcheck`, états + variantes + affixes, `#prepend`/`#append`/`#error`/`#hint`,
+   méthodes exposées `focus()` / `blur()` / `resize()`.
+
+**Logique pure** : `lib/textarea.ts` — `textareaMetrics` (résout `line-height: normal`
+→ `fontSize × 1.4`), `textareaCap` (px pour `maxRows`, `Infinity` si `<= 0`),
+`textareaSizing` (`scrollHeight` → hauteur plafonnée + `overflow-y: auto|hidden`).
+Le DOM est branché par `useTextareaAutosize` (mesure au montage, au changement de
+valeur, au resize fenêtre, et par `ResizeObserver` **filtré sur la largeur** — sinon
+il reboucle sur notre propre écriture de `style.height`).
+
+**Style** : `.q-input-textarea .q-field__control { align-items: flex-start; padding:
+10px 12px }` — ancre le texte **en haut** (10px + 20px de ligne = 40px, la hauteur
+exacte du champ simple). `QInput` garde son contrôle centré (aucune régression visuelle).
+
+**Doc** : nouvelle page `4.components/input-textarea.md` (basic / rows / autogrow /
+resize / counter / variants / states + tableau « q-input ou q-input-textarea »), démo
+`DnaxDemoInputTextarea.vue`, section *Autogrow textarea* de `input.md` étoffée
+(`max-rows`, `rows`, `resize`, renvoi vers le nouveau composant).
+
+**Vérif** : `lib/textarea.test.ts` (**11 tests**) ; `bun test lib` → **568 pass / 0 fail** ;
+`cd docui && bun run build` → **EXIT 0** ; page servie en 200 par `.output/server` avec
+`rows="1"|"3"|"6"`, `style="resize:vertical"`, `q-input-textarea--autogrow` et l'API
+générée (`<q-input-textarea>`, `maxRows`, `resize`).

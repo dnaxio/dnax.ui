@@ -439,6 +439,7 @@ html.dark body {
 }
 
 .dark .q-input .q-field__native::placeholder,
+.dark .q-input-textarea .q-field__native::placeholder,
 .dark .q-input-tag__native::placeholder,
 .dark .q-input-otp__box::placeholder,
 .dark .q-select__search-input::placeholder,
@@ -2356,6 +2357,61 @@ html.dark body {
 .q-field__counter {
   color: rgb(0 0 0 / 0.55);
   margin-left: auto;
+}
+
+/* ===== QInputTextarea (champ multiligne) ===== */
+.q-input-textarea {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 14px;
+}
+
+/* Le contenu est ancré **en haut** du contrôle (un champ simple centre sa valeur) :
+   `rows` doit correspondre à ce qu'on voit, et les icônes / affixes restent sur la
+   première ligne quand le champ grandit. 10px de padding = 40px de contrôle pour
+   1 ligne de 20px, soit la hauteur exacte du champ simple. */
+.q-input-textarea .q-field__control {
+  align-items: flex-start;
+  padding: 10px 12px;
+}
+
+.q-input-textarea .q-field__native {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  /* `rows` × line-height = hauteur visible ; l'auto-extension mesure la même valeur */
+  line-height: 20px;
+  resize: none;
+  overflow-y: hidden;
+}
+
+.q-input-textarea .q-field__native::placeholder {
+  color: rgb(0 0 0 / 0.45);
+}
+
+/* Affixes, icônes et bouton d'effacement : sur la première ligne */
+.q-input-textarea .q-field__icon,
+.q-input-textarea .q-field__prefix,
+.q-input-textarea .q-field__suffix,
+.q-input-textarea .q-field__clear {
+  align-self: flex-start;
+  line-height: 20px;
+}
+
+.q-field--dense.q-input-textarea .q-field__control {
+  padding: 7px 10px;
+}
+
+.q-field--dense.q-input-textarea .q-field__native {
+  line-height: 18px;
 }
 
 /* ===== QInputPassword (toggle œil) ===== */

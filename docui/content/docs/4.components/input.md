@@ -12,8 +12,8 @@ seo:
 A single-line text field with a label shown above, validation states, icons and
 affixes. **`<q-input>`** implements the Quasar field vocabulary — `outlined`,
 `filled`, `borderless`, `clearable`, `counter`, `dense` — plus rounded corners
-(`radius`) and an auto-growing textarea (`autogrow`). The label is always rendered
-above the field.
+(`radius`) and a multi-line mode (`autogrow`, `rows`, `resize`). The label is always
+rendered above the field.
 
 ## Basic usage
 
@@ -61,6 +61,11 @@ const age = ref(null)
 
 ### Autogrow textarea
 
+`autogrow` grows the field with its content; `max-rows` caps it (the field then
+scrolls instead of stretching the layout). The height is measured on mount — a
+pre-filled multi-line value is never clipped — on every value change and when the
+field width changes.
+
 ::prose-show-case
 :dnax-demo-input{demo="autogrow"}
 
@@ -71,13 +76,22 @@ const age = ref(null)
 import { ref } from "vue"
 
 const bio = ref("")
+const capped = ref("")
 </script>
 
 <template>
   <q-input v-model="bio" label="Bio" autogrow placeholder="Write a few lines…" />
+  <q-input v-model="capped" label="Capped at 4 lines" autogrow :max-rows="4" />
 </template>
 ```
 ::
+
+`rows` sets the visible number of lines and `resize` (`none` | `vertical` | `both`)
+restores the native resize handle — both are ignored by `autogrow`, which drives the
+height itself. `mask` does not apply to a textarea.
+
+> For a real multi-line field (fixed `rows`, manual resize, top-anchored text,
+> dedicated API), use [`<q-input-textarea>`](/docs/components/input-textarea).
 
 ## Variants & density
 

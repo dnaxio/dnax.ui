@@ -782,6 +782,8 @@ const moveSelection = (dr: number, dc: number, extend = false) => {
 const escAttr = (s: string) => String(s).replace(/"/g, '\\"')
 const scrollEl = ref<HTMLElement | null>(null)
 const rootEl = ref<HTMLElement | null>(null)
+/** Racine du composant (pour distinguer un clic intérieur d'un clic extérieur) */
+const rootRef = ref<HTMLElement | null>(null)
 const setGridRef = (el: unknown) => {
   rootEl.value = (el as HTMLElement) ?? null
   scrollEl.value = (el as HTMLElement) ?? null
@@ -1138,7 +1140,7 @@ const coerceValue = (col: QSpreadsheetColumn | undefined, text: unknown, old: an
   return raw
 }
 
-const commitEdit = async () => {
+const commitEdit = async (options: { focus?: boolean } = {}) => {
   if (!editing.value) return
   const { row, column } = editing.value
   const col = colOf(column)
@@ -1149,7 +1151,10 @@ const commitEdit = async () => {
   const next = col?.type === "multiselect" ? old : coerceValue(col, text, old)
   editing.value = null
   emit("cell-edit-end", { row, column, canceled: false })
-  nextTick(() => focusCell(row, column))
+  // Le focus n'est **pas** restauré par défaut : un `blur` (clic hors de la grille)
+  // ne doit pas voler le focus à l'élément cliqué. Seuls les appels internes qui le
+  // demandent explicitement (`pickOption`) le font.
+  if (options.focus) nextTick(() => focusCell(row, column))
   if (next !== old) await validateAndSet(row, column, old, next)
 }
 
@@ -1914,7 +1919,8 @@ watch(selectOptions, () => {
 })
 const pickOption = (opt: QSpreadsheetCellOption) => {
   draft.value = String(opt.label ?? "")
-  commitEdit()
+  // Choix fait **dans** la liste : le focus revient utilement à la cellule
+  commitEdit({ focus: true })
 }
 
 /** Valeur courante (tableau) de la cellule à choix multiples en cours d'édition */
@@ -2803,6 +2809,13 @@ const onColContext = (ci: number, e: MouseEvent) => {
 const onDocPointerDown = (e: PointerEvent) => {
   const t = e.target as HTMLElement
   if (!t || !t.closest) return
+  // Un clic **hors de l'éditeur** ferme l'édition — sans lui voler le focus :
+  // le `blur` ne suffit pas si la cible n'est pas focusable (fond de page, `<div>`…).
+  // Condition : ne rien faire seulement si le clic est dans **notre** éditeur (une autre
+  // instance du tableur peut avoir le sien ouvert).
+  if (editing.value && !(rootRef.value?.contains(t) && t.closest(".q-spreadsheet__editor"))) {
+    commitEdit()
+  }
   if (
     (ctxMenu.value && !t.closest(".q-spreadsheet__ctx")) ||
     (filterMenu.value && !t.closest(".q-spreadsheet__fpop") && !t.closest(".q-spreadsheet__fbtn"))
@@ -4617,7 +4630,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="q-spreadsheet" :class="rootClasses" :style="radiusStyle(effectiveRadius)">
+  <div ref="rootRef" class="q-spreadsheet" :class="rootClasses" :style="radiusStyle(effectiveRadius)">
     <!-- ═══════ Onglets de feuilles (classeur, haut) ═══════ -->
     <div
       v-if="sheetsMode && sheetsPosition === 'top'"
@@ -5152,7 +5165,7 @@ defineExpose({
           @keyup="syncEditCaret"
           @click="syncEditCaret"
           @keydown="onEditKeydown"
-          @blur="commitEdit"
+          @blur="commitEdit()"
         />
         <input
           v-else
@@ -5163,7 +5176,7 @@ defineExpose({
           :inputmode="editorInputMode"
           :placeholder="editingIsSelect ? 'Type to filter…' : editingIsMulti ? 'Filter options…' : ''"
           @keydown="onEditKeydown"
-          @blur="commitEdit"
+          @blur="commitEdit()"
         />
         <div v-if="editingIsFormula && fxHint && !fxOpen" class="q-spreadsheet__fxhint q-spreadsheet__fxhint--editor">
           <strong>{{ fxHint.name }}</strong>(<template v-for="(arg, i) in fxHint.args" :key="i"><span

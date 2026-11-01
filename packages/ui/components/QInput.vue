@@ -1,12 +1,15 @@
 <script setup lang="ts">
 // QInput — API Quasar : <q-input v-model="…" label="Email" outlined dense clearable counter maxlength="60" hint error error-message />
 // Variants : outlined (défaut) | filled | borderless ; le label est toujours affiché au-dessus du champ.
-import { computed, nextTick, ref, watch } from "vue"
+// Multiligne : `autogrow` (auto-extension plafonnée à `max-rows`), `rows` (lignes visibles)
+// ou `resize` — pour un champ multiligne complet, préférer `<q-input-textarea>`.
+import { computed, ref } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
+import { useTextareaAutosize } from "../lib/useTextareaAutosize"
 
 interface Props {
   modelValue?: string | number | null
@@ -33,7 +36,7 @@ interface Props {
   iconLeft?: string
   /** Icône Iconify à droite (remplacée par le slot #append s'il est fourni) */
   iconRight?: string
-  /** Masque de saisie : # = chiffre, A = lettre, N = alphanumérique, X = quelconque (ex. "##-##-##") */
+  /** Masque de saisie : # = chiffre, A = lettre, N = alphanumérique, X = quelconque (ex. "##-##-##") — ignoré en mode textarea */
   mask?: string
   /** Remplit les emplacements vides par "_" (défaut : la saisie s'arrête au dernier caractère) */
   fillMask?: boolean
@@ -51,8 +54,16 @@ interface Props {
   radius?: RadiusProp
   /** Hauteur réduite */
   dense?: boolean
-  /** Textarea à hauteur auto */
+  /** Textarea à hauteur auto, plafonné à `maxRows` lignes */
   autogrow?: boolean
+  /** Nombre de lignes visibles (textarea) — `> 1` bascule le champ en multiligne */
+  rows?: number
+  /** Plafond d'auto-extension en lignes, 0 = illimité : au-delà, le champ défile */
+  maxRows?: number
+  /** Redimensionnement manuel du textarea (sans effet en `autogrow`) */
+  resize?: "none" | "vertical" | "both"
+  /** Attribut autocomplete transmis au champ natif */
+  autocomplete?: string
   disable?: boolean
   readonly?: boolean
   placeholder?: string
@@ -69,6 +80,9 @@ const props = withDefaults(defineProps<Props>(), {
   borderless: false,
   dense: false,
   autogrow: false,
+  rows: 1,
+  maxRows: 0,
+  resize: "none",
   disable: false,
   readonly: false,
   fillMask: false,
@@ -93,6 +107,17 @@ const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
 
 const value = computed(() => props.modelValue ?? "")
 
+// Le champ est multiligne dès qu'on demande plusieurs lignes, une auto-extension ou
+// un redimensionnement manuel — un `<input>` n'a ni hauteur de plusieurs lignes ni
+// poignée de redimensionnement.
+const isTextarea = computed(
+  () => props.autogrow || props.rows > 1 || props.resize !== "none",
+)
+
+// Un masque de saisie n'a pas de sens sur du multiligne (il supprime les retours à
+// la ligne) : il est ignoré en mode textarea.
+const maskEnabled = computed(() => Boolean(props.mask) && !isTextarea.value)
+
 // ═════════ Masque de saisie : # chiffre, A lettre, N alphanumérique, X quelconque ═════════
 const isToken = (c: string): boolean => c === "#" || c === "A" || c === "N" || c === "X"
 
@@ -107,7 +132,7 @@ const matchesToken = (tok: string, c: string): boolean =>
 
 /** Extrait les caractères réels (emplacements tokens) d'une valeur affichée masquée. */
 const unmask = (v: string, fill: boolean): string => {
-  if (!props.mask) return v
+  if (!maskEnabled.value || !props.mask) return v
   let out = ""
   let vi = 0
   for (const ch of props.mask) {
@@ -126,7 +151,7 @@ const unmask = (v: string, fill: boolean): string => {
 
 /** Applique le masque à une chaîne de caractères bruts (littéraux insérés, caractères invalides sautés). */
 const mask = (raw: string, fill: boolean): string => {
-  if (!props.mask) return raw
+  if (!maskEnabled.value || !props.mask) return raw
   let out = ""
   let ri = 0
   for (const ch of props.mask) {
@@ -151,7 +176,7 @@ const mask = (raw: string, fill: boolean): string => {
 /** Valeur affichée dans le champ : applique le masque au modelValue (brut si unmaskedValue). */
 const displayValue = computed(() => {
   const v = String(props.modelValue ?? "")
-  if (!props.mask) return v
+  if (!maskEnabled.value) return v
   const raw = props.unmaskedValue ? v : unmask(v, props.fillMask)
   return mask(raw, props.fillMask)
 })
@@ -169,24 +194,33 @@ const fieldClasses = computed(() =>
     props.error && "q-field--error",
     props.disable && "q-field--disabled",
     floatActive.value && "q-field--float",
+    isTextarea.value && "q-input--textarea",
   ),
 )
 
-const resizeTextarea = async () => {
-  const el = nativeEl.value
-  if (el && props.autogrow) {
-    await nextTick()
-    el.style.height = "auto"
-    el.style.height = `${el.scrollHeight}px`
-  }
-}
+// Auto-extension : la mesure et le plafond `maxRows` sont délégués au composable
+// (calcul pur dans `lib/textarea.ts`). `observeWidth: false` — en mode `<input>`
+// l'élément observé serait remplacé au changement de mode.
+const { resize } = useTextareaAutosize(nativeEl, {
+  enabled: () => props.autogrow,
+  maxRows: () => props.maxRows,
+  sources: () => [value.value, props.rows, props.maxRows, props.autogrow],
+  observeWidth: false,
+})
 
-watch(value, resizeTextarea)
+// `resize` exposé (onglet Methods de la doc) : re-mesure forcée après un
+// changement de contenu fait hors du cycle normal (ex. valeur posée par le parent).
+defineExpose({ resize })
+
+// `resize` n'a de sens que sans auto-extension (sinon les deux pilotent la hauteur).
+const textareaStyle = computed(() =>
+  props.resize === "none" || props.autogrow ? undefined : { resize: props.resize },
+)
 
 const onInput = (e: Event) => {
   const el = e.target as HTMLInputElement | HTMLTextAreaElement
   const raw = el.value
-  if (!props.mask) {
+  if (!maskEnabled.value) {
     emit("update:modelValue", raw)
     return
   }
@@ -218,13 +252,17 @@ const showClear = computed(
   () => props.clearable && !props.disable && !props.readonly && value.value !== "",
 )
 
-const inputAttrs = computed(() => ({
-  type: props.type,
+const commonAttrs = computed(() => ({
   maxlength: props.maxlength,
   placeholder: props.placeholder,
+  autocomplete: props.autocomplete,
   disabled: props.disable || undefined,
   readonly: props.readonly || undefined,
 }))
+
+// `type` n'est valide que sur `<input>` : sur un `<textarea>` c'est un attribut
+// invalide (et sans effet) — on ne le transmet pas.
+const inputAttrs = computed(() => ({ ...commonAttrs.value, type: props.type }))
 </script>
 
 <template>
@@ -236,12 +274,13 @@ const inputAttrs = computed(() => ({
       </slot>
       <span v-if="prefix" class="q-field__prefix">{{ prefix }}</span>
       <textarea
-        v-if="autogrow"
+        v-if="isTextarea"
         ref="nativeEl"
         class="q-field__native"
         :value="displayValue"
-        rows="1"
-        v-bind="inputAttrs"
+        :rows="rows"
+        :style="textareaStyle"
+        v-bind="commonAttrs"
         @input="onInput"
         @focus="onFocus"
         @blur="onBlur"

@@ -24,6 +24,7 @@ const email = ref("")
 const password = ref("")
 const age = ref<number | null>(null)
 const bio = ref("")
+const capped = ref("")
 const outlinedVal = ref("")
 const filledVal = ref("")
 const borderlessVal = ref("")
@@ -64,8 +65,19 @@ const fieldBgs = [
     </div>
   </div>
 
-  <div v-else-if="demo === 'autogrow'" class="demo-field">
-    <q-input v-model="bio" label="Bio" autogrow placeholder="Write a few lines…" />
+  <div v-else-if="demo === 'autogrow'" class="demo-row">
+    <div class="demo-col">
+      <q-input v-model="bio" label="Bio" autogrow placeholder="Write a few lines…" />
+    </div>
+    <div class="demo-col">
+      <q-input
+        v-model="capped"
+        label="Capped at 4 lines"
+        autogrow
+        :max-rows="4"
+        hint="Scrolls beyond 4 lines."
+      />
+    </div>
   </div>
 
   <div v-else-if="demo === 'variants'" class="demo-row">

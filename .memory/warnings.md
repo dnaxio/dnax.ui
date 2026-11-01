@@ -884,6 +884,11 @@ components + index.ts) → `diff` avec le vrai `index.ts` = 7 lignes manquantes
 (`167a168,174`). **Correctif** : recopier les lignes `placePopover` / types dans
 `manualExports` avant toute régénération.
 
+**Résolu le 2026-11-01** : le script ne fige plus `manualExports` — il **relit** `index.ts`
+et conserve tout ce qui suit le dernier export de composant (idempotent). Voir l'entrée
+« `bun scripts/generate-exports.ts` supprime des exports manuels » plus bas (même cause
+racine, second cas rencontré avec `network` / `wakeLock` / `chart*`).
+
 ## `nuxt-og-image` : `Cannot find module '@takumi-rs/core'` en dev — 2026-09-23
 
 tag: `warning` — `filename: docd/nuxt.config.ts`
@@ -1726,3 +1731,67 @@ Bonus : même correctif de fait pour les suggestions de fonctions de la barre fx
 
 **Règle** : ne jamais déplacer le focus depuis un `pointerup` global sans vérifier la cible —
 un `blur` peut fermer un éditeur **avant** le `click` de l'élément visé.
+
+## QSpreadsheet — `commitEdit` volait le focus (clic hors du tableur) — 2026-10-26
+
+`filename: components/QSpreadsheet.vue` (`commitEdit`, `onDocPointerDown`, `pickOption`)
+
+**Symptôme** : après une édition, cliquer **n'importe où hors du tableur** (un autre champ,
+un bouton, la page) renvoyait le focus sur la cellule éditée — impossible de continuer à
+travailler ailleurs.
+
+**Cause racine** : `commitEdit()` terminait par `nextTick(() => focusCell(row, column))`.
+Le `blur` de l'input (déclenché par un clic extérieur) appelle `commitEdit` → le `focusCell`
+différé reprenait le focus à l'élément cliqué. Le garde-fou ajouté sur
+`onPointerUpGlobal` ne suffisait pas : il ne couvrait que le `pointerup`, pas le `blur`.
+
+**Correctif** :
+
+- `commitEdit(options?: { focus?: boolean })` ne restaure **plus** le focus par défaut ;
+  seul `pickOption` demande `{ focus: true }` (choisir dans la liste ramène à la cellule).
+  `@blur="commitEdit()"` (appel explicite, pour ne pas recevoir le `FocusEvent`).
+- Les déplacements clavier (`Entrée` / `Tab`) passent par `moveSelection()` → `select()` →
+  `focusCell` : le focus va sur la **nouvelle** cellule, pas sur l'ancienne.
+- `onDocPointerDown` (capture) ferme l'édition sur tout clic **hors de l'éditeur** sans
+  reprendre le focus — nécessaire quand la cible n'est pas focusable (le `blur` ne se
+  déclenche alors pas). Condition : ne rien faire seulement si le clic est dans **notre**
+  éditeur (`rootRef.contains(t) && t.closest('.q-spreadsheet__editor')`), pour ne pas gêner
+  une autre instance du tableur.
+
+**Règle** : une routine de `commit` ne doit **jamais** déplacer le focus ; c'est le
+déplacement explicite (flèches, Entrée, choix d'option) qui décide où va le focus.
+
+## `bun scripts/generate-exports.ts` supprime des exports manuels — 2026-11-01
+
+`filename: packages/ui/scripts/generate-exports.ts`
+
+**Symptôme** : après avoir lancé `bun scripts/generate-exports.ts` pour ajouter
+`QInputTextarea`, `git diff` montrait **36 lignes supprimées** dans `packages/ui/index.ts` :
+`network`, `wakeLock`, `chartFormat` (`formatValue`, `DEFAULT_LOCALE`…), `chartStats`,
+`chartTable` et plusieurs types `QChart*`.
+
+**Cause racine** : le bloc `manualExports` du script était **figé** — il n'avait pas été mis à
+jour quand ces exports ont été ajoutés à la main dans `index.ts`. Le script **réécrit**
+`index.ts` en entier (`Bun.write`), donc tout export manuel absent de sa constante
+disparaissait silencieusement.
+
+**Correctif appliqué** (le 2026-11-01, à la demande) : le script **relit** désormais
+`index.ts` au lieu de figer le bloc manuel — tout ce qui suit la **dernière ligne
+d'export de composant** (`COMPONENT_EXPORT_LINE`) est conservé tel quel, puis réémis
+après la liste regénérée des composants (une ligne vide de séparation).
+
+- fichier **inexistant** → `throw` explicite (impossible de préserver le bloc manuel) ;
+- fichier **sans** export de composant → tout son contenu est traité comme bloc manuel
+  - `console.warn` ;
+- sortie : `✓ N composant(s)` + `✓ M ligne(s) d'exports manuels conservées`.
+
+**Vérifié** : deux exécutions consécutives → `diff` **vide** (idempotent) ; `git diff`
+`index.ts` = seulement les ajouts attendus (`QInputTextarea`, `lib/textarea`,
+`lib/useTextareaAutosize`), `network` / `wakeLock` / `chart*` **toujours présents** ; test
+du garde-fou sur une copie (fichier réduit à 2 exports `lib/foo`) → bloc conservé +
+warning, puis restauration à l'identique.
+
+**Règle** : lancer le script est sûr — mais **ne jamais re-figer** le bloc manuel dans le
+script (c'est la cause du bug). Pour ajouter un composant : créer le SFC, lancer
+`bun scripts/generate-exports.ts`, et vérifier que le `git diff` ne contient **que**
+l'ajout attendu.
