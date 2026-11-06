@@ -122,7 +122,7 @@ const breakpoint = ref(0.25)
 
     <q-bottom-sheet v-model="openSeamless" seamless rounded="0" width="100%" :shadow="shadow">
       <template #trigger>
-        <q-btn color="primary" icon="lucide:panels-bottom" label="Open seamless sheet" />
+        <q-btn color="primary" icon="lucide:panel-bottom" label="Open seamless sheet" />
       </template>
 
       <q-bottom-sheet-header

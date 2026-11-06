@@ -33,7 +33,7 @@ import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } 
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
-import { radiusStyle, useRadius } from "../lib/useComponentProps"
+import { radiusStyleNative, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 import QSelect from "./QSelect.vue"
 
@@ -437,7 +437,7 @@ const tableClasses = computed(() =>
 
 // radius : prop explicite > composantProps.QTable.radius > composantProps.default.radius
 const effectiveRadius = useRadius("QTable", () => props.radius)
-const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
+const roundedStyle = computed(() => radiusStyleNative(effectiveRadius.value))
 
 const sortThClass = computed(() => "q-table__sort")
 

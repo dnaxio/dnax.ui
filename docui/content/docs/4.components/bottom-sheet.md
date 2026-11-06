@@ -177,7 +177,7 @@ over a map.
 ```vue
 <q-bottom-sheet v-model="open" seamless rounded="0" width="100%">
   <template #trigger>
-    <q-btn color="primary" icon="lucide:panels-bottom" label="Open seamless sheet" />
+    <q-btn color="primary" icon="lucide:panel-bottom" label="Open seamless sheet" />
   </template>
 
   <q-bottom-sheet-header title="Quick search" description="No backdrop: the page stays clickable" />

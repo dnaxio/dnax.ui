@@ -31,6 +31,7 @@ export interface DropdownItem {
 import { computed } from "vue"
 import type { StyleValue } from "vue"
 import QBtnActions, { type DropdownPosition } from "./QBtnActions.vue"
+import { useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 
 interface Props {
@@ -115,6 +116,12 @@ const mappedActions = computed(() =>
 )
 
 const onSelectAction = (value: any) => emit("select", value)
+
+// radius : prop explicite > composantProps.QBtnDropdown > composantProps.default.
+// On transmet la valeur **résolue** (et non la prop brute) pour que
+// `componentProps.QBtnDropdown.radius` ne soit pas ignoré au profit de celui du
+// moteur QBtnActions.
+const effectiveRadius = useRadius("QBtnDropdown", () => props.radius)
 </script>
 
 <template>
@@ -134,7 +141,7 @@ const onSelectAction = (value: any) => emit("select", value)
     :color="color"
     :text-color="textColor"
     :size="size"
-    :radius="radius"
+    :radius="effectiveRadius"
     :flat="flat"
     :outline="outline"
     :unelevated="unelevated"

@@ -64,3 +64,19 @@ export const icons = {
   highlighter: "lucide:highlighter",
   tableCellsMerge: "lucide:table-cells-merge",
 } as const
+
+/**
+ * Collection Iconify minimale : le sous-ensemble d'une collection officielle
+ * (`lucide` ici) que l'on peut **embarquer dans le bundle** pour éviter l'appel
+ * réseau de `@iconify/vue`. Voir `lib/iconSet.ts` (généré) et `lib/registerIcons.ts`.
+ */
+export interface IconSetJson {
+  /** Préfixe de collection, sans `:` — ex. `"lucide"` */
+  prefix: string
+  width?: number
+  height?: number
+  /** Icônes : nom (sans préfixe) → corps SVG */
+  icons: Record<string, { body: string }>
+  /** Alias (lucide en a quelques-uns : `activity-square` → `square-activity`) */
+  aliases?: Record<string, { parent: string }>
+}

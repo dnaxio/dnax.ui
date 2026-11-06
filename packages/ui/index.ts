@@ -208,6 +208,10 @@ export { textareaCap, textareaMetrics, textareaSizing } from "./lib/textarea"
 export type { TextareaMetrics, TextareaSizing, TextareaComputedStyle } from "./lib/textarea"
 export { useTextareaAutosize } from "./lib/useTextareaAutosize"
 export type { TextareaAutosize, UseTextareaAutosizeOptions } from "./lib/useTextareaAutosize"
+export { iconsRegistered, registerIconSet, registerIcons } from "./lib/registerIcons"
+export { lucideIconSet } from "./lib/iconSet"
+export { icons } from "./lib/icons"
+export type { IconSetJson } from "./lib/icons"
 export { chartToECharts, channelValue, pickFromEvent, tableCsv, tableModel, textValue, tokenCss } from "./lib/chart"
 export type {
   QChartAxis,

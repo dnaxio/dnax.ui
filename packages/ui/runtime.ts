@@ -46,6 +46,11 @@ export type { QNetwork, NetworkOptions } from "./lib/network"
 // `$q.wakeLock` (écran allumé) — Screen Wake Lock API.
 export { wakeLock, createWakeLock } from "./lib/wakeLock"
 export type { QWakeLock, WakeLockOptions } from "./lib/wakeLock"
+// Icônes du design system embarquées dans le bundle (`lib/iconSet.ts`, généré) :
+// appelé par le module Nuxt, à appeler soi-même sans module. Évite l'appel runtime
+// à l'API Iconify et rend les icônes dès le SSR.
+export { registerIcons, iconsRegistered } from "./lib/registerIcons"
+export { registerIconSet } from "./lib/registerIcons"
 
 // — Providers de `$q` (montés au boot par l'app hôte) —
 export { default as QDialogProvider } from "./components/QDialogProvider.vue"

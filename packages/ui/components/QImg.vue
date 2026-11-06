@@ -77,8 +77,10 @@ const imageClasses = computed(() =>
 )
 
 // radius : prop explicite > composantProps.QImg > composantProps.default → --q-radius
+// `true` = pilule (forme native documentée) → classe dédiée, pas un `--q-radius`
 const effectiveRadius = useRadius("QImg", () => props.radius)
 const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
+const roundedClass = computed(() => (effectiveRadius.value === true ? "q-img--rounded" : undefined))
 
 const imageStyle = computed(() => `${props.imgStyle}; object-position: ${props.position}`)
 
@@ -101,7 +103,7 @@ const showLoading = computed(() => props.loading || imgLoading.value)
 </script>
 
 <template>
-  <div class="q-img" :style="[containerStyle, roundedStyle]">
+  <div class="q-img" :class="roundedClass" :style="[containerStyle, roundedStyle]">
     <!-- Placeholder basse résolution pendant le chargement -->
     <img
       v-if="placeholderSrc && imgLoading && !imgError"

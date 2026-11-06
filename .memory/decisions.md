@@ -3205,7 +3205,7 @@ Nouvelle surface du traducteur, sans casser l'existant (aucun `format` = aucun c
   textes i18n (`fr`/`en`) via `useConfigLang`, surchargés par `texts`. Le canvas reste
   monté, la surimpression est un calque.
 - **Info-bulle** : `tooltip: boolean | { formatter, valueFormatter, nameFormatter,
-  sortDesc }` ; `QChartMark.tooltip(params, value)` pour une marque.
+sortDesc }` ; `QChartMark.tooltip(params, value)` pour une marque.
 - **Marques P1** : `gauge` (bandes + cible dans le `detail`), `funnel`, `radar`
   (indicateurs déduits de `x`, une série par `z`), `treemap`/`sunburst` (`parent`),
   `sankey` (`source`/`target`/`value`), `boxplot` (`values` bruts ou `stats`),
@@ -3266,7 +3266,7 @@ Nouveau type `time` dans `QSpreadsheetCellType` :
   (`23:00 + 2 h` → `01:00`). Vers le bas et vers la droite, comme les nombres et les dates.
 - **Doc/démo** : ligne `time` dans le tableau des types de `4.components/spreadsheet.md`,
   colonnes `opensAt` (démo `types`) et `kickoff` (démo autofill), plus une démo **dédiée
-  `demo="time"`** (planning *Starts* / *Ends* + valeurs stockées affichées) dans
+  `demo="time"`** (planning _Starts_ / _Ends_ + valeurs stockées affichées) dans
   `DnaxDemoSpreadsheet.vue`.
 - **Vérif** : `lib/spreadsheet.test.ts` +4 tests ; `bun test lib` → **557 pass / 0 fail** ;
   `cd docui && bun run build` → **EXIT 0**.
@@ -3306,10 +3306,133 @@ exacte du champ simple). `QInput` garde son contrôle centré (aucune régressio
 
 **Doc** : nouvelle page `4.components/input-textarea.md` (basic / rows / autogrow /
 resize / counter / variants / states + tableau « q-input ou q-input-textarea »), démo
-`DnaxDemoInputTextarea.vue`, section *Autogrow textarea* de `input.md` étoffée
+`DnaxDemoInputTextarea.vue`, section _Autogrow textarea_ de `input.md` étoffée
 (`max-rows`, `rows`, `resize`, renvoi vers le nouveau composant).
 
 **Vérif** : `lib/textarea.test.ts` (**11 tests**) ; `bun test lib` → **568 pass / 0 fail** ;
 `cd docui && bun run build` → **EXIT 0** ; page servie en 200 par `.output/server` avec
 `rows="1"|"3"|"6"`, `style="resize:vertical"`, `q-input-textarea--autogrow` et l'API
 générée (`<q-input-textarea>`, `maxRows`, `resize`).
+
+## Icônes embarquées dans le bundle (offline + SSR) — 2026-11-01
+
+`filename: packages/ui/lib/iconSet.ts` (généré), `lib/registerIcons.ts`,
+`scripts/gen-icon-set.ts`, `module.ts`
+
+> **Superseded en partie par le scan automatique** (voir la mise à jour en fin d'entrée) :
+> le fichier généré et le plugin manuel côté `docui` ne sont plus le chemin normal.
+
+**Constat** : `@iconify/vue` résout chaque icône **au runtime** sur `api.iconify.design`.
+Conséquences mesurées dans le HTML du build docs : `<svg class="iconify iconify--lucide"
+width="1em" height="1em" viewBox="0 0 24 24">` **vide** — les `<path>` n'arrivent
+qu'après le fetch client, et hors ligne il n'y a aucune icône. Aucun paquet
+`@iconify-json/*` n'était installé.
+
+**Décision** : embarquer un **sous-ensemble** de `lucide` (uniquement les noms
+réellement référencés), pas la collection complète (644 Ko / 2095 icônes).
+
+- `packages/ui/scripts/gen-icon-set.ts` — scanne récursivement `.vue|.ts|.js|.mjs|.md`
+  (`lucide:[a-z0-9-]+`), résout les **alias** (+ embarque la parente), écrit un module TS
+  typé `IconSetJson`. Arguments : `--out`, `--src` (répétable), `--type-import`.
+  Signale les noms inexistants (fautes de frappe).
+- `packages/ui/lib/iconSet.ts` — **généré**, 68 icônes + 4 alias (18 Ko brut, ~5 Ko gzip),
+  commande dans l'en-tête : `bun run gen:icons` (script de `packages/ui/package.json`).
+- `lib/registerIcons.ts` — `registerIcons()` (idempotent, `addCollection`),
+  `iconsRegistered()`, `registerIconSet(set)` pour les extras d'une app.
+  `addCollection` **fusionne** (il écrit dans `storage.icons`) : plusieurs appels avec le
+  même préfixe `lucide` sont sans danger.
+- `module.ts` — option **`icons`** par défaut → `addPluginTemplate` **universel**
+  (serveur **et** client, sinon le SSR ne rend que des coquilles). Opt-out :
+  `dnaxUi: { icons: false }`. Sans Nuxt : `import { registerIcons } from "@dnax/ui"`.
+  _(Le scan automatique remplace cette mécanique — voir la mise à jour plus bas.)_
+- `docui` — **à l'origine** : `app/iconSet.ts` généré depuis `./app` + `./content` et
+  enregistré par `app/plugins/dnax-icons.ts` — **supprimés depuis**, le scan du module
+  couvre ces sources.
+
+**Garde-fou** : `lib/iconSet.test.ts` (4 tests) échoue si un composant référence un
+`lucide:` absent du set généré, ou si un alias n'a pas sa parente. `bun test lib` →
+**572 pass / 0 fail**.
+
+**Bugs trouvés par le générateur** (noms **inexistants** dans lucide → icône invisible,
+elles passaient par l'API qui renvoyait 404) : `lucide:photo` (commentaire `QGridItem.vue`
+→ `lucide:image`), `lucide:panels-bottom` (`bottom-sheet.md` + démo → `lucide:panel-bottom`),
+`lucide:chart-waterfall` (`5.charts/19.waterfall.md` + carte de l'index → `lucide:chart-column-stacked`).
+
+**Vérif (sans navigateur)** : build docs → EXIT 0 ; `curl` sur `.output/server` :
+`/docs/components/icon` 130 icônes / **0 svg vide**, `/docs/getting-started/setup` 36/0,
+`/docs/components/input-textarea` 123/0, `/docs/charts/waterfall` 49/0 — les `<path>` sont
+dans le HTML **serveur**.
+
+**Doc** : section « Offline & SSR » dans `1.getting-started/2.setup.md` et
+« Bundling (offline & SSR) » dans `4.components/icon.md` (commandes + opt-out + extras).
+
+### Mise à jour — scan **automatique** au build (2026-11-01, même jour)
+
+Le fonctionnement manuel ci-dessus (fichier généré + plugin dans l'app) a été remplacé
+par un scan **au build** dans le module Nuxt, **activé par défaut** :
+
+- `module.ts` → option `icons?: boolean | { scan?: boolean; dirs?: string[] }`,
+  défaut `{ scan: true }`. Il scanne `rootDir` (récursif, `node_modules`/`.nuxt`/
+  `.output`/`.data`/`dist`/`public` exclus), fusionne avec `lib/iconSet.ts`, puis injecte
+  le JSON dans le plugin virtuel `dnax-ui-icons.mjs` (`registerIconSet`, universel).
+- Helpers partagés dans `lib/iconSetScrape.ts` (**Node only**, jamais réexporté par
+  `index.ts`) : `iconNamesIn`, `textFilesUnder`, `scrapeIconNames`, `buildIconSet`
+  (résolution des alias + parente), `mergeIconSets`. `scripts/gen-icon-set.ts` les
+  réutilise (aucune duplication de la regex ni du parcours).
+- `@iconify-json/lucide` a été déplacé de `devDependencies` → **`dependencies`** :
+  le module le lit au build chez le consommateur (résolution via `createRequire`, repli
+  sur `rootDir/package.json`). Si introuvable → warning + sous-ensemble du design
+  system seulement (dégradation, pas rupture).
+- `builder:watch` régénère le plugin en dev quand un `.vue|.ts|.js|.mjs|.md` change.
+- **`docui` simplifié** : `app/iconSet.ts` et `app/plugins/dnax-icons.ts` **supprimés**,
+  script `gen:icons` retiré, `build` redevenu `nuxt build`. Le scan par défaut couvre
+  `app/` **et** `content/`.
+- Dev : un nom `lucide:` inconnu trouvé dans les sources est signalé (warning dev) —
+  c'est ce qui a révélé `lucide:photo`, `lucide:panels-bottom`, `lucide:chart-waterfall`.
+
+**Vérif** : build docs EXIT 0 sans warning ; set client embarqué = **207 icônes**
+(chunk 128 Ko brut) contenant `folder-kanban`/`sparkles` (docui) **et** `trash-2` (design
+system), sans `a-arrow-down` (non utilisé) ; `curl` SSR → `/docs/components/icon` 130
+icônes / **0 svg vide**, `setup` 36/0 (avec les `<path>` de `download` et `rocket`,
+icônes présentes seulement dans `content/`), `input-textarea` 123/0, `waterfall` 49/0 ;
+`bun test lib` → 572 pass / 0 fail.
+
+## Radius — `componentProps.default.radius` et le booléen `radius: true` — 2026-11-01
+
+`filename: lib/useComponentProps.ts`, `components/QCard.vue`, `QDialog.vue`,
+`QSyntax.vue`, `QTable.vue`, `QImg.vue`, `QInputOtp.vue`, `QBtnDropdown.vue`
+
+**Question posée** : les `QCard` suivent-ils `componentProps: { default: { radius: "md" } }` ?
+
+**Vérifié** : **oui**, chaîne complète `componentProps.default` → `useComponentProps` →
+`useRadius` → `radiusStyle` → `--q-radius: 8px` → `.q-card { border-radius: var(--q-radius) }`.
+`square` écrase (0) ; la surcharge `componentProps.QCard.radius` gagne sur `default`.
+
+**Trou trouvé** : `radiusValue(true)` renvoie `undefined` (par design : `true` = « forme
+native ») mais **QCard, QDialog, QSyntax, QTable documentaient « true = md »** et
+**QImg, QInputOtp « true = pilule »** sans aucune classe de repli → `<q-card radius>`
+donnait une carte **carrée**, silencieusement.
+
+**Correctifs** :
+
+- `radiusStyleNative(radius, scale = "md")` (`lib/useComponentProps.ts`) : `true` → échelle
+  donnée. Utilisé par QCard / QDialog / QSyntax / QTable. `radiusStyle` reste **inchangé**
+  (`true` → `undefined`) pour ne pas injecter un `--q-radius` global qui fuirait aux
+  enfants des champs/boutons.
+- `QImg` : `true` → classe `.q-img--rounded` (9999px).
+- `QInputOtp` : `true` → classe `.q-input-otp--rounded` (20px sur les cases, même
+  intention que `.q-field--rounded`).
+- `QBtnDropdown` : passe par `useRadius("QBtnDropdown", …)` et transmet la valeur
+  **résolue** à `QBtnActions` — sinon `componentProps.QBtnDropdown.radius` était ignoré
+  (`default.radius` fonctionnait déjà via le moteur interne).
+
+**Sémantique à retenir** : `true` = forme native du composant, variable par famille
+(`md` pour les surfaces, pilule pour les champs/boutons/images). Dans un défaut global,
+préférer une **échelle** (`"md"`).
+
+**Vérif** : `lib/useComponentProps.test.ts` (**12 tests**, les 5 existants préservés) ;
+`bun test lib` → **579 pass / 0 fail** ; build docs EXIT 0 ; CSS compilé contient
+`.q-img--rounded{…9999px}` et `.q-input-otp--rounded .q-input-otp__box{…20px}` ;
+`/docs/layouts/config-provider` → 200 avec la nouvelle section et `--q-radius:8px` rendu en
+SSR. Doc : tableau « one boolean, several native shapes » dans
+`2.layouts/1.config-provider.md`.

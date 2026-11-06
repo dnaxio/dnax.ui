@@ -14,7 +14,7 @@ export const qDialogKey: InjectionKey<DialogContext> = Symbol("q-dialog")
 import { computed, onBeforeUnmount, onMounted, provide, watch } from "vue"
 import type { StyleValue } from "vue"
 import { cn } from "../lib/utils"
-import { radiusStyle, useRadius } from "../lib/useComponentProps"
+import { radiusStyleNative, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 import { useOverlayBack } from "../lib/overlayBack"
 import { markOverlayClose } from "../lib/closeOverlay"
@@ -150,7 +150,7 @@ const overlayClasses = computed(() => cn("q-dialog__overlay", `q-dialog__overlay
 
 // radius : prop explicite > composantProps.QDialog.radius ; échelle → --q-radius
 const effectiveRadius = useRadius("QDialog", () => props.radius)
-const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
+const roundedStyle = computed(() => radiusStyleNative(effectiveRadius.value))
 
 const contentClasses = computed(() =>
   cn(

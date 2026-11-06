@@ -3,7 +3,7 @@
 // Pas d'ombre par défaut ; elevated l'ajoute, flat la retire explicitement.
 // Slots : default, media (zone image en haut), actions (zone actions en bas)
 import { computed } from "vue"
-import { radiusStyle, useRadius } from "../lib/useComponentProps"
+import { radiusStyleNative, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 
 interface Props {
@@ -35,9 +35,9 @@ const props = withDefaults(defineProps<Props>(), {
   hover: false,
 })
 
-// radius : prop explicite > composantProps.QCard.radius ; échelle → --q-radius
+// radius : prop explicite > composantProps.QCard.radius ; échelle → --q-radius (true = md)
 const effectiveRadius = useRadius("QCard", () => props.radius)
-const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
+const roundedStyle = computed(() => radiusStyleNative(effectiveRadius.value))
 </script>
 
 <template>

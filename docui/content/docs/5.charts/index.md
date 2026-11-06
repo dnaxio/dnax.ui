@@ -293,7 +293,7 @@ Distributions — quartiles and medians, from raw values or stats.
 Native binning — `bins`, `domain`, per-bin counts.
 ::
 
-::prose-card{icon="lucide:chart-waterfall" title="Waterfall" to="/docs/charts/waterfall"}
+:::prose-card{icon="lucide:chart-column-stacked" title="Waterfall" to="/docs/charts/waterfall"}
 Cumulative deltas, totals and connectors.
 ::
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// QGridItem — cellule de la grille style Vant : <q-grid-item icon="lucide:photo" text="Photos" badge="3" />
+// QGridItem — cellule de la grille style Vant : <q-grid-item icon="lucide:image" text="Photos" badge="3" />
 // À utiliser dans <q-grid :column-num="…">. Affiche une icône (ou un slot) + un
 // texte, avec badge / point de notification, effet cliquable et navigation (href).
 import { computed } from "vue"

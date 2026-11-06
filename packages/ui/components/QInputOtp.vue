@@ -190,6 +190,8 @@ const rootClasses = computed(() =>
     props.dense && "q-field--dense",
     props.error && "q-field--error",
     props.disable && "q-field--disabled",
+    // `radius: true` = pilule (forme native documentée)
+    effectiveRadius.value === true && "q-input-otp--rounded",
   ),
 )
 

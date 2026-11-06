@@ -2972,6 +2972,11 @@ html.dark body {
   border-radius: var(--q-radius);
 }
 
+/* `radius` (booléen) : forme pilule, cf. JSDoc de la prop. */
+.q-img--rounded {
+  border-radius: 9999px;
+}
+
 .q-img__image {
   position: absolute;
   inset: 0;
@@ -9253,6 +9258,13 @@ a.q-breadcrumbs__el:hover {
 }
 .q-input-otp__box--error {
   border-color: var(--negative);
+}
+
+/* `radius` (booléen) : forme pilule — même intention que `.q-field--rounded` (20px).
+   Les cases font 48px : 20px les rend nettement arrondies sans les transformer en
+   cercles, ce qui laisserait des trous entre les caractères. */
+.q-input-otp--rounded .q-input-otp__box {
+  border-radius: 20px;
 }
 .q-input-otp__box--error:focus {
   border-color: var(--negative);

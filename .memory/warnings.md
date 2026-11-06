@@ -1795,3 +1795,24 @@ warning, puis restauration à l'identique.
 script (c'est la cause du bug). Pour ajouter un composant : créer le SFC, lancer
 `bun scripts/generate-exports.ts`, et vérifier que le `git diff` ne contient **que**
 l'ajout attendu.
+
+## `@iconify-json/lucide` installé → `@nuxt/icon` embarque toute la collection — 2026-11-01
+
+`filename: packages/ui/package.json`, `docui/nuxt.config.ts`
+
+**Contexte** : `@iconify-json/lucide` est devenu une **dépendance** de `@dnax/ui` (le module
+Nuxt lit la collection au build pour le scan d'icônes).
+
+**Effet de bord** : `@nuxt/icon` (présent via la layer `@baybreezy/docd`, et fréquent dans
+les apps) **détecte automatiquement** les paquets `@iconify-json/*` installés et les met
+dans son *server bundle*. Constaté dans le build docs : `columns/_/icons.mjs` = **646 Ko**
+(collection complète, 2095 icônes) ajoutée au bundle Nitro — côté serveur seulement, mais
+inutile puisque `@dnax/ui` n'en embarque qu'un sous-ensemble.
+
+**Parade** : `icon: { serverBundle: "remote" }` (ou `false`) dans `nuxt.config.ts` de l'app
+hôte. Non appliqué dans `docui` pour l'instant : ça permet à Docd de résoudre ses propres
+icônes MDC sans réseau.
+
+**Règle** : avant d'ajouter un paquet `@iconify-json/*`, vérifier si `@nuxt/icon` est
+présent (fichiers `.nuxt/nuxt-icon-server-bundle.mjs`) et mesurer
+`du -h .output/server/chunks/_/icons.mjs`.

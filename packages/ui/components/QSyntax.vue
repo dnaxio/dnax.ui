@@ -8,7 +8,7 @@ import { createHighlighter, type Highlighter } from "shiki"
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
-import { radiusStyle, useRadius } from "../lib/useComponentProps"
+import { radiusStyleNative, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 
 const DEFAULT_THEME = "github-dark-default"
@@ -44,7 +44,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 // radius : prop explicite > composantProps.QSyntax.radius > composantProps.default.radius
 const effectiveRadius = useRadius("QSyntax", () => props.radius)
-const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
+const roundedStyle = computed(() => radiusStyleNative(effectiveRadius.value))
 
 const slots = useSlots()
 

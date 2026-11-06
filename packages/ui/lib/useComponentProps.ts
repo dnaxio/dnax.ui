@@ -65,3 +65,18 @@ export function radiusStyle(radius: RadiusProp | undefined): Record<string, stri
   const value = radiusValue(radius)
   return value ? { "--q-radius": value } : undefined
 }
+
+/**
+ * Style `--q-radius` des composants dont le booléen `radius` vaut une **échelle fixe**
+ * (documenté « true = md ») : `true` → `scale`.
+ *
+ * Les composants à forme native « pilule » (champs, boutons) ne passent **pas** par ici :
+ * ils posent leur propre classe (`.q-field--rounded`, `.q-btn--rounded`) — pour eux,
+ * `true` ne doit surtout pas devenir un `--q-radius` global qui fuirait aux enfants.
+ */
+export function radiusStyleNative(
+  radius: RadiusProp | undefined,
+  scale: RadiusScale = "md",
+): Record<string, string> | undefined {
+  return radiusStyle(radius === true ? scale : radius)
+}
