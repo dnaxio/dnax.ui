@@ -4,8 +4,10 @@
 // édition en place (Entrée / F2 / double-clic / frappe directe),
 // lignes & colonnes (ajouter / insérer / supprimer),
 // tri, copier/coller, undo/redo, et cellules typées
-// texte, nombre, entier, booléen, date, datetime, **time (heure)**, select / multiselect avec
-// badges colorés).
+// texte, nombre, entier, booléen, date, datetime, **time (heure)**, **attachment (fichiers
+// joints)**, select / multiselect avec badges colorés).
+// Slots dynamiques : `#cell-<nom>` / `#cell` (contenu de cellule) et `#head-<nom>`
+// (en-tête de colonne) — pour rendre n'importe quel composant dans la grille.
 // Suivi des modifications : `v-model:dirty` (état) + `v-model:changes` (delta lignes / feuilles
 // ajoutées, modifiées, supprimées), calculé en comparant le document à une **référence**
 // (`lib/spreadsheetChanges.ts`).
@@ -48,6 +50,25 @@ export type QSpreadsheetCellType =
   | "time"
   | "select"
   | "multiselect"
+  | "attachment"
+
+/**
+ * Fichier joint stocké dans une cellule `attachment`. **Sans** l'objet `File` (qui n'est
+ * pas sérialisable) : le fichier binaire est livré à l'app par l'événement `files`, et
+ * `url` permet l'aperçu/le téléchargement (object URL local ou URL d'upload).
+ */
+export interface QSpreadsheetAttachment {
+  /** Identifiant local stable (clé de rendu, cible de suppression) */
+  id: string
+  /** Nom du fichier */
+  name: string
+  /** Taille en octets */
+  size: number
+  /** Type MIME (`image/png`, `application/pdf`…) */
+  type: string
+  /** URL d'aperçu/téléchargement (object URL avant upload, URL serveur ensuite) */
+  url?: string
+}
 
 // `QSpreadsheetCellOption` (option **normalisée**) et `QSpreadsheetOptionAccessor` vivent dans
 // `lib/spreadsheetOptions.ts` — source unique, testée hors navigateur — et sont ré-exportés en
@@ -86,6 +107,17 @@ export interface QSpreadsheetColumn {
   optionValue?: QSpreadsheetOptionAccessor
   /** Pour type "select" / "multiselect" : rend les options actives en badge coloré (sinon texte) */
   chip?: boolean
+  /**
+   * Pour type `attachment` : types acceptés — mêmes règles qu'un `<input type="file">`
+   * (`"image/*"`, `"application/pdf"`, `".pdf,.docx"`, liste séparée par des virgules).
+   */
+  accept?: string
+  /** Pour type `attachment` : autorise plusieurs fichiers dans une même cellule */
+  multiple?: boolean
+  /** Pour type `attachment` : nombre max de fichiers par cellule (0 = illimité) */
+  maxFiles?: number
+  /** Pour type `attachment` : taille max par fichier, en octets (0 = illimité) */
+  maxFileSize?: number
   /** Validation à la saisie : objet `{ min, max, … }` ou expression ArkType (`"number < 4"`) */
   validation?: QSpreadsheetValidationRule
   /** Formatteur de la valeur affichée */
@@ -174,6 +206,7 @@ export type {
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { Icon } from "@iconify/vue"
+import QInnerLoading from "./QInnerLoading.vue"
 import { cn } from "../lib/utils"
 import { icons } from "../lib/icons"
 import { colorValue, foregroundFor } from "../lib/colors"
@@ -200,6 +233,11 @@ import {
   parseCsv,
 } from "../lib/spreadsheet"
 import { checkValidation, type ArkCheck } from "../lib/spreadsheetValidation"
+import { pageInfo } from "../lib/pagination"
+import { cellFontFor, cellSizePx, cellWidthFor } from "../lib/cellSize"
+import type { CellSizePreset } from "../lib/cellSize"
+import { attachmentsOf as fileAttachmentsOf, fileIconKind, formatFileSize, isAttachment, selectFiles } from "../lib/fileList"
+import type { FileIconKind } from "../lib/fileList"
 import { normalizeCellOptions } from "../lib/spreadsheetOptions"
 import { inLockRect, lockRects, prefillForRow } from "../lib/spreadsheetZones"
 import { canAddRows, canRemoveRows, clampRows } from "../lib/spreadsheetRows"
@@ -213,6 +251,25 @@ import {
 interface Props {
   /** Lignes (v-model:rows) — un objet par ligne, clés = noms de colonnes */
   rows?: Record<string, any>[]
+  /**
+   * Pagination **distante** : lignes par page (0 = désactivée). `rows` doit contenir
+   * **uniquement la page courante** — l'app recharge sur `page-change`.
+   */
+  pageSize?: number
+  /** Page courante (1-based) — `v-model:page`. Sans binding, l'état est interne au composant */
+  page?: number
+  /**
+   * Total de lignes, toutes pages confondues. Active le compteur `page / N` et la plage
+   * « lignes 401–800 sur 12 000 ». À défaut : le nombre de lignes fournies.
+   */
+  totalRows?: number
+  /**
+   * Chargement **distant** en cours (pagination, rechargement…) : un voile recouvre la
+   * grille — la barre d'état et le pager restent visibles, flèches désactivées.
+   */
+  loading?: boolean
+  /** Libellé du chargement (défaut : i18n « Loading… ») */
+  loadingLabel?: string
   /** Colonnes ({ name, label, width, type, editable, options, chip, format, align, … }) */
   columns?: QSpreadsheetColumn[]
   /** Hauteur du conteneur scrollable (nombre px ou chaîne CSS, défaut "360px") */
@@ -221,6 +278,13 @@ interface Props {
   rowHeight?: number
   /** Largeur de colonne par défaut en px (défaut 160) */
   defaultColWidth?: number
+  /**
+   * Taille des cellules — preset `sm` (28px) · `md` (32px, défaut) · `lg` (40px), ou une
+   * hauteur en px (`:size-cell="48"`, `66`…). Pilote la hauteur de ligne, la largeur de
+   * colonne par défaut (ratio 5:1) et la police des cellules. `rowHeight` /
+   * `defaultColWidth` restent prioritaires s'ils sont fournis.
+   */
+  sizeCell?: CellSizePreset | number
   /** Affiche la barre d'outils */
   showToolbar?: boolean
   /** Affiche la barre de formule (fx) au-dessus de la grille */
@@ -325,11 +389,15 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  pageSize: 0,
+  totalRows: 0,
+  loading: false,
   rows: () => [],
   columns: () => [],
   height: "360px",
-  rowHeight: 32,
-  defaultColWidth: 160,
+  rowHeight: undefined,
+  defaultColWidth: undefined,
+  sizeCell: undefined,
   showToolbar: true,
   showFormulaBar: true,
   frozenRows: 0,
@@ -435,6 +503,11 @@ const I18N = {
     sheetsDeleted: "{n} sheet(s) deleted",
     formatted: "formatting",
     empty: "…",
+    pagePrev: "Previous page",
+    pageNext: "Next page",
+    pageRange: "Rows {from}–{to} of {total}",
+    pageLabel: "{page} / {count}",
+    loading: "Loading…",
   },
   fr: {
     sheet: "Feuille",
@@ -516,6 +589,11 @@ const I18N = {
     sheetsDeleted: "{n} feuille(s) supprimée(s)",
     formatted: "mise en forme",
     empty: "…",
+    pagePrev: "Page précédente",
+    pageNext: "Page suivante",
+    pageRange: "Lignes {from}–{to} sur {total}",
+    pageLabel: "{page} / {count}",
+    loading: "Chargement…",
   },
 } as const
 type UiKey = keyof (typeof I18N)["en"]
@@ -535,12 +613,71 @@ const emit = defineEmits<{
   "cell-change": [payload: { row: number; column: string; oldValue: any; newValue: any; rows: Record<string, any>[] }]
   "cell-edit-start": [payload: { row: number; column: string }]
   "cell-edit-end": [payload: { row: number; column: string; canceled: boolean }]
+  /**
+   * Fichiers choisis dans une cellule `attachment`. `files` = fichiers **ajoutés**
+   * (à uploader), `attachments` = état complet de la cellule, `rejected` = refusés
+   * (type / taille / quota). Les `QSpreadsheetAttachment` ne portent **pas** le `File`.
+   */
+  "files": [payload: {
+    row: number
+    column: string
+    rowIndex: number
+    files: File[]
+    attachments: QSpreadsheetAttachment[]
+    rejected: { file: File; reason: "type" | "size" | "count" }[]
+  }]
+  /**
+   * Clic sur un fichier joint : à l'app d'ouvrir son aperçu (modal, visionneuse PDF…).
+   * Rien n'est ouvert par le composant — on fournit la cellule **et** la ligne complète.
+   */
+  "attachment-click": [payload: {
+    /** Index de la ligne */
+    row: number
+    /** Nom de la colonne */
+    column: string
+    /** Fichier cliqué */
+    attachment: QSpreadsheetAttachment
+    /** Tous les fichiers de la cellule */
+    attachments: QSpreadsheetAttachment[]
+    /** Valeur brute de la cellule */
+    value: any
+    /** Toute la ligne (toutes les colonnes) */
+    rowData: Record<string, any>
+    event: MouseEvent
+  }]
   "selection-change": [value: QSpreadsheetSelection | null]
   "structure-change": [payload: { rows: Record<string, any>[]; columns: QSpreadsheetColumn[]; reason: string }]
   "prefill": [payload: { count: number; mode: "auto" | "manual" }]
   "update:dirty": [value: boolean]
   "update:changes": [value: QSpreadsheetChanges]
+  "update:page": [value: number]
+  /**
+   * Changement de page — c'est ici que l'app **charge** les données de la page demandée.
+   * `offset` = index global de la première ligne de la nouvelle page (0-based).
+   */
+  "page-change": [payload: {
+    page: number
+    previousPage: number
+    pageSize: number
+    offset: number
+    totalRows: number
+    pageCount: number
+  }]
 }>()
+
+// ─── Taille des cellules (`sizeCell`) ───
+// Une seule échelle pilote tout : hauteur de ligne → largeur de colonne par défaut
+// (ratio 5:1) → police des cellules. `rowHeight` / `defaultColWidth` restent prioritaires
+// s'ils sont fournis (API historique).
+const cellHeightPx = computed(() => props.rowHeight ?? cellSizePx(props.sizeCell))
+const cellWidthPx = computed(() => props.defaultColWidth ?? cellWidthFor(cellHeightPx.value))
+const cellFontPx = computed(() => cellFontFor(cellHeightPx.value))
+
+/** Variables CSS de la grille (police des cellules + hauteur de repli) */
+const cellSizeStyle = computed(() => ({
+  "--q-spreadsheet-font": `${cellFontPx.value}px`,
+  "--q-spreadsheet-row-height": `${cellHeightPx.value}px`,
+}))
 
 // ─── Clés de ligne (`_key`) ───
 /**
@@ -603,6 +740,81 @@ watch(
 const pushRows = (next: Record<string, any>[]) => {
   state.value = next
   emit("update:rows", next)
+}
+
+// ─── Pagination (distante) ───
+// `rows` contient **la page courante** : le tableau ne découpe rien lui-même (les index
+// internes — sélection, édition, historique — restent locaux à la page). La numérotation
+// des lignes et le pager sont décalés de `rowOffset`.
+const pageSizeN = computed(() => Math.max(0, Math.trunc(props.pageSize || 0)))
+const paginationOn = computed(() => pageSizeN.value > 0)
+
+/** Total de lignes, toutes pages : `totalRows` (distant) sinon les lignes fournies */
+const totalRowsN = computed(() =>
+  props.totalRows && props.totalRows > 0 ? props.totalRows : state.value.length,
+)
+
+/** Page interne : repli quand `page` n'est pas lié (`v-model:page` absent) */
+const localPage = ref(1)
+
+const pageState = computed(() =>
+  pageInfo({
+    page: props.page ?? localPage.value,
+    pageSize: pageSizeN.value,
+    total: totalRowsN.value,
+    loaded: state.value.length,
+  }),
+)
+
+/** Page affichée (bornée au nombre de pages) */
+const currentPage = computed(() => pageState.value.page)
+const pageCount = computed(() => pageState.value.pageCount)
+/** Décalage global de la première ligne affichée — sert à la numérotation */
+const rowOffset = computed(() => pageState.value.offset)
+
+const numberFormat = computed(() => new Intl.NumberFormat(lang.value))
+const pageRangeLabel = computed(() => {
+  if (!paginationOn.value) return ""
+  const { from, to } = pageState.value
+  const nf = numberFormat.value
+  return fmt("pageRange", { from: nf.format(from), to: nf.format(to), total: nf.format(totalRowsN.value) })
+})
+const pageLabel = computed(() =>
+  fmt("pageLabel", { page: currentPage.value, count: pageCount.value }),
+)
+
+/** Navigation : met à jour l'état interne (repli), émet `update:page` + `page-change` */
+const goPage = (next: number) => {
+  if (!paginationOn.value) return
+  const target = Math.min(Math.max(1, Math.trunc(next)), pageCount.value)
+  const previous = currentPage.value
+  localPage.value = target
+  if (target === previous) return
+  emit("update:page", target)
+  emit("page-change", {
+    page: target,
+    previousPage: previous,
+    pageSize: pageSizeN.value,
+    offset: (target - 1) * pageSizeN.value,
+    totalRows: totalRowsN.value,
+    pageCount: pageCount.value,
+  })
+}
+
+// La pagination est **distante** : des lignes au-delà de `pageSize` signifient que l'app
+// n'a pas découpé. On le signale plutôt que de tronquer silencieusement.
+if (typeof document !== "undefined") {
+  watch(
+    [paginationOn, pageSizeN, () => state.value.length],
+    () => {
+      if (!paginationOn.value || state.value.length <= pageSizeN.value) return
+      console.warn(
+        `[dnax/ui] QSpreadsheet : ${state.value.length} lignes pour pageSize=${pageSizeN.value}. ` +
+          "La pagination est distante : passez seulement la page courante (`rows`) et `total-rows`.",
+      )
+    },
+    { immediate: true },
+  )
 }
 
 // ─── Colonnes internes ───
@@ -881,6 +1093,8 @@ const cellText = (row: number, column: string): string => {
   const ev = evalAt(row, column)
   if (isError(ev)) return ev.toString()
   if (col?.type === "select" || col?.type === "multiselect") return "" // rendu via badge / label
+  // Fichiers joints : le texte « utile » (recherche, copie, CSV, formule) = les noms
+  if (col?.type === "attachment") return attachmentsOf(ev).map((att) => att.name).join(", ")
   let out: any = ev === null || ev === undefined ? "" : ev
   // Apostrophe littérale (paste values) : affichée sans le préfixe
   if (typeof out === "string" && out.startsWith("'")) out = out.slice(1)
@@ -899,6 +1113,10 @@ const cellTitle = (row: number, column: string): string | undefined => {
     // `label` peut être un nombre → `:title` attend une string ; liste → libellés joints
     const text = choiceText(col, v)
     return text === "" ? undefined : text
+  }
+  if (col?.type === "attachment") {
+    const list = attachmentsOf(v)
+    return list.length ? list.map((att) => attachmentTitle(att)).join("\n") : undefined
   }
   return undefined
 }
@@ -1018,8 +1236,15 @@ const editorInputMode = computed(() => {
 })
 
 const startEdit = (row: number, column: string, initial?: string) => {
+  if (props.loading) return
   const col = colOf(column)
   if (isCellLocked(row, column) || col?.type === "boolean") return
+  // Fichier joint : pas d'éditeur texte — Entrée / double-clic ouvrent le sélecteur
+  // (une simple frappe de caractère ne doit **pas** déclencher de boîte de dialogue)
+  if (col?.type === "attachment") {
+    if (initial === undefined) openAttachments(row, column)
+    return
+  }
   const raw = state.value[row]?.[column]
   if (col?.type === "select") {
     const opt = cellOptionsOf(col).find((o) => o.value === raw)
@@ -1093,6 +1318,8 @@ const coerceValue = (col: QSpreadsheetColumn | undefined, text: unknown, old: an
   const raw = String(text ?? "")
   const t = raw.trim()
   if (t === "") return null
+  // Fichier joint : jamais cohérent depuis du texte (saisie, collage, import) → on garde
+  if (col?.type === "attachment") return old
   // Formule A1 : conservée brute dans la cellule (booléen/choix exclus) —
   // `t` (déjà trimé) évite qu'un `"  =…"` ne soit traité comme une formule par
   // `isFormulaRaw` tout en échouant au parsing du moteur.
@@ -1181,6 +1408,155 @@ const toggleBoolean = (row: number, column: string) => {
   setCellValue(row, column, old, !old)
 }
 
+// ─── Fichiers joints (type `attachment`) ───
+/**
+ * Valeur d'une cellule `attachment` → tableau typé. La **normalisation** (tableau,
+ * fichier seul, entrées invalides ignorées) vit dans `lib/fileList.ts`, testée.
+ */
+const attachmentsOf = (value: unknown): QSpreadsheetAttachment[] =>
+  fileAttachmentsOf(value) as QSpreadsheetAttachment[]
+
+const ATTACHMENT_ICONS: Record<FileIconKind, string> = {
+  image: icons.fileImage,
+  video: icons.fileVideo,
+  audio: icons.fileAudio,
+  archive: icons.fileArchive,
+  spreadsheet: icons.fileSpreadsheet,
+  code: icons.fileCode,
+  file: icons.fileText,
+}
+
+const attachmentIcon = (att: QSpreadsheetAttachment) => ATTACHMENT_ICONS[fileIconKind(att)]
+
+const attachmentTitle = (att: QSpreadsheetAttachment) =>
+  `${att.name} — ${formatFileSize(att.size)}`
+
+/** Object URLs créés par le composant (jamais une URL fournie par l'app) */
+const localAttachmentUrls = new Set<string>()
+
+const releaseAttachmentUrl = (url?: string) => {
+  if (!url || !localAttachmentUrls.has(url)) return
+  URL.revokeObjectURL(url)
+  localAttachmentUrls.delete(url)
+}
+
+const attachInputEl = ref<HTMLInputElement | null>(null)
+const attachTarget = ref<{ row: number; column: string } | null>(null)
+
+/** Ouvre le sélecteur de fichiers d'une cellule (`accept` / `multiple` de la colonne) */
+const openAttachments = (row: number, column: string) => {
+  const col = colOf(column)
+  if (!col || col.type !== "attachment" || isCellLocked(row, column)) return
+  const input = attachInputEl.value
+  if (!input) return
+  attachTarget.value = { row, column }
+  input.accept = col.accept ?? ""
+  // `multiple` : explicite, ou déduit du quota (`maxFiles > 1`)
+  input.multiple = col.multiple === true || (col.maxFiles ?? 0) > 1
+  input.value = "" // permet de re-sélectionner le même fichier
+  input.click()
+}
+
+const addAttachments = (row: number, column: string, incoming: File[]) => {
+  const col = colOf(column)
+  if (!col || col.type !== "attachment" || isCellLocked(row, column)) return
+  const old = state.value[row]?.[column]
+  const current = attachmentsOf(old)
+  // Mono-fichier par défaut ; `multiple` (ou un quota > 1, ou un existant multiple)
+  const multiple = col.multiple === true || current.length > 1 || (col.maxFiles ?? 0) > 1
+  const maxFiles = col.maxFiles && col.maxFiles > 0 ? col.maxFiles : multiple ? 0 : 1
+
+  const { accepted, rejected } = selectFiles(incoming, {
+    accept: col.accept,
+    maxSize: col.maxFileSize,
+    maxFiles,
+    // En mono-fichier le nouveau remplace l'ancien : il ne consomme pas de quota
+    current: multiple ? current.length : 0,
+  })
+
+  if (accepted.length === 0) {
+    if (rejected.length) {
+      emit("files", { row, column, rowIndex: row, files: [], attachments: current, rejected })
+    }
+    return
+  }
+
+  const added: QSpreadsheetAttachment[] = accepted.map((file) => {
+    const url =
+      typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+        ? URL.createObjectURL(file)
+        : undefined
+    if (url) localAttachmentUrls.add(url)
+    return { id: newRowKey(), name: file.name, size: file.size, type: file.type, url }
+  })
+
+  let next: QSpreadsheetAttachment[]
+  if (multiple) {
+    next = [...current, ...added]
+  } else {
+    // Remplacement : les object URLs de l'ancien fichier sont libérés
+    for (const att of current) releaseAttachmentUrl(att.url)
+    next = added.slice(0, 1)
+  }
+
+  pushHistory()
+  setCellValue(row, column, old, next)
+  emit("files", { row, column, rowIndex: row, files: accepted, attachments: next, rejected })
+}
+
+const removeAttachment = (row: number, column: string, id: string) => {
+  if (isCellLocked(row, column)) return
+  const old = state.value[row]?.[column]
+  const current = attachmentsOf(old)
+  const target = current.find((att) => att.id === id)
+  if (!target) return
+  releaseAttachmentUrl(target.url)
+  const next = current.filter((att) => att.id !== id)
+  pushHistory()
+  setCellValue(row, column, old, next.length ? next : null)
+}
+
+const onAttachmentsChange = (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = "" // permet de re-sélectionner le même fichier
+  const target = attachTarget.value
+  attachTarget.value = null
+  if (!target || files.length === 0) return
+  addAttachments(target.row, target.column, files)
+}
+
+/**
+ * Clic sur une puce de fichier : le composant n'ouvre **rien** lui-même (il ne connaît pas
+ * la visionneuse de l'app) — il émet `attachment-click` avec la cellule et la ligne
+ * complète. Le clic sur le `×` (retrait) est stoppé et ne passe pas ici.
+ */
+const emitAttachmentClick = (
+  row: number,
+  column: string,
+  attachment: QSpreadsheetAttachment,
+  event: MouseEvent,
+) => {
+  const value = state.value[row]?.[column]
+  emit("attachment-click", {
+    row,
+    column,
+    attachment,
+    attachments: attachmentsOf(value),
+    value,
+    rowData: state.value[row] ?? {},
+    event,
+  })
+}
+
+/** Démontage : libère les object URLs encore en vie (l'app garde les siens) */
+onBeforeUnmount(() => {
+  for (const url of [...localAttachmentUrls]) {
+    URL.revokeObjectURL(url)
+    localAttachmentUrls.delete(url)
+  }
+})
+
 const clearSelection = () => {
   const rect = selRect.value
   if (!rect) return
@@ -1190,8 +1566,13 @@ const clearSelection = () => {
       const col = cols.value[c]
       if (!col || isCellLocked(r, col.name)) continue
       const v = state.value[r]?.[col.name]
-      if (!isBlankValue(v) && !(Array.isArray(v) && v.length === 0))
+      if (!isBlankValue(v) && !(Array.isArray(v) && v.length === 0)) {
+        // Effacer une cellule `attachment` libère ses object URLs locales
+        if (col.type === "attachment") {
+          for (const att of attachmentsOf(v)) releaseAttachmentUrl(att.url)
+        }
         changed.push({ row: r, column: col.name })
+      }
     }
   }
   if (!changed.length) return
@@ -1512,6 +1893,10 @@ const sortByColumn = (column?: string, desc = false) => {
       // `label` peut être numérique → toString avant comparaison ; liste → libellés joints
       return choiceText(col, raw).toLowerCase()
     }
+    // Fichier joint : tri sur les noms (jamais `[object Object]`)
+    if (col?.type === "attachment") {
+      return attachmentsOf(raw).map((att) => att.name).join(", ").toLowerCase()
+    }
     return String(ev).toLowerCase()
   }
   const sortedIdx = state.value
@@ -1606,7 +1991,7 @@ const jumpPage = (dir: 1 | -1, extend = false) => {
   if (!sel.value || !visibleRows.value.length) return
   let idx = visibleRows.value.indexOf(sel.value.row)
   if (idx < 0) idx = 0
-  const page = Math.max(1, Math.floor(viewH.value / props.rowHeight))
+  const page = Math.max(1, Math.floor(viewH.value / cellHeightPx.value))
   let target = idx
   for (let k = 0; k < page; k++) {
     const n = nextVisibleIndex(target, dir)
@@ -1712,6 +2097,8 @@ const fillRightKey = () => {
 
 // ─── Clavier global (navigation / édition) ───
 const onKeydown = (e: KeyboardEvent) => {
+  // Données en cours de chargement : on ne navigue ni n'édite une page périmée
+  if (props.loading) return
   if (editing.value) return
   if (!sel.value || !cols.value.length) return
   const mod = e.ctrlKey || e.metaKey
@@ -2294,7 +2681,7 @@ const acceptFxAt = (i: number) => {
 
 // ════════ Hauteurs de lignes (resize au drag sur le numéro) ════════
 const rowHeights = ref<Record<number, number>>({})
-const rowH = (r: number) => rowHeights.value[r] ?? props.rowHeight
+const rowH = (r: number) => rowHeights.value[r] ?? cellHeightPx.value
 
 const rowResizing = ref<{ r: number; y: number; h: number } | null>(null)
 const startRowResize = (e: PointerEvent, r: number) => {
@@ -2450,9 +2837,9 @@ const gutterW = computed(() => (props.showRowNumbers ? 34 : 0))
 const headH = computed(() => (props.showColumnHeaders ? 28 : 0))
 const colWNum = (ci: number) => {
   const c = cols.value[ci]
-  if (!c) return props.defaultColWidth
-  const w = colWidths.value[c.name] ?? c.width ?? props.defaultColWidth
-  return typeof w === "number" ? w : parseFloat(w) || props.defaultColWidth
+  if (!c) return cellWidthPx.value
+  const w = colWidths.value[c.name] ?? c.width ?? cellWidthPx.value
+  return typeof w === "number" ? w : parseFloat(w) || cellWidthPx.value
 }
 const frozenLeftOf = (ci: number) => {
   let l = gutterW.value
@@ -2505,7 +2892,9 @@ const filters = ref<Record<string, string[] | null>>({})
 const filterValuesOf = (raw: any): any[] => {
   if (Array.isArray(raw)) {
     const values = raw.filter((v) => !isBlankValue(v))
-    return values.length ? values : [null]
+    // Fichier joint : la valeur filtrante est le **nom** du fichier, pas l'objet
+    const mapped = values.map((v) => (isAttachment(v) ? v.name : v))
+    return mapped.length ? mapped : [null]
   }
   return isBlankValue(raw) ? [null] : [raw]
 }
@@ -2668,7 +3057,7 @@ const updateRange = () => {
   }
   const start = Math.max(0, lo - VIRTUAL_OVERSCAN)
   let end = start
-  while (end < n && info.rows[end]!.top < bottom + VIRTUAL_OVERSCAN * props.rowHeight) end++
+  while (end < n && info.rows[end]!.top < bottom + VIRTUAL_OVERSCAN * cellHeightPx.value) end++
   end = Math.min(n - 1, end + VIRTUAL_OVERSCAN)
   renderRange.value = { start, end }
   topPad.value = Math.max(0, info.rows[start]!.top - headH.value)
@@ -2692,7 +3081,7 @@ const ensureRowVisible = (realRow: number) => {
   // scroll-behavior: smooth (CSS) anime la remontée / descente ; le focus est
   // différé jusqu'à ce que la ligne soit effectivement rendue par la fenêtre
   pendingFocus.value = { row: realRow, col: cols.value[sel.value?.column ? colIndex(sel.value.column) : 0]?.name ?? "" }
-  el.scrollTop = Math.max(0, info.top - headH.value - VIRTUAL_OVERSCAN * props.rowHeight)
+  el.scrollTop = Math.max(0, info.top - headH.value - VIRTUAL_OVERSCAN * cellHeightPx.value)
   updateRange()
 }
 
@@ -2902,7 +3291,7 @@ const insertColumnAt = (pos: "left" | "right") => {
   const nextCols = [...cols.value]
   nextCols.splice(idx, 0, col)
   cols.value = nextCols
-  colWidths.value = { ...colWidths.value, [name]: props.defaultColWidth }
+  colWidths.value = { ...colWidths.value, [name]: cellWidthPx.value }
   const nextRows = state.value.map((r) => ({ ...r, [name]: "" }))
   state.value = nextRows
   emit("update:columns", nextCols)
@@ -3173,13 +3562,13 @@ const isActiveRow = (r: number) => {
 const colWidths = ref<Record<string, string | number>>({})
 const syncColWidths = () => {
   const next: Record<string, string | number> = {}
-  for (const c of cols.value) next[c.name] = c.width ?? props.defaultColWidth
+  for (const c of cols.value) next[c.name] = c.width ?? cellWidthPx.value
   colWidths.value = next
 }
 watch(cols, syncColWidths, { immediate: true, deep: true })
 
 const widthStyle = (col: QSpreadsheetColumn) => {
-  const w = colWidths.value[col.name] ?? col.width ?? props.defaultColWidth
+  const w = colWidths.value[col.name] ?? col.width ?? cellWidthPx.value
   return typeof w === "number" ? w + "px" : w
 }
 const minW = (col: QSpreadsheetColumn) => (col.minWidth ?? 60) + "px"
@@ -3195,7 +3584,7 @@ const startResize = (e: PointerEvent, col: QSpreadsheetColumn) => {
   resizing.value = {
     col,
     x: e.clientX,
-    w: typeof current === "number" ? current : props.defaultColWidth,
+    w: typeof current === "number" ? current : cellWidthPx.value,
   }
   window.addEventListener("pointermove", onResizeMove)
   window.addEventListener("pointerup", endResize)
@@ -3335,13 +3724,28 @@ const cellContent = (row: number, col: QSpreadsheetColumn) => {
   return cellText(row, col.name)
 }
 
+/**
+ * Props des slots de cellule (`#cell-<nom>`, `#cell`) : tout ce qu'un composant
+ * personnalisé peut vouloir, sans que le template ait à connaître l'API interne.
+ * `setValue` passe par l'historique et les événements (`cell-change`, `update:rows`).
+ */
+const cellSlotProps = (row: number, col: QSpreadsheetColumn, columnIndex: number) => ({
+  row: state.value[row] ?? {},
+  rowIndex: row,
+  column: col,
+  columnIndex,
+  value: cellValue(row, col.name),
+  text: cellText(row, col.name),
+  setValue: (next: any) => setCellValue(row, col.name, state.value[row]?.[col.name], next),
+})
+
 const editingCol = computed(() => (editing.value ? colOf(editing.value.column) : undefined))
 
 const selLabel = computed(() => {
   if (!sel.value) return ""
   const ci = colIndex(sel.value.column)
   if (ci === -1) return ""
-  return colLetter(ci) + (sel.value.row + 1)
+  return colLetter(ci) + (rowOffset.value + sel.value.row + 1)
 })
 
 const optionIsActive = (opt: QSpreadsheetCellOption) => activeOption.value === opt
@@ -3369,7 +3773,7 @@ const switching = ref(false)
 
 const makeExtras = (cols: QSpreadsheetColumn[]): SheetExtras => {
   const widths: Record<string, number | string> = {}
-  for (const c of cols) widths[c.name] = c.width ?? props.defaultColWidth
+  for (const c of cols) widths[c.name] = c.width ?? cellWidthPx.value
   return {
     cols: cols.map((c) => ({ ...c })),
     widths,
@@ -3442,7 +3846,7 @@ const canonicalColumns = (columns: QSpreadsheetColumn[] | undefined): QSpreadshe
     ...c,
     type: c.type ?? "text",
     options: c.options ?? [],
-    width: c.width ?? props.defaultColWidth,
+    width: c.width ?? cellWidthPx.value,
   }))
 
 watch(
@@ -4630,7 +5034,12 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="rootRef" class="q-spreadsheet" :class="rootClasses" :style="radiusStyle(effectiveRadius)">
+  <div
+    ref="rootRef"
+    class="q-spreadsheet"
+    :class="rootClasses"
+    :style="[radiusStyle(effectiveRadius), cellSizeStyle]"
+  >
     <!-- ═══════ Onglets de feuilles (classeur, haut) ═══════ -->
     <div
       v-if="sheetsMode && sheetsPosition === 'top'"
@@ -4936,6 +5345,7 @@ defineExpose({
       class="q-spreadsheet__viewport"
       :style="{ height: heightStyle }"
       tabindex="0"
+      :aria-busy="loading || undefined"
       @keydown="onKeydown"
       @scroll="onViewportScroll"
       @contextmenu.prevent
@@ -4977,10 +5387,18 @@ defineExpose({
               @click="selectCol(ci, $event.shiftKey)"
               @contextmenu="onColContext(ci, $event)"
             >
-              <span class="q-spreadsheet__colhead-inner">
-                <span class="q-spreadsheet__colhead-letter">{{ colLetter(ci) }}</span>
-                <span class="q-spreadsheet__colhead-label">{{ col.label || col.name }}</span>
-              </span>
+              <slot
+                :name="'head-' + col.name"
+                :column="col"
+                :column-index="ci"
+                :letter="colLetter(ci)"
+                :label="col.label || col.name"
+              >
+                <span class="q-spreadsheet__colhead-inner">
+                  <span class="q-spreadsheet__colhead-letter">{{ colLetter(ci) }}</span>
+                  <span class="q-spreadsheet__colhead-label">{{ col.label || col.name }}</span>
+                </span>
+              </slot>
               <button
                 class="q-spreadsheet__fbtn"
                 :class="{ 'q-spreadsheet__fbtn--on': hasFilterFor(col.name) }"
@@ -5034,7 +5452,7 @@ defineExpose({
               @click="selectRow(ri, $event.shiftKey)"
               @contextmenu="onRowContext(ri, $event)"
             >
-              {{ ri + 1 }}
+              {{ rowOffset + ri + 1 }}
               <span
                 class="q-spreadsheet__row-resize"
                 title="Resize row"
@@ -5070,47 +5488,111 @@ defineExpose({
               @dblclick="startEdit(ri, col.name)"
               @contextmenu="onCellContext(ri, col.name, $event)"
             >
-              <!-- booléen -->
-              <button
-                v-if="col.type === 'boolean'"
-                type="button"
-                class="q-spreadsheet__checkbox"
-                :class="{ 'q-spreadsheet__checkbox--on': !!cellValue(ri, col.name) }"
-                :disabled="isCellLocked(ri, col.name)"
-                aria-label="Toggle"
-                @click.stop="toggleBoolean(ri, col.name)"
-              >
-                <Icon v-if="cellValue(ri, col.name)" :icon="icons.check" aria-hidden="true" />
-              </button>
+              <!-- contenu personnalisé : `#cell-<nom>` (prioritaire), puis `#cell` -->
+              <slot
+                v-if="$slots['cell-' + col.name]"
+                :name="'cell-' + col.name"
+                v-bind="cellSlotProps(ri, col, ci)"
+              />
+              <slot
+                v-else-if="$slots.cell"
+                name="cell"
+                v-bind="cellSlotProps(ri, col, ci)"
+              />
+              <template v-else>
+                <!-- booléen -->
+                <button
+                  v-if="col.type === 'boolean'"
+                  type="button"
+                  class="q-spreadsheet__checkbox"
+                  :class="{ 'q-spreadsheet__checkbox--on': !!cellValue(ri, col.name) }"
+                  :disabled="isCellLocked(ri, col.name)"
+                  aria-label="Toggle"
+                  @click.stop="toggleBoolean(ri, col.name)"
+                >
+                  <Icon v-if="cellValue(ri, col.name)" :icon="icons.check" aria-hidden="true" />
+                </button>
 
-              <!-- select : badge coloré -->
-              <span
-                v-else-if="col.type === 'select' && badgeOf(col, cellValue(ri, col.name))"
-                class="q-spreadsheet__badge"
-                :style="badgeOf(col, cellValue(ri, col.name))!.style"
-              >
-                {{ badgeOf(col, cellValue(ri, col.name))!.label }}
-              </span>
-
-              <!-- multiselect : une série de badges colorés -->
-              <span
-                v-else-if="col.type === 'multiselect' && multiBadges(col, cellValue(ri, col.name)).length"
-                class="q-spreadsheet__badges"
-              >
+                <!-- fichier joint : vignette (images) ou icône typée + nom + retrait -->
                 <span
-                  v-for="(badge, bi) in multiBadges(col, cellValue(ri, col.name))"
-                  :key="bi"
-                  class="q-spreadsheet__badge"
-                  :style="badge.style"
-                >{{ badge.label }}</span>
-              </span>
+                  v-else-if="col.type === 'attachment'"
+                  class="q-spreadsheet__attachments"
+                >
+                  <span
+                    v-for="att in attachmentsOf(cellValue(ri, col.name))"
+                    :key="att.id"
+                    class="q-spreadsheet__attachment"
+                    :title="attachmentTitle(att)"
+                    role="button"
+                    tabindex="-1"
+                    @click="emitAttachmentClick(ri, col.name, att, $event)"
+                    @dblclick.stop
+                  >
+                    <img
+                      v-if="att.url && att.type.startsWith('image/')"
+                      :src="att.url"
+                      class="q-spreadsheet__attachment-thumb"
+                      :alt="att.name"
+                    />
+                    <Icon
+                      v-else
+                      :icon="attachmentIcon(att)"
+                      class="q-spreadsheet__attachment-icon"
+                      aria-hidden="true"
+                    />
+                    <span class="q-spreadsheet__attachment-name">{{ att.name }}</span>
+                    <button
+                      v-if="!isCellLocked(ri, col.name)"
+                      type="button"
+                      class="q-spreadsheet__attachment-x"
+                      :aria-label="`Remove ${att.name}`"
+                      @click.stop="removeAttachment(ri, col.name, att.id)"
+                      @dblclick.stop
+                    >
+                      <Icon :icon="icons.x" aria-hidden="true" />
+                    </button>
+                  </span>
+                  <button
+                    v-if="!isCellLocked(ri, col.name)"
+                    type="button"
+                    class="q-spreadsheet__attachment-add"
+                    :aria-label="col.multiple ? 'Add files' : 'Add a file'"
+                    @click.stop="openAttachments(ri, col.name)"
+                    @dblclick.stop
+                  >
+                    <Icon :icon="icons.plus" aria-hidden="true" />
+                  </button>
+                </span>
 
-              <!-- valeur -->
-              <span
-                v-else
-                class="q-spreadsheet__cell-text"
-                :class="cellTextWrapClass(ri, col.name)"
-              >{{ cellContent(ri, col) }}</span>
+                <!-- select : badge coloré -->
+                <span
+                  v-else-if="col.type === 'select' && badgeOf(col, cellValue(ri, col.name))"
+                  class="q-spreadsheet__badge"
+                  :style="badgeOf(col, cellValue(ri, col.name))!.style"
+                >
+                  {{ badgeOf(col, cellValue(ri, col.name))!.label }}
+                </span>
+
+                <!-- multiselect : une série de badges colorés -->
+                <span
+                  v-else-if="col.type === 'multiselect' && multiBadges(col, cellValue(ri, col.name)).length"
+                  class="q-spreadsheet__badges"
+                >
+                  <span
+                    v-for="(badge, bi) in multiBadges(col, cellValue(ri, col.name))"
+                    :key="bi"
+                    class="q-spreadsheet__badge"
+                    :style="badge.style"
+                  >{{ badge.label }}</span>
+                </span>
+
+                <!-- valeur -->
+                <span
+                  v-else
+                  class="q-spreadsheet__cell-text"
+                  :class="cellTextWrapClass(ri, col.name)"
+                >{{ cellContent(ri, col) }}</span>
+              </template>
             </td>
           </tr>
           <template v-if="virtualOn && bottomPad > 0">
@@ -5140,6 +5622,16 @@ defineExpose({
         :style="fillHandleStyle"
         @pointerdown.stop.prevent="startFill($event)"
         @dblclick.stop.prevent="fillHandleDbl"
+      />
+
+      <!-- Sélecteur de fichiers des cellules `attachment` (input natif, masqué) -->
+      <input
+        ref="attachInputEl"
+        type="file"
+        class="q-spreadsheet__attach-input"
+        tabindex="-1"
+        aria-hidden="true"
+        @change="onAttachmentsChange"
       />
 
       <!-- ═══════ Éditeur overlay ═══════ -->
@@ -5297,6 +5789,30 @@ defineExpose({
         {{ changesLabel }}
       </span>
       <span class="q-spreadsheet__status-spacer" />
+      <span v-if="paginationOn" class="q-spreadsheet__pager">
+        <button
+          class="q-spreadsheet__tool"
+          type="button"
+          :disabled="loading || currentPage <= 1"
+          :title="t('pagePrev')"
+          :aria-label="t('pagePrev')"
+          @click="goPage(currentPage - 1)"
+        >
+          <Icon :icon="icons.chevronLeft" aria-hidden="true" />
+        </button>
+        <span class="q-spreadsheet__pager-range">{{ pageRangeLabel }}</span>
+        <span class="q-spreadsheet__pager-page">{{ pageLabel }}</span>
+        <button
+          class="q-spreadsheet__tool"
+          type="button"
+          :disabled="loading || currentPage >= pageCount"
+          :title="t('pageNext')"
+          :aria-label="t('pageNext')"
+          @click="goPage(currentPage + 1)"
+        >
+          <Icon :icon="icons.chevronRight" aria-hidden="true" />
+        </button>
+      </span>
       <span v-if="multiMode" class="q-spreadsheet__status-item">{{ statusSheets }}</span>
       <span class="q-spreadsheet__status-zoom">
         <button class="q-spreadsheet__tool" type="button" title="Zoom out" aria-label="Zoom out" @click="zoomOut">
@@ -5311,6 +5827,18 @@ defineExpose({
       </span>
     </div>
 
+    <!--
+      Chargement distant (pagination, rechargement…) : voile sur **toute** la carte.
+      Posé ici (et non dans `.q-spreadsheet__viewport`) : un `absolute` dans le conteneur
+      scrollable défilerait avec le contenu — le voile sortirait du cadre visible.
+    -->
+    <QInnerLoading :showing="loading">
+      <slot name="loading">
+        <span class="q-spinner-ring q-spreadsheet__loader" aria-hidden="true" />
+        <span class="q-inner-loading__label">{{ loadingLabel || t('loading') }}</span>
+      </slot>
+    </QInnerLoading>
+
     <!-- ═══════ Menu contextuel (clic droit) ═══════ -->
     <Teleport to="body">
       <div
@@ -5321,7 +5849,7 @@ defineExpose({
         @contextmenu.prevent
       >
         <div class="q-spreadsheet__ctx-title">
-          <span v-if="ctxMenu.kind === 'row' && sel">{{ t('rowLbl') }} {{ sel.row + 1 }}</span>
+          <span v-if="ctxMenu.kind === 'row' && sel">{{ t('rowLbl') }} {{ rowOffset + sel.row + 1 }}</span>
           <span v-else-if="ctxMenu.kind === 'col' && sel">{{ t('colLbl') }} {{ colLetter(colIndex(sel.column)) }}</span>
           <span v-else>{{ selLabel || t('cellLbl') }}</span>
         </div>

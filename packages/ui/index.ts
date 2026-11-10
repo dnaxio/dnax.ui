@@ -209,6 +209,20 @@ export type { TextareaMetrics, TextareaSizing, TextareaComputedStyle } from "./l
 export { useTextareaAutosize } from "./lib/useTextareaAutosize"
 export type { TextareaAutosize, UseTextareaAutosizeOptions } from "./lib/useTextareaAutosize"
 export { iconsRegistered, registerIconSet, registerIcons } from "./lib/registerIcons"
+export { pageInfo } from "./lib/pagination"
+export type { PageInfo, PageInfoOptions } from "./lib/pagination"
+export { CELL_SIZE_MAX, CELL_SIZE_MIN, CELL_SIZE_PX, cellFontFor, cellSizePx, cellWidthFor } from "./lib/cellSize"
+export type { CellSizePreset } from "./lib/cellSize"
+export { acceptsFile, attachmentsOf, fileIconKind, formatFileSize, isAttachment, selectFiles } from "./lib/fileList"
+export type {
+  AttachmentLike,
+  FileDescriptor,
+  FileIconKind,
+  FileRejection,
+  FileRejectionReason,
+  FileSelection,
+  FileSelectionOptions,
+} from "./lib/fileList"
 export { lucideIconSet } from "./lib/iconSet"
 export { icons } from "./lib/icons"
 export type { IconSetJson } from "./lib/icons"

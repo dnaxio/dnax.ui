@@ -6,6 +6,8 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from "vue"
 import { Icon } from "@iconify/vue"
 import { icons } from "../lib/icons"
 import { cn } from "../lib/utils"
+import { fileIconKind, formatFileSize, selectFiles } from "../lib/fileList"
+import type { FileIconKind } from "../lib/fileList"
 
 interface Props {
   /** Fichier(s) sélectionné(s) — File (simple) ou File[] (multiple) */
@@ -100,51 +102,20 @@ const fileKey = (file: File): number => {
   return id
 }
 
-// — Icône par type de fichier (fallback générique) —
-const ARCHIVE_EXT = /\.(zip|rar|7z|tar|gz|bz2|xz|tgz)$/
-const SPREADSHEET_EXT = /\.(xlsx|xls|csv|ods|tsv)$/
-const CODE_EXT = /\.(json|js|mjs|cjs|ts|jsx|tsx|html?|xml|css|scss|sass|less|vue|py|java|c|cpp|h|hpp|sh|bash|yml|yaml|toml|ini|go|rs|php|rb|swift|kt)$/
-
-const iconFor = (file: File): string => {
-  const type = file.type
-  const name = file.name.toLowerCase()
-  if (type.startsWith("video/")) return icons.fileVideo
-  if (type.startsWith("audio/")) return icons.fileAudio
-  if (ARCHIVE_EXT.test(name) || /zip|compressed/.test(type)) return icons.fileArchive
-  if (SPREADSHEET_EXT.test(name) || type.includes("spreadsheet") || type.includes("excel")) {
-    return icons.fileSpreadsheet
-  }
-  if (CODE_EXT.test(name)) return icons.fileCode
-  if (type.startsWith("image/")) return icons.fileImage
-  return icons.fileText
+// — Icône par type de fichier (règles partagées avec QSpreadsheet `attachment`) —
+const ICON_BY_KIND: Record<FileIconKind, string> = {
+  image: icons.fileImage,
+  video: icons.fileVideo,
+  audio: icons.fileAudio,
+  archive: icons.fileArchive,
+  spreadsheet: icons.fileSpreadsheet,
+  code: icons.fileCode,
+  file: icons.fileText,
 }
 
-const formatSize = (bytes: number): string => {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} Go`
-  if (bytes >= 1024 * 1024) return `${Math.round(bytes / (1024 * 1024))} Mo`
-  if (bytes >= 1024) return `${Math.round(bytes / 1024)} Ko`
-  return `${bytes} o`
-}
+const iconFor = (file: File): string => ICON_BY_KIND[fileIconKind(file)]
 
-// — Validation —
-const acceptsFile = (file: File): boolean => {
-  const accept = props.accept.trim()
-  if (!accept) return true
-  const patterns = accept
-    .split(",")
-    .map((p) => p.trim().toLowerCase())
-    .filter(Boolean)
-  if (patterns.length === 0) return true
-  const name = file.name.toLowerCase()
-  return patterns.some((p) => {
-    if (p === "image/*") return file.type.startsWith("image/")
-    if (p === "video/*") return file.type.startsWith("video/")
-    if (p === "audio/*") return file.type.startsWith("audio/")
-    if (p.startsWith(".")) return name.endsWith(p)
-    if (p.includes("/")) return file.type.toLowerCase() === p
-    return false
-  })
-}
+const formatSize = formatFileSize
 
 const formatMaxSize = () => {
   const bytes = props.maxFileSize
@@ -176,26 +147,12 @@ const onInputChange = (e: Event) => {
 
 const addFiles = (incoming: File[]) => {
   const current = files.value
-  const valid: File[] = []
-  const rejections: { file: File; reason: "size" | "type" | "count" }[] = []
-
-  for (const file of incoming) {
-    if (props.maxFileSize > 0 && file.size > props.maxFileSize) {
-      rejections.push({ file, reason: "size" })
-      continue
-    }
-    if (!acceptsFile(file)) {
-      rejections.push({ file, reason: "type" })
-      continue
-    }
-    valid.push(file)
-  }
-
-  const quota = props.maxFiles > 0 ? props.maxFiles : Infinity
-  const remaining = quota === Infinity ? Infinity : Math.max(0, quota - current.length)
-  const accepted = remaining === Infinity ? valid : valid.slice(0, remaining)
-  const overflow = remaining === Infinity ? [] : valid.slice(remaining)
-  for (const file of overflow) rejections.push({ file, reason: "count" })
+  const { accepted, rejected } = selectFiles(incoming, {
+    accept: props.accept,
+    maxSize: props.maxFileSize,
+    maxFiles: props.maxFiles,
+    current: current.length,
+  })
 
   if (accepted.length > 0) {
     const next = props.multiple ? [...current, ...accepted] : accepted[0]!
@@ -203,14 +160,14 @@ const addFiles = (incoming: File[]) => {
     for (const file of accepted) emit("add", file)
   }
 
-  if (rejections.length > 0) {
-    const reasons = [...new Set(rejections.map((r) => r.reason))]
+  if (rejected.length > 0) {
+    const reasons = [...new Set(rejected.map((r) => r.reason))]
     const parts: string[] = []
     if (reasons.includes("size")) parts.push(`Fichier trop lourd (max ${formatMaxSize()})`)
     if (reasons.includes("type")) parts.push("Type de fichier non accepté")
     if (reasons.includes("count")) parts.push(`Nombre maximum : ${props.maxFiles}`)
     internalError.value = parts.join(" · ")
-    for (const r of rejections) emit("rejected", r.file, r.reason)
+    for (const r of rejected) emit("rejected", r.file, r.reason)
   }
 }
 

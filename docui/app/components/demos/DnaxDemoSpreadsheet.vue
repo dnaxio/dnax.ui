@@ -28,6 +28,10 @@ const props = defineProps<{
     | "events"
     | "big"
     | "variants"
+    | "attachment"
+    | "slots"
+    | "pagination"
+    | "size"
 }>()
 
 // — Demos —
@@ -192,6 +196,123 @@ const timeRows = ref([
   { task: "", day: "2026-09-07", start: null, end: null },
   { task: "", day: "2026-09-07", start: null, end: null },
 ])
+
+// — Attachment demo : fichiers joints (`accept`, `multiple`, `maxFiles`) —
+const attachmentColumns = [
+  {
+    name: "shots",
+    label: "Screenshots",
+    type: "attachment" as const,
+    accept: "image/*",
+    multiple: true,
+    maxFiles: 3,
+    width: 260,
+  },
+  {
+    name: "contract",
+    label: "Contract",
+    type: "attachment" as const,
+    accept: ".pdf,.docx",
+    width: 210,
+  },
+]
+const attachmentRows = ref([
+  {
+    shots: [
+      { id: "shot-1", name: "login.png", size: 24_576, type: "image/png" },
+      { id: "shot-2", name: "dashboard.png", size: 61_440, type: "image/png" },
+    ],
+    contract: { id: "doc-1", name: "nda-2026.pdf", size: 184_320, type: "application/pdf" },
+  },
+  { shots: [], contract: null },
+  { shots: [], contract: null },
+])
+const lastFiles = ref("")
+const lastClick = ref("")
+
+const onAttach = (payload: {
+  files: File[]
+  attachments: { name: string }[]
+  rejected: { file: File; reason: string }[]
+}) => {
+  if (payload.rejected.length) {
+    lastFiles.value = `${payload.rejected.length} rejected (${payload.rejected.map((r) => r.reason).join(", ")})`
+    return
+  }
+  lastFiles.value =
+    payload.files.map((file) => file.name).join(", ") ||
+    payload.attachments.map((att) => att.name).join(", ")
+}
+
+// Clic sur une puce : c'est l'app qui ouvre l'aperçu (ici, on journalise)
+const onAttachClick = (payload: {
+  row: number
+  column: string
+  attachment: { name: string }
+  rowData: Record<string, any>
+}) => {
+  lastClick.value = `${payload.attachment.name} → ${payload.column} (row ${payload.row + 1})`
+}
+
+// — Slots demo : cellule et en-tête personnalisés (`#cell-<nom>` / `#head-<nom>`) —
+const slotColumns = [
+  { name: "task", label: "Task", width: 200 },
+  { name: "status", label: "Status", width: 150 },
+  { name: "progress", label: "Progress", type: "number" as const, width: 150 },
+]
+const slotRows = ref([
+  { task: "Design tokens", status: "done", progress: 100 },
+  { task: "Spreadsheet", status: "doing", progress: 65 },
+  { task: "Documentation", status: "todo", progress: 10 },
+])
+const statusLabel: Record<string, string> = { done: "Done", doing: "In progress", todo: "To do" }
+
+// — Pagination demo : 2 400 lignes « côté serveur », 50 par page —
+const allClients = Array.from({ length: 2400 }, (_, i) => ({
+  id: i + 1,
+  client: `Client ${String(i + 1).padStart(4, "0")}`,
+  country: ["FR", "US", "DE", "SN", "CA"][i % 5],
+  amount: Math.round((((i * 37) % 900) + 100) * 100) / 100,
+}))
+const PAGINATION_SIZE = 50
+const paginationColumns = [
+  { name: "id", label: "ID", type: "number" as const, width: 90 },
+  { name: "client", label: "Client", width: 190 },
+  { name: "country", label: "Country", width: 110 },
+  { name: "amount", label: "Amount", type: "number" as const, width: 140 },
+]
+const paginatedPage = ref(1)
+const paginatedRows = ref(allClients.slice(0, PAGINATION_SIZE))
+const paginationLog = ref("")
+const paginationLoading = ref(false)
+
+/** Pagination **distante** : on ne remplace que la page courante (ici, API simulée) */
+const onPageChange = (payload: { page: number; offset: number; pageSize: number; totalRows: number }) => {
+  paginationLoading.value = true
+  paginationLog.value = `loading page ${payload.page}…`
+  setTimeout(() => {
+    paginatedRows.value = allClients.slice(payload.offset, payload.offset + payload.pageSize)
+    paginationLoading.value = false
+    const last = payload.offset + paginatedRows.value.length
+    paginationLog.value = `page ${payload.page} → rows ${payload.offset + 1}–${last} of ${payload.totalRows}`
+  }, 450)
+}
+
+// — Size demo : `sizeCell` (presets + valeur en px) —
+const sizeColumns = [
+  { name: "task", label: "Task", width: 150 },
+  { name: "hours", label: "Hours", type: "number" as const, width: 80 },
+]
+const sizeRows = ref([
+  { task: "Design tokens", hours: 12 },
+  { task: "Grid engine", hours: 34 },
+])
+const sizePresets = [
+  { value: "sm" as const, label: "sm — rows 28px" },
+  { value: "md" as const, label: "md — rows 32px (défaut)" },
+  { value: "lg" as const, label: "lg — rows 40px" },
+  { value: 66, label: "66 — hauteur en px" },
+]
 
 // — Choice demo : choix unique (`select`) vs choix multiples (`multiselect`) —
 const choiceColumns = [
@@ -942,9 +1063,138 @@ onMounted(() => {
       readonly
     />
   </div>
+  <div v-else-if="demo === 'attachment'">
+    <q-spreadsheet
+      v-model:rows="attachmentRows"
+      :columns="attachmentColumns"
+      height="230px"
+      bordered
+      @files="onAttach"
+      @attachment-click="onAttachClick"
+    />
+    <p class="demo-p demo-log">
+      <code>accept</code> is enforced (screenshots: images only, 3 max · contract: pdf/docx,
+      one file). <code>@files</code> → {{ lastFiles || "—" }} ·
+      <code>@attachment-click</code> → {{ lastClick || "—" }}
+    </p>
+  </div>
+
+  <div v-else-if="demo === 'slots'">
+    <q-spreadsheet v-model:rows="slotRows" :columns="slotColumns" height="210px" bordered>
+      <template #head-status="{ column }">
+        <span class="demo-head">
+          <q-icon name="lucide:activity" size="14px" />
+          {{ column.label }}
+        </span>
+      </template>
+      <template #cell-status="{ value }">
+        <span class="demo-status" :class="`demo-status--${value}`">
+          {{ statusLabel[value] || value }}
+        </span>
+      </template>
+      <template #cell-progress="{ value, setValue }">
+        <span class="demo-progress" @click.stop="setValue(Math.min(100, Number(value || 0) + 10))">
+          <span class="demo-progress__bar" :style="{ width: `${value || 0}%` }" />
+          <span class="demo-progress__pct">{{ value }}%</span>
+        </span>
+      </template>
+    </q-spreadsheet>
+    <p class="demo-p demo-log">
+      <code>#cell-&lt;name&gt;</code> replaces one column's cells (with <code>value</code> /
+      <code>setValue</code>), <code>#head-&lt;name&gt;</code> its header. Click the bar to +10%.
+    </p>
+  </div>
+
+  <div v-else-if="demo === 'pagination'">
+    <q-spreadsheet
+      v-model:rows="paginatedRows"
+      v-model:page="paginatedPage"
+      :columns="paginationColumns"
+      :page-size="50"
+      :total-rows="allClients.length"
+      :loading="paginationLoading"
+      height="240px"
+      bordered
+      @page-change="onPageChange"
+    />
+    <p class="demo-p demo-log">
+      Remote pagination — the grid only ever holds <strong>50 rows</strong>; row headers are
+      numbered globally (page 2 starts at 51) and a veil covers the grid while loading.
+      {{ paginationLog || "Click › in the status bar to load the next page." }}
+    </p>
+  </div>
+
+  <div v-else-if="demo === 'size'" class="demo-size">
+    <div v-for="preset in sizePresets" :key="String(preset.value)" class="demo-size__item">
+      <q-spreadsheet
+        :rows="sizeRows"
+        :columns="sizeColumns"
+        :size-cell="preset.value"
+        height="170px"
+        :show-toolbar="false"
+        bordered
+      />
+      <span class="demo-p demo-log">{{ preset.label }}</span>
+    </div>
+  </div>
 </template>
 
 <style scoped>
+.demo-size {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.demo-size__item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.demo-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.demo-status {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: rgb(0 0 0 / 0.08);
+}
+.demo-status--done {
+  background: color-mix(in srgb, var(--positive) 18%, transparent);
+  color: var(--positive);
+}
+.demo-status--doing {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+.demo-status--todo {
+  background: rgb(0 0 0 / 0.07);
+  color: rgb(0 0 0 / 0.55);
+}
+.demo-progress {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  cursor: pointer;
+}
+.demo-progress__bar {
+  display: block;
+  height: 8px;
+  min-width: 2px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+.demo-progress__pct {
+  font-size: 11.5px;
+  color: rgb(0 0 0 / 0.55);
+}
 .demo-log {
   margin-top: 10px;
   font-size: 13px;

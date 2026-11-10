@@ -3436,3 +3436,156 @@ préférer une **échelle** (`"md"`).
 `/docs/layouts/config-provider` → 200 avec la nouvelle section et `--q-radius:8px` rendu en
 SSR. Doc : tableau « one boolean, several native shapes » dans
 `2.layouts/1.config-provider.md`.
+
+## QSpreadsheet — type `attachment` + slots `#cell-<nom>` / `#head-<nom>` — 2026-11-01
+
+`filename: packages/ui/components/QSpreadsheet.vue`, `lib/fileList.ts`,
+`docui/content/docs/4.components/spreadsheet.md`
+
+**Type de cellule `attachment`** (`QSpreadsheetCellType`) :
+
+- Colonne : `accept?: string` (syntaxe de `<input type=file>` : `image/*`, `application/pdf`,
+  `.pdf,.docx`), `multiple?: boolean`, `maxFiles?: number`, `maxFileSize?: number`.
+- **Valeur stockée** : `QSpreadsheetAttachment[]` = `{ id, name, size, type, url? }` —
+  **jamais** le `File` (non sérialisable, casserait `toJSON`/sheets/undo/change tracking).
+  Un tableau vide → `null`.
+- **Événement `files`** : `{ row, column, rowIndex, files, attachments, rejected }`. `files`
+  = binaires **ajoutés** (à uploader), `attachments` = état complet de la cellule,
+  `rejected` = refusés (`type` | `size` | `count`). L'app réinjecte ensuite ses URLs
+  d'upload dans `url` → vignette/téléchargement.
+- **Événement `attachment-click`** : clic sur une **puce** → `{ row, column, attachment,
+attachments, value, rowData, event }`. Le composant n'ouvre **rien** lui-même (il ne
+  connaît pas la visionneuse de l'app) : l'app ouvre son modal avec la cellule **et** la
+  ligne complète. La puce est `role="button"` + `cursor: pointer` (hover) ; `@dblclick.stop`
+  évite d'ouvrir le sélecteur par accident, et le `×` (`.stop`) ne déclenche pas l'événement.
+- **Règles** : `accept`, taille et quota sont validés **en code** (`selectFiles`), pas
+  seulement par le navigateur. Mono-fichier par défaut (le nouveau remplace l'ancien) ;
+  `multiple` (ou `maxFiles > 1`) empile.
+- **Interactions** : Entrée / double-clic / puce `+` ouvrent le sélecteur — une **frappe**
+  de caractère n'ouvre rien (pas de `startEdit`), `coerceValue` ignore le texte, le collage
+  et l'import ne produisent jamais d'attachment.
+- **Rendu** : une puce par fichier (vignette si `type` image + `url`, sinon icône typée
+  `image|video|audio|archive|spreadsheet|code|text`), `×` de retrait, bouton `+`.
+  `cellText` = noms joints (find/CSV/copie/tri), `filterValuesOf` = noms, tri = noms.
+- **Object URLs** : créés par le composant, suivis dans un `Set` et **révoqués** au retrait,
+  au remplacement, à l'effacement de sélection et au démontage. Une `url` fournie par l'app
+  n'est jamais révoquée.
+
+**Slots dynamiques** (le nom porte le `name` de la colonne) :
+
+- `#cell-<nom>` (prioritaire), `#cell` (toutes les colonnes), `#head-<nom>` (en-tête).
+- Props : `row`, `rowIndex`, `column`, `columnIndex`, `value` (stockée), `text` (affichée,
+  formatée), `setValue(next)` — qui passe par l'historique + `cell-change` + `update:rows`.
+  Fabriqué par `cellSlotProps(row, col, ci)` (une fermeture, pas d'arrow typée dans le
+  template : Volar signalait `Parameter 'next' implicitly has an 'any' type`).
+- Le slot ne remplace que le **contenu rendu** : sélection, clavier, poignée de
+  remplissage, filtres, tri et export continuent. L'en-tête garde le bouton filtre, la
+  poignée de redimensionnement et le drag de colonne.
+
+**Helpers partagés** (`lib/fileList.ts`, pur, testé) : `acceptsFile`, `fileIconKind`,
+`formatFileSize`, `selectFiles` (type → taille → quota, dans cet ordre), `isAttachment`,
+`attachmentsOf`. `QFilePicker` **réutilise** ces helpers (plus de doublons regex/formatSize).
+
+**Vérif** : `lib/fileList.test.ts` (**14 tests**) ; `bun test lib` → **593 pass / 0 fail** ;
+build docs EXIT 0 ; `curl /docs/components/spreadsheet` → 200 avec les puces
+(`q-spreadsheet__attachment`, `nda-2026.pdf`, `login.png`), le bouton `+` et les deux démos
+`attachment` / `slots` (`demo-status--doing`, `demo-progress__bar`) rendues en SSR ;
+`attachment-click` (12 occurrences), section « Opening a file » et `role="button"` sur les
+3 puces du demo.
+
+## QSpreadsheet — pagination distante (`page-size`, `v-model:page`, `page-change`) — 2026-11-01
+
+`filename: packages/ui/components/QSpreadsheet.vue`, `lib/pagination.ts`
+
+**Besoin** : limiter l'affichage (ex. 400 lignes), naviguer précédent/suivant, **charger** les
+données à chaque changement de page, et numéroter les lignes **globalement** (page 2 → 401).
+
+**Décision : pagination distante uniquement** — le tableau ne découpe **jamais** `rows` :
+`rows` contient la page courante. Découper en interne aurait cassé les index partout
+(sélection, `focusCell` via `data-row`, poignée de remplissage, undo/redo, `update:rows`).
+
+- Props : `pageSize` (0 = off, défaut), `page` (`v-model:page`, 1-based), `totalRows`
+  (total distant ; défaut = `rows.length`).
+- Événements : `update:page` + **`page-change`** `{ page, previousPage, pageSize, offset,
+  totalRows, pageCount }` — `offset` est l'index global 0-based, prêt pour l'API.
+- **Repli d'état** : `props.page ?? localPage` — la pagination fonctionne sans `v-model:page`
+  (l'état est interne), et reste pilotée dès qu'on lie `page`.
+- **Numérotation** : `rowOffset = (page - 1) * pageSize` ajouté à `{{ ri + 1 }}`, à
+  `selLabel` (`A401`) et au titre du menu contextuel (« Row 401 »).
+- **Pager** dans la barre d'état : `‹ Rows 401–800 of 12 000 · 2 / 30 ›`, flèches désactivées
+  aux bornes, libellés i18n `pagePrev`/`pageNext`/`pageRange`/`pageLabel` (nombres formatés
+  par `Intl.NumberFormat(lang)`).
+- **Garde-fou dev** : si `rows.length > pageSize`, `console.warn` (l'app n'a pas découpé) —
+  on ne tronque pas silencieusement.
+- **Calculs purs** (`lib/pagination.ts`) : `pageInfo({ page, pageSize, total, loaded })` →
+  `{ page (bornée), pageCount, offset, from, to }`. `loaded` gère une page partielle ;
+  sans pagination (`pageSize: 0`) `loaded` vaut `total` (tout est affiché) ; total nul →
+  `from/to = 0`.
+- **Limites documentées** : filtres/tri/undo/export portent sur la page chargée ; les
+  événements du tableau gardent l'index **local à la page** → absolu = `offset + row`
+  (mentionné dans la doc).
+
+**Vérif** : `lib/pagination.test.ts` (**8 tests** : bornes, page partielle, total qui
+rétrécit, `pageSize: 0`, total nul, `loaded` incohérent) ; `bun test lib` → **601 pass /
+0 fail** ; build docs EXIT 0 ; `curl /docs/components/spreadsheet` → 200 avec
+`q-spreadsheet__pager`, `Rows 1–50 of 2,400`, `1 / 48`, flèche « Previous page » désactivée
+en page 1, démo `pagination` (2 400 lignes, 50/page) et numérotation repartant à 1.
+
+### État de chargement (`loading`) — même jour
+
+`filename: packages/ui/components/QSpreadsheet.vue`, `styles/main.css`
+
+Ajout de `loading?: boolean` + `loadingLabel?: string` : quand une page est en cours de
+récupération, un voile recouvre la carte.
+
+- **Implémentation** : `QInnerLoading` (composant existant, fondu inclus) avec un **spinner
+  de repli** dans le slot (`<slot name="loading">` → `q-spinner-ring` + label i18n
+  `loading: "Loading…"` / `"Chargement…"`). `#loading` remplace spinner + libellé.
+- **Placement** : à la racine `.q-spreadsheet` (déjà `position: relative; overflow: hidden`),
+  **jamais dans `.q-spreadsheet__viewport`** — un `absolute` dans un conteneur scrollable
+  défile avec le contenu : le voile sortait du cadre dès qu'on avait scrollé.
+  `z-index: 40` (`> .q-inner-loading`) pour passer au-dessus de l'éditeur (20).
+- **Effets** : `aria-busy="true"` sur le viewport, clavier neutralisé (`onKeydown` et
+  `startEdit` sortent si `loading`), flèches du pager désactivées, tout le reste étant de
+  toute façon sous le voile (il capte les clics → pas de double navigation).
+- **Dark** : `.dark .q-inner-loading` ajouté (le fond blanc 0.7 codé en dur éblouissait) —
+  correctif global du composant, pas seulement du tableur.
+- Indépendant de la pagination (vaut aussi pour un simple rechargement).
+
+**Vérif (sans navigateur)** : `loading` forcé à `true` dans la démo → build + `curl` :
+`q-inner-loading` (3), `aria-busy="true"` (1), `q-spreadsheet__loader` (1), « Loading… » (3) ;
+démo remise à `false` → build + `curl` : overlay 0, `aria-busy` 0, pager présent. `bun test
+lib` → 601 pass / 0 fail ; diagnostics propres.
+
+### Taille des cellules (`sizeCell`) — même jour
+
+`filename: packages/ui/components/QSpreadsheet.vue`, `lib/cellSize.ts`
+
+**Prop** `sizeCell?: "sm" | "md" | "lg" | number` : une **seule** échelle pilote la hauteur de
+ligne, la largeur de colonne par défaut **et** la police des cellules (une cellule de 66px avec
+une police de 13px paraît vide).
+
+| `sizeCell` | ligne | largeur défaut | police |
+| --- | --- | --- | --- |
+| `sm` | 28 | 140 | 11 |
+| `md` (défaut) | 32 | 160 | 13 |
+| `lg` | 40 | 200 | 16 |
+| `48` | 48 | 240 | 19 |
+| `66` | 66 | 330 | 20 (plafond) |
+
+- **Ratio 5:1** hauteur → largeur (cohérent avec le couple historique 32/160) ;
+- police ≈ 40 % de la hauteur, bornée **11–20 px** ; nombre borné `[20, 120]` ;
+- **priorité** : `rowHeight`, `defaultColWidth` et le `width` d'une colonne gagnent —
+  `sizeCell` ne fixe que les **défauts** (`rowHeight`/`defaultColWidth` sont passés à
+  `undefined` par défaut pour distinguer « fourni » de « non fourni ») ;
+- implémentation : `cellHeightPx` / `cellWidthPx` / `cellFontPx` (calculs purs dans
+  `lib/cellSize.ts`), variables CSS posées sur la racine (`--q-spreadsheet-font`,
+  `--q-spreadsheet-row-height`) et `.q-spreadsheet__table { font-size: var(--q-spreadsheet-font, 13px) }` ;
+  le `13px` de repli garantit **zéro régression** sans `sizeCell`.
+
+**Vérif** : `lib/cellSize.test.ts` (**6 tests** : md = 32/160/13, presets, bornes, ratio,
+plafond de police) ; `bun test lib` → **607 pass / 0 fail** ; build docs EXIT 0 ; `curl` :
+`--q-spreadsheet-row-height` à `28/32/40/66px` (1/27/1/1 occurrences) et
+`--q-spreadsheet-font` à `11/13/16/20px`, `<tr style="height:28|32|40|66px">` — les grilles
+sans `sizeCell` restent à **32 px / 13 px**. Doc : section « Cell size » + démo `demo="size"`
+(4 grilles sm/md/lg/66).

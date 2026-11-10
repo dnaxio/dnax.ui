@@ -41,6 +41,7 @@ below is the **complete list** of cell types: the editor each one opens, the val
 | `time` | native time picker | `HH:MM` — `"09:30"` (or `HH:MM:SS` when seconds are non-zero) | normalized on edit, paste and display (`9h5` → `09:05`); two cells make an **hour series** when filled |
 | `select` | filterable option list (`options`) | the option `value` (see `option-value`) — `"tea"` | a colored badge with `chip: true`, else its label |
 | `multiselect` | checkbox option list (`options`) | an **array** of values (see `option-value`) — `["tea","beer"]` (`[]` when empty) | one badge per value with `chip: true`, else the labels joined with `, ` |
+| `attachment` | hidden file picker (`Enter`, double-click, or the `+` chip) | an **array** of `{ id, name, size, type, url? }` (`null` when empty) | image thumbnail or typed icon + name, one removable chip per file; `accept` / `multiple` / `maxFiles` / `maxFileSize` drive the picker |
 
 Two rules hold for **every** type:
 
@@ -126,6 +127,160 @@ const rows = ref([
 </template>
 ```
 
+::
+
+## Attachments
+
+`type: "attachment"` turns a cell into a **file picker**. The column configures what can be
+chosen — same `accept` syntax as `<input type="file">` — and whether several files fit in one
+cell:
+
+```ts
+{ name: "shots", label: "Screenshots", type: "attachment",
+  accept: "image/*", multiple: true, maxFiles: 3 }
+
+{ name: "contract", label: "Contract", type: "attachment",
+  accept: ".pdf,.docx" }            // single file, pdf/docx only
+```
+
+The cell stores an **array** of `QSpreadsheetAttachment` — `{ id, name, size, type, url? }` —
+and **never the `File`** (not serializable): the binaries are handed to your app by the
+`files` event, which is where you upload them.
+
+```vue
+<q-spreadsheet v-model:rows="rows" :columns="columns" @files="onFiles" />
+```
+
+```ts
+const onFiles = async ({ rowIndex, column, files, rejected }) => {
+  if (rejected.length) console.warn(rejected)   // { file, reason: "type" | "size" | "count" }
+  const urls = await upload(files)               // your upload endpoint
+  // Persist the returned URL on the attachment so it can be previewed / downloaded:
+  rows.value[rowIndex][column] = rows.value[rowIndex][column].map((att, i) =>
+    urls[i] ? { ...att, url: urls[i] } : att)
+}
+```
+
+`accept`, quotas (`maxFiles`, `maxFileSize`) and the file count are enforced in code (not
+only by the browser), so a programmatic selection cannot bypass them. Removal is a
+one-click `×` on the chip; `readonly`, `disable`, `editable: false`, `cellReadonly` and
+`lockedRanges` all disable picking.
+
+### Opening a file — `attachment-click`
+
+Clicking a chip opens **nothing** by itself: the component emits `attachment-click` so your
+app can show its own viewer (modal, lightbox, PDF frame…). The payload carries the file,
+the cell **and the whole row**:
+
+```ts
+// { row, column, attachment, attachments, value, rowData, event }
+const onAttachmentClick = ({ attachment, column, rowData }) => {
+  preview.value = { file: attachment, column, row: rowData }
+}
+```
+
+```vue
+<q-spreadsheet v-model:rows="rows" :columns="columns" @attachment-click="onAttachmentClick" />
+```
+
+| Key | Value |
+| --- | --- |
+| `row` | row index |
+| `column` | column `name` |
+| `attachment` | the clicked file — `{ id, name, size, type, url? }` |
+| `attachments` | every file of that cell |
+| `value` | the raw cell value (the array) |
+| `rowData` | the whole row object (all columns) |
+| `event` | the original `MouseEvent` |
+
+A double-click on a chip does **not** reach the cell (no file picker opening by accident), and
+a click on the `×` only removes the file.
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="attachment"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const columns = [
+  { name: "shots", label: "Screenshots", type: "attachment", accept: "image/*", multiple: true, maxFiles: 3 },
+  { name: "contract", label: "Contract", type: "attachment", accept: ".pdf,.docx" },
+]
+
+const rows = ref([
+  {
+    shots: [
+      { id: "shot-1", name: "login.png", size: 24576, type: "image/png" },
+      { id: "shot-2", name: "dashboard.png", size: 61440, type: "image/png" },
+    ],
+    contract: { id: "doc-1", name: "nda-2026.pdf", size: 184320, type: "application/pdf" },
+  },
+  { shots: [], contract: null },
+])
+</script>
+
+<template>
+  <q-spreadsheet v-model:rows="rows" :columns="columns" height="230px" bordered />
+</template>
+```
+::
+
+> Stored objects are plain data: they survive `toJSON()`, sheets, undo/redo and change
+tracking. `url` is optional — an image with a `url` shows a thumbnail, anything else shows a
+typed icon (image / video / audio / archive / spreadsheet / code / text). Object URLs created
+by the component are revoked on removal, replacement and unmount; URLs you provide are never
+touched.
+
+## Cell size
+
+`size-cell` scales the whole grid from one value: row height, **default** column width and the
+cell font size. Presets or a raw height in px:
+
+| `size-cell` | Row height | Default column width | Cell font |
+| --- | --- | --- | --- |
+| `sm` | 28 px | 140 px | 11 px |
+| `md` *(default)* | 32 px | 160 px | 13 px |
+| `lg` | 40 px | 200 px | 16 px |
+| `48` | 48 px | 240 px | 19 px |
+| `66` | 66 px | 330 px | 20 px (cap) |
+
+Rules worth knowing:
+
+- the column width follows the height at a **5:1** ratio (32 → 160, so `66` → 330);
+- the font follows the height (~40 %), clamped to **11–20 px** — a 66 px cell doesn't turn the
+text into a poster;
+- explicit `row-height` / `default-col-width` / per-column `width` still win: `size-cell` only
+sets the **defaults**;
+- a number is clamped to `[20, 120]`;
+- the container `height` is unchanged — a bigger cell simply shows fewer rows.
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="size"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const columns = [
+  { name: "task", label: "Task" },
+  { name: "hours", label: "Hours", type: "number" },
+]
+const rows = ref([
+  { task: "Design tokens", hours: 12 },
+  { task: "Grid engine", hours: 34 },
+])
+</script>
+
+<template>
+  <q-spreadsheet v-model:rows="rows" :columns="columns" size-cell="lg" height="170px" />
+  <q-spreadsheet v-model:rows="rows" :columns="columns" :size-cell="66" height="170px" />
+</template>
+```
 ::
 
 ## Inline editing
@@ -1326,6 +1481,127 @@ const rows = ref([{ label: "Only one row", qty: 1 }])
 ```
 ::
 
+## Pagination (remote)
+
+For large datasets, `page-size` turns the grid into a **windowed** view: `rows` holds only the
+current page, and `page-change` tells you what to load next. Row headers are numbered
+**globally** (page 2 of a 400-row page size starts at 401).
+
+```vue
+<q-spreadsheet
+  v-model:rows="rows"
+  v-model:page="page"
+  :columns="columns"
+  :page-size="400"
+  :total-rows="12000"
+  @page-change="load"
+/>
+```
+
+```ts
+const page = ref(1)
+const rows = ref([])
+
+const load = async ({ offset, pageSize }) => {
+  rows.value = await api.list({ offset, limit: pageSize })
+}
+
+onMounted(() => load({ offset: 0, pageSize: 400 }))   // première page
+```
+
+| Prop | Role |
+| --- | --- |
+| `page-size` | rows per page — `0` (default) disables pagination |
+| `page` | current page, 1-based — `v-model:page`; without a binding the state is internal |
+| `total-rows` | total across pages, for `page / N` and the `401–800 of 12 000` range; defaults to `rows.length` (single page) |
+
+`page-change` payload: `{ page, previousPage, pageSize, offset, totalRows, pageCount }` —
+`offset` is the absolute 0-based index, ready to send to your API.
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="pagination"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const pageSize = 50
+const all = Array.from({ length: 2400 }, (_, i) => ({ id: i + 1, client: `Client ${i + 1}` }))
+
+const page = ref(1)
+const rows = ref(all.slice(0, pageSize))
+
+const load = ({ offset }) => {
+  rows.value = all.slice(offset, offset + pageSize)   // ← your API call
+}
+</script>
+
+<template>
+  <q-spreadsheet
+    v-model:rows="rows"
+    v-model:page="page"
+    :columns="[
+      { name: 'id', label: 'ID', type: 'number', width: 90 },
+      { name: 'client', label: 'Client' },
+    ]"
+    :page-size="pageSize"
+    :total-rows="all.length"
+    height="240px"
+    bordered
+    @page-change="load"
+  />
+</template>
+```
+::
+
+Things worth knowing:
+
+- The grid **never slices** `rows`: pagination is remote by construction, so `rows` must contain
+  one page. Sending more rows than `page-size` logs a dev warning.
+- Selection, editing, undo/redo, filters and export operate on the **loaded page** — filters
+  don't reach rows that were never fetched.
+- Other events keep the **page-local** index: absolute row = `offset + row` (`attachment-click`
+  and `files` behave the same).
+- The pager lives in the status bar: `‹ 401–800 of 12 000 · 2 / 30 ›` (arrows disabled at the
+  bounds).
+
+### Loading state
+
+While a page is being fetched, bind `loading`: a veil covers the **grid** (status bar and pager
+stay visible, arrows disabled) and keyboard editing is suspended, so nobody edits a page that
+is about to be replaced.
+
+```vue
+<q-spreadsheet
+  v-model:rows="rows"
+  :columns="columns"
+  :page-size="400"
+  :total-rows="12000"
+  :loading="loading"
+  @page-change="load"
+/>
+```
+
+```ts
+const loading = ref(false)
+
+const load = async ({ offset, pageSize }) => {
+  loading.value = true
+  try {
+    rows.value = await api.list({ offset, limit: pageSize })
+  } finally {
+    loading.value = false
+  }
+}
+```
+
+- `loading-label` replaces the text (default: the localized “Loading…”).
+- The `#loading` slot replaces both spinner and label — for a skeleton, a progress bar…
+- It also works without pagination: any remote refresh (`loading` is independent of
+  `page-size`).
+
 ## Events
 
 `cell-change` fires on every committed edit (with `oldValue`/`newValue`),
@@ -1333,6 +1609,16 @@ const rows = ref([{ label: "Only one row", qty: 1 }])
 when rows or columns are added / removed / sorted (reason + `update:rows`), and **`prefill`**
 whenever prefill wrote something (`{ count, mode }` — `mode` is `"auto"` or `"manual"`). Try
 the undo / redo buttons.
+
+`files` fires when files are picked in an `attachment` cell: `{ row, column, rowIndex,
+files, attachments, rejected }` — `files` are the **newly added** binaries (upload them),
+`attachments` is the whole cell afterwards and `rejected` lists what the rules refused.
+
+`attachment-click` fires when a file chip is clicked — `{ row, column, attachment,
+attachments, value, rowData, event }` — for your preview modal (see **Attachments**).
+
+`page-change` fires on pager navigation — `{ page, previousPage, pageSize, offset, totalRows,
+pageCount }` — the hook for loading the next page of a remote dataset (see **Pagination**).
 
 ::prose-show-case
 :dnax-demo-spreadsheet{demo="events"}
@@ -1613,6 +1899,79 @@ const save = async () => {
 reset; `getChanges()` returns the delta on demand. `show-changes` (on by default) draws the
 indicator in the status bar: a count with the breakdown in its tooltip — `:show-changes="false"`
 hides it while keeping both models active.
+
+## Custom cells & headers (slots)
+
+Two dynamic slot families render **any component** inside the grid. The slot name carries
+the column `name`, so a column can be fully custom without touching the engine:
+
+| Slot | Replaces |
+| --- | --- |
+| `#cell-<name>` | the cell content of that column |
+| `#cell` | the cell content of **every** column (fallback — `#cell-<name>` wins) |
+| `#head-<name>` | the header label of that column |
+
+```vue
+<q-spreadsheet v-model:rows="rows" :columns="columns">
+  <template #head-status="{ column }">
+    <q-icon name="lucide:activity" size="14px" /> {{ column.label }}
+  </template>
+
+  <template #cell-status="{ value }">
+    <q-badge :color="value === 'done' ? 'positive' : 'primary'">{{ value }}</q-badge>
+  </template>
+
+  <template #cell-progress="{ value, setValue }">
+    <q-linear-progress :value="value / 100" @click="setValue(Math.min(100, value + 10))" />
+  </template>
+</q-spreadsheet>
+```
+
+Slot props: `row`, `rowIndex`, `column` (the resolved `QSpreadsheetColumn`), `columnIndex`,
+`value` (the stored value), `text` (the formatted display text) and `setValue(next)` — which
+goes through history, `cell-change` and `update:rows`, exactly like a built-in editor.
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="slots"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const columns = [
+  { name: "task", label: "Task", width: 200 },
+  { name: "status", label: "Status", width: 150 },
+  { name: "progress", label: "Progress", type: "number", width: 150 },
+]
+
+const rows = ref([
+  { task: "Design tokens", status: "done", progress: 100 },
+  { task: "Spreadsheet", status: "doing", progress: 65 },
+])
+</script>
+
+<template>
+  <q-spreadsheet v-model:rows="rows" :columns="columns" height="210px" bordered>
+    <template #head-status="{ column }">
+      <q-icon name="lucide:activity" size="14px" /> {{ column.label }}
+    </template>
+    <template #cell-status="{ value }">
+      <q-badge>{{ value }}</q-badge>
+    </template>
+    <template #cell-progress="{ value, setValue }">
+      <q-linear-progress :value="value / 100" @click="setValue(Math.min(100, value + 10))" />
+    </template>
+  </q-spreadsheet>
+</template>
+```
+::
+
+Selection, keyboard navigation, fill handle, filters, sorting and export keep working: the
+slot only replaces the **rendered content**. The header slot sits inside the `<th>` — the
+filter button, resize handle and column drag stay available, so stop the pointer events
+(`@pointerdown.stop`) if your custom header has its own controls.
 
 ## API
 

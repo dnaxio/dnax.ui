@@ -6882,6 +6882,11 @@ a.q-breadcrumbs__el:hover {
   background-color: rgb(0 0 0 / 0.6);
   color: #fff;
 }
+/* Thème sombre : le voile blanc codé en dur éblouit (même convention que les champs) */
+.dark .q-inner-loading {
+  background-color: rgb(0 0 0 / 0.55);
+  color: var(--foreground);
+}
 
 .q-inner-loading__icon {
   animation: q-btn-spin 0.7s linear infinite;
@@ -9637,6 +9642,20 @@ a.q-breadcrumbs__el:hover {
   overflow: auto;
   outline: none;
 }
+
+/* Chargement distant : spinner du design system, teinté par le thème */
+.q-spreadsheet__loader {
+  width: 30px;
+  height: 30px;
+  border-width: 3px;
+  color: var(--primary, #1976d2);
+}
+
+/* Le voile passe au-dessus de l'éditeur (z-index 20) et de la poignée de remplissage :
+   on ne doit pas éditer une page en cours de remplacement. */
+.q-spreadsheet > .q-inner-loading {
+  z-index: 40;
+}
 .q-spreadsheet__table {
   /* PAS de `min-width: 100%` : avec `table-layout: fixed`, un tableau étiré au-delà
      de la somme de ses colonnes RÉPARTIT l'espace libre sur toutes les colonnes
@@ -9648,7 +9667,8 @@ a.q-breadcrumbs__el:hover {
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
-  font-size: 13px;
+  /* Suit `sizeCell` (la police grandit avec la cellule) ; 13px = taille historique */
+  font-size: var(--q-spreadsheet-font, 13px);
 }
 
 /* Grille sans aucune colonne : un seul message → il doit occuper toute la largeur */
@@ -9866,6 +9886,132 @@ a.q-breadcrumbs__el:hover {
   gap: 3px;
   max-width: 100%;
   vertical-align: middle;
+}
+
+/* ─── Fichiers joints (type `attachment`) ─── */
+/* Une « puce » par fichier : vignette (image) ou icône typée, nom tronqué, bouton de retrait.
+   Les puces passent à la ligne dans une cellule étroite, comme les badges. */
+.q-spreadsheet__attachments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.q-spreadsheet__attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 1px 4px 1px 2px;
+  border: 1px solid rgb(0 0 0 / 0.12);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.04);
+  font-size: 11.5px;
+  line-height: 1.6;
+  white-space: nowrap;
+  /* La puce est cliquable : elle émet `attachment-click` (aperçu côté app) */
+  cursor: pointer;
+}
+.q-spreadsheet__attachment:hover {
+  border-color: rgb(0 0 0 / 0.24);
+  background: rgb(0 0 0 / 0.08);
+}
+
+.q-spreadsheet__attachment-thumb {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.q-spreadsheet__attachment-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: rgb(0 0 0 / 0.55);
+}
+
+.q-spreadsheet__attachment-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.q-spreadsheet__attachment-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgb(0 0 0 / 0.45);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.q-spreadsheet__attachment-x:hover {
+  background: rgb(0 0 0 / 0.12);
+  color: var(--negative, #c10015);
+}
+.q-spreadsheet__attachment-x svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Bouton d'ajout : discret, visible dès qu'on survole / sélectionne la cellule */
+.q-spreadsheet__attachment-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px dashed rgb(0 0 0 / 0.25);
+  border-radius: 50%;
+  background: transparent;
+  color: rgb(0 0 0 / 0.45);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.q-spreadsheet__attachment-add:hover {
+  border-color: var(--primary, #1976d2);
+  color: var(--primary, #1976d2);
+}
+.q-spreadsheet__attachment-add svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Input `type=file` masqué (piloté par `openAttachments`) */
+.q-spreadsheet__attach-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dark .q-spreadsheet__attachment {
+  border-color: rgb(255 255 255 / 0.16);
+  background: rgb(255 255 255 / 0.06);
+}
+.dark .q-spreadsheet__attachment:hover {
+  border-color: rgb(255 255 255 / 0.3);
+  background: rgb(255 255 255 / 0.11);
+}
+.dark .q-spreadsheet__attachment-icon,
+.dark .q-spreadsheet__attachment-x,
+.dark .q-spreadsheet__attachment-add {
+  color: rgb(255 255 255 / 0.6);
+}
+.dark .q-spreadsheet__attachment-add {
+  border-color: rgb(255 255 255 / 0.24);
 }
 
 /* ─── Éditeur overlay ─── */
@@ -10757,6 +10903,38 @@ a.q-breadcrumbs__el:hover {
 }
 .q-spreadsheet__status-spacer {
   flex: 1;
+}
+
+/* Pagination distante : ‹ lignes 401–800 sur 12 000 · 2 / 30 › */
+.q-spreadsheet__pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+  border-right: 1px solid rgb(0 0 0 / 0.1);
+  margin-right: 2px;
+}
+.q-spreadsheet__pager .q-spreadsheet__tool {
+  width: 22px;
+  height: 20px;
+}
+.q-spreadsheet__pager-range {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.q-spreadsheet__pager-page {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.06);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dark .q-spreadsheet__pager {
+  border-right-color: rgb(255 255 255 / 0.14);
+}
+.dark .q-spreadsheet__pager-page {
+  background: rgb(255 255 255 / 0.12);
 }
 .q-spreadsheet__status-zoom {
   display: inline-flex;
