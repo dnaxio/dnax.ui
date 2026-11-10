@@ -1805,7 +1805,7 @@ Nuxt lit la collection au build pour le scan d'icônes).
 
 **Effet de bord** : `@nuxt/icon` (présent via la layer `@baybreezy/docd`, et fréquent dans
 les apps) **détecte automatiquement** les paquets `@iconify-json/*` installés et les met
-dans son *server bundle*. Constaté dans le build docs : `columns/_/icons.mjs` = **646 Ko**
+dans son _server bundle_. Constaté dans le build docs : `columns/_/icons.mjs` = **646 Ko**
 (collection complète, 2095 icônes) ajoutée au bundle Nitro — côté serveur seulement, mais
 inutile puisque `@dnax/ui` n'en embarque qu'un sous-ensemble.
 
@@ -1848,3 +1848,47 @@ Les deux watchers sont maintenant `immediate: true`.
 0 fail** ; build docs EXIT 0 ; avec une cellule `attachment` présélectionnée, le HTML SSR
 contient `value=""` **et** `placeholder=""` pour cette fx, et **0** occurrence de
 `[object Object]` sur toute la page (démo remise sans présélection : 30 fx vides, 0 fuite).
+
+## Build prod : `Rolldown failed to resolve import "#site-config/app/composables/utils"` — 2026-11-01
+
+`filename: package.json` (racine), `docui/package.json`
+
+**Symptôme** (en prod/Docker uniquement) :
+`[vite]: Rolldown failed to resolve import "#site-config/app/composables/utils" from
+…/nuxt-og-image@6.10.4/dist/runtime/app/client-utils.js` — build cassé, alors qu'il passe en
+local.
+
+**Cause racine : deux versions de `nuxt-site-config`** (famille nuxtseo non alignée).
+L'alias `#site-config` est posé **par le module** `nuxt-site-config`
+(`nuxt.options.alias["#site-config"] = resolve("./runtime")`, cf. son `dist/module.mjs`) : il
+n'existe que pour **la copie installée en tant que module**. Or :
+
+| Paquet             | Local (OK)                        | Prod (KO)                                             |
+| ------------------ | --------------------------------- | ----------------------------------------------------- |
+| `@nuxtjs/robots`   | 6.2.3 → `nuxt-site-config ^4.2.3` | 7.x → `nuxt-site-config ^5.0.0`                       |
+| `nuxt-og-image`    | 6.9.1 (puis 6.10.4 testé OK)      | 6.10.4 → importe `#site-config/app/composables/utils` |
+| `nuxt-site-config` | **4.2.3** (une seule copie)       | 4.x **et** 5.x selon le groupe de peers               |
+
+`@baybreezy/docd: "latest"` flotte → une installation **fraîche** (sans `bun.lock`) ré-résout
+robots en 7.x (site-config 5), tandis qu'og-image tire site-config 4 → l'alias pointe sur la
+mauvaise copie → Rolldown échoue.
+
+**Vérifié dans les tarballs publiés** : `nuxt-site-config@5.0.3` expose
+`dist/runtime/app/composables/index.js` mais **pas `utils.js`**, alors que `4.2.3` l'a — et
+`nuxt-og-image@6.10.4` importe précisément `#site-config/app/composables/utils`. D'où
+l'échec de résolution dès que l'alias `#site-config` pointe sur la **5**.
+Reproduit/écarté : `nuxt-og-image@6.10.4` **seul** build très bien en local avec
+`nuxt-site-config@4.2.3` → ce n'est pas la version d'og-image, c'est le **mélange**.
+
+**Correctif** : `overrides` dans le `package.json` **racine** (workspaces) —
+`@nuxtjs/robots: 6.2.3`, `nuxt-og-image: 6.9.1`, `nuxt-site-config: 4.2.3`,
+`nuxt-site-config-kit: 4.2.3`, `nuxtseo-shared: 5.3.16` — puis `bun install`. Vérifier
+qu'il n'y a **qu'une** copie : `ls -d node_modules/.bun/nuxt-site-config@* | sed 's/+.*//' | sort -u`.
+
+**Règle** : cette famille (robots / og-image / site-config / sitemap) doit être **alignée** ;
+mettre à jour les quatre ensemble, jamais un seul. Et dans un environnement qui fait une
+installation fraîche, se fier aux `overrides` (ou au `bun.lock` committé), pas à `latest`.
+
+**Vérif** : `bun run build` (docui) → EXIT 0, une seule copie `nuxt-site-config@4.2.3`, lock
+pinné sur `@nuxtjs/robots@6.2.3`, `nuxt-og-image@6.9.1`, `nuxt-site-config@4.2.3`,
+`nuxtseo-shared@5.3.16`.
