@@ -3650,3 +3650,122 @@ tableau complet — le cas « limiter à 400 sans API »), `### Loading state` (
 `try/finally` + slot). Les events apparaissent aussi dans l'onglet **API** du `<dnax-api>` :
 `docs/scripts/component-parse.ts` extrait 17 events de `QSpreadsheet` (`page-change`,
 `update:page`, `files`, `attachment-click` compris) — vérifié en exécutant `emitsOf()`.
+
+## QSpreadsheet — détail d'une erreur de formule au clic — 2026-11-10
+
+`namespace: "dnax.ui"`, `worktree: /Volumes/D/PKG/dnax.ui`,
+`filename: packages/ui/components/QSpreadsheet.vue`, `lib/formula.ts`, `styles/main.css`
+
+**Besoin** : une cellule en erreur n'affichait que `#ERROR!` / `#DIV/0!` — impossible de
+savoir _pourquoi_ sans rouvrir la formule et deviner.
+
+**Décision : l'erreur porte son explication, le grid la montre.**
+
+1. `lib/formula.ts` — `FormulaError` gagne un `detail?: string` (**jamais affiché dans la
+   cellule**, `toString()` inchangé → aucune régression, tous les tests de code passent).
+   `err(code, detail?)` alimente les sites utiles : `#NAME?` (`Unknown column "x"`,
+   `Unknown function NOPE()`), `#REF!` (`Reference Z99 is outside the grid`), `#DIV/0!`
+   (`Division by zero`), `#VALUE!` (`Expected a number, got the text "abc"`), `#ERROR!`
+   (message du parseur **avec la position** : `Unexpected character "*" at position 4`,
+   `Expected ")" at position 8`, `Invalid range — expected e.g. A1:B5`). `Parser` expose
+   `position` et ses `throw` sont devenus des phrases complètes.
+2. Composant — `#CYCLE!` / `#REF!` (hors grille) reçoivent aussi un détail.
+   - `tdTitle()` : `title` natif = `CODE — détail` + la formule source (survol, sans clic).
+   - **Clic simple** sur la cellule → panneau téléporté `.q-spreadsheet__errpop` (code, réf.
+     A1, explication, formule), positionné par `placePop` (même moteur que les menus) ;
+     fermé par `Échap`, un clic hors de la grille/du panneau, le scroll du viewport, ou
+     l'ouverture de l'éditeur. `e.detail > 1` ignore le 2e clic d'un double-clic (édition).
+   - Repli par code (`ERR_HINTS` → clés i18n `errDiv`/`errName`/… ) quand le moteur n'a pas
+     de message ; `errTitle`/`errFormula` pour le panneau (EN + FR).
+   - La **barre fx** profite du détail : l'aperçu affiche le code et son `title` devient
+     `FormulaError.detail` (au lieu du code répété).
+3. Styles : `.q-spreadsheet__errpop*` (carte, `position: fixed`, `z-index: var(--q-z-menu,
+3200)`), cellule en erreur en `cursor: help` (affordance « cliquer pour le détail »).
+
+**Pièges**
+
+- Une expression de **template** n'accepte pas la syntaxe TS : `errPop!.x` casse la
+  compilation → exposer `x`/`y` dans le `computed` (`errPopInfo`) et binder dessus.
+- L'icône doit exister dans `lib/icons.ts` **et** dans le sous-ensemble embarqué :
+  `info` était dans `iconSet.ts` mais pas dans `icons` → ajout de `info: "lucide:info"`
+  (sinon l'icône part en requête Iconify / ne rend rien en SSR).
+- Le panneau est en coordonnées **écran** : il ne suit ni le scroll ni les remises en page →
+  `onViewportScroll()` le ferme.
+
+**Vérif** : `lib/formula.test.ts` → **7 tests** de `detail` (le code affiché ne change pas) ;
+`bun test lib` → **624 pass / 0 fail** ; build docs **EXIT 0** ; `curl` sur
+`/docs/components/spreadsheet` (démo `errors`) : `title="#DIV/0! — Division by zero"`,
+`#NAME? — Unknown column "missing"`, `#NAME? — Unknown function NOPE()`,
+`#ERROR! — Unexpected character "*" at position 4`, `#CYCLE! — Circular reference…`,
+0 `[object Object]` ; CSS compilé : 7 sélecteurs `.q-spreadsheet__errpop*`.
+
+### Événement `error` : capturer les erreurs de formule — même jour
+
+`filename: packages/ui/components/QSpreadsheet.vue`, `lib/formula.ts`
+
+**Besoin** : pouvoir journaliser/remonter les `#DIV/0!`, `#NAME?`… côté app (validation avant
+envoi, bannière « 3 cellules à corriger »), sans scruter le DOM.
+
+**Décision** : l'erreur est **un événement**, pas seulement un rendu.
+
+- **Calcul pur** (`lib/formula.ts`) : `collectFormulaErrors(values, columns, rows)` parcourt la
+  grille **déjà évaluée** → `FormulaErrorReport { row, column, code, detail?, formula }` ;
+  `formulaErrorKey(e)` = `row:column:code:detail:formula` (signature de **diff**).
+- **Événement `error`** (donc `@error`) : payload `QSpreadsheetFormulaError` —
+  `{ code, message, detail, formula, row, absoluteRow, column, columnIndex, columnLetter, ref,
+  rowData }`. `message` = détail moteur sinon repli i18n ; `row` = page locale, `absoluteRow` /
+  `ref` incluent l'offset de pagination ; `rowData` = ligne complète.
+- **Anti-spam** : un `Set` de signatures déjà émises → une **nouvelle** erreur (ou une erreur
+  qui change de code/message/formule) émet ; un recalcul, un rendu ou l'édition d'une autre
+  cellule n'émettent rien. Corriger puis re-casser → ré-émet.
+- **SSR** : pas de `watch(..., { immediate: true })` (il appellerait le listener **côté
+  serveur**) → `watch` simple + `onMounted(emitNewFormulaErrors)` pour l'état initial client.
+- **`getFormulaErrors()`** exposée (`defineExpose`) : même payload, liste **complète** à tout
+  moment (l'événement, lui, ne pousse que les nouveautés). Périmètre : feuille active / page
+  chargée, comme les autres événements.
+
+**Vérif** : `lib/formula.test.ts` → **5 tests** (`collectFormulaErrors` : ligne/colonne/code/
+détail/formule, aucune erreur, colonne sans formule stockée ; clé stable et sensible à la
+formule/ligne) ; `bun test lib` → **629 pass / 0 fail** ; `emitsOf()` (parser de l'API docs) →
+**18 events**, `error` avec payload `QSpreadsheetFormulaError` ; build docs EXIT 0 ; `curl`
+sur la page Spreadsheet : `@error`, `getFormulaErrors()`, `QSpreadsheetFormulaError` présents ;
+`/llms-full.txt` toujours 404.
+
+### Colonnes calculées — `auto-formula` (calcul automatique dès la saisie) — 2026-11-10
+
+`filename: packages/ui/components/QSpreadsheet.vue`, `lib/formulaColumn.ts`
+
+**Besoin** : « quand on renseigne une ligne qui a des colonnes formule, le calcul doit se faire
+automatiquement si les colonnes concernées sont renseignées ». Sans ça, une ligne neuve laisse
+la colonne de formule **vide** : il faut retaper `=B7*C7` (ou copier la cellule).
+
+**Décision : une cellule de formule est un modèle pour sa colonne.**
+
+- **Pur** (`lib/formulaColumn.ts`, testé) :
+  - `sameRowRefs(formula, row, columns)` → colonnes référencées **de la même ligne**
+    (A1 non absolues en ligne + refs par nom de champ ; ignore `$B$5`, les plages
+    inter-lignes, les noms de fonctions et les littéraux de chaîne) ;
+  - `withAutoFormulas(rows, columns, { onlyRow? })` → **nouvelle** liste de lignes (ou `null`
+    si rien à faire). Remplit une cellule de formule **vide** seulement si **toutes** ses
+    références de ligne sont renseignées ; la formule vient de la ligne la plus proche
+    **au-dessus** (sinon en dessous) et `shiftFormulaRefs` recale les A1 de
+    `row - sourceRow` ; une formule auto-référente (sa propre colonne) est ignorée (sinon
+    `#CYCLE!`).
+- **Composant** : prop `autoFormula` (défaut **actif**, `:auto-formula="false"` pour couper),
+  méthode exposée `applyAutoFormula(onlyRow?)`. Silencieux (pas de `pushHistory`, pas de
+  marquage « modifié ») mais **écrit `rows`** (`update:rows`) : la grille reste la source de
+  vérité, comme `autoPrefill`.
+- **Points d'appel** : `setCellValue` (funnel unique de toutes les écritures : édition,
+  collage, remplissage, effacement) avec `onlyRow` pour ne traiter que la ligne saisie ;
+  watchers `rows` / `columns` (document ou schéma remplacé) ; `onMounted` **avant**
+  `trackReady = true` pour que la formule auto-posée ne compte pas comme une modification.
+- **SSR** : `autoFormulaReady = false` jusqu'au montage (même règle que `prefillReady`) →
+  aucun `emit` pendant le rendu serveur, donc pas de divergence d'hydratation.
+- Piège évité : la variable `autoFormulaReady` est déclarée **avant** le watcher `rows` qui
+  appelle `applyAutoFormula` (sinon zone morte temporelle, `Function` hoistée mais `let` non).
+
+**Vérif** : `lib/formulaColumn.test.ts` → **14 tests** (refs A1/absolues/plages/noms de champs,
+littéraux, propagation vers le bas, insertion au-dessus, `onlyRow`, non-écrasement, auto-
+référence, total de colonne non propagé) ; `bun test lib` → **643 pass / 0 fail** ; build docs
+EXIT 0 ; `curl` sur la page Spreadsheet (démo `autocalc`) : colonne `Total (auto)` rendue,
+`$9.00` / `$4.80` calculés, `Cherries` (prix vide) et ligne neuve laissées vides.

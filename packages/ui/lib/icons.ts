@@ -62,6 +62,7 @@ export const icons = {
   filter: "lucide:filter",
   scissors: "lucide:scissors",
   highlighter: "lucide:highlighter",
+  info: "lucide:info",
   tableCellsMerge: "lucide:table-cells-merge",
 } as const
 

@@ -547,7 +547,8 @@ Any editable text / number cell accepts an Excel-style formula: type
 `=B1*C1`, `=SUM(D1:D4)`, `=D1/$D$5` (absolute), `=IF(C1>10,"big","small")`…
 Formulas are stored as-is in the row data, **recalculate live** on every change
 (memoized, cycle-safe) and errors render in red
-(`#DIV/0!`, `#REF!`, `#CYCLE!`…). While editing, the cell opens a **monospace
+(`#DIV/0!`, `#REF!`, `#CYCLE!`…) — **click an error cell** to see why (next section). While
+editing, the cell opens a **monospace
 editor** that grows with the source (`Shift`+`Enter` for a new line); the
 **fx bar** above the grid shows the active cell's raw value and lets you commit
 one (here: `Total`, `Share` with `$D$5` absolute reference). `Ctrl`+`C` copies
@@ -593,6 +594,154 @@ const rows = ref([
 ```
 ::
 
+### Errors — click a cell to see why
+
+An error cell only shows the Excel code (`#DIV/0!`, `#NAME?`, `#ERROR!`…), which tells you
+nothing when you are debugging a formula. **Click the cell**: a panel opens with the code,
+the cell reference, the *reason* and the raw formula. Hovering gives the same text as a
+native tooltip, `Escape` / a click outside / a scroll closes the panel.
+
+The reason comes from the engine (`Unknown column "total"`, `Division by zero`,
+`Unexpected character "*" at position 3`…) and falls back to a per-code explanation:
+
+| Code | Usually means |
+| --- | --- |
+| `#DIV/0!` | Division by zero — the denominator is 0 or empty |
+| `#NAME?` | Unknown function or column name (typo) |
+| `#REF!` | Reference outside the grid, or to a missing cell |
+| `#VALUE!` | Wrong type — text where a number is expected, range where one value is required |
+| `#N/A` | A lookup found no match |
+| `#CYCLE!` | Circular reference — the cell depends on itself |
+| `#ERROR!` | Syntax error — the message includes the position |
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="errors"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const columns = [
+  { name: "case", label: "Case", width: 150 },
+  { name: "a", label: "A", type: "number", width: 70 },
+  { name: "b", label: "B", type: "number", width: 70 },
+  { name: "formula", label: "Formula", width: 190 },
+]
+
+const rows = ref([
+  { case: "Division by zero", a: 6, b: 0, formula: "=B1/C1" },
+  { case: "Unknown column", a: 2, b: 3, formula: "=B2*missing" },
+  { case: "Syntax error", a: 4, b: 5, formula: "=B4**C4" },
+  { case: "Circular reference", a: 3, b: 3, formula: "=D6" },
+])
+</script>
+
+<template>
+  <q-spreadsheet v-model:rows="rows" :columns="columns" height="260px" bordered />
+</template>
+## Unknown function
+```
+::
+
+#### The `error` event
+
+Every formula error is also an **event**, so you can log it, send it to your backend or show a
+banner — no polling needed. One event per error: on mount for the errors already present, then
+only for new or changed ones.
+
+```vue
+<q-spreadsheet v-model:rows="rows" :columns="columns" @error="onError" />
+```
+
+```ts
+const onError = (e) => {
+  // e = { code, message, detail, formula, row, absoluteRow, column, columnIndex,
+  //       columnLetter, ref, rowData }
+  console.warn(`${e.ref} · ${e.code} — ${e.message}`, e.formula, e.rowData)
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `code` | the code displayed in the cell (`#DIV/0!`, `#NAME?`…) |
+| `message` | readable reason — the engine detail, else the per-code explanation |
+| `detail` | raw engine message (`Unknown column "total"`), `undefined` when there is none |
+| `formula` | stored source (`=B1/C1`) |
+| `row` / `absoluteRow` | page-local index / global index (pagination offset included) |
+| `column` / `columnIndex` / `columnLetter` | column name, index and letter |
+| `ref` | A1 reference (`D3`) |
+| `rowData` | the whole row of data |
+
+`getFormulaErrors()` (on the template ref) returns the same payloads for **all** current
+errors — handy for a “validate before submit” step:
+
+```ts
+const grid = useTemplateRef("grid")
+const errors = grid.value?.getFormulaErrors() ?? []
+if (errors.length) banner(`${errors.length} formula error(s)`)
+```
+
+> The same error never fires twice: identity = cell + code + message + formula, so re-renders
+> and edits to other cells do not spam your handler. Fix the cell and break it again → it fires
+> again.
+
+### Calculated columns (`auto-formula`)
+
+A formula cell is a **template for its column**: on a row where that cell is still empty, the
+grid applies the nearest formula of the column (A1 references shifted to that row) **as soon as
+the columns it references are filled** — type a price in the *Cherries* row and *Total*
+computes itself; add a row, fill `qty` + `price`, same thing. Nothing to declare, it is on by
+default.
+
+The write is **silent**: no undo entry, no “modified” mark — but the result lands in `rows`
+(`update:rows`), so bind `v-model:rows` to keep your data in sync.
+
+Rules worth knowing:
+
+- a **filled** cell is never overwritten (typed value or another formula stays);
+- **all** the same-row columns referenced by the formula must be filled — with `price` empty,
+  `Total` stays empty (no half-computed `#VALUE!`);
+- the formula comes from the nearest row **above** (or **below** when there is none), with its
+  references shifted (`=B2*C2` → `=B7*C7`);
+- `$`-absolute rows (`$B$5`), cross-row ranges (`=SUM(D1:D4)`, a total row) and formulas that
+  reference their own column are **ignored** (nothing to trigger them);
+- column-name formulas work too: `=qty*price` is copied as-is;
+- `:auto-formula="false"` disables everything; `applyAutoFormula()` (template ref) re-runs it
+  on demand, `applyAutoFormula(row)` for a single row.
+
+::prose-show-case
+:dnax-demo-spreadsheet{demo="autocalc"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const columns = [
+  { name: "item", label: "Item", width: 150 },
+  { name: "qty", label: "Qty", type: "integer", width: 80 },
+  { name: "unit_price", label: "Unit price", type: "number", width: 110 },
+  { name: "total", label: "Total (auto)", type: "number", width: 140 },
+]
+
+const rows = ref([
+  { item: "Apples", qty: 6, unit_price: 1.5, total: "=qty*unit_price" },
+  { item: "Bananas", qty: 12, unit_price: 0.4, total: "=qty*unit_price" },
+  { item: "Cherries", qty: 30, unit_price: null, total: "" }, // total restera vide…
+  { item: "", qty: null, unit_price: null, total: "" }, // …jusqu'à la saisie du prix
+])
+</script>
+
+<template>
+  <!-- Tapez un prix : `total` reçoit `=qty*unit_price` et s'affiche tout seul -->
+  <q-spreadsheet v-model:rows="rows" :columns="columns" height="220px" bordered />
+</template>
+```
+::
+
 ### Syntax
 
 A cell value that starts with `=` is a formula. Row numbers in references match
@@ -605,7 +754,7 @@ source).
 | `A1` | Cell reference (column letter + row) | `=B1*C1` |
 | `$A$1`, `$A1`, `A$1` | Absolute reference — does not shift when copied / filled | `=D1/$D$5` |
 | `A1:C3` | Range (rectangular block) — for aggregations | `=SUM(D1:D4)` |
-| `name` | Column reference on the current row | `=price * quantity` |
+| `name` | Column reference on the current row — names may contain `_` and digits | `=price * quantity`, `=prix_mois*12`, `=tax_2024` |
 | `"text"` / `'text'` | String literal | `=IF(B1>10,"big","small")` |
 | `TRUE` / `FALSE` | Boolean literal (also `TRUE()` / `FALSE()`) | `=IF(A1>0,TRUE,FALSE)` |
 | `10%` | Postfix percent | `=A1*10%` |
@@ -1738,6 +1887,13 @@ attachments, value, rowData, event }` — for your preview modal (see **Attachme
 
 `page-change` fires on pager navigation — `{ page, previousPage, pageSize, offset, totalRows,
 pageCount }` — the hook for loading the next page of a remote dataset (see **Pagination**).
+
+`error` fires when a **formula error** appears (or changes): one event per error, with the
+full context — `{ code, message, detail, formula, row, absoluteRow, column, columnIndex,
+columnLetter, ref, rowData }`. It is emitted on mount for errors already present, then only
+for **new** ones (never on every recalculation) — the hook for logging or a “3 cells need
+attention” banner. Scope: the **active sheet / loaded page** (`rows` holds one page), like the
+other events. `getFormulaErrors()` returns the current list (see **Errors**).
 
 ::prose-show-case
 :dnax-demo-spreadsheet{demo="events"}

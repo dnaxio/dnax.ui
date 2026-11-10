@@ -74,6 +74,36 @@ export interface QSpreadsheetAttachment {
 // `lib/spreadsheetOptions.ts` — source unique, testée hors navigateur — et sont ré-exportés en
 // tête de ce bloc.
 
+/**
+ * Erreur de formule remontée par l'événement `error` (et par `getFormulaErrors()`).
+ * Émise **une fois par erreur nouvelle** : au montage pour l'état initial, puis à chaque
+ * apparition ou changement (cellule, code, message ou formule) — pas à chaque recalcul.
+ */
+export interface QSpreadsheetFormulaError {
+  /** Code affiché dans la cellule (`#DIV/0!`, `#NAME?`, `#ERROR!`…) */
+  code: string
+  /** Message lisible : détail du moteur, sinon explication du code (i18n) */
+  message: string
+  /** Détail brut du moteur, sans repli i18n (`Unknown column "total"`…) */
+  detail?: string
+  /** Formule source telle que stockée (`=B1/C1`) */
+  formula: string
+  /** Index de ligne dans la **page courante** (0-based) */
+  row: number
+  /** Index de ligne **absolu** (offset de pagination compris) */
+  absoluteRow: number
+  /** Nom de la colonne */
+  column: string
+  /** Index de la colonne (0-based) */
+  columnIndex: number
+  /** Lettre de la colonne (`D`) */
+  columnLetter: string
+  /** Référence A1 de la cellule (`D3`, offset de pagination compris) */
+  ref: string
+  /** Ligne de données complète (toutes les colonnes) */
+  rowData: Record<string, any>
+}
+
 export interface QSpreadsheetColumn {
   /** Clé de la propriété dans la ligne */
   name: string
@@ -212,8 +242,9 @@ import { icons } from "../lib/icons"
 import { colorValue, foregroundFor } from "../lib/colors"
 import { radiusStyle, useRadius, useConfigLang } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
-import { evaluateFormula, isError, FormulaError } from "../lib/formula"
-import type { FormulaValue } from "../lib/formula"
+import { evaluateFormula, isError, FormulaError, collectFormulaErrors, formulaErrorKey } from "../lib/formula"
+import type { FormulaErrorReport, FormulaValue } from "../lib/formula"
+import { withAutoFormulas } from "../lib/formulaColumn"
 import {
   colLetter,
   colFromLetters,
@@ -350,6 +381,18 @@ interface Props {
    * uniquement. (Défaut : `true`.)
    */
   autoPrefill?: boolean
+  /**
+   * **Colonnes calculées** : une cellule de formule **vide** reçoit automatiquement la formule
+   * de la colonne (celle de la ligne la plus proche, références A1 recalées) dès que les
+   * colonnes qu'elle référence sur **sa** ligne sont renseignées. Saisir `qty` puis `price`
+   * dans une nouvelle ligne calcule `total` sans rien retaper.
+   *
+   * Écriture **silencieuse** : pas d'historique, pas de marquage « modifié », mais le résultat
+   * part dans `rows` (`update:rows`) — utiliser `v-model:rows` pour le recevoir. Une cellule
+   * **jamais vide** (valeur saisie, autre formule) n'est jamais écrasée. `false` → rien n'est
+   * calculé automatiquement. (Défaut : `true`.)
+   */
+  autoFormula?: boolean
   /**
    * Nombre **minimum** de lignes : impossible de descendre en dessous (la suppression des lignes
    * sélectionnées est refusée si elle passerait sous le plancher). Combiné avec `maxRows` à la
@@ -510,6 +553,15 @@ const I18N = {
     pageRange: "Rows {from}–{to} of {total}",
     pageLabel: "{page} / {count}",
     loading: "Loading…",
+    errTitle: "Formula error",
+    errFormula: "Formula",
+    errDiv: "Division by zero — check the denominator.",
+    errName: "Unknown function or column name — check the spelling.",
+    errValue: "Wrong value type — text where a number is expected, or a range where a single value is required.",
+    errRef: "Reference outside the grid — a cell or range that does not exist.",
+    errNa: "No match found — the lookup value is missing.",
+    errCycle: "Circular reference — the formula depends on its own cell.",
+    errUnknown: "Unknown formula error.",
   },
   fr: {
     sheet: "Feuille",
@@ -596,6 +648,15 @@ const I18N = {
     pageRange: "Lignes {from}–{to} sur {total}",
     pageLabel: "{page} / {count}",
     loading: "Chargement…",
+    errTitle: "Erreur de formule",
+    errFormula: "Formule",
+    errDiv: "Division par zéro — vérifiez le dénominateur.",
+    errName: "Fonction ou nom de colonne inconnu — vérifiez l'orthographe.",
+    errValue: "Type de valeur incorrect — du texte là où un nombre est attendu, ou une plage là où une seule valeur est requise.",
+    errRef: "Référence hors de la grille — cellule ou plage inexistante.",
+    errNa: "Aucune correspondance — la valeur recherchée est absente.",
+    errCycle: "Référence circulaire — la formule dépend de sa propre cellule.",
+    errUnknown: "Erreur de formule inconnue.",
   },
 } as const
 type UiKey = keyof (typeof I18N)["en"]
@@ -665,6 +726,16 @@ const emit = defineEmits<{
     totalRows: number
     pageCount: number
   }]
+  /**
+   * Une **erreur de formule** vient d'apparaître (ou a changé) dans la grille : le canal
+   * pour journaliser / remonter les `#DIV/0!`, `#NAME?`, `#ERROR!`… avec leur contexte
+   * complet (cellule, référence A1, formule source, ligne de données).
+   *
+   * Émise **une fois par erreur** : au montage pour les erreurs déjà présentes, puis à
+   * chaque erreur nouvelle — jamais en boucle à chaque recalcul. L'état complet à tout
+   * moment : `getFormulaErrors()`.
+   */
+  "error": [payload: QSpreadsheetFormulaError]
 }>()
 
 // ─── Taille des cellules (`sizeCell`) ───
@@ -730,6 +801,10 @@ const ensureRowKeys = (rows: Record<string, any>[] | undefined) => {
 // ─── Données internes (copie éditable des rows) ───
 // Préremplissage : tant que `false`, toute application auto est ignorée (avant montage).
 let prefillReady = false
+// Colonnes calculées (`autoFormula`) : tant que `false`, aucune écriture — en SSR le document
+// doit être rendu tel qu'il est reçu (mêmes règles que `prefillReady`). Déclaré **avant** le
+// watcher de `rows` (qui appelle `applyAutoFormula`) pour éviter la zone morte temporelle.
+let autoFormulaReady = false
 const state = ref<Record<string, any>[]>([])
 watch(
   () => props.rows,
@@ -743,6 +818,8 @@ watch(
       if (trackReady) acceptChanges()
       // Nouveau document → applique les défauts sur les cellules vides.
       autoPrefill()
+      // … puis les formules de colonne (sur les lignes complètes mais sans formule)
+      applyAutoFormula()
     }
   },
   { immediate: true },
@@ -838,6 +915,7 @@ watch(
       if (trackReady) acceptChanges()
       // Les zones de `prefill` dépendent des noms de colonnes → (re)applique.
       autoPrefill()
+      applyAutoFormula()
     }
   },
   { immediate: true },
@@ -1055,10 +1133,10 @@ const evaluated = computed<FormulaValue[][]>(() => {
   const get = (r: number, c: number): FormulaValue => {
     const key = r + ":" + c
     if (memo.has(key)) return memo.get(key)!
-    if (visiting.has(key)) return new FormulaError("#CYCLE!")
+    if (visiting.has(key)) return new FormulaError("#CYCLE!", "Circular reference — the cell depends on itself")
     const row = rows[r]
     const col = cols.value[c]
-    if (!row || !col) return new FormulaError("#REF!")
+    if (!row || !col) return new FormulaError("#REF!", "Cell outside the grid")
     const raw = row[col.name]
     if (raw === null || raw === undefined || raw === "") {
       memo.set(key, null)
@@ -1251,6 +1329,9 @@ const startEdit = (row: number, column: string, initial?: string) => {
   if (props.loading) return
   const col = colOf(column)
   if (isCellLocked(row, column) || col?.type === "boolean") return
+  // Corriger une formule en erreur : le panneau de détail (clic simple) n'a rien à faire
+  // devant l'éditeur.
+  closeError()
   // Fichier joint : pas d'éditeur texte — Entrée / double-clic ouvrent le sélecteur
   // (une simple frappe de caractère ne doit **pas** déclencher de boîte de dialogue)
   if (col?.type === "attachment") {
@@ -1402,7 +1483,10 @@ const setCellValue = (row: number, column: string, old: any, next: any) => {
   const nextRows = [...state.value]
   nextRows[row] = nextRow
   pushRows(nextRows)
-  emit("cell-change", { row, column, oldValue: old, newValue: next, rows: nextRows })
+  // Colonne calculée : la cellule de formule vide de **cette** ligne se remplit dès que ses
+  // références le sont — `rows` transmis ci-dessous inclut donc le résultat.
+  applyAutoFormula(row)
+  emit("cell-change", { row, column, oldValue: old, newValue: next, rows: state.value })
 }
 
 const clearCell = (row: number, column: string) => {
@@ -1802,6 +1886,21 @@ function autoPrefill(): void {
   runPrefill("auto")
 }
 
+// ─── Colonnes calculées (`autoFormula`) ───
+/**
+ * Propage les formules de colonne aux cellules de formule **vides** dont les colonnes
+ * référencées sont renseignées (cf. `withAutoFormulas`). Silencieux : pas d'historique ni de
+ * marquage « modifié », mais `update:rows` (la grille est la source de vérité).
+ * `onlyRow` limite le travail à la ligne qu'on vient de saisir.
+ */
+function applyAutoFormula(onlyRow?: number): void {
+  if (!autoFormulaReady || props.autoFormula === false) return
+  if (props.readonly || props.disable) return
+  const next = withAutoFormulas(state.value, cols.value, onlyRow === undefined ? {} : { onlyRow })
+  if (!next) return
+  pushRows(next)
+}
+
 const addRow = (at?: number) => {
   if (props.readonly || props.disable) return
   if (!canAddRow.value) return
@@ -2112,6 +2211,12 @@ const onKeydown = (e: KeyboardEvent) => {
   // Données en cours de chargement : on ne navigue ni n'édite une page périmée
   if (props.loading) return
   if (editing.value) return
+  // Panneau d'erreur de formule ouvert : `Échap` le referme (avant toute navigation)
+  if (e.key === "Escape" && errPop.value) {
+    e.preventDefault()
+    closeError()
+    return
+  }
   if (!sel.value || !cols.value.length) return
   const mod = e.ctrlKey || e.metaKey
   const shift = e.shiftKey
@@ -2406,7 +2511,8 @@ const fxPreview = computed<{ text: string; error: boolean; hint: string } | null
     return {
       text: value.code,
       error: true,
-      hint: value.code === "#ERROR!" ? t("fxSyntax") : value.code,
+      // `title` de l'aperçu : le détail du moteur quand il existe (au lieu du seul code)
+      hint: value.detail || (value.code === "#ERROR!" ? t("fxSyntax") : value.code),
     }
   }
   if (value === null || value === undefined || value === "") {
@@ -3203,6 +3309,122 @@ const closePops = () => {
   closeCtx()
   closeFilter()
 }
+
+// ════════ Détail d'une erreur de formule (clic sur la cellule) ════════
+// Une cellule en erreur n'affiche que `#DIV/0!`, `#NAME?`, `#ERROR!`… — impossible de savoir
+// *pourquoi* sans ouvrir la formule et deviner. Le moteur (`lib/formula.ts`) attache
+// maintenant un `detail` à chaque `FormulaError` ; à défaut, on retombe sur une explication
+// par code. Un clic sur la cellule ouvre un panneau (code · message · formule · réf. A1) et
+// `title` donne la même chose au survol.
+const ERR_HINTS: Record<string, UiKey> = {
+  "#DIV/0!": "errDiv",
+  "#NAME?": "errName",
+  "#VALUE!": "errValue",
+  "#REF!": "errRef",
+  "#N/A": "errNa",
+  "#CYCLE!": "errCycle",
+  "#ERROR!": "fxSyntax",
+}
+
+/** Panneau ouvert : position d'ancrage + cellule concernée */
+const errPop = ref<{ row: number; column: string; x: number; y: number } | null>(null)
+const errPopEl = ref<HTMLElement | null>(null)
+
+/** `FormulaError` évaluée d'une cellule (undefined si la cellule n'est pas en erreur) */
+const formulaErrorAt = (row: number, column: string): FormulaError | undefined => {
+  const v = evalAt(row, column)
+  return isError(v) ? v : undefined
+}
+
+/** Référence A1 d'une cellule, offset de pagination compris (`C7`) */
+const cellRefOf = (row: number, column: string): string => {
+  const ci = colIndex(column)
+  return ci === -1 ? column : colLetter(ci) + (rowOffset.value + row + 1)
+}
+
+/** Message du moteur s'il existe, sinon explication générique du code d'erreur */
+const errMessageOf = (code: string, detail?: string): string =>
+  detail || t(ERR_HINTS[code] ?? "errUnknown")
+const errDetailOf = (e: FormulaError): string => errMessageOf(e.code, e.detail)
+
+const errPopInfo = computed(() => {
+  const p = errPop.value
+  if (!p) return null
+  const e = formulaErrorAt(p.row, p.column)
+  if (!e) return null // la formule a été corrigée entre-temps
+  return {
+    code: e.code,
+    detail: errDetailOf(e),
+    formula: String(cellValue(p.row, p.column) ?? ""),
+    ref: cellRefOf(p.row, p.column),
+    x: p.x,
+    y: p.y,
+  }
+})
+
+const openError = (row: number, column: string, e?: MouseEvent) => {
+  // Double-clic = édition (2e clic d'un dblclick) : on n'ouvre/ne rouvre pas le panneau
+  if (e && e.detail > 1) return
+  if (!formulaErrorAt(row, column)) {
+    closeError()
+    return
+  }
+  const td = (e?.currentTarget as HTMLElement | null) ?? null
+  const rect = td?.getBoundingClientRect()
+  const x = rect ? rect.left : 12
+  const y = rect ? rect.bottom + 4 : 12
+  errPop.value = { row, column, x, y }
+  nextTick(() => {
+    if (errPopEl.value) placePop(errPopEl.value, x, y)
+  })
+}
+const closeError = () => {
+  errPop.value = null
+}
+
+// ─── Événement `error` : une erreur de formule = un événement ───
+/** Erreurs de la page courante (calcul pur : `collectFormulaErrors`). */
+const formulaErrors = computed(() =>
+  collectFormulaErrors(evaluated.value, cols.value, state.value),
+)
+
+/** Contexte complet d'une erreur (ce que reçoit l'app dans `@error`). */
+const formulaErrorPayload = (e: FormulaErrorReport): QSpreadsheetFormulaError => {
+  const ci = colIndex(e.column)
+  return {
+    code: e.code,
+    message: errMessageOf(e.code, e.detail),
+    detail: e.detail,
+    formula: e.formula,
+    row: e.row,
+    absoluteRow: rowOffset.value + e.row,
+    column: e.column,
+    columnIndex: ci,
+    columnLetter: ci === -1 ? "" : colLetter(ci),
+    ref: cellRefOf(e.row, e.column),
+    rowData: state.value[e.row] ?? {},
+  }
+}
+
+/** Signatures déjà signalées — on n'émet que le **nouveau** (pas à chaque recalcul). */
+let emittedErrorKeys = new Set<string>()
+const emitNewFormulaErrors = () => {
+  const next = new Set<string>()
+  for (const e of formulaErrors.value) {
+    const key = formulaErrorKey(e)
+    next.add(key)
+    if (emittedErrorKeys.has(key)) continue
+    emit("error", formulaErrorPayload(e))
+  }
+  emittedErrorKeys = next
+}
+// Pas de `immediate` : en SSR un watcher immédiat appellerait le listener **côté serveur**.
+// `onMounted` signale l'état initial, côté client uniquement.
+watch(formulaErrors, emitNewFormulaErrors)
+onMounted(emitNewFormulaErrors)
+
+/** Liste courante des erreurs de formule (même payload que `@error`) — exposée au parent. */
+const getFormulaErrors = () => formulaErrors.value.map(formulaErrorPayload)
 const onCellContext = (ri: number, name: string, e: MouseEvent) => {
   if (props.disable) return
   select(ri, name)
@@ -3233,6 +3455,11 @@ const onDocPointerDown = (e: PointerEvent) => {
     (filterMenu.value && !t.closest(".q-spreadsheet__fpop") && !t.closest(".q-spreadsheet__fbtn"))
   ) {
     closePops()
+  }
+  // Panneau d'erreur : fermé dès qu'on clique en dehors (hors grille et hors panneau) —
+  // un clic **dans** la grille est arbitré par `openError` (repositionne ou ferme).
+  if (errPop.value && !t.closest(".q-spreadsheet__errpop") && !rootRef.value?.contains(t)) {
+    closeError()
   }
 }
 
@@ -3647,6 +3874,8 @@ const onViewportScroll = () => {
   updateFillHandle()
   updateViewportMetrics()
   updateRange()
+  // Le panneau d'erreur est ancré en coordonnées écran : il ne suit pas le scroll.
+  if (errPop.value) closeError()
 }
 
 /** Double-clic sur la poignée : étend la série jusqu'à la fin des données */
@@ -3700,6 +3929,10 @@ onMounted(() => {
   // l'inclure, sinon les défauts compteraient comme des « modifications ».
   prefillReady = true
   autoPrefill()
+  // Colonnes calculées : mêmes règles — avant la référence de comparaison, sinon la formule
+  // auto-posée compterait comme une « modification » de l'app.
+  autoFormulaReady = true
+  applyAutoFormula()
   // Référence initiale : à partir d'ici, toute différence avec elle = « modifié »
   trackReady = true
   acceptChanges()
@@ -4827,6 +5060,12 @@ const errCellClass = (r: number, name: string) =>
 const tdTitle = (r: number, col: QSpreadsheetColumn): string => {
   const err = valErrorOf(r, col.name)
   if (err) return "⚠ " + err
+  // Erreur de formule : code + explication + formule source (infobulle native, sans clic)
+  const ferr = formulaErrorAt(r, col.name)
+  if (ferr) {
+    const raw = String(cellValue(r, col.name) ?? "")
+    return [ferr.code + " — " + errDetailOf(ferr), raw].filter(Boolean).join("\n")
+  }
   const t = cellTitle(r, col.name)
   if (t) return t
   const raw = cellValue(r, col.name)
@@ -5033,6 +5272,10 @@ defineExpose({
   exportJson,
   exportCsv,
   getCsv,
+  /** Erreurs de formule de la page courante (même payload que `@error`) */
+  getFormulaErrors,
+  /** Applique les formules de colonne aux cellules vides (cf. `auto-formula`) */
+  applyAutoFormula,
   openFind,
   closeFind,
   importCsv,
@@ -5513,6 +5756,7 @@ defineExpose({
               tabindex="-1"
               @pointerdown="onCellPointerDown(ri, col.name, $event)"
               @pointerenter="onCellPointerEnter(ri, col.name)"
+              @click="openError(ri, col.name, $event)"
               @dblclick="startEdit(ri, col.name)"
               @contextmenu="onCellContext(ri, col.name, $event)"
             >
@@ -6003,6 +6247,40 @@ defineExpose({
         <button type="button" class="q-spreadsheet__mi" :disabled="!sel" @click="openCfFromMenu">
           <Icon :icon="icons.highlighter" aria-hidden="true" /> {{ t('condFormat') }}
         </button>
+      </div>
+    </Teleport>
+
+    <!-- ═══════ Détail d'une erreur de formule (clic sur la cellule) ═══════ -->
+    <Teleport to="body">
+      <div
+        v-if="errPopInfo"
+        ref="errPopEl"
+        class="q-spreadsheet__errpop"
+        role="dialog"
+        :aria-label="t('errTitle')"
+        :style="{ left: errPopInfo.x + 'px', top: errPopInfo.y + 'px' }"
+        @pointerdown.stop
+        @click.stop
+      >
+        <div class="q-spreadsheet__errpop-head">
+          <Icon :icon="icons.info" aria-hidden="true" />
+          <span class="q-spreadsheet__errpop-code">{{ errPopInfo.code }}</span>
+          <span class="q-spreadsheet__errpop-ref">{{ errPopInfo.ref }}</span>
+          <button
+            type="button"
+            class="q-spreadsheet__tool q-spreadsheet__errpop-close"
+            :title="t('close')"
+            :aria-label="t('close')"
+            @click="closeError"
+          >
+            <Icon :icon="icons.x" aria-hidden="true" />
+          </button>
+        </div>
+        <p class="q-spreadsheet__errpop-msg">{{ errPopInfo.detail }}</p>
+        <div class="q-spreadsheet__errpop-formula">
+          <span>{{ t('errFormula') }}</span>
+          <code>{{ errPopInfo.formula }}</code>
+        </div>
       </div>
     </Teleport>
 

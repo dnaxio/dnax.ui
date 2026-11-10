@@ -10259,6 +10259,8 @@ a.q-breadcrumbs__el:hover {
 .q-spreadsheet__cell--error {
   color: #c62828;
   font-weight: 600;
+  /* Cliquable : ouvre le panneau d'explication de l'erreur */
+  cursor: help;
 }
 .q-spreadsheet--dark .q-spreadsheet__cell--error,
 .dark .q-spreadsheet__cell--error {
@@ -10362,6 +10364,72 @@ a.q-breadcrumbs__el:hover {
   text-align: center;
   border-right: 1px solid var(--q-spreadsheet-border);
   border-bottom: 1px solid var(--q-spreadsheet-border);
+}
+
+/* ─── Panneau de détail d'une erreur de formule (téléporté body) ─── */
+.q-spreadsheet__errpop {
+  position: fixed;
+  z-index: var(--q-z-menu, 3200);
+  max-width: min(380px, calc(100vw - 24px));
+  padding: 8px 10px 10px;
+  border: 1px solid var(--border, rgb(0 0 0 / 0.12));
+  border-radius: 9px;
+  background: var(--card, #fff);
+  color: var(--foreground, #1d1d1d);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.dark .q-spreadsheet__errpop {
+  color: #ececef;
+  background: #1d1d1d;
+  border-color: rgb(255 255 255 / 0.14);
+}
+.q-spreadsheet__errpop-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: #c62828;
+}
+.dark .q-spreadsheet__errpop-head {
+  color: #ff8a80;
+}
+.q-spreadsheet__errpop-code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgb(198 40 40 / 0.12);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+.q-spreadsheet__errpop-ref {
+  font-size: 11px;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+.q-spreadsheet__errpop-close {
+  margin-left: auto;
+}
+.q-spreadsheet__errpop-msg {
+  margin: 0 0 6px;
+}
+.q-spreadsheet__errpop-formula {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border, rgb(0 0 0 / 0.08));
+}
+.q-spreadsheet__errpop-formula > span {
+  flex: none;
+  font-size: 11px;
+  opacity: 0.6;
+}
+.q-spreadsheet__errpop-formula > code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 /* ─── Menu contextuel / popup filtre (téléportés body) ─── */

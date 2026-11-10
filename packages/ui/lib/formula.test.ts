@@ -1,6 +1,6 @@
 // Tests unitaires du moteur de formules A1 (bun test).
 import { describe, expect, it } from "bun:test"
-import { criteriaMatcher, evaluateFormula, FORMULA_FUNCTION_NAMES, isError } from "./formula"
+import { criteriaMatcher, evaluateFormula, FORMULA_FUNCTION_NAMES, isError, collectFormulaErrors, formulaErrorKey } from "./formula"
 import type { FormulaValue } from "./formula"
 
 type Grid = (string | number | boolean | null)[][]
@@ -395,5 +395,148 @@ describe("parité moteur ↔ autocomplétion", () => {
     const aliases = new Set(["AVG", "CEIL", "POW"])
     const missing = FORMULA_FUNCTION_NAMES.filter((n) => !aliases.has(n) && !suggested.has(n))
     expect(missing).toEqual([])
+  })
+})
+
+describe("détail des erreurs (débogage au clic)", () => {
+  const grid: Grid = [[1, "abc"]]
+  const e = harness(grid)
+  const detailOf = (f: string): string => {
+    const v = e(f)
+    if (!isError(v)) throw new Error("expected a FormulaError, got " + String(v))
+    return v.detail ?? ""
+  }
+
+  it("le code reste la valeur affichée (aucune régression)", () => {
+    expect(String(e("=1/0"))).toBe("#DIV/0!")
+    expect(String(e("=NOPE(1)"))).toBe("#NAME?")
+  })
+  it("#NAME? nomme la fonction inconnue", () => {
+    expect(detailOf("=NOPE(1)")).toContain("NOPE")
+  })
+  it("#DIV/0! explique la division par zéro", () => {
+    expect(detailOf("=1/0")).toMatch(/division/i)
+  })
+  it("#REF! cite la référence hors grille", () => {
+    expect(detailOf("=Z99")).toContain("Z99")
+  })
+  it("#VALUE! cite le texte fautif", () => {
+    expect(detailOf("=1+B1")).toContain("abc")
+  })
+  it("#ERROR! remonte le message du parseur (avec la position)", () => {
+    expect(detailOf("=1+*2")).toMatch(/position/i)
+    expect(detailOf("=SUM(1")).toMatch(/position/i)
+  })
+  it("un champ de colonne inconnu est nommé", () => {
+    expect(detailOf("=total*2")).toContain("total")
+  })
+})
+
+describe("collectFormulaErrors / formulaErrorKey (événement @error)", () => {
+  const columns = [{ name: "a" }, { name: "b" }, { name: "c" }]
+  const rows: Record<string, any>[] = [
+    { a: 1, b: 2, c: "=A1/B1" }, // ok
+    { a: 1, b: 0, c: "=A2/B2" }, // #DIV/0!
+    { a: 1, b: 2, c: "=A3*missing" }, // #NAME?
+    { a: null, b: null, c: null }, // vide
+  ]
+
+  /** Évalue la grille comme le fait le composant (formules → valeurs, refs résolues). */
+  const names = ["a", "b", "c"]
+  const cellAt = (r: number, c: number): any => {
+    const row = rows[r]
+    const name = names[c]
+    const raw = row && name ? row[name] : undefined
+    if (raw === undefined) return undefined
+    if (typeof raw === "string" && raw.startsWith("=")) {
+      return evaluateFormula(raw, {
+        row: r,
+        resolveField: (n) => (row && n in row ? row[n] : undefined),
+        resolveCell: cellAt,
+      })
+    }
+    return raw
+  }
+  const values = rows.map((_, r) => names.map((_n, c) => cellAt(r, c)))
+
+  it("liste les cellules en erreur avec ligne, colonne, code, détail et formule", () => {
+    const list = collectFormulaErrors(values, columns, rows)
+    expect(list.map((e) => [e.row, e.column, e.code])).toEqual([
+      [1, "c", "#DIV/0!"],
+      [2, "c", "#NAME?"],
+    ])
+    expect(list[0]!.formula).toBe("=A2/B2")
+    expect(list[0]!.detail).toMatch(/division/i)
+    expect(list[1]!.detail).toContain("missing")
+  })
+
+  it("aucune erreur → liste vide", () => {
+    expect(collectFormulaErrors([[1, 2, 3]], columns, [{ a: 1, b: 2, c: 3 }])).toEqual([])
+  })
+
+  it("formule vide quand la valeur brute n'est pas une chaîne", () => {
+    const list = collectFormulaErrors([[null, null, new (class extends Error {})() as any]], columns, rows)
+    // une valeur non-`FormulaError` n'est pas listée
+    expect(list).toEqual([])
+  })
+
+  it("la clé est stable pour une même erreur et change avec la formule", () => {
+    const [div] = collectFormulaErrors(values, columns, rows)
+    expect(formulaErrorKey(div!)).toBe(formulaErrorKey({ ...div! }))
+    expect(formulaErrorKey(div!)).not.toBe(
+      formulaErrorKey({ ...div!, formula: "=A2/C2" }),
+    )
+    expect(formulaErrorKey(div!)).not.toBe(formulaErrorKey({ ...div!, row: 5 }))
+  })
+
+  it("détecte une erreur dans une colonne en erreur sans formule stockée", () => {
+    const err = evaluateFormula("=1/0", {
+      row: 0,
+      resolveField: () => undefined,
+      resolveCell: () => undefined,
+    })
+    const list = collectFormulaErrors([[err as any]], [{ name: "x" }], [{ x: 1 }])
+    expect(list).toHaveLength(1)
+    expect(list[0]!.formula).toBe("")
+    expect(list[0]!.code).toBe("#DIV/0!")
+  })
+})
+
+describe("noms de colonnes étendus (underscore, chiffres)", () => {
+  const ctx =
+    (values: Record<string, any>) =>
+    (f: string): FormulaValue =>
+      evaluateFormula(f, {
+        row: 0,
+        resolveField: (name) => (name in values ? values[name] : undefined),
+        resolveCell: () => undefined,
+      })
+
+  it("accepte les underscores : =prix_mois*12", () => {
+    expect(ctx({ prix_mois: 100 })("=prix_mois*12")).toBe(1200)
+    expect(ctx({ prix_mois: 100 })("=SUM(prix_mois, 12)")).toBe(112)
+  })
+
+  it("accepte les chiffres dans le nom (non tronqué après 3 lettres)", () => {
+    const e = ctx({ tax_2024: 5, price1: 3, a1: 7 })
+    expect(e("=tax_2024+price1")).toBe(8)
+    expect(e("=a1")).toBe(7) // champ prioritaire sur la référence A1
+  })
+
+  it("un nom inconnu reste #NAME? et nomme la colonne", () => {
+    const v = ctx({})("=prix_annuel*12")
+    expect(String(v)).toBe("#NAME?")
+    expect((v as any).detail).toContain("prix_annuel")
+  })
+
+  it("les références A1 et les littéraux TRUE/FALSE sont préservés", () => {
+    const e = evaluateFormula("=A1+1", {
+      row: 0,
+      resolveField: () => undefined,
+      resolveCell: (r, c) => (r === 0 && c === 0 ? 41 : undefined),
+    })
+    expect(e).toBe(42)
+    expect(harness([[1]])(("=IF(TRUE,1,2)"))).toBe(1)
+    expect(String(harness([[1]])("=ZZ99"))).toBe("#REF!")
   })
 })

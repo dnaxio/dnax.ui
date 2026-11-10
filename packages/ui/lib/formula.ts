@@ -9,8 +9,15 @@
 
 export class FormulaError {
   readonly code: string
-  constructor(code: string) {
+  /**
+   * Détail lisible (pourquoi l'erreur) — **jamais affiché dans la cellule** : le grid le
+   * remonte dans l'attribut `title` et le panneau de débogage qui s'ouvre au clic.
+   * Ex. `Unknown column "total"`, `Division by zero`, `Unexpected character "@" at 4`.
+   */
+  readonly detail?: string
+  constructor(code: string, detail?: string) {
     this.code = code
+    this.detail = detail
   }
   toString() {
     return this.code
@@ -65,6 +72,10 @@ class Parser {
   eof() {
     return this.pos >= this.src.length
   }
+  /** Position courante (0-based) — pour des messages d'erreur de syntaxe exploitables. */
+  get position() {
+    return this.pos
+  }
   private next() {
     return this.src[this.pos++]
   }
@@ -73,7 +84,7 @@ class Parser {
   }
   private expect(char: string) {
     this.skipWs()
-    if (this.peek() !== char) throw new Error("expected " + char)
+    if (this.peek() !== char) throw new Error(`Expected "${char}" at position ${this.pos + 1}`)
     this.pos++
   }
 
@@ -178,7 +189,11 @@ class Parser {
     if (ch === '"' || ch === "'") return { kind: "str", value: this.parseString(ch) }
     if (ch && /[0-9.]/.test(ch)) return this.parseNumber()
     if (ch && /[A-Za-z_$]/.test(ch)) return this.parseRefOrCall()
-    throw new Error("unexpected char")
+    throw new Error(
+      ch
+        ? `Unexpected character "${ch}" at position ${this.pos + 1}`
+        : "Unexpected end of formula",
+    )
   }
 
   private parseString(quote: string): string {
@@ -193,7 +208,7 @@ class Parser {
         } else return out
       } else out += c
     }
-    throw new Error("unterminated string")
+    throw new Error("Unterminated string literal")
   }
 
   private parseNumber(): Node {
@@ -205,18 +220,21 @@ class Parser {
 
   private parseRefOrCall(): Node {
     // [$]lettres[$]chiffres  → A1 ;  identifiant( → appel ;  sinon champ
+    // Les **noms de colonne** peuvent contenir `_` et des chiffres (`prix_mois`, `tax_2024`,
+    // `price1`) : on lit l'identifiant entier, puis on décide s'il *ressemble* à une
+    // référence A1 (1–3 lettres + chiffres, sans `_`).
     let colAbs = false
     if (this.peek() === "$") {
       colAbs = true
       this.pos++
     }
     let letters = ""
-    while (!this.eof() && /[A-Za-z]/.test(this.peek()!)) letters += this.next()
-    if (letters.length === 0) throw new Error("bad ref")
+    while (!this.eof() && /[A-Za-z_]/.test(this.peek()!)) letters += this.next()
+    if (letters.length === 0) throw new Error("Invalid reference")
 
     // Appel de fonction : identifiant suivi de "("
     if (this.peek() === "(") {
-      if (colAbs) throw new Error("bad call")
+      if (colAbs) throw new Error("Invalid function call (unexpected $)")
       this.pos++
       const args: Node[] = []
       this.skipWs()
@@ -242,16 +260,24 @@ class Parser {
     }
     let digits = ""
     while (!this.eof() && /[0-9]/.test(this.peek()!)) digits += this.next()
+    // Identifiant qui **continue** après les chiffres (`tax_2024`, `price1x`) → nom de colonne,
+    // ce n'est pas une référence A1.
+    let tail = ""
+    while (!this.eof() && /[A-Za-z0-9_]/.test(this.peek()!)) tail += this.next()
 
     // Littéraux TRUE / FALSE (Excel) — ne s'appliquent pas à une référence type TRUE1.
     const keyword = letters.toUpperCase()
-    if (!colAbs && !rowAbs && digits.length === 0 && (keyword === "TRUE" || keyword === "FALSE")) {
+    if (!colAbs && !rowAbs && !digits && !tail && (keyword === "TRUE" || keyword === "FALSE")) {
       this.skipWs()
       if (this.peek() !== ":") return { kind: "bool", value: keyword === "TRUE" }
     }
 
+    // Référence A1 : 1–3 lettres + chiffres, rien d'autre (ni `_`, ni suffixe)
+    const isA1 =
+      digits.length > 0 && tail === "" && letters.length <= 3 && !letters.includes("_")
+
     let token: RefToken
-    if (digits.length > 0 && letters.length <= 3) {
+    if (isA1) {
       token = {
         raw: (colAbs ? "$" : "") + letters + (rowAbs ? "$" : "") + digits,
         col: lettersToCol(letters),
@@ -261,7 +287,8 @@ class Parser {
         either: !colAbs && !rowAbs,
       }
     } else {
-      token = { raw: (colAbs ? "$" : "") + letters, field: letters }
+      // Nom de colonne : identifiant complet (lettres, `_`, chiffres), `$` ignoré
+      token = { raw: letters + digits + tail, field: letters + digits + tail }
     }
 
     // Plage A1:A3 (uniquement par positions)
@@ -292,7 +319,7 @@ class Parser {
     let digits = ""
     while (!this.eof() && /[0-9]/.test(this.peek()!)) digits += this.next()
     if (digits.length === 0 || letters.length === 0 || letters.length > 3)
-      throw new Error("bad range")
+      throw new Error("Invalid range — expected e.g. A1:B5")
     return {
       raw: (colAbs ? "$" : "") + letters + (rowAbs ? "$" : "") + digits,
       col: lettersToCol(letters),
@@ -310,7 +337,10 @@ const lettersToCol = (letters: string): number => {
 }
 
 // ─── Évaluation ───
-const err = (code: string): FormulaError => new FormulaError(code)
+/** Tronque un extrait pour les messages (une cellule peut contenir un roman). */
+const clip = (s: string, max = 40): string => (s.length > max ? s.slice(0, max - 1) + "…" : s)
+
+const err = (code: string, detail?: string): FormulaError => new FormulaError(code, detail)
 
 const toNum = (v: FormulaValue): number | FormulaError => {
   if (v === null || v === undefined) return 0
@@ -319,7 +349,7 @@ const toNum = (v: FormulaValue): number | FormulaError => {
   const t = (v as string).trim()
   if (t === "") return 0
   const n = Number(t)
-  return Number.isNaN(n) ? err("#VALUE!") : n
+  return Number.isNaN(n) ? err("#VALUE!", `Expected a number, got the text "${clip(t)}"`) : n
 }
 
 const toStr = (v: FormulaValue): string => {
@@ -408,19 +438,20 @@ export function criteriaMatcher(criteria: FormulaValue): (v: FormulaValue) => bo
 
 // collect=false ne produit jamais de tableau (les plages renvoient #VALUE!) —
 // ce garde sert uniquement au typage.
-const toScalar = (v: EvalValue): FormulaValue => (Array.isArray(v) ? err("#VALUE!") : v)
+const toScalar = (v: EvalValue): FormulaValue =>
+  Array.isArray(v) ? err("#VALUE!", "A range (A1:B5) was used where a single value is required") : v
 
 const resolveRef = (ref: RefToken, ctx: FormulaContext): FormulaValue => {
   if (ref.field !== undefined) {
     const v = ctx.resolveField(ref.field)
-    return v === undefined ? err("#NAME?") : v
+    return v === undefined ? err("#NAME?", `Unknown column "${ref.field}"`) : v
   }
   if (ref.either) {
     const f = ctx.resolveField(ref.raw)
     if (f !== undefined) return f
   }
   const v = ctx.resolveCell(ref.row!, ref.col!)
-  return v === undefined ? err("#REF!") : v
+  return v === undefined ? err("#REF!", `Reference ${ref.raw} is outside the grid`) : v
 }
 
 const resolveRefPos = (ref: RefToken): [number, number] | null => {
@@ -439,10 +470,11 @@ function evalNode(node: Node, ctx: FormulaContext, collect: boolean): EvalValue 
     case "ref":
       return resolveRef(node.ref, ctx)
     case "range": {
-      if (!collect) return err("#VALUE!")
+      if (!collect)
+        return err("#VALUE!", "A range (A1:B5) was used where a single value is required")
       const a = resolveRefPos(node.start)
       const b = resolveRefPos(node.end)
-      if (!a || !b) return err("#REF!")
+      if (!a || !b) return err("#REF!", "A range must use A1 references (e.g. A1:B5)")
       const out: FormulaValue[] = []
       for (let r = Math.min(a[0], b[0]); r <= Math.max(a[0], b[0]); r++)
         for (let c = Math.min(a[1], b[1]); c <= Math.max(a[1], b[1]); c++)
@@ -511,7 +543,7 @@ function evalBinary(node: Extract<Node, { kind: "binary" }>, ctx: FormulaContext
         case "*":
           return na * nb
         case "/":
-          return nb === 0 ? err("#DIV/0!") : na / nb
+          return nb === 0 ? err("#DIV/0!", "Division by zero") : na / nb
         case "^":
           return Math.pow(na, nb)
       }
@@ -542,7 +574,7 @@ function evalBinary(node: Extract<Node, { kind: "binary" }>, ctx: FormulaContext
       break
     }
   }
-  return err("#ERROR!")
+  return err("#ERROR!", `Unsupported operator "${node.op}"`)
 }
 
 function compare(a: FormulaValue, b: FormulaValue): number | "err" {
@@ -869,7 +901,7 @@ function evalCall(node: Extract<Node, { kind: "call" }>, ctx: FormulaContext): F
   }
 
   const fn = FUNCTIONS[name]
-  if (!fn) return err("#NAME?")
+  if (!fn) return err("#NAME?", `Unknown function ${node.name.toUpperCase()}()`)
 
   const raw = node.args.map((a) => evalNode(a, ctx, true))
   const hadArray = raw.some(Array.isArray)
@@ -1357,10 +1389,68 @@ export function evaluateFormula(source: string, ctx: FormulaContext): FormulaVal
   try {
     const parser = new Parser(src)
     const node = parser.parseExpr()
-    if (!parser.eof()) return err("#ERROR!")
+    if (!parser.eof())
+      return err(
+        "#ERROR!",
+        `Unexpected input at position ${parser.position + 1}: "${clip(src.slice(parser.position).trim())}"`,
+      )
     const v = evalNode(node, ctx, false)
-    return Array.isArray(v) ? err("#VALUE!") : v
-  } catch {
-    return err("#ERROR!")
+    return Array.isArray(v)
+      ? err("#VALUE!", "The formula returns a range — wrap it in a function (SUM, COUNT…)")
+      : v
+  } catch (e) {
+    return err("#ERROR!", e instanceof Error ? e.message : String(e))
   }
 }
+
+/** Erreur de formule localisée dans une grille — base de `getFormulaErrors()` et de `@error`. */
+export interface FormulaErrorReport {
+  /** Index de ligne (0-based) dans la grille évaluée */
+  row: number
+  /** Nom de la colonne */
+  column: string
+  /** Code affiché dans la cellule (`#DIV/0!`, `#NAME?`, `#ERROR!`…) */
+  code: string
+  /** Explication du moteur, quand elle existe */
+  detail?: string
+  /** Source stockée dans la cellule (`=B1/C1`) — `""` si la valeur n'est pas une chaîne */
+  formula: string
+}
+
+/**
+ * Liste les cellules **en erreur** d'une grille déjà évaluée (ordre ligne puis colonne).
+ * `rows` ne sert qu'à récupérer la formule source : les valeurs brutes y sont, pas les
+ * résultats (`evaluated` les contient).
+ */
+export const collectFormulaErrors = (
+  values: readonly (readonly FormulaValue[])[],
+  columns: readonly { name: string }[],
+  rows: readonly Record<string, any>[] = [],
+): FormulaErrorReport[] => {
+  const out: FormulaErrorReport[] = []
+  for (let r = 0; r < values.length; r++) {
+    const line = values[r] ?? []
+    for (let c = 0; c < columns.length; c++) {
+      const v = line[c]
+      if (!isError(v)) continue
+      const column = columns[c]!.name
+      const raw = rows[r]?.[column]
+      out.push({
+        row: r,
+        column,
+        code: v.code,
+        detail: v.detail,
+        formula: typeof raw === "string" ? raw : "",
+      })
+    }
+  }
+  return out
+}
+
+/**
+ * Signature stable d'une erreur — sert au **diff** : n'émettre `@error` que pour une erreur
+ * nouvelle (même cellule + code + message + formule = déjà signalée).
+ */
+export const formulaErrorKey = (
+  e: Pick<FormulaErrorReport, "row" | "column" | "code" | "detail" | "formula">,
+): string => `${e.row}:${e.column}:${e.code}:${e.detail ?? ""}:${e.formula}`

@@ -1939,3 +1939,36 @@ part en `Maximum call stack size exceeded` était le **même vieil artefact** re
 
 **Règle** : tout ce qui doit tenir en prod (overrides, versions) doit être écrit **là où
 l'install tourne** ; ne pas compter sur le seul `package.json` racine d'un monorepo bun.
+
+## Formules : un nom de colonne avec `_` coupait le token → `#ERROR!` — 2026-11-10
+
+`namespace: "dnax.ui"`, `filename: packages/ui/lib/formula.ts`, `lib/spreadsheet.ts`
+
+**Symptôme** : `=prix_mois*12` → `#ERROR!` avec
+`Unexpected input at position 5: "_mois*12"`, alors que la colonne `prix_mois` existe.
+
+**Cause racine** : le parseur lisait les identifiants comme `[A-Za-z]` **seulement**. Il
+reconnaissait donc `prix` comme référence de colonne (colonne inexistante, mais valide
+syntaxiquement) puis butait sur `_mois` → `#ERROR!`. Corollaire du même bug : `price1`
+(> 3 lettres + chiffres) était **tronqué en `price`** (les chiffres étaient lus puis jetés
+dans la branche « champ »).
+
+**Correctif** (`Parser.parseRefOrCall`) :
+- identifiant = `[A-Za-z_]` puis, après d'éventuels `$`/chiffres, un **suffixe**
+  `[A-Za-z0-9_]*` → le nom complet est `lettres + chiffres + suffixe` (`prix_mois`,
+  `tax_2024`, `price1`, `_prix`) ;
+- on ne décide « référence A1 » que si : **1–3 lettres**, au moins un chiffre, **aucun `_`**,
+  **aucun suffixe** — sinon c'est un nom de colonne ;
+- `either` conservé : une colonne nommée `a1` reste prioritaire sur la référence A1 (testé) ;
+- `TRUE` / `FALSE` restent des littéraux (et pas `TRUE1`) ;
+- `functionQueryAt` (`lib/spreadsheet.ts`) : `_` fait partie du mot scanné → taper `prix_mo`
+  suggère enfin `prix_mois` (avant, la requête valait `mo`, voire rien).
+
+**Règle** : tout nom de colonne accepté par le stockage doit être **référençable** dans une
+formule — les noms `snake_case` et suffixés de chiffres sont la norme côté métier.
+
+**Vérif** : `lib/formula.test.ts` → 4 tests (`=prix_mois*12`, `=SUM(prix_mois, 12)`,
+`tax_2024`/`price1` non tronqués, `a1` champ prioritaire, `#NAME?` nommant la colonne,
+A1 + `TRUE`/`FALSE` préservés) ; `bun test lib` → **647 pass / 0 fail** ; build docs EXIT 0 ;
+`curl` sur la démo `autocalc` (colonne `unit_price`, formule `=qty*unit_price`) : `$9.00` et
+`$4.80` calculés en SSR.

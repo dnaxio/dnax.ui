@@ -18,6 +18,8 @@ const props = defineProps<{
     | "rowLimit"
     | "changes"
     | "formulas"
+    | "errors"
+    | "autocalc"
     | "power"
     | "filter"
     | "freeze"
@@ -594,6 +596,47 @@ const formulaRows = ref([
   { item: "Total", qty: null, price: null, total: "=SUM(D1:D4)", share: "=SUM(E1:E4)" },
 ])
 
+// — Auto-calc demo : la colonne `total` se calcule dès que `qty` + `price` sont saisis —
+const autoCalcColumns = [
+  { name: "item", label: "Item", width: 150 },
+  { name: "qty", label: "Qty", type: "integer" as const, width: 80 },
+  // Nom de colonne « snake_case » : `=qty*unit_price` fonctionne (cf. identifiants étendus)
+  { name: "unit_price", label: "Unit price", type: "number" as const, width: 110, format: (v: any) => (v == null || v === "" ? "" : "$" + Number(v).toFixed(2)) },
+  { name: "total", label: "Total (auto)", type: "number" as const, width: 140, format: (v: any) => (v == null || v === "" ? "" : "$" + Number(v).toFixed(2)) },
+]
+const autoCalcRows = ref([
+  { item: "Apples", qty: 6, unit_price: 1.5, total: "=qty*unit_price" },
+  { item: "Bananas", qty: 12, unit_price: 0.4, total: "=qty*unit_price" },
+  // `unit_price` manquant → `total` reste vide ; il se calcule dès la saisie du prix
+  { item: "Cherries", qty: 30, unit_price: null, total: "" },
+  // ligne neuve : qty + unit_price suffisent, `total` se remplit tout seul
+  { item: "", qty: null, unit_price: null, total: "" },
+])
+
+// — Errors demo : chaque code d'erreur + panneau de détail au clic —
+const errorColumns = [
+  { name: "case", label: "Case", width: 150 },
+  { name: "a", label: "A", type: "number" as const, width: 70 },
+  { name: "b", label: "B", type: "number" as const, width: 70 },
+  { name: "formula", label: "Formula", width: 190 },
+]
+const errorRows = ref([
+  { case: "Division by zero", a: 6, b: 0, formula: "=B1/C1" },
+  { case: "Unknown column", a: 2, b: 3, formula: "=B2*missing" },
+  { case: "Unknown function", a: 1, b: 2, formula: "=NOPE(B3)" },
+  { case: "Syntax error", a: 4, b: 5, formula: "=B4**C4" },
+  { case: "Out of the grid", a: 1, b: 1, formula: "=Z99" },
+  { case: "Circular reference", a: 3, b: 3, formula: "=D6" },
+  { case: "Working formula", a: 3, b: 2.5, formula: "=B7*C7" },
+])
+const formulaErrorLog = ref("")
+const formulaErrorCount = ref(0)
+/** `@error` : une erreur de formule = un événement, avec tout le contexte */
+const onFormulaError = (e: { ref: string; code: string; message: string }) => {
+  formulaErrorCount.value += 1
+  formulaErrorLog.value = `${e.ref} · ${e.code} — ${e.message}`
+}
+
 // — Context menu, formatting & autofill demo —
 const opsColumns = [
   { name: "item", label: "Item", width: 140 },
@@ -963,6 +1006,40 @@ onMounted(() => {
     height="260px"
     bordered
   />
+
+  <div v-else-if="demo === 'autocalc'">
+    <q-spreadsheet
+      v-model:rows="autoCalcRows"
+      :columns="autoCalcColumns"
+      height="220px"
+      bordered
+    />
+    <p class="demo-p demo-log">
+      <code>auto-formula</code> (on by default): type a <strong>unit price</strong> in the
+      <em>Cherries</em> row, or fill the last row — the <strong>Total</strong> cell receives the
+      column formula (<code>=qty*unit_price</code>) and computes as soon as its references are
+      set.
+    </p>
+  </div>
+
+  <div v-else-if="demo === 'errors'">
+    <q-spreadsheet
+      v-model:rows="errorRows"
+      :columns="errorColumns"
+      height="260px"
+      bordered
+      @error="onFormulaError"
+    />
+    <p class="demo-p demo-log">
+      Click any red cell: the panel gives the <strong>code</strong>, the cell reference, the
+      <strong>reason</strong> and the raw formula. <kbd>Escape</kbd>, a click outside or a
+      scroll closes it. Hover shows the same text as a native tooltip.
+    </p>
+    <p class="demo-p demo-log">
+      <code>@error</code> — <strong>{{ formulaErrorCount }}</strong> captured.
+      <template v-if="formulaErrorLog">Last: <code>{{ formulaErrorLog }}</code></template>
+    </p>
+  </div>
 
   <q-spreadsheet
     v-else-if="demo === 'power'"

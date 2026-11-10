@@ -67,7 +67,8 @@ export function functionQueryAt(text: string, caret: number = text.length): stri
   if (quote) return ""
 
   let start = end
-  while (start > 0 && /[A-Za-z]/.test(text[start - 1]!)) start--
+  // `_` fait partie de l'identifiant : `prix_mo` doit suggérer la colonne `prix_mois`
+  while (start > 0 && /[A-Za-z_]/.test(text[start - 1]!)) start--
   if (start === end) return ""
   // « A » devant « 1 » : référence de cellule en cours de frappe, pas une fonction
   if (/[0-9]/.test(text[end] ?? "")) return ""
