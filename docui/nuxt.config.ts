@@ -24,8 +24,11 @@ export default defineNuxtConfig({
     domain: process.env.NUXT_SITE_URL || "http://localhost:3000",
     title: process.env.NUXT_SITE_NAME || "My Docs",
     description: "A starter documentation site powered by Docd.",
-    // Pas de `full` : la génération de /llms-full.txt re-sérialise tout le contenu MDC
-    // en markdown via remark-mdc → `Maximum call stack size exceeded` (récursion infinie
-    // dans le handler `strong`). Bug tiers (@nuxt/content / @nuxtjs/mdc), cf. .memory/warnings.md.
+    // `full: false` **explicite** : `@baybreezy/docd` 0.4+ active `llms.full` par défaut,
+    // donc `/llms-full.txt` était enregistré et son handler re-sérialise tout le contenu MDC
+    // via remark-mdc → `Maximum call stack size exceeded` (récursion infinie dans le handler
+    // `strong`). Bug tiers (@nuxt/content / @nuxtjs/mdc), cf. .memory/warnings.md.
+    // `false` gagne sur le défaut du layer (defu : nos options sont prioritaires).
+    full: false,
   },
 });

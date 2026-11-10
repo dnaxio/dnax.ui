@@ -11,7 +11,7 @@
     "preview": "nuxt preview"
   },
   "dependencies": {
-    "@baybreezy/docd": "latest",
+    "@baybreezy/docd": "0.4.2",
     "@dnax/ui": "workspace:*",
     "@takumi-rs/core": "^2.14.0"
   },
