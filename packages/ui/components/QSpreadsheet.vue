@@ -234,7 +234,8 @@ import {
 } from "../lib/spreadsheet"
 import { checkValidation, type ArkCheck } from "../lib/spreadsheetValidation"
 import { pageInfo } from "../lib/pagination"
-import { cellFontFor, cellSizePx, cellWidthFor } from "../lib/cellSize"
+import { fxTextFor, searchTextFor } from "../lib/spreadsheetDisplay"
+import { cellFontFor, cellSizePx, cellWidthFor, headerMetricsFor } from "../lib/cellSize"
 import type { CellSizePreset } from "../lib/cellSize"
 import { attachmentsOf as fileAttachmentsOf, fileIconKind, formatFileSize, isAttachment, selectFiles } from "../lib/fileList"
 import type { FileIconKind } from "../lib/fileList"
@@ -672,11 +673,19 @@ const emit = defineEmits<{
 const cellHeightPx = computed(() => props.rowHeight ?? cellSizePx(props.sizeCell))
 const cellWidthPx = computed(() => props.defaultColWidth ?? cellWidthFor(cellHeightPx.value))
 const cellFontPx = computed(() => cellFontFor(cellHeightPx.value))
+/** En-têtes accordés aux cellules (hauteur, gouttière, polices) */
+const headerMetrics = computed(() => headerMetricsFor(cellHeightPx.value))
 
 /** Variables CSS de la grille (police des cellules + hauteur de repli) */
 const cellSizeStyle = computed(() => ({
   "--q-spreadsheet-font": `${cellFontPx.value}px`,
   "--q-spreadsheet-row-height": `${cellHeightPx.value}px`,
+  // En-têtes : mêmes proportions que les cellules
+  "--q-spreadsheet-head-height": `${headerMetrics.value.height}px`,
+  "--q-spreadsheet-head-font": `${headerMetrics.value.labelFont}px`,
+  "--q-spreadsheet-head-letter-font": `${headerMetrics.value.letterFont}px`,
+  "--q-spreadsheet-row-font": `${headerMetrics.value.rowFont}px`,
+  "--q-spreadsheet-gutter-width": `${headerMetrics.value.gutter}px`,
 }))
 
 // ─── Clés de ligne (`_key`) ───
@@ -913,12 +922,14 @@ const choiceText = (col: QSpreadsheetColumn | undefined, raw: any): string => {
 
 // ─── Sélection (ancre + plage) ───
 const sel = ref<QSpreadsheetSelection | null>(null)
+// `immediate` : une cellule **présélectionnée** (`:selected`) doit être active dès le premier
+// rendu (SSR compris) — sans ça, elle était ignorée jusqu'au premier changement de prop.
 watch(
   () => props.selected,
   (v) => {
     if (v !== sel.value) sel.value = v ? { ...v } : null
   },
-  { deep: true },
+  { deep: true, immediate: true },
 )
 const setSel = (s: QSpreadsheetSelection | null) => {
   sel.value = s
@@ -2339,13 +2350,17 @@ const fxInputEl = ref<HTMLInputElement | null>(null)
 
 const syncFx = () => {
   const s = sel.value
+  const col = s ? colOf(s.column) : undefined
   const raw =
     s && s.row >= 0 && s.row < state.value.length
       ? state.value[s.row]?.[s.column]
       : undefined
-  fxDraft.value = raw === null || raw === undefined ? "" : String(raw)
+  // Fichier joint : rien à montrer en fx (`String(raw)` affichait « [object Object]… »)
+  fxDraft.value = fxTextFor(raw, col?.type)
 }
-watch([sel, state], syncFx)
+// `immediate` : avec une cellule présélectionnée (`selected`), la barre fx affiche la
+// valeur dès le premier rendu (et en SSR) au lieu de rester vide jusqu'au premier clic.
+watch([sel, state], syncFx, { immediate: true })
 
 const fxCanEdit = computed(() => {
   if (!sel.value) return false
@@ -2356,8 +2371,15 @@ const fxCanEdit = computed(() => {
     !!col &&
     col.type !== "boolean" &&
     col.type !== "select" &&
-    col.type !== "multiselect"
+    col.type !== "multiselect" &&
+    col.type !== "attachment"
   )
+})
+
+/** Placeholder de la barre fx : vide pour un fichier joint (rien à éditer ni à montrer) */
+const fxPlaceholderText = computed(() => {
+  if (sel.value && colOf(sel.value.column)?.type === "attachment") return ""
+  return fxCanEdit.value ? t("fxPlaceholder") : t("fxNoSel")
 })
 
 /**
@@ -2833,8 +2855,8 @@ const clearFormatSelection = () => {
 // ════════ Freeze panes (gel lignes / colonnes) ════════
 const frozenRowsN = computed(() => Math.max(0, Math.min(props.frozenRows ?? 0, state.value.length)))
 const frozenColsN = computed(() => Math.max(0, Math.min(props.frozenCols ?? 0, cols.value.length)))
-const gutterW = computed(() => (props.showRowNumbers ? 34 : 0))
-const headH = computed(() => (props.showColumnHeaders ? 28 : 0))
+const gutterW = computed(() => (props.showRowNumbers ? headerMetrics.value.gutter : 0))
+const headH = computed(() => (props.showColumnHeaders ? headerMetrics.value.height : 0))
 const colWNum = (ci: number) => {
   const c = cols.value[ci]
   if (!c) return cellWidthPx.value
@@ -4192,7 +4214,8 @@ const findTextOf = (r: number, ci: number): string => {
   const raw = state.value[r]?.[col.name]
   // `label` peut être un nombre : findScan fait `.toLowerCase()` sur le retour
   if (col.type === "select" || col.type === "multiselect") return choiceText(col, raw)
-  return raw === null || raw === undefined ? "" : String(raw)
+  // Fichier joint → noms de fichiers ; jamais « [object Object] » (cf. lib/spreadsheetDisplay)
+  return searchTextFor(raw, col.type)
 }
 const findScan = () => {
   const q = findQuery.value
@@ -5171,7 +5194,7 @@ defineExpose({
         class="q-spreadsheet__fx-input"
         :value="fxDraft"
         :disabled="readonly || disable"
-        :placeholder="fxCanEdit ? t('fxPlaceholder') : t('fxNoSel')"
+        :placeholder="fxPlaceholderText"
         spellcheck="false"
         @input="onFxInput"
         @keyup="syncFxCaret"

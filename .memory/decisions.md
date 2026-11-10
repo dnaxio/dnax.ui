@@ -3589,3 +3589,36 @@ plafond de police) ; `bun test lib` → **607 pass / 0 fail** ; build docs EXIT 
 `--q-spreadsheet-font` à `11/13/16/20px`, `<tr style="height:28|32|40|66px">` — les grilles
 sans `sizeCell` restent à **32 px / 13 px**. Doc : section « Cell size » + démo `demo="size"`
 (4 grilles sm/md/lg/66).
+
+#### En-têtes accordés aux cellules (`headerMetricsFor`) — même jour
+
+Suite de `sizeCell` : la ligne d'en-tête restait figée (28 px, libellé 11.5, gouttière 34) — une
+cellule de 66 px avec un en-tête de 28 px jurait.
+
+- `lib/cellSize.ts` → `headerMetricsFor(cellHeightPx)` : `{ height, gutter, labelFont,
+  letterFont, rowFont }`, dérivés de la police des cellules (arrondi **au demi-px** pour que
+  `md` retombe pile sur 11.5) et plafonnés (hauteur 56, libellé 16, lettre 13, gouttière 56).
+- **Aucune régression** : à `md` (32 px) les cinq valeurs sont **exactement** l'historique
+  (28 / 34 / 11.5 / 9.5 / 11) — vérifié par test.
+- Le composant pose 5 variables CSS sur la racine : `--q-spreadsheet-head-height`,
+  `--q-spreadsheet-head-font`, `--q-spreadsheet-head-letter-font`,
+  `--q-spreadsheet-row-font`, `--q-spreadsheet-gutter-width` ; le CSS les consomme avec les
+  anciennes valeurs en **fallback**.
+- `gutterW` / `headH` (JS : offsets sticky, `frozenLeftOf`, scroll virtuel) sont maintenant
+  calculés depuis **les mêmes** métriques — JS et CSS ne peuvent plus divergér.
+
+**Vérif** : `lib/cellSize.test.ts` → **10 tests** ; `bun test lib` → **617 pass / 0 fail** ;
+build docs EXIT 0 ; `curl` : `--q-spreadsheet-head-height` à `25px` (sm) · `28px` (×27,
+défauts) · `35px` (lg) · `56px` (66), `--q-spreadsheet-gutter-width` à `28px` / `41px`,
+`--q-spreadsheet-head-font` à `9.5px` / `14px` ; CSS compilé :
+`height:var(--q-spreadsheet-head-height,28px)`, `font-size:var(--q-spreadsheet-head-font,11.5px)`,
+`width:var(--q-spreadsheet-gutter-width,34px)`, `font-size:var(--q-spreadsheet-row-font,11px)`.
+
+**Doc pagination (structure, pour s'y retrouver)** : `4.components/spreadsheet.md` →
+`## Pagination (remote)` (juste après **Row limits**) avec trois sous-sections :
+`### Events` (tableau `page-change` / `update:page` + payload commenté + note de bornage),
+`### Local data — slice it yourself` (computed **writable** qui réécrit la page éditée dans le
+tableau complet — le cas « limiter à 400 sans API »), `### Loading state` (`loading` +
+`try/finally` + slot). Les events apparaissent aussi dans l'onglet **API** du `<dnax-api>` :
+`docs/scripts/component-parse.ts` extrait 17 events de `QSpreadsheet` (`page-change`,
+`update:page`, `files`, `attachment-click` compris) — vérifié en exécutant `emitsOf()`.

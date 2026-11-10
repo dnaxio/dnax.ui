@@ -1816,3 +1816,35 @@ icônes MDC sans réseau.
 **Règle** : avant d'ajouter un paquet `@iconify-json/*`, vérifier si `@nuxt/icon` est
 présent (fichiers `.nuxt/nuxt-icon-server-bundle.mjs`) et mesurer
 `du -h .output/server/chunks/_/icons.mjs`.
+
+## `String(valeur)` sur les cellules `attachment` → `[object Object]` dans fx — 2026-11-01
+
+`filename: packages/ui/components/QSpreadsheet.vue`, `lib/spreadsheetDisplay.ts`
+
+**Symptôme** (rapporté avec capture) : sélectionner une cellule de type `attachment` affichait
+`[object Object],[object Object]` dans la **barre de formule**.
+
+**Cause racine** : `syncFx()` faisait `String(raw)` sans distinguer les types. La valeur d'un
+fichier joint est un **tableau d'objets** → `String()` produit `[object Object]`. Même piège
+dans `findTextOf()` (la recherche trouvait « object » dans toutes les cellules de pièces
+jointes).
+
+**Correctif** : helpers purs `lib/spreadsheetDisplay.ts` —
+`fxTextFor(value, type)` (`attachment` → `""`, objet → `""`, tableau scalaire → `join(", ")`)
+et `searchTextFor(value, type)` (`attachment` → **noms de fichiers**). `syncFx` et
+`findTextOf` passent par eux. `fxCanEdit` exclut `attachment`, et `fxPlaceholderText` renvoie
+`""` (pas de placeholder « Select a cell… » sur une pièce jointe).
+
+**Piège annexe découvert en vérifiant** : `:selected` était **ignoré au montage** — le watcher
+sur `props.selected` n'était pas `immediate`, et `syncFx` non plus. Conséquence : une cellule
+présélectionnée n'était active qu'après le premier changement de prop, et la fx restait vide.
+Les deux watchers sont maintenant `immediate: true`.
+
+**Règle** : dans le tableur, ne **jamais** `String()` une valeur de cellule — passer par
+`fxTextFor` / `searchTextFor` (ou `cellText`), sinon tout futur type structuré fuitera
+`[object Object]`.
+
+**Vérif** : `lib/spreadsheetDisplay.test.ts` (**6 tests**) ; `bun test lib` → **613 pass /
+0 fail** ; build docs EXIT 0 ; avec une cellule `attachment` présélectionnée, le HTML SSR
+contient `value=""` **et** `placeholder=""` pour cette fx, et **0** occurrence de
+`[object Object]` sur toute la page (démo remise sans présélection : 30 fx vides, 0 fuite).

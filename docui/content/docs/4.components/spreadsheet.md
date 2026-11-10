@@ -233,25 +233,35 @@ tracking. `url` is optional — an image with a `url` shows a thumbnail, anythin
 typed icon (image / video / audio / archive / spreadsheet / code / text). Object URLs created
 by the component are revoked on removal, replacement and unmount; URLs you provide are never
 touched.
+>
+> The **formula bar stays empty** on an attachment cell (the value is a list of objects, not
+text) and the type is read-only there; **Find** searches the file **names**.
 
 ## Cell size
 
-`size-cell` scales the whole grid from one value: row height, **default** column width and the
-cell font size. Presets or a raw height in px:
+`size-cell` scales the whole grid from one value: row height, **default** column width, the cell
+font size — **and the headers**, which keep the same proportions (a 66 px row with a 28 px
+header would look broken). Presets or a raw height in px:
 
-| `size-cell` | Row height | Default column width | Cell font |
-| --- | --- | --- | --- |
-| `sm` | 28 px | 140 px | 11 px |
-| `md` *(default)* | 32 px | 160 px | 13 px |
-| `lg` | 40 px | 200 px | 16 px |
-| `48` | 48 px | 240 px | 19 px |
-| `66` | 66 px | 330 px | 20 px (cap) |
+| `size-cell` | Row | Header | Gutter | Col width | Cell font | Header font |
+| --- | --- | --- | --- | --- | --- | --- |
+| `sm` | 28 px | 25 px | 28 px | 140 px | 11 px | 9.5 px |
+| `md` *(default)* | 32 px | 28 px | 34 px | 160 px | 13 px | 11.5 px |
+| `lg` | 40 px | 35 px | 41 px | 200 px | 16 px | 14 px |
+| `48` | 48 px | 42 px | 47 px | 240 px | 19 px | 16 px |
+| `66` | 66 px | 56 px | 47 px | 330 px | 20 px | 16 px |
+
+- *Header* = the sticky column-header row (also the row-number cells' height); *gutter* = the
+row-number column width.
 
 Rules worth knowing:
 
 - the column width follows the height at a **5:1** ratio (32 → 160, so `66` → 330);
-- the font follows the height (~40 %), clamped to **11–20 px** — a 66 px cell doesn't turn the
-text into a poster;
+- the cell font follows the height (~40 %), clamped to **11–20 px** — a 66 px cell doesn't turn
+the text into a poster;
+- the header follows the cell (~87 % of its height), and its label font, column letters
+(`A`, `B`…) and the row-number gutter scale with it — both are capped (56 px / 16 px / 56 px)
+so a huge cell doesn't waste half the viewport on headers;
 - explicit `row-height` / `default-col-width` / per-column `width` still win: `size-cell` only
 sets the **defaults**;
 - a number is clamped to `[20, 120]`;
@@ -1518,6 +1528,28 @@ onMounted(() => load({ offset: 0, pageSize: 400 }))   // première page
 `page-change` payload: `{ page, previousPage, pageSize, offset, totalRows, pageCount }` —
 `offset` is the absolute 0-based index, ready to send to your API.
 
+### Events
+
+| Event | Payload | Fires when |
+| --- | --- | --- |
+| `page-change` | `{ page, previousPage, pageSize, offset, totalRows, pageCount }` | the user hits `‹` / `›` in the status-bar pager (also right after `update:page`) |
+| `update:page` | `number` | same time — this is the one `v-model:page` binds (the state is internal when `page` isn't bound) |
+
+```ts
+const onPageChange = async ({ page, previousPage, offset, pageSize, totalRows, pageCount }) => {
+  // offset === (page - 1) * pageSize  →  ?offset=400&limit=400
+  loading.value = true
+  try {
+    rows.value = await api.list({ offset, limit: pageSize })
+  } finally {
+    loading.value = false
+  }
+}
+```
+
+> `page` is already **clamped**: after a total change (filter, deletion) it can never exceed
+> `pageCount`, and both pager arrows are disabled at the bounds.
+
 ::prose-show-case
 :dnax-demo-spreadsheet{demo="pagination"}
 
@@ -1561,11 +1593,47 @@ Things worth knowing:
 - The grid **never slices** `rows`: pagination is remote by construction, so `rows` must contain
   one page. Sending more rows than `page-size` logs a dev warning.
 - Selection, editing, undo/redo, filters and export operate on the **loaded page** — filters
-  don't reach rows that were never fetched.
-- Other events keep the **page-local** index: absolute row = `offset + row` (`attachment-click`
-  and `files` behave the same).
+  don't reach rows that were never fetched; with local data, filter/sort the full array
+  yourself before slicing.
+- Other events keep the **page-local** index: absolute row = `offset + row` (`cell-click`,
+  `cell-change`, `attachment-click`, `files`…).
 - The pager lives in the status bar: `‹ 401–800 of 12 000 · 2 / 30 ›` (arrows disabled at the
-  bounds).
+  bounds, and while `loading`).
+- Keyboard navigation works on the loaded page only; `Ctrl+End` stops at its last row.
+
+### Local data — slice it yourself
+
+No API? Same mechanism: the grid shows what you give it, so slice your array. A **writable
+computed** keeps edits of the current page in the full array:
+
+```ts
+const all = ref<Row[]>(await loadEverything())   // 12 000 lignes en mémoire
+const page = ref(1)
+const pageSize = 400
+
+const rows = computed({
+  get: () => all.value.slice((page.value - 1) * pageSize, page.value * pageSize),
+  set: (next) => {
+    const start = (page.value - 1) * pageSize
+    all.value.splice(start, next.length, ...next)   // écrit la page éditée
+  },
+})
+```
+
+```vue
+<q-spreadsheet
+  v-model:rows="rows"
+  v-model:page="page"
+  :columns="columns"
+  :page-size="pageSize"
+  :total-rows="all.length"
+  height="320px"
+/>
+```
+
+With a plain `:rows` (no setter) the page is still displayed and editable, but the edits only
+live in the component's state — bind `v-model:rows` (or write them back on `cell-change`) if
+they must survive a page change.
 
 ### Loading state
 
