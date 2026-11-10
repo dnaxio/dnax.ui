@@ -9651,6 +9651,33 @@ a.q-breadcrumbs__el:hover {
   color: var(--primary, #1976d2);
 }
 
+/* Barre de chargement (prop `loading`) : liseré **indéterminé** collé au bord haut de la
+   carte, style NProgress — les données restent lisibles, contrairement au voile posé
+   en dessous (qui bloque, lui, les interactions). L'animation vient de
+   `.q-linear-progress--indeterminate`, on ne surcharge que l'épaisseur et la couleur. */
+.q-spreadsheet__progress {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 45;
+  height: 2px;
+  background-color: rgb(0 0 0 / 0.06);
+  pointer-events: none;
+}
+.q-spreadsheet__progress .q-linear-progress__fill {
+  background-color: var(--primary, #1976d2);
+  box-shadow: 0 0 6px 0 color-mix(in srgb, var(--primary, #1976d2) 65%, transparent);
+}
+.dark .q-spreadsheet__progress {
+  background-color: rgb(255 255 255 / 0.1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .q-spreadsheet__progress .q-linear-progress__fill {
+    animation-duration: 3.2s;
+  }
+}
+
 /* Le voile passe au-dessus de l'éditeur (z-index 20) et de la poignée de remplissage :
    on ne doit pas éditer une page en cours de remplacement. */
 .q-spreadsheet > .q-inner-loading {

@@ -265,11 +265,12 @@ interface Props {
    */
   totalRows?: number
   /**
-   * Chargement **distant** en cours (pagination, rechargement…) : un voile recouvre la
-   * grille — la barre d'état et le pager restent visibles, flèches désactivées.
+   * Chargement **distant** en cours (pagination, rechargement…) : un liseré de progression
+   * indéterminé s'affiche en haut de la carte et un voile recouvre la grille — la barre
+   * d'état et le pager restent visibles, flèches désactivées, édition suspendue.
    */
   loading?: boolean
-  /** Libellé du chargement (défaut : i18n « Loading… ») */
+  /** Libellé du chargement — texte du voile et libellé accessible de la barre (défaut : i18n « Loading… ») */
   loadingLabel?: string
   /** Colonnes ({ name, label, width, type, editable, options, chip, format, align, … }) */
   columns?: QSpreadsheetColumn[]
@@ -3587,7 +3588,11 @@ const syncColWidths = () => {
   for (const c of cols.value) next[c.name] = c.width ?? cellWidthPx.value
   colWidths.value = next
 }
-watch(cols, syncColWidths, { immediate: true, deep: true })
+// `cellWidthPx` fait partie des dépendances : changer `sizeCell` à l'exécution doit
+// re-calculer les largeurs par défaut, sinon les colonnes (et leurs en-têtes) gardent
+// l'ancienne largeur pendant que hauteur/polices ont déjà grandi. Les colonnes qui
+// déclarent un `width` explicite ne bougent pas.
+watch([cols, cellWidthPx], syncColWidths, { immediate: true, deep: true })
 
 const widthStyle = (col: QSpreadsheetColumn) => {
   const w = colWidths.value[col.name] ?? col.width ?? cellWidthPx.value
@@ -5848,6 +5853,19 @@ defineExpose({
           <Icon :icon="icons.plus" aria-hidden="true" />
         </button>
       </span>
+    </div>
+
+    <!-- Barre de progression **indéterminée**, collée au bord haut de la carte (style
+         NProgress/YouTube) : signal léger qui laisse les données lisibles, alors que le voile
+         ci-dessous bloque les interactions. `loading` pilote les deux. -->
+    <div
+      v-if="loading"
+      class="q-linear-progress q-linear-progress--indeterminate q-spreadsheet__progress"
+      role="progressbar"
+      :aria-label="loadingLabel || t('loading')"
+      aria-busy="true"
+    >
+      <div class="q-linear-progress__fill" />
     </div>
 
     <!--

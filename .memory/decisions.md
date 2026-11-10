@@ -3507,7 +3507,7 @@ données à chaque changement de page, et numéroter les lignes **globalement** 
 - Props : `pageSize` (0 = off, défaut), `page` (`v-model:page`, 1-based), `totalRows`
   (total distant ; défaut = `rows.length`).
 - Événements : `update:page` + **`page-change`** `{ page, previousPage, pageSize, offset,
-  totalRows, pageCount }` — `offset` est l'index global 0-based, prêt pour l'API.
+totalRows, pageCount }` — `offset` est l'index global 0-based, prêt pour l'API.
 - **Repli d'état** : `props.page ?? localPage` — la pagination fonctionne sans `v-model:page`
   (l'état est interne), et reste pilotée dès qu'on lie `page`.
 - **Numérotation** : `rowOffset = (page - 1) * pageSize` ajouté à `{{ ri + 1 }}`, à
@@ -3551,11 +3551,22 @@ récupération, un voile recouvre la carte.
 - **Dark** : `.dark .q-inner-loading` ajouté (le fond blanc 0.7 codé en dur éblouissait) —
   correctif global du composant, pas seulement du tableur.
 - Indépendant de la pagination (vaut aussi pour un simple rechargement).
+- **Complément (demande produit)** : `loading` pilote **aussi** un **liseré de progression
+  indéterminé** de 2 px collé au bord haut de la carte (style NProgress), qui laisse les
+  données lisibles — c'est le signal principal, le voile reste pour bloquer les clics.
+  Markup : `.q-linear-progress.q-linear-progress--indeterminate.q-spreadsheet__progress`
+  (l'animation vient de `QLinearProgress`, on ne surcharge que l'épaisseur, la couleur
+  `--primary` et un léger halo), `role="progressbar"`, `aria-label` = `loading-label` ou i18n
+  `loading`. `z-index: 45` pour rester visible **au-dessus** du voile (40),
+  `pointer-events: none`, et `prefers-reduced-motion` ralentit l'animation. Démo
+  `demo="loading"` (bouton « Reload the page » → 900 ms de `loading`).
 
 **Vérif (sans navigateur)** : `loading` forcé à `true` dans la démo → build + `curl` :
-`q-inner-loading` (3), `aria-busy="true"` (1), `q-spreadsheet__loader` (1), « Loading… » (3) ;
-démo remise à `false` → build + `curl` : overlay 0, `aria-busy` 0, pager présent. `bun test
-lib` → 601 pass / 0 fail ; diagnostics propres.
+`q-inner-loading` (3), `aria-busy="true"` (1), `q-spreadsheet__loader` (1), « Loading… » (3),
+`role="progressbar"` (1), `class="q-linear-progress q-linear-progress--indeterminate
+q-spreadsheet__progress"` (1), `.q-spreadsheet__progress` (4 règles dans le CSS compilé) ;
+démo remise à `false` → build + `curl` : overlay 0, barre 0, `aria-busy` 0, pager présent,
+0 `[object Object]`. `bun test lib` → 617 pass / 0 fail ; diagnostics propres.
 
 ### Taille des cellules (`sizeCell`) — même jour
 
@@ -3565,13 +3576,13 @@ lib` → 601 pass / 0 fail ; diagnostics propres.
 ligne, la largeur de colonne par défaut **et** la police des cellules (une cellule de 66px avec
 une police de 13px paraît vide).
 
-| `sizeCell` | ligne | largeur défaut | police |
-| --- | --- | --- | --- |
-| `sm` | 28 | 140 | 11 |
-| `md` (défaut) | 32 | 160 | 13 |
-| `lg` | 40 | 200 | 16 |
-| `48` | 48 | 240 | 19 |
-| `66` | 66 | 330 | 20 (plafond) |
+| `sizeCell`    | ligne | largeur défaut | police       |
+| ------------- | ----- | -------------- | ------------ |
+| `sm`          | 28    | 140            | 11           |
+| `md` (défaut) | 32    | 160            | 13           |
+| `lg`          | 40    | 200            | 16           |
+| `48`          | 48    | 240            | 19           |
+| `66`          | 66    | 330            | 20 (plafond) |
 
 - **Ratio 5:1** hauteur → largeur (cohérent avec le couple historique 32/160) ;
 - police ≈ 40 % de la hauteur, bornée **11–20 px** ; nombre borné `[20, 120]` ;
@@ -3596,7 +3607,7 @@ Suite de `sizeCell` : la ligne d'en-tête restait figée (28 px, libellé 11.5, 
 cellule de 66 px avec un en-tête de 28 px jurait.
 
 - `lib/cellSize.ts` → `headerMetricsFor(cellHeightPx)` : `{ height, gutter, labelFont,
-  letterFont, rowFont }`, dérivés de la police des cellules (arrondi **au demi-px** pour que
+letterFont, rowFont }`, dérivés de la police des cellules (arrondi **au demi-px** pour que
   `md` retombe pile sur 11.5) et plafonnés (hauteur 56, libellé 16, lettre 13, gouttière 56).
 - **Aucune régression** : à `md` (32 px) les cinq valeurs sont **exactement** l'historique
   (28 / 34 / 11.5 / 9.5 / 11) — vérifié par test.
@@ -3613,6 +3624,23 @@ défauts) · `35px` (lg) · `56px` (66), `--q-spreadsheet-gutter-width` à `28px
 `--q-spreadsheet-head-font` à `9.5px` / `14px` ; CSS compilé :
 `height:var(--q-spreadsheet-head-height,28px)`, `font-size:var(--q-spreadsheet-head-font,11.5px)`,
 `width:var(--q-spreadsheet-gutter-width,34px)`, `font-size:var(--q-spreadsheet-row-font,11px)`.
+
+#### `sizeCell` **réactif** : les largeurs de colonnes suivent aussi — même jour
+
+`filename: packages/ui/components/QSpreadsheet.vue`
+
+`colWidths` n'était synchronisé que sur `cols` (`watch(cols, syncColWidths)`) : changer
+`sizeCell` **à l'exécution** (sélecteur de taille, prop liée) faisait grandir la hauteur de
+ligne et les polices (donc les en-têtes) mais **pas** les largeurs de colonnes → grille
+incohérente. Le watcher observe désormais `[cols, cellWidthPx]` (`immediate: true, deep: true`) :
+les colonnes **sans `width` explicite** reprennent la largeur dérivée du nouveau `sizeCell` ;
+celles qui déclarent un `width` restent telles quelles (et un changement de `sizeCell`
+réinitialise les largeurs par défaut, donc un redimensionnement manuel antérieur est perdu —
+c'est le comportement attendu d'un changement d'échelle).
+
+**Vérif** : `bun test lib` → **617 pass / 0 fail** ; build docs EXIT 0 ; `curl` sur
+`/docs/components/spreadsheet` : `--q-spreadsheet-row-height` 28/32/40/66 px,
+`--q-spreadsheet-head-height` 25/28/35/56 px.
 
 **Doc pagination (structure, pour s'y retrouver)** : `4.components/spreadsheet.md` →
 `## Pagination (remote)` (juste après **Row limits**) avec trois sous-sections :

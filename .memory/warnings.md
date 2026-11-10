@@ -1907,3 +1907,35 @@ installation fraîche, se fier aux `overrides` (ou au `bun.lock` committé), pas
 **Vérif** : `bun run build` (docui) → EXIT 0, une seule copie `nuxt-site-config@4.2.3`, lock
 pinné sur `@nuxtjs/robots@6.2.3`, `nuxt-og-image@6.9.1`, `nuxt-site-config@4.2.3`,
 `nuxtseo-shared@5.3.16`.
+
+## Build prod (bis) : `overrides` ignorés quand la **racine d'install est `docui/`** — 2026-11-10
+
+`namespace: "dnax.ui"`, `worktree: /Volumes/D/PKG/dnax.ui`,
+`filename: docui/package.json` (+ `package.json` racine)
+
+**Symptôme persistant** : en prod, la même erreur Rolldown revient
+(`#site-config/app/composables/utils` introuvable depuis
+`node_modules/.bun/nuxt-og-image@6.10.4+…`), alors que `bun.lock` pinne `6.9.1` et que le
+build local passe.
+
+**Cause (déduite des traces)** : l'environnement de déploiement installe avec **`docui/` comme
+racine** (ou régénère le lock) → le `package.json` **racine** (et donc ses `overrides` et le
+`bun.lock`) n'est pas lu. Résolution fraîche : `@baybreezy/docd@0.4.2` demande
+`@nuxtjs/robots ^7.0.2` → site-config **5** hoisté, alors que `nuxt-og-image` (6.10.4) importe
+`#site-config/app/composables/utils`, absent de la v5 → build cassé. `/llms-full.txt` qui
+part en `Maximum call stack size exceeded` était le **même vieil artefact** resté en ligne
+(build cassé = pas de nouvel output).
+
+**Correctif (double ceinture)** :
+1. `overrides` **dupliqués dans `docui/package.json`** (identiques à la racine) → ils
+   s'appliquent si `docui/` est la racine de l'installation ;
+2. `nuxt-og-image` monté à **6.10.4** dans les deux fichiers : c'est la version qu'exige
+   `@baybreezy/docd ^6.10.4`, et elle reste sur `nuxt-site-config ^4.2.3` (compatible) —
+   inutile de descendre à 6.9.1.
+
+**Vérif** : `bun install` puis `cd docui && bun run build` → **EXIT 0** ; `node
+.output/server/index.mjs` : `/llms.txt` 200, `/llms-full.txt` **404**, `/docs/components/spreadsheet`
+200 avec `Pagination (remote)`, `page-change` (×12), `Rows 1–50 of 2,400`, `1 / 48`.
+
+**Règle** : tout ce qui doit tenir en prod (overrides, versions) doit être écrit **là où
+l'install tourne** ; ne pas compter sur le seul `package.json` racine d'un monorepo bun.

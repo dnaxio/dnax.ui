@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Live demos for the Spreadsheet page (per-page state).
 // One component per page, the `demo` prop selects which demo to render.
-import { computed, onMounted, ref, useTemplateRef } from "vue"
+import { computed, onMounted, onUnmounted, ref, useTemplateRef } from "vue"
 
 const props = defineProps<{
   /** Identifier of the demo to render */
@@ -31,6 +31,7 @@ const props = defineProps<{
     | "attachment"
     | "slots"
     | "pagination"
+    | "loading"
     | "size"
 }>()
 
@@ -297,6 +298,34 @@ const onPageChange = (payload: { page: number; offset: number; pageSize: number;
     paginationLog.value = `page ${payload.page} → rows ${payload.offset + 1}–${last} of ${payload.totalRows}`
   }, 450)
 }
+
+// — Loading demo : barre indéterminée en haut + voile (prop `loading`) —
+const loadingColumns = [
+  { name: "order", label: "Order", width: 120 },
+  { name: "client", label: "Client", width: 170 },
+  { name: "amount", label: "Amount", type: "number" as const, width: 120 },
+]
+const loadingRows = ref([
+  { order: "SO-1042", client: "Acme", amount: 1250 },
+  { order: "SO-1043", client: "Globex", amount: 890 },
+  { order: "SO-1044", client: "Initech", amount: 2140 },
+])
+const loadingDemo = ref(false)
+const loadingLog = ref("")
+let loadingTimer: ReturnType<typeof setTimeout> | undefined
+
+/** Simule un rechargement : `loading` pendant ~900 ms, puis nouvelles données */
+const reloadDemo = () => {
+  if (loadingDemo.value) return
+  loadingDemo.value = true
+  loadingLog.value = "loading…"
+  loadingTimer = setTimeout(() => {
+    loadingRows.value = loadingRows.value.map((r) => ({ ...r, amount: r.amount + 10 }))
+    loadingDemo.value = false
+    loadingLog.value = "loaded — amounts +10"
+  }, 900)
+}
+onUnmounted(() => clearTimeout(loadingTimer))
 
 // — Size demo : `sizeCell` (presets + valeur en px) —
 const sizeColumns = [
@@ -1121,6 +1150,30 @@ onMounted(() => {
       Remote pagination — the grid only ever holds <strong>50 rows</strong>; row headers are
       numbered globally (page 2 starts at 51) and a veil covers the grid while loading.
       {{ paginationLog || "Click › in the status bar to load the next page." }}
+    </p>
+  </div>
+
+  <div v-else-if="demo === 'loading'">
+    <q-spreadsheet
+      v-model:rows="loadingRows"
+      :columns="loadingColumns"
+      :loading="loadingDemo"
+      height="200px"
+      bordered
+    />
+    <div class="demo-tools">
+      <button class="demo-btn" type="button" :disabled="loadingDemo" @click="reloadDemo">
+        {{ loadingDemo ? "Loading…" : "Reload the page" }}
+      </button>
+      <span class="demo-meta">
+        <code>:loading</code> = <code>{{ loadingDemo }}</code>
+        <template v-if="loadingLog"> — {{ loadingLog }}</template>
+      </span>
+    </div>
+    <p class="demo-p demo-log">
+      A thin <strong>indeterminate bar</strong> at the top of the card is the loading signal;
+      the veil below it blocks clicks and edits, while the toolbar, status bar and pager stay
+      usable.
     </p>
   </div>
 

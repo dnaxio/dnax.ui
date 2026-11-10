@@ -1637,9 +1637,16 @@ they must survive a page change.
 
 ### Loading state
 
-While a page is being fetched, bind `loading`: a veil covers the **grid** (status bar and pager
-stay visible, arrows disabled) and keyboard editing is suspended, so nobody edits a page that
-is about to be replaced.
+While a page is being fetched, bind `loading`. Two things happen at once:
+
+- a thin **indeterminate progress bar** (2 px, `primary` token) appears along the **top edge**
+  of the card — the NProgress look: data stays readable, and the bar is `role="progressbar"`
+  with `loading-label` (or the localized “Loading…”) as its accessible name;
+- a **veil** covers the grid (status bar and pager stay visible, arrows disabled) and editing
+  is suspended, so nobody edits a page that is about to be replaced.
+
+The bar is deliberately independent of the veil: it shows up for **any** remote refresh, even
+without pagination.
 
 ```vue
 <q-spreadsheet
@@ -1665,8 +1672,52 @@ const load = async ({ offset, pageSize }) => {
 }
 ```
 
-- `loading-label` replaces the text (default: the localized “Loading…”).
-- The `#loading` slot replaces both spinner and label — for a skeleton, a progress bar…
+::prose-show-case
+:dnax-demo-spreadsheet{demo="loading"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue"
+
+const loading = ref(false)
+const rows = ref([
+  { order: "SO-1042", client: "Acme", amount: 1250 },
+  { order: "SO-1043", client: "Globex", amount: 890 },
+])
+
+const reload = () => {
+  loading.value = true
+  setTimeout(() => {
+    rows.value = rows.value.map((r) => ({ ...r, amount: r.amount + 10 }))
+    loading.value = false
+  }, 900)
+}
+</script>
+
+<template>
+  <q-spreadsheet
+    v-model:rows="rows"
+    :columns="[
+      { name: 'order', label: 'Order', width: 120 },
+      { name: 'client', label: 'Client', width: 170 },
+      { name: 'amount', label: 'Amount', type: 'number', width: 120 },
+    ]"
+    :loading="loading"
+    height="200px"
+    bordered
+  />
+  <button type="button" :disabled="loading" @click="reload">Reload</button>
+</template>
+```
+::
+
+- `loading-label` is the veil's text **and** the bar's accessible name (default: the localized
+  “Loading…”).
+- The `#loading` slot replaces the veil's spinner and label — for a skeleton, a counter, your
+  own progress bar…
+- The bar sits on the card root (`position: absolute`), so it does not scroll with the grid.
 - It also works without pagination: any remote refresh (`loading` is independent of
   `page-size`).
 
