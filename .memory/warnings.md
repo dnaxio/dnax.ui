@@ -1301,6 +1301,21 @@ mdast-util-to-markdown 2.1.3 (résolues par `@baybreezy/docd@0.3.2` → `@nuxt/c
    si `/llms-full.txt` redevient nécessaire.
 3. Signaler upstream (docd / nuxt-llms / remark-mdc).
 
+**Régression (2026-11-01) — retirer la clé ne suffit plus.** `@baybreezy/docd@0.4+` pose
+`llms.full: { title, description }` **par défaut** dans son module de config
+(`modules/config.ts` : `nuxt.options.llms = defu(nuxt.options.llms ?? {}, { … full: {…} })`).
+Comme `docui/package.json` demandait `"@baybreezy/docd": "latest"`, la prod a installé 0.4.2 →
+`/llms-full.txt` réapparaît → `Maximum call stack size exceeded` à chaque requête (et une
+route prérndue en plus). Mon local (0.3.6) ne l'avait pas → « marche chez moi ».
+
+**Correctif** : `llms: { …, full: false }` **explicite** dans `docui/nuxt.config.ts` (nos options
+sont le 1er argument du `defu` du layer → `false` gagne). Et `@baybreezy/docd` est **épinglé à
+`0.4.2`** (plus de `latest`) pour que local et prod tournent sur la même version.
+
+**Vérif** : `bun run build` → EXIT 0 ; aucune route `llms-full` dans `nitro.json` ; serveur du
+build : `GET /llms-full.txt` → **404**, `GET /llms.txt` → **200** (89 liens `docs/components`),
+`/docs/components/spreadsheet` → **200**.
+
 ## `@dnax/ui` — deux bugs internes corrigés (import manquant + composant ECharts non enregistré) — 2026-09-29
 
 tag: `warning` — `namespace: dnax.ui` — `filename: packages/ui/components/QDatePicker.vue`, `packages/ui/components/QChart.vue`
