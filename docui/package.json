@@ -21,5 +21,12 @@
     "nuxt": "^4.5.2",
     "typescript": "^6.0.3",
     "vue": "latest"
+  },
+  "overrides": {
+    "@nuxtjs/robots": "6.2.3",
+    "nuxt-og-image": "6.10.4",
+    "nuxt-site-config": "4.2.3",
+    "nuxt-site-config-kit": "4.2.3",
+    "nuxtseo-shared": "5.3.16"
   }
 }
