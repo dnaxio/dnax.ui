@@ -20,6 +20,7 @@ const props = defineProps<{
     | "formulas"
     | "errors"
     | "autocalc"
+    | "persist"
     | "power"
     | "filter"
     | "freeze"
@@ -613,6 +614,48 @@ const autoCalcRows = ref([
   { item: "", qty: null, unit_price: null, total: "" },
 ])
 
+// — Persist demo : `layout-change` + `getLayout()`/`applyLayout()` (localStorage) + colonne teintée —
+const persistColumns = [
+  { name: "task", label: "Task", width: 190 },
+  // Couleur de fond de colonne (`background`) — le reste (format, sélection) garde la priorité
+  { name: "owner", label: "Owner", width: 150, background: "#eef2ff" },
+  { name: "hours", label: "Hours", type: "number" as const, width: 90 },
+]
+const persistRows = ref([
+  { task: "Design tokens", owner: "Ada", hours: 12 },
+  { task: "Grid engine", owner: "Alan", hours: 34 },
+  { task: "Docs", owner: "Grace", hours: 8 },
+])
+const PERSIST_KEY = "dnax-spreadsheet-demo-layout"
+/** `v-model:layout` : la grille émet `update:layout` à chaque changement de mise en forme */
+const persistLayout = ref<Record<string, any> | null>(null)
+const persistLog = ref("")
+
+const saveLayout = () => {
+  if (!persistLayout.value) return
+  localStorage.setItem(PERSIST_KEY, JSON.stringify(persistLayout.value))
+  persistLog.value = "saved — reload the page and it comes back"
+}
+const restoreLayout = () => {
+  const raw = typeof localStorage === "undefined" ? null : localStorage.getItem(PERSIST_KEY)
+  if (!raw) return
+  try {
+    persistLayout.value = JSON.parse(raw)
+    persistLog.value = "restored from localStorage"
+  } catch {
+    persistLog.value = "stored layout is not valid JSON"
+  }
+}
+const clearLayout = () => {
+  localStorage.removeItem(PERSIST_KEY)
+  persistLog.value = "cleared — the next reload starts from the props"
+}
+/** `@layout-change` : la mise en forme a bougé (ici on se contente de l'afficher) */
+const onLayoutChange = (layout: { widths?: Record<string, unknown>; rules?: unknown[] }) => {
+  persistLog.value = `layout-change · ${Object.keys(layout.widths ?? {}).length} widths · ${(layout.rules ?? []).length} rule(s)`
+}
+onMounted(restoreLayout)
+
 // — Errors demo : chaque code d'erreur + panneau de détail au clic —
 const errorColumns = [
   { name: "case", label: "Case", width: 150 },
@@ -1019,6 +1062,30 @@ onMounted(() => {
       <em>Cherries</em> row, or fill the last row — the <strong>Total</strong> cell receives the
       column formula (<code>=qty*unit_price</code>) and computes as soon as its references are
       set.
+    </p>
+  </div>
+
+  <div v-else-if="demo === 'persist'">
+    <q-spreadsheet
+      v-model:rows="persistRows"
+      v-model:layout="persistLayout"
+      :columns="persistColumns"
+      height="200px"
+      bordered
+      @layout-change="onLayoutChange"
+    />
+    <div class="demo-tools">
+      <button class="demo-btn" type="button" @click="saveLayout">save layout</button>
+      <button class="demo-btn" type="button" @click="restoreLayout">restore</button>
+      <button class="demo-btn" type="button" @click="clearLayout">clear</button>
+      <span class="demo-meta">{{ persistLog }}</span>
+    </div>
+    <p class="demo-p demo-log">
+      Drag a column border, apply a fill color or a conditional rule: every change fires
+      <code>layout-change</code> and updates <code>v-model:layout</code> (grouped).
+      <strong>save layout</strong> stores it in localStorage, <strong>restore</strong> puts it
+      back in the model — the grid re-applies it on reload. The <em>Owner</em> column is tinted
+      with <code>background: "#eef2ff"</code>.
     </p>
   </div>
 

@@ -3769,3 +3769,93 @@ littéraux, propagation vers le bas, insertion au-dessus, `onlyRow`, non-écrase
 référence, total de colonne non propagé) ; `bun test lib` → **643 pass / 0 fail** ; build docs
 EXIT 0 ; `curl` sur la page Spreadsheet (démo `autocalc`) : colonne `Total (auto)` rendue,
 `$9.00` / `$4.80` calculés, `Cherries` (prix vide) et ligne neuve laissées vides.
+
+### Persistance de la mise en forme — `layout-change` / `getLayout()` / `applyLayout()` — 2026-11-10
+
+`filename: packages/ui/components/QSpreadsheet.vue`, `styles/main.css`
+
+**Besoin** : les largeurs de colonnes, hauteurs, formats de cellules, règles conditionnelles,
+fusions, filtres et lignes/colonnes masquées ne sont pas dans `rows` — **rien ne signalait**
+quand les sauvegarder (aucun event sur `startResize`/`patchFormatSelection`/`addCondRule`…), et
+`toJSON()` obligeait à persister les données avec.
+
+**Décision : un « layout » séparé de la donnée.**
+
+- Type public `QSpreadsheetLayout` = `{ widths, rowHeights, formats, rules, merges, filters,
+  hiddenRows, hiddenCols }` (+ `QSpreadsheetCellFormat`, `QSpreadsheetMerge`,
+  `QSpreadsheetCondRule` exportés ; les types internes `CellFormat`/`MergeRange`/`CondRule`
+  sont dorénavant des alias de ces types → une seule source).
+- **`layout-change`** : émis par un `watch` sur un `computed` qui agrège les 8 refs de
+  présentation → **aucun chemin n'est oublié** (resize, format, règle, fusion, filtre, masquage,
+  undo/redo, changement de feuille). **Regroupé 120 ms** (un glisser de colonne n'émet qu'une
+  fois). Pas d'emit `immediate` (SSR), et pas d'écho après `applyLayout()` (flag `layoutSkip`).
+- **`getLayout()`** : même payload à la demande. **`applyLayout(partial)`** : n'écrase que les
+  clés fournies, sans réémettre (évite la boucle save → load → save).
+- `toJSON()` / `loadDocument()` restent la voie « document complet » (données + toutes les
+  feuilles) ; le layout est la « vue » légère (par utilisateur/appareil).
+- Nouvelle option **`columns[].background`** : couleur de fond de **toutes les cellules** de la
+  colonne, insérée dans `cellInlineStyle` après `cellBackground()` et avant le fond des cellules
+  gelées (priorité : format > sélection > `cellBackground()` > `background` > gel). L'en-tête se
+  style via `headerStyle` (déjà existant).
+
+**Pièges**
+- Ne pas émettre depuis les actions (« fin de resize »…) : il y a ~15 points d'écriture ; le
+  watcher agrégé est exhaustif et évite d'en oublier un.
+- `applyLayout` doit poser son flag **après** les affectations, dans le même tick : les watchers
+  Vue sont pré-flush, donc le flag est consommé avant l'emit différé.
+- Le payload décrit la **feuille active** ; les largeurs/filtres/colonnes masquées sont indexés
+  par **nom de colonne**, les hauteurs/lignes masquées par **index de ligne** (à ré-appliquer si
+  l'ordre des lignes change).
+
+**Vérif** : `bun test lib` → **647 pass / 0 fail** ; `emitsOf()` → **19 events** dont
+`layout-change: QSpreadsheetLayout` ; build docs EXIT 0 ; `curl` sur la page Spreadsheet : démo
+`persist` rendue avec `style="…;background-color:#eef2ff;"` sur les cellules de la colonne
+`owner`, sections « Saving the formatting », `getLayout()`, `applyLayout(` présentes ;
+`/llms-full.txt` toujours 404 ; 0 `[object Object]`.
+
+**Suite — prop déclarative `layout` (+ `v-model:layout`)** : `layout?: Partial<QSpreadsheetLayout> | null`
+est appliquée **au setup** (donc aussi en SSR : c'est une entrée, le rendu serveur est déjà
+correct) puis à chaque changement (`watch` deep). `update:layout` est émis en même temps que
+`layout-change` — sauf quand le changement vient de la prop : `applyLayout` est silencieux
+(`layoutSkip`), donc aucune boucle `v-model`. Ses `widths` sont prioritaires dans
+`syncColWidths` (`fromLayout?.[c.name] ?? c.width ?? cellWidthPx`) pour survivre à un
+changement de `columns`. Vérifié : `curl` de la page Spreadsheet → props table
+`layout any —`, events `layout-change` / `update:layout` en `QSpreadsheetLayout`, 3 cellules
+`background-color:#eef2ff`, 647 tests, build EXIT 0.
+
+## Panneaux ancrés — bascule automatique + hauteur bornée (menus, autocomplete) — 2026-11-10
+
+`filename: packages/ui/components/QBtnActions.vue`, `QAutocomplete.vue`,
+`lib/anchoredPosition.ts`, `styles/main.css`
+
+**Symptôme** : un menu ouvert en bas de fenêtre est **coupé** par le bord (capture :
+« Filtrer / Trier » et le reste invisible, sans barre de défilement ni bord bas).
+
+**Cause racine** : `QBtnActions` (moteur de `QBtnDropdown`) positionne son panneau en
+`position: fixed` d'après `placement` + `translate`, **sans jamais regarder la fenêtre** : ni
+bascule, ni `max-height`, ni `overflow`. Un `bottom-end` près du bas déborde donc
+silencieusement. `QAutocomplete` (inline) avait un `max-height: 240px` mais aucune bascule :
+près du bas, il sortait de l'écran. `QSelect` était déjà correct (sa propre logique,
+`POPUP_MIN_SPACE = 96`), et `QPopupProxy` borne déjà par clamp (pas de bascule).
+
+**Correctif**
+
+- `lib/anchoredPosition.ts` (pur, **15 tests**) : `spaceBelow` / `spaceAbove` (écart + marge
+  déduits, jamais négatifs), `pickSide` (bascule seulement si ça ne tient pas du côté demandé
+  **et** que l'autre est plus généreux ; sans hauteur mesurée → côté demandé, pas de saut au
+  1er rendu), `maxHeightFor`, `clampLeft` (bornage horizontal).
+- `QBtnActions` : prop **`flip`** (défaut `true`), bascule verticale via `pickSide`, bornage
+  horizontal via `clampLeft`, `max-height` = espace réel du côté retenu, panneau en
+  `overflow-y: auto`. `panelSize` est **mémorisé** entre deux ouvertures (bon côté dès la
+  1re frame) et `placePanel()` est rappelé après `nextTick()` dans `openMenu()` (mesure
+  réelle, avant le paint → pas de saut). Panneaux latéraux (`left`/`right`) : `max-height`
+  = fenêtre.
+- `QAutocomplete` (inline) : `positionPopup()` (bascule + `max-height` borné à 240),
+  appelé à l'ouverture, après filtrage (`nextTick`), et sur resize/scroll tant que la liste
+  est ouverte (listeners ajoutés/retirés par un `watch(open)`).
+- Docs : nouvelle section « Inline popup placement » (autocomplete), note de bascule dans
+  `btn-dropdown` / `btn-actions`.
+
+**Vérif** : `bun test lib` → **662 pass / 0 fail** ; build docs EXIT 0 ; `/docs/components/
+btn-dropdown`, `/btn-actions`, `/autocomplete` → 200 avec les notes de bascule ; CSS compilé :
+`.q-btn-actions__panel{…overflow-y:auto;position:fixed…}` ; `/llms-full.txt` 404.

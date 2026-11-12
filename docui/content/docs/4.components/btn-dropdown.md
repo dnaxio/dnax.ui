@@ -177,6 +177,16 @@ centered on the cross axis. The default is `bottom-end`; `align="left"` is kept 
 an alias for `bottom-start`. `offset` sets the gap between the panel and the trigger
 (default 4 px).
 
+`position` is a **preference**, not a constraint:
+
+- if the panel does not fit on the requested side, it **flips to the other one** (a trigger
+  near the bottom of the screen opens **above** its button);
+- its height is capped to the room actually visible, so the **list scrolls** instead of being
+  cut by the window edge;
+- it is clamped horizontally too: the panel never leaves the viewport.
+
+`flip=false` disables the automatic side switch (the panel stays where `position` says).
+
 ::prose-show-case
 <dnax-demo-btn-dropdown demo="placement"></dnax-demo-btn-dropdown>
 

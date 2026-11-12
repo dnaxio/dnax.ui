@@ -10,6 +10,8 @@ import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 import { useOverlayBack } from "../lib/overlayBack"
 import { optionsOf } from "../lib/select"
+import { maxHeightFor, pickSide } from "../lib/anchoredPosition"
+import type { PlacementInput } from "../lib/anchoredPosition"
 
 interface Props {
   /** Valeur sélectionnée */
@@ -275,12 +277,69 @@ const fieldClasses = computed(() =>
 const effectiveRadius = useRadius("QAutocomplete", () => props.radius)
 const roundedStyle = computed(() => radiusStyle(effectiveRadius.value))
 
+// — Popup inline : bascule au-dessus quand il n'y a pas la place en bas —
+// Même règle que QSelect/QBtnActions : on ouvre vers le bas, on passe au-dessus si la
+// liste ne tient pas, et la hauteur est bornée à l'espace visible (liste scrollable).
+/** Hauteur visée de la liste inline (plafond historique) */
+const POPUP_MAX_HEIGHT = 240
+const popupUp = ref(false)
+const popupMaxHeight = ref(POPUP_MAX_HEIGHT)
+
+const popupStyle = computed<Record<string, string>>(() => {
+  const style: Record<string, string> = { maxHeight: `${popupMaxHeight.value}px` }
+  if (popupUp.value) {
+    // Au-dessus du champ : on ancre par le bas (le CSS met `top: calc(100% + 4px)`)
+    style.top = "auto"
+    style.bottom = "calc(100% + 4px)"
+  }
+  return style
+})
+
+const positionPopup = () => {
+  const el = rootEl.value
+  if (!el || typeof window === "undefined" || panelMode.value) return
+  const rect = el.getBoundingClientRect()
+  // Le popup n'est pas encore monté à la première ouverture → estimation (une ligne ≈ 36px)
+  const measured = popupRef.value?.offsetHeight ?? 0
+  const estimate = measured || Math.min(POPUP_MAX_HEIGHT, filtered.value.length * 36 + 12)
+  const input: PlacementInput = {
+    anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right },
+    panelHeight: estimate,
+    viewportHeight: window.innerHeight,
+    viewportWidth: window.innerWidth,
+    offset: 4,
+  }
+  const side = pickSide(input, "bottom")
+  popupUp.value = side === "top"
+  popupMaxHeight.value = Math.max(
+    80,
+    Math.min(POPUP_MAX_HEIGHT, maxHeightFor(input, side)),
+  )
+}
+
+/** Recalcul pendant l'ouverture (scroll de la page, resize) */
+const onPopupViewportChange = () => {
+  if (open.value && !panelMode.value) positionPopup()
+}
+watch(open, (v) => {
+  if (typeof window === "undefined") return
+  if (v && !panelMode.value) {
+    window.addEventListener("resize", onPopupViewportChange)
+    window.addEventListener("scroll", onPopupViewportChange, true)
+  } else {
+    window.removeEventListener("resize", onPopupViewportChange)
+    window.removeEventListener("scroll", onPopupViewportChange, true)
+  }
+})
+
 // — Interactions —
 const openPopup = () => {
   if (props.disable || props.readonly) return
   activeIndex.value = 0
+  positionPopup()
   open.value = true
   if (panelMode.value) nextTick(() => panelInput.value?.focus())
+  else nextTick(positionPopup) // mesure réelle une fois la liste rendue
 }
 
 const closePopup = () => {
@@ -294,6 +353,8 @@ const onInput = (e: Event) => {
   emit("update:inputValue", v)
   activeIndex.value = 0
   open.value = true
+  // La liste filtrée change de hauteur → rechoisit le côté et la hauteur max
+  if (!panelMode.value) nextTick(positionPopup)
   if (hasFilter.value) emit("filter", v, (fn) => fn())
 }
 
@@ -406,6 +467,10 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   if (typeof document !== "undefined") document.removeEventListener("mousedown", onDocMousedown, true)
+  if (typeof window !== "undefined") {
+    window.removeEventListener("resize", onPopupViewportChange)
+    window.removeEventListener("scroll", onPopupViewportChange, true)
+  }
   window.clearTimeout(swipeCloseTimer)
 })
 
@@ -469,6 +534,7 @@ watch(open, (v) => {
       v-if="open && mode === 'inline'"
       ref="popupRef"
       class="q-autocomplete__popup"
+      :style="popupStyle"
       role="listbox"
       @mousedown.prevent
     >

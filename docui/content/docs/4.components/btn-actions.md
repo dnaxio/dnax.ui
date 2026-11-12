@@ -96,7 +96,9 @@ const onMenuAction = (value) => (lastMenu.value = String(value))
 Each action accepts a `color` token (e.g. `positive` / `negative`), a `description`
 subtitle, a `separator` divider above it, and can be `disable`d. `menu-width`,
 `fit`, `content-class` / `content-style` (thème du panneau téléporté), `align="left"`
-(alias of `position="bottom-start"`), `position` and `offset` tune the panel.
+(alias of `position="bottom-start"`), `position` and `offset` tune the panel — and the panel
+**flips** to the other side when it does not fit in the window, with its height capped to
+the visible space (the list scrolls). `flip=false` keeps the requested side.
 
 ::prose-show-case
 <dnax-demo-btn-actions demo="manage"></dnax-demo-btn-actions>

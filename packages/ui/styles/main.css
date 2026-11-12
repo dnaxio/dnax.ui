@@ -2880,6 +2880,10 @@ html.dark body {
   position: fixed;
   z-index: var(--q-z-menu, 3200);
   padding: 4px;
+  /* La hauteur est bornée à l'espace visible par le composant (bascule + max-height) :
+     au-delà, le menu défile au lieu d'être coupé par le bord de la fenêtre. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background-color: #fff;
   border: 1px solid rgb(0 0 0 / 0.12);
   border-radius: var(--q-radius, 6px);

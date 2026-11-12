@@ -54,6 +54,13 @@ interface Props {
   position?: DropdownPosition
   /** Distance entre le panneau et le déclencheur, en px (défaut : 4) */
   offset?: number
+  /**
+   * Bascule **automatique** de l'autre côté du déclencheur quand le panneau ne tient pas
+   * dans la fenêtre (défaut : true) — le menu s'ouvre au-dessus si la place manque en bas,
+   * et sa hauteur est bornée à l'espace visible (liste scrollable). `false` respecte
+   * strictement `position`.
+   */
+  flip?: boolean
   /** Largeur minimale du menu (ex. "220px") — sert aussi de plancher quand `fit` est actif */
   menuWidth?: string
   /**
@@ -134,6 +141,7 @@ const effectiveRadius = useRadius("QBtnDropdown", () => props.radius)
     :align="align"
     :position="position"
     :offset="offset"
+    :flip="flip"
     :menu-width="menuWidth"
     :fit="fit"
     :content-class="contentClass"

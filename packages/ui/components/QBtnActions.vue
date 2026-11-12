@@ -51,6 +51,8 @@ import { icons } from "../lib/icons"
 import { radiusStyle, useRadius } from "../lib/useComponentProps"
 import type { RadiusProp } from "../lib/useComponentProps"
 import { cn } from "../lib/utils"
+import { clampLeft, maxHeightFor, pickSide } from "../lib/anchoredPosition"
+import type { PlacementInput } from "../lib/anchoredPosition"
 import QBtn from "./QBtn.vue"
 
 interface Props {
@@ -73,6 +75,13 @@ interface Props {
   position?: DropdownPosition
   /** Distance entre le panneau et le déclencheur, en px (défaut : 4) */
   offset?: number
+  /**
+   * Bascule **automatique** de l'autre côté du déclencheur quand le panneau ne tient pas
+   * dans la fenêtre (défaut : true). Le menu s'ouvre vers le bas, puis passe au-dessus s'il
+   * n'y a pas la place — et sa hauteur est bornée à l'espace visible (liste scrollable).
+   * `false` respecte strictement `position`.
+   */
+  flip?: boolean
   /** Largeur minimale du menu (ex. "200px") — sert aussi de plancher quand `fit` est actif */
   menuWidth?: string
   /**
@@ -146,6 +155,10 @@ const panelEl = ref<HTMLElement | null>(null)
 const panelPos = ref({ top: 0, left: 0, transform: "" })
 /** Largeur mesurée du déclencheur — plancher du panneau quand `fit` est actif */
 const triggerWidth = ref(0)
+/** Taille mesurée du panneau — conservée entre deux ouvertures (bon côté dès la 1re frame) */
+const panelSize = ref({ width: 0, height: 0 })
+/** Hauteur max du panneau = espace réellement visible du côté retenu (0 = non borné) */
+const panelMaxHeight = ref(0)
 
 const canOpen = computed(() => !props.disable && !props.loading && props.actions.length > 0)
 
@@ -177,6 +190,8 @@ const panelStyle = computed<Record<string, string>>(() => ({
   left: `${panelPos.value.left}px`,
   transform: panelPos.value.transform,
   minWidth: panelMinWidth.value,
+  // Un menu plus haut que la fenêtre doit défiler, jamais être coupé par le bord
+  ...(panelMaxHeight.value > 0 ? { maxHeight: `${panelMaxHeight.value}px` } : {}),
   ...(roundedStyle.value ?? {}),
 }))
 
@@ -198,8 +213,32 @@ const placePanel = () => {
   if (!el || typeof document === "undefined") return
   const rect = el.getBoundingClientRect()
   triggerWidth.value = rect.width
-  const [main, alt] = placement.value.split("-") as ["bottom" | "top" | "left" | "right", "start" | "end" | undefined]
+  // Panneau monté → on mesure sa taille réelle (sinon on garde la dernière connue)
+  if (panelEl.value) {
+    panelSize.value = { width: panelEl.value.offsetWidth, height: panelEl.value.offsetHeight }
+  }
+
+  const [mainRaw, alt] = placement.value.split("-") as [
+    "bottom" | "top" | "left" | "right",
+    "start" | "end" | undefined,
+  ]
   const off = props.offset
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const input: PlacementInput = {
+    anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right },
+    panelHeight: panelSize.value.height,
+    panelWidth: panelSize.value.width,
+    viewportHeight: vh,
+    viewportWidth: vw,
+    offset: off,
+  }
+  // Bascule haut/bas : un menu ancré en bas de la fenêtre doit s'ouvrir au-dessus
+  const main =
+    mainRaw === "bottom" || mainRaw === "top"
+      ? pickSide(input, mainRaw, props.flip !== false)
+      : mainRaw
+
   const midX = (rect.left + rect.right) / 2
   const midY = (rect.top + rect.bottom) / 2
 
@@ -224,6 +263,14 @@ const placePanel = () => {
       top = rect.top - off
       ty = "-100%"
     }
+
+    // Bornage horizontal : le panneau ne sort ni à gauche ni à droite
+    const pw = panelSize.value.width
+    if (pw > 0) {
+      const shift = tx === "0%" ? 0 : tx === "-100%" ? pw : pw / 2
+      left = clampLeft(left - shift, pw, vw) + shift
+    }
+    panelMaxHeight.value = Math.max(0, maxHeightFor(input, main))
   }
   else {
     // Axe vertical : haut (start), bas (end) ou centre
@@ -241,6 +288,8 @@ const placePanel = () => {
       left = rect.left - off
       tx = "-100%"
     }
+    // Panneau latéral : borné à la hauteur de la fenêtre (liste scrollable)
+    panelMaxHeight.value = Math.max(0, vh - off * 2)
   }
 
   panelPos.value = {
@@ -268,6 +317,9 @@ const openMenu = async () => {
   open.value = true
   enableTracking()
   await nextTick()
+  // Le panneau vient d'être monté : on remesure pour appliquer la bascule et la hauteur max
+  // **avant** le paint (nextTick → microtâche), donc sans saut visible.
+  if (panelEl.value) placePanel()
   ;(panelEl.value?.querySelector(".q-btn-actions__item:not(:disabled)") as HTMLElement | null)?.focus()
 }
 

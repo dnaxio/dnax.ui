@@ -104,6 +104,72 @@ export interface QSpreadsheetFormulaError {
   rowData: Record<string, any>
 }
 
+/** Mise en forme d'une cellule (gras, italique, retour à la ligne, fond, couleur). */
+export interface QSpreadsheetCellFormat {
+  bold?: boolean
+  italic?: boolean
+  wrap?: boolean
+  bg?: string
+  color?: string
+}
+
+/** Plage fusionnée (index 0-based). */
+export interface QSpreadsheetMerge {
+  r0: number
+  c0: number
+  r1: number
+  c1: number
+}
+
+/** Règle de mise en forme conditionnelle. */
+export interface QSpreadsheetCondRule {
+  id: string
+  r0: number
+  c0: number
+  r1: number
+  c1: number
+  kind: "gt" | "lt" | "eq" | "gte" | "lte" | "contains" | "blank" | "notblank" | "formula" | "always"
+  value?: string | number
+  colName?: string
+  formula?: string
+  /** Rendu : fond uni, barre de données, échelle de couleurs */
+  mode?: "fill" | "bar" | "scale"
+  barColor?: string
+  scaleLow?: string
+  scaleHigh?: string
+  bg?: string
+  color?: string
+  bold?: boolean
+}
+
+/**
+ * **Mise en forme & disposition d'une feuille** — tout ce qui n'est pas de la donnée :
+ * largeurs de colonnes, hauteurs de lignes, formats de cellules, règles conditionnelles,
+ * fusions, filtres et lignes/colonnes masquées.
+ *
+ * C'est **ce qu'on persiste** (localStorage, API…) pour retrouver l'apparence après un
+ * rechargement : `@layout-change` → `applyLayout()` au montage. `getLayout()` renvoie l'état
+ * courant ; `toJSON()` renvoie la même chose **plus** les données et toutes les feuilles.
+ */
+export interface QSpreadsheetLayout {
+  /** Largeur par nom de colonne (px ou CSS) */
+  widths: Record<string, number | string>
+  /** Hauteur par index de ligne (px) */
+  rowHeights: Record<number, number>
+  /** Format par cellule — clé `"<row>:<column>"` */
+  formats: Record<string, QSpreadsheetCellFormat>
+  /** Mise en forme conditionnelle */
+  rules: QSpreadsheetCondRule[]
+  /** Cellules fusionnées */
+  merges: QSpreadsheetMerge[]
+  /** Filtres par colonne (`null` = pas de filtre) */
+  filters: Record<string, string[] | null>
+  /** Index (page courante) des lignes masquées */
+  hiddenRows: number[]
+  /** Noms des colonnes masquées */
+  hiddenCols: string[]
+}
+
 export interface QSpreadsheetColumn {
   /** Clé de la propriété dans la ligne */
   name: string
@@ -156,6 +222,13 @@ export interface QSpreadsheetColumn {
   cellClass?: (val: any, row: Record<string, any>) => string | undefined
   /** Couleur de fond de la cellule (plan) */
   cellBackground?: (val: any, row: Record<string, any>) => string | undefined
+  /**
+   * Couleur de fond des **cellules** de la colonne (toutes les lignes). Priorité : format de
+   * cellule (menu contextuel) > sélection > `cellBackground()` > `background`.
+   * Pour l'en-tête, utiliser `headerStyle`. Une couleur explicite et opaque survit au gel de
+   * colonne (offsets sticky).
+   */
+  background?: string
   /**
    * Cellule **non modifiable** : édition, effacement, bascule booléenne, collage, remplissage et
    * barre de formule sont refusés pour les lignes où le prédicat est vrai. Reçoit la valeur
@@ -393,6 +466,17 @@ interface Props {
    * calculé automatiquement. (Défaut : `true`.)
    */
   autoFormula?: boolean
+  /**
+   * Mise en forme **déclarative** (largeurs, hauteurs, formats de cellules, règles
+   * conditionnelles, fusions, filtres, lignes/colonnes masquées) — même forme que
+   * `getLayout()` / `@layout-change`, **partielle acceptée**.
+   *
+   * Appliquée à l'initialisation puis à chaque changement de la prop, et maintenue
+   * (`v-model:layout`) : chaque modification faite dans la grille émet `update:layout`.
+   * C'est la façon la plus simple de restaurer une mise en forme persistée :
+   * `<q-spreadsheet v-model:layout="saved" … />`.
+   */
+  layout?: Partial<QSpreadsheetLayout> | null
   /**
    * Nombre **minimum** de lignes : impossible de descendre en dessous (la suppression des lignes
    * sélectionnées est refusée si elle passerait sous le plancher). Combiné avec `maxRows` à la
@@ -736,6 +820,21 @@ const emit = defineEmits<{
    * moment : `getFormulaErrors()`.
    */
   "error": [payload: QSpreadsheetFormulaError]
+  /**
+   * La **mise en forme / disposition** de la feuille a changé : largeur de colonne,
+   * hauteur de ligne, format de cellule, règle conditionnelle, fusion, filtre, ligne ou
+   * colonne masquée. Le payload est exactement `getLayout()` — à persister tel quel
+   * (localStorage, API) puis à rejouer avec `applyLayout()`.
+   *
+   * Les glissers (largeur/hauteur) sont **regroupés** (~120 ms) : un redimensionnement
+   * n'émet qu'un événement, à la fin du geste.
+   */
+  "layout-change": [layout: QSpreadsheetLayout]
+  /**
+   * Mise en forme courante — c'est l'événement de `v-model:layout`. Émis en même temps que
+   * `layout-change`, **sauf** quand le changement vient de la prop `layout` (pas d'écho).
+   */
+  "update:layout": [layout: QSpreadsheetLayout]
 }>()
 
 // ─── Taille des cellules (`sizeCell`) ───
@@ -1740,13 +1839,8 @@ const onCellPointerEnter = (row: number, column: string) => {
 }
 
 // ─── Historique (undo / redo) ───
-interface CellFormat {
-  bold?: boolean
-  italic?: boolean
-  wrap?: boolean
-  bg?: string
-  color?: string
-}
+// Types **publics** définis dans le bloc `<script>` (réutilisés par `QSpreadsheetLayout`).
+type CellFormat = QSpreadsheetCellFormat
 interface Snapshot {
   rows: Record<string, any>[]
   cols: QSpreadsheetColumn[]
@@ -2993,6 +3087,7 @@ const cellInlineStyle = (ri: number, ci: number, name: string) => {
   if (fmt?.bg) bg = fmt.bg
   else if (selected) bg = "var(--q-spreadsheet-range)"
   else if (colBg) bg = colBg
+  else if (col?.background) bg = col.background
   else if (isFrozenRow(ri) || isFrozenCol(ci)) bg = "var(--q-spreadsheet-bg)"
   if (bg) st.backgroundColor = bg
   if (fmt?.color) st.color = fmt.color
@@ -3054,32 +3149,9 @@ const isColHiddenName = (name: string) => hiddenCols.value.includes(name)
 const visibleColsCount = computed(
   () => cols.value.length - hiddenCols.value.filter((n) => colOf(n)).length,
 )
-interface MergeRange {
-  r0: number
-  c0: number
-  r1: number
-  c1: number
-}
+type MergeRange = QSpreadsheetMerge
 const merges = ref<MergeRange[]>([])
-interface CondRule {
-  id: string
-  r0: number
-  c0: number
-  r1: number
-  c1: number
-  kind: "gt" | "lt" | "eq" | "gte" | "lte" | "contains" | "blank" | "notblank" | "formula" | "always"
-  value?: string | number
-  colName?: string
-  formula?: string
-  /** Rendu : fill (fond uni), bar (barre de données), scale (échelle de couleurs) */
-  mode?: "fill" | "bar" | "scale"
-  barColor?: string
-  scaleLow?: string
-  scaleHigh?: string
-  bg?: string
-  color?: string
-  bold?: boolean
-}
+type CondRule = QSpreadsheetCondRule
 const condRules = ref<CondRule[]>([])
 const evalRuleFormula = (expr: string, r: number): boolean => {
   try {
@@ -3812,7 +3884,13 @@ const isActiveRow = (r: number) => {
 const colWidths = ref<Record<string, string | number>>({})
 const syncColWidths = () => {
   const next: Record<string, string | number> = {}
-  for (const c of cols.value) next[c.name] = c.width ?? cellWidthPx.value
+  // La prop `layout` est **déclarative** : ses largeurs gagnent sur `columns[].width` et sur
+  // la largeur par défaut (sinon un changement de `columns` écraserait la mise en forme
+  // restaurée).
+  const fromLayout = props.layout?.widths
+  for (const c of cols.value) {
+    next[c.name] = fromLayout?.[c.name] ?? c.width ?? cellWidthPx.value
+  }
   colWidths.value = next
 }
 // `cellWidthPx` fait partie des dépendances : changer `sizeCell` à l'exécution doit
@@ -3933,6 +4011,9 @@ onMounted(() => {
   // auto-posée compterait comme une « modification » de l'app.
   autoFormulaReady = true
   applyAutoFormula()
+  // La mise en forme n'est connue qu'après le montage : à partir d'ici, tout changement
+  // (redimensionnement, format, règle…) est émis dans `layout-change`.
+  layoutReady = true
   // Référence initiale : à partir d'ici, toute différence avec elle = « modifié »
   trackReady = true
   acceptChanges()
@@ -3950,6 +4031,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("pointerup", onPointerUpGlobal)
   window.removeEventListener("pointerdown", onDocPointerDown, true)
   window.removeEventListener("resize", onResize)
+  clearTimeout(layoutTimer)
   endResize()
   endRowResize()
 })
@@ -5229,6 +5311,95 @@ const onColDragEnd = () => {
   dragColTarget.value = null
 }
 
+// ════════ Mise en forme & disposition (persistance) ════════
+/**
+ * Snapshot de la **présentation** de la feuille courante : largeurs, hauteurs, formats de
+ * cellules, règles conditionnelles, fusions, filtres, lignes/colonnes masquées. Aucune
+ * donnée métier dedans — c'est ce qu'on range dans un `localStorage` ou un champ `layout`
+ * côté API (pour le document complet, y compris données et autres feuilles : `toJSON()`).
+ */
+const layoutSnapshot = computed<QSpreadsheetLayout>(() => ({
+  widths: { ...colWidths.value },
+  rowHeights: { ...rowHeights.value },
+  formats: { ...cellFmt.value },
+  rules: condRules.value.map((r) => ({ ...r })),
+  merges: merges.value.map((m) => ({ ...m })),
+  filters: { ...filters.value },
+  hiddenRows: [...hiddenRows.value],
+  hiddenCols: [...hiddenCols.value],
+}))
+
+/** Mise en forme courante (même payload que `@layout-change`) */
+const getLayout = (): QSpreadsheetLayout => layoutSnapshot.value
+
+// `layoutReady` évite un emit pendant le montage/SSR ; `layoutSkip` évite l'écho d'un
+// `applyLayout()` (boucle save → load → save) ; le timer regroupe les glissers.
+let layoutReady = false
+let layoutSkip = false
+let layoutTimer: ReturnType<typeof setTimeout> | undefined
+watch(layoutSnapshot, (next) => {
+  if (!layoutReady || layoutSkip) {
+    layoutSkip = false
+    return
+  }
+  clearTimeout(layoutTimer)
+  layoutTimer = setTimeout(() => {
+    emit("layout-change", next)
+    emit("update:layout", next)
+  }, 120)
+})
+
+/**
+ * Applique (partiellement) une mise en forme : seules les clés fournies sont remplacées,
+ * les autres sont laissées telles quelles. N'émet pas de `layout-change` en retour.
+ *
+ * ```ts
+ * grid.value?.applyLayout(JSON.parse(localStorage.getItem("sheet-layout") ?? "{}"))
+ * ```
+ */
+const applyLayout = (layout: Partial<QSpreadsheetLayout> | null | undefined) => {
+  if (!layout) return
+  let touched = false
+  if (layout.widths) {
+    colWidths.value = { ...layout.widths }
+    touched = true
+  }
+  if (layout.rowHeights) {
+    rowHeights.value = { ...layout.rowHeights }
+    touched = true
+  }
+  if (layout.formats) {
+    cellFmt.value = { ...layout.formats }
+    touched = true
+  }
+  if (layout.rules) {
+    condRules.value = layout.rules.map((r) => ({ ...r }))
+    touched = true
+  }
+  if (layout.merges) {
+    merges.value = layout.merges.map((m) => ({ ...m }))
+    touched = true
+  }
+  if (layout.filters) {
+    filters.value = { ...layout.filters }
+    touched = true
+  }
+  if (layout.hiddenRows) {
+    hiddenRows.value = [...layout.hiddenRows]
+    touched = true
+  }
+  if (layout.hiddenCols) {
+    hiddenCols.value = [...layout.hiddenCols]
+    touched = true
+  }
+  if (touched) layoutSkip = true
+}
+
+// Prop **déclarative** : appliquée dès le setup (donc aussi en SSR — c'est une entrée, pas un
+// effet de bord) et à chaque changement. `applyLayout` est silencieux : pas d'écho vers
+// `update:layout` ni `layout-change` (sinon boucle v-model).
+watch(() => props.layout, (v) => applyLayout(v), { deep: true, immediate: true })
+
 defineExpose({
   acceptChanges,
   revertChanges,
@@ -5276,6 +5447,10 @@ defineExpose({
   getFormulaErrors,
   /** Applique les formules de colonne aux cellules vides (cf. `auto-formula`) */
   applyAutoFormula,
+  /** Mise en forme & disposition de la feuille (à persister : `@layout-change`) */
+  getLayout,
+  /** Rejoue une mise en forme persistée (partielle acceptée) */
+  applyLayout,
   openFind,
   closeFind,
   importCsv,

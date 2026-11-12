@@ -121,6 +121,15 @@ Same field variants as `q-input` (`outlined`,
 ```
 ::
 
+## Inline popup placement
+
+In `inline` mode (the default) the list is placed against the **viewport**, exactly like
+`QSelect`: it opens **below** the field, **flips above** when there is not enough room (and
+more room above), and its `max-height` is capped to the visible space (never more than the
+historical `240px`) so the list scrolls instead of being cut by the window edge. The
+placement is recomputed on opening, when the filtered list changes height, and on
+resize/scroll while it stays open.
+
 ## Sheet & modal modes
 
 `mode` switches the suggestion panel: `inline`

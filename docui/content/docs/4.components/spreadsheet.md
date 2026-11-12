@@ -641,7 +641,6 @@ const rows = ref([
 <template>
   <q-spreadsheet v-model:rows="rows" :columns="columns" height="260px" bordered />
 </template>
-## Unknown function
 ```
 ::
 
@@ -1262,6 +1261,123 @@ column actually uses an expression. If it cannot be resolved, the message is
 
 For plain bounds the object form stays shorter and needs no dependency:
 `validation: { min: 0, max: 100, integer: true, message: "0–100" }`.
+
+## Saving the formatting — `v-model:layout` · `layout-change` · `applyLayout()`
+
+Column widths, row heights, cell formats, conditional rules, merges, filters and hidden
+rows/columns are **not** part of `rows`: they are the *layout*. Apply it with the **`layout`
+prop** (declarative, `v-model:layout`) or the imperative methods.
+
+### The `layout` prop (declarative — the easy way)
+
+Pass a layout object and the grid **applies it on init and on every change**. With
+`v-model:layout`, the reverse is automatic too: each formatting change (resize, fill color,
+rule, merge, filter, hide) updates the model.
+
+```vue
+<q-spreadsheet v-model:rows="rows" v-model:layout="layout" :columns="columns" />
+```
+
+```ts
+import { onMounted, ref, watch } from "vue"
+
+const KEY = "sheet-layout"
+// `null` (or a partial) is fine: only the keys you provide are applied
+const layout = ref(JSON.parse(localStorage.getItem(KEY) ?? "null"))
+
+// every formatting change → one small JSON, no data inside
+watch(layout, (next) => localStorage.setItem(KEY, JSON.stringify(next)), { deep: true })
+
+// optional: re-read on mount (another tab, a fresh session…)
+onMounted(() => {
+  const raw = localStorage.getItem(KEY)
+  if (raw) layout.value = JSON.parse(raw)
+})
+```
+
+- `layout` is **partial**: `{ widths: { hours: 120 } }` only touches that width.
+- Its `widths` win over `columns[].width` (they survive a `columns` change).
+- Applying the prop **does not** re-emit `update:layout` — no `v-model` loop.
+- `:layout="saved"` alone (no `v-model`) works too: read-only application.
+
+### Imperative — `getLayout()` / `applyLayout()` / `layout-change`
+
+| Element | Use |
+| --- | --- |
+| `@layout-change` | fires whenever the layout changes (resize, fill color, rule, merge, filter, hide) — grouped ~120 ms, so one drag = one event |
+| `getLayout()` | the same snapshot on demand: `{ widths, rowHeights, formats, rules, merges, filters, hiddenRows, hiddenCols }` |
+| `applyLayout(partial)` | re-applies it (only the keys you pass, the rest is untouched); does **not** re-emit |
+
+```ts
+import { onMounted, useTemplateRef } from "vue"
+
+const grid = useTemplateRef("grid")
+const KEY = "sheet-layout"
+
+const save = (layout) => localStorage.setItem(KEY, JSON.stringify(layout))
+
+// back from a reload: the appearance is restored (client only, no prop needed)
+onMounted(() => {
+  const raw = localStorage.getItem(KEY)
+  if (raw) grid.value?.applyLayout(JSON.parse(raw))
+})
+```
+::prose-show-case
+:dnax-demo-spreadsheet{demo="persist"}
+
+#code
+
+```vue
+<script setup lang="ts">
+import { onMounted, ref } from "vue"
+
+const columns = [
+  { name: "task", label: "Task", width: 190 },
+  { name: "owner", label: "Owner", width: 150, background: "#eef2ff" },
+  { name: "hours", label: "Hours", type: "number", width: 90 },
+]
+const rows = ref([
+  { task: "Design tokens", owner: "Ada", hours: 12 },
+  { task: "Grid engine", owner: "Alan", hours: 34 },
+])
+
+const KEY = "sheet-layout"
+// restaure la mise en forme au chargement de la page
+const layout = ref(JSON.parse(localStorage.getItem(KEY) ?? "null"))
+
+onMounted(() => {
+  const raw = localStorage.getItem(KEY)
+  if (raw) layout.value = JSON.parse(raw)
+})
+</script>
+
+<template>
+  <q-spreadsheet
+    v-model:rows="rows"
+    v-model:layout="layout"
+    :columns="columns"
+    height="200px"
+    bordered
+    @layout-change="(next) => localStorage.setItem(KEY, JSON.stringify(next))"
+  />
+</template>
+```
+::
+
+Things worth knowing:
+
+- **Everything** (data + layout + every sheet) is also in `toJSON()` / `loadDocument()` — use
+  that for a server-side document, and `layout-change` / `applyLayout` for a lightweight
+  *view state* (per user, per device).
+- The payload is the **active sheet**'s layout. In a workbook, store it under
+  `activeSheetName` (or persist `toJSON()`).
+- Widths, filters and hidden columns refer to **column names**; row heights and hidden rows to
+  **row indexes** — if the data comes back in another order, drop the row-based parts or
+  re-apply on the new rows.
+- Column colors live in the schema, not the layout: `columns[].background` (cells) and
+  `columns[].headerStyle` (header).
+- `layout-change` / `update:layout` are client-only (nothing changes during SSR) and never
+  fire for the incoming `layout` prop or `applyLayout()`.
 
 ## Locking cells
 
@@ -1895,6 +2011,11 @@ for **new** ones (never on every recalculation) — the hook for logging or a �
 attention” banner. Scope: the **active sheet / loaded page** (`rows` holds one page), like the
 other events. `getFormulaErrors()` returns the current list (see **Errors**).
 
+`layout-change` fires when the **formatting** changes — column width, row height, cell format,
+conditional rule, merge, filter, hidden row or column. The payload is exactly `getLayout()`,
+ready to store (grouped ~120 ms, so dragging a column border emits once). See **Saving the
+formatting**.
+
 ::prose-show-case
 :dnax-demo-spreadsheet{demo="events"}
 
@@ -2056,6 +2177,23 @@ get one on creation.
 - **Hors export** : le CSV et le presse-papiers n'itèrent que sur les colonnes
   déclarées, donc `_key` n'y apparaît jamais.
 
+#### Row numbers — positional, not stored
+
+The number in the header gutter (**1, 2, 3…**) is **not** a key and is never written into your
+data: it is the row's **position** — `index in rows + 1` — shifted by the pagination offset
+(`(page - 1) * pageSize`). Consequences:
+
+- after a **sort**, rows keep their data and `_key`, but the numbers follow the new order;
+- **hidden / filtered** rows keep their number, so the displayed sequence can skip (1, 2, 5…) —
+  it always points at the position in the full page, like a spreadsheet.
+
+In events (`cell-click`, `cell-change`, `selection-change`, `error`…), `row` is that 0-based
+index; the displayed number is `row + 1` (plus the offset). For formula errors, `absoluteRow` is
+already offset — `absoluteRow + 1` is the number on screen.
+
+If you need a **stable, business** row number (“Ligne 1”, an invoice line no…), store it as a
+regular field / column: `_key` is technical identity and does not encode any number.
+
 ### Columns — the schema
 
 `columns` is an array of column descriptors (the header letters A, B, C…
@@ -2077,6 +2215,7 @@ follow the array order).
 | `validation` | object `{ min?, max?, integer?, pattern?, required?, list?, message?, schema? }` · ArkType string | Input validation — object or expression (`"number < 4"`); rejects & marks the cell red |
 | `format` | `(value, row) => any` | Display formatter (stored value untouched) |
 | `cellClass` / `cellBackground` | `(value, row) => …` | Per-cell class / background |
+| `background` | string (CSS color) | **Column background** — every cell of the column (cell format, selection and `cellBackground()` still win). A plain opaque color also survives frozen columns. |
 | `cellReadonly` | `(value, row, rowIndex) => boolean` | Per-cell **lock** — see **Locking cells** (receives the value, so it can lock an empty cell too) |
 | `headerClass` / `headerStyle` | string | Header styling |
 
@@ -2092,6 +2231,8 @@ const columns = [
       { value: "finance", label: "Finance", color: "#fef9c3" },
     ] },
   { name: "total", label: "Total", type: "number", format: (v) => (v == null ? "" : "$" + v) },
+  // Colonne teintée (l'en-tête se style via headerStyle)
+  { name: "owner", label: "Owner", width: 150, background: "#eef2ff" },
 ]
 ```
 
